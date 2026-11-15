@@ -224,7 +224,7 @@ Opens the RSocket connection from the worker to the control plane, plain or with
 
 Turns `engine.placement` on a node into a call to a worker, and chooses which worker.
 
-- When a workflow is prepared, `RemoteNodes` replaces the plugin of a node that has `engine.placement` with a `RemoteProcessor`. The local plugin still supplies type, schema, timeouts and validation. Placement is refused on anything that is not a processor and on SESSION_MEMORY, KV_STORE, WAIT_FOR_SIGNAL and SUB_WORKFLOW (a fixed list), and fails to prepare when the workers module is not built in.
+- When a workflow is prepared, `RemoteNodes` replaces the plugin of a node that has `engine.placement` with a `RemoteProcessor`. The local plugin still supplies type, schema, timeouts and validation. Placement is refused on anything that is not a processor and on WAIT_FOR_SIGNAL and SUB_WORKFLOW (plugins that need the control plane), and fails to prepare when the workers module is not built in.
 - For each attempt `pick` keeps the workers in the node's pool that list the plugin type, are not draining and have a free slot, and takes the one with most free slots (the smallest id on a tie). Free slots are the worker's capacity minus the larger of the used slots from its last lease and the attempts this control plane has sent to it.
 - If no worker qualifies the attempt fails at once with a `WorkflowExecutionException` that the engine's retry policy can retry.
 - The choice and the counter increment are two steps, not one atomic step.
@@ -347,7 +347,7 @@ A placed processor node from workflow preparation to its last output message.
 The agent connects, sends REGISTER and then a LEASE every 5 s. The registry lists the worker with its pools, plugin types, capacity and used slots (`GET /api/workers`).
 </Step>
 <Step title="The workflow is prepared">
-A node has `engine.placement {pool}`. Core replaces its plugin with a `RemoteProcessor`; preparing fails if the workers module is not built in, or if the node is SESSION_MEMORY, KV_STORE, WAIT_FOR_SIGNAL or SUB_WORKFLOW.
+A node has `engine.placement {pool}`. Core replaces its plugin with a `RemoteProcessor`; preparing fails if the workers module is not built in, or if the node is WAIT_FOR_SIGNAL or SUB_WORKFLOW.
 </Step>
 <Step title="An attempt starts">
 The engine's policy starts an attempt. `pick` takes the worker with most free slots; the executor opens `node.run` and sends START with the node config, then the input messages.
@@ -514,7 +514,6 @@ A placed node is wrapped by the same engine policies as a local one; these table
 | Plugin kind | Placed? |
 |---|---|
 | Processors such as PROCESS_EXECUTOR, HTTP_REQUEST, SQL_QUERY, LLM_CALL, MCP_TOOL_CALL, MAPPER | \*\*Yes.\*\* Yes, if the worker lists the type. |
-| SESSION_MEMORY, KV_STORE, WAIT_FOR_SIGNAL, SUB_WORKFLOW | \*\*No.\*\* Refused: they keep state on the control plane. |
 | Triggers and terminals | \*\*No.\*\* Not placeable: always local. |
 | Processors that keep per-node state in memory (ANOMALY, DEDUPE windows, MCP sessions) | \*\*Partly.\*\* Allowed, but the state lives on whichever worker ran the attempt. |
 

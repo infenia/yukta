@@ -54,6 +54,16 @@ func TestValidate_aGoodPlugin(t *testing.T) {
 	}
 }
 
+func TestValidate_mcpPluginIsCheckedButNotRun(t *testing.T) {
+	dir := pluginDir(t, `{"apiVersion":"yukta/plugin/v1","type":"TOOL","category":"processor","description":"d",`+
+		`"run":{"mcp":{"url":"http://localhost:1/mcp","tool":"t"}}}`, "")
+
+	out, err := runValidate(t, dir)
+	if err != nil || !strings.Contains(out, "the server logs the digest to pin") {
+		t.Errorf("got %v:\n%s", err, out)
+	}
+}
+
 func TestValidate_failures(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("plugins run with sh")

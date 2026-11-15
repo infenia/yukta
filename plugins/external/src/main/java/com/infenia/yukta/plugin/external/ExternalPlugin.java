@@ -28,10 +28,10 @@ public abstract class ExternalPlugin implements Plugin {
   /** The plugin's manifest. */
   protected final PluginManifest manifest;
 
-  /** Runs the plugin's command. */
-  protected final CommandRun run;
+  /** Runs the plugin for a message. */
+  protected final PluginRun run;
 
-  /* default */ ExternalPlugin(final PluginManifest manifest, final CommandRun run) {
+  /* default */ ExternalPlugin(final PluginManifest manifest, final PluginRun run) {
     this.manifest = manifest;
     this.run = run;
   }

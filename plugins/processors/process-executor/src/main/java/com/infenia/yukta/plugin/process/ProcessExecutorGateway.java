@@ -146,6 +146,25 @@ public class ProcessExecutorGateway {
     return execute(spec, sink, null, true);
   }
 
+  /**
+   * {@link #executeInstalled} with the standard input left open, as in {@link #executeInteractive}:
+   * for an operator-installed process that holds a conversation, such as an MCP server over stdio.
+   *
+   * @param spec the execution specification; {@code useShell} is refused
+   * @param sink receives each stdout/stderr line live
+   * @param onStart receives the writer once
+   * @return a Mono emitting the execution result
+   */
+  public Mono<ProcessExecutionResult> executeInstalledInteractive(
+      final ProcessExecutionSpec spec,
+      final PluginLogSink sink,
+      final Consumer<StdinWriter> onStart) {
+    if (spec != null && spec.useShell()) {
+      return Mono.error(new IllegalArgumentException("an installed command never runs in a shell"));
+    }
+    return execute(spec, sink, onStart, true);
+  }
+
   /** Lines written to a running process' standard input. */
   public interface StdinWriter {
 

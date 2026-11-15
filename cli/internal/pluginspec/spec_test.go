@@ -198,9 +198,65 @@ func TestRun_localExecutableAndOtherForms(t *testing.T) {
 	if _, err := Run(dir, m, nil, nil); err == nil || !strings.Contains(err.Error(), filepath.Join(dir, "missing")) {
 		t.Errorf("got %v", err)
 	}
-	m["run"] = map[string]any{"image": "x"}
-	if _, err := Run(dir, m, nil, nil); err == nil || !strings.Contains(err.Error(), "only run.command") {
+	m["run"] = map[string]any{"mcp": map[string]any{"url": "http://x", "tool": "t"}}
+	if _, err := Run(dir, m, nil, nil); err == nil || !strings.Contains(err.Error(), "uses run.mcp") {
 		t.Errorf("got %v", err)
+	}
+}
+
+// fakeRuntime is a container CLI that logs its arguments to calls; run echoes stdin as the payload,
+// or sleeps for the image sleepy.
+func fakeRuntime(t *testing.T) (calls string) {
+	t.Helper()
+	bin := t.TempDir()
+	calls = filepath.Join(bin, "calls")
+	cli := filepath.Join(bin, "fake-docker")
+	must(t, os.WriteFile(cli, []byte("#!/bin/sh\necho \"$*\" >> '"+calls+"'\n"+
+		"[ \"$1\" = rm ] && exit 0\n"+
+		"for a; do img=$a; done\n"+
+		"[ \"$img\" = sleepy ] && exec sleep 5\n"+
+		"echo \"home=$HOME\" >&2; printf '{\"payload\":'; cat; printf '}\\n'\n"), 0o700))
+	t.Setenv("YUKTA_PLUGINS_CONTAINER_RUNTIME", cli)
+	t.Setenv("HOME", "/home/test")
+	return calls
+}
+
+func TestRun_image(t *testing.T) {
+	skipOnWindows(t)
+	calls := fakeRuntime(t)
+	dir, m := plugin(t, "processor", "5s", "")
+	m["run"] = map[string]any{"image": "ghcr.io/acme/x:1"}
+
+	res, err := Run(dir, m, map[string]any{}, nil)
+	must(t, err)
+	got, _ := os.ReadFile(calls)
+	if len(res.Outputs) != 1 || res.Stderr != "home=/home/test\n" ||
+		!strings.HasPrefix(string(got), "run --rm -i --name yukta-validate-") ||
+		!strings.HasSuffix(string(got), " ghcr.io/acme/x:1\n") {
+		t.Errorf("got %+v, calls %q", res, got)
+	}
+}
+
+func TestRun_imageTimeoutRemovesTheContainer(t *testing.T) {
+	skipOnWindows(t)
+	calls := fakeRuntime(t)
+	dir, m := plugin(t, "processor", "300ms", "")
+	m["run"] = map[string]any{"image": "sleepy"}
+
+	if _, err := Run(dir, m, map[string]any{}, nil); err == nil {
+		t.Fatal("expected a timeout")
+	}
+	got, _ := os.ReadFile(calls)
+	if !strings.Contains(string(got), "rm -f yukta-validate-") {
+		t.Errorf("calls %q", got)
+	}
+}
+
+func TestRun_imageDefaultsToDocker(t *testing.T) {
+	t.Setenv("YUKTA_PLUGINS_CONTAINER_RUNTIME", "")
+	args, _, _, err := command("", map[string]any{"image": "x"})
+	if err != nil || args[0] != "docker" {
+		t.Errorf("got %v %v", args, err)
 	}
 }
 
