@@ -526,7 +526,8 @@ class ConversationsControllerTest {
                     new AgentConversationQueries(store, service, tracker, controlBus),
                     new ConversationMapper(),
                     new ExecutionAccess(controlBus),
-                    org.mockito.Mockito.mock(com.infenia.yukta.service.control.SupervisedControl.class)))
+                    org.mockito.Mockito.mock(
+                        com.infenia.yukta.service.control.SupervisedControl.class)))
             .webFilter((exchange, chain) ->
                 chain
                     .filter(exchange)

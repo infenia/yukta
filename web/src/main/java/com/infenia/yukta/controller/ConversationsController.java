@@ -288,10 +288,10 @@ public class ConversationsController {
                     conversation.nodeId(),
                     id,
                     body.text(),
-                    body.interrupt())
+                    body.interrupts())
                 .thenReturn(
                     new ConversationSteerResponse(
-                        AgentSteering.willQueue(conversation, body.interrupt()))))
+                        AgentSteering.willQueue(conversation, body.interrupts()))))
         .map(answer -> ApiResponse.success(202, "Message accepted", answer));
   }
 
