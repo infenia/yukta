@@ -177,7 +177,9 @@ com.infenia.yukta.service.metrics.MetricsProperties
 com.infenia.yukta.service.metrics.MetricsSampler
 com.infenia.yukta.service.metrics.RunAnalytics
 com.infenia.yukta.service.notify.InMemoryNotificationStore
+com.infenia.yukta.service.notify.NotificationProducer
 com.infenia.yukta.service.notify.NotificationRetention
+com.infenia.yukta.service.notify.NotificationRules
 com.infenia.yukta.service.notify.NotificationService
 com.infenia.yukta.service.orchestrator.ExecutionRecovery
 com.infenia.yukta.service.orchestrator.ExecutionResumer

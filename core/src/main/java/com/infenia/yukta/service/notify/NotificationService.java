@@ -12,9 +12,11 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -251,6 +253,27 @@ public class NotificationService {
   public Flux<Notification> visible(
       final NotificationQuery query, final ApiKeys.@Nullable Match caller) {
     return store.find(query).filter(n -> Recipients.sees(n, caller));
+  }
+
+  /**
+   * The notification of a key.
+   *
+   * @param key the dedupe key
+   * @return the notification, or empty
+   */
+  public Mono<Notification> byKey(final String key) {
+    return store.findByKey(key);
+  }
+
+  /**
+   * How many notifications are active, by kind.
+   *
+   * @return the count per kind; a kind with none is missing
+   */
+  public Mono<Map<NotificationKind, Long>> activeCounts() {
+    return store
+        .find(new NotificationQuery(Notification.State.ACTIVE, null, null, 0))
+        .collect(Collectors.groupingBy(Notification::kind, Collectors.counting()));
   }
 
   /**
