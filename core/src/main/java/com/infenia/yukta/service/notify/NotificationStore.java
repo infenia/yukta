@@ -133,7 +133,7 @@ public interface NotificationStore {
    * Names the life of the sequence: it changes when the sequence restarts (an in-memory store after
    * a restart), so a client holding an old position knows to load the list again.
    *
-   * @return the epoch
+   * @return the epoch; emits once
    */
-  String epoch();
+  Mono<String> epoch();
 }

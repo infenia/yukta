@@ -436,7 +436,7 @@ class NotificationsControllerTest {
         })
         .assertNext(e -> {
           assertThat(e.event()).isEqualTo("created");
-          assertThat(e.id()).startsWith(service.epoch() + "-");
+          assertThat(e.id()).startsWith(service.epoch().block() + "-");
           assertThat(e.data().notification().key()).isEqualTo("a");
         })
         .assertNext(e -> assertThat(e.event()).isEqualTo("updated"))
@@ -469,7 +469,7 @@ class NotificationsControllerTest {
     action("input:x", "s1", "role:VIEWER");
     service.raise(NotifyDrafts.again(first)).block();
 
-    StepVerifier.create(stream("s-key", service.epoch() + "-" + first.seq()).take(3))
+    StepVerifier.create(stream("s-key", service.epoch().block() + "-" + first.seq()).take(3))
         .assertNext(e -> assertThat(e.event()).isEqualTo("resolved"))
         .assertNext(e -> assertThat(e.event()).isEqualTo("created"))
         .assertNext(e -> assertThat(e.event()).isEqualTo("updated"))
@@ -482,7 +482,7 @@ class NotificationsControllerTest {
   void replayedItemIsNotSentTwiceWhenItAlsoArrivesLive() {
     final Notification first = raise("a", "s1", "role:VIEWER");
 
-    StepVerifier.create(stream("a-key", service.epoch() + "-0").take(2))
+    StepVerifier.create(stream("a-key", service.epoch().block() + "-0").take(2))
         .assertNext(e -> assertThat(e.data().notification().id()).isEqualTo(first.id()))
         .then(() -> raise("b", "s1", "role:VIEWER"))
         .assertNext(e -> assertThat(e.data().notification().key()).isEqualTo("b"))
@@ -504,11 +504,11 @@ class NotificationsControllerTest {
         .assertNext(e -> assertThat(e.event()).isEqualTo("reset"))
         .expectComplete()
         .verify(WAIT);
-    StepVerifier.create(stream("a-key", service.epoch() + "-x").take(1))
+    StepVerifier.create(stream("a-key", service.epoch().block() + "-x").take(1))
         .assertNext(e -> assertThat(e.event()).isEqualTo("reset"))
         .expectComplete()
         .verify(WAIT);
-    StepVerifier.create(stream("a-key", service.epoch() + "-0").take(1))
+    StepVerifier.create(stream("a-key", service.epoch().block() + "-0").take(1))
         .assertNext(e -> assertThat(e.event()).isEqualTo("reset"))
         .expectComplete()
         .verify(WAIT);

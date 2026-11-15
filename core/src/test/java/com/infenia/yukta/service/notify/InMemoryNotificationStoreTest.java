@@ -82,8 +82,8 @@ class InMemoryNotificationStoreTest {
 
   @Test
   void eachStoreHasItsOwnEpoch() {
-    assertThat(new InMemoryNotificationStore(1).epoch())
-        .isNotEqualTo(new InMemoryNotificationStore(1).epoch());
+    assertThat(new InMemoryNotificationStore(1).epoch().block())
+        .isNotEqualTo(new InMemoryNotificationStore(1).epoch().block());
   }
 
   @Test
@@ -178,5 +178,14 @@ class InMemoryNotificationStoreTest {
 
     assertThat(store.dueDeliveries(clock.instant().plusSeconds(120)).collectList().block())
         .isEmpty();
+  }
+
+  @Test
+  void receiptForMissingNotificationIsNotKept() {
+    final InMemoryNotificationStore store = new InMemoryNotificationStore(10);
+
+    store.saveReceipt(new Receipt("missing", "arun", clock.instant(), null)).block();
+
+    assertThat(store.receipts("arun", List.of("missing")).collectList().block()).isEmpty();
   }
 }

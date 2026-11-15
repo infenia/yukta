@@ -28,7 +28,6 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** What the shared contract does not cover: the whole request survives, and two writers race. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class R2dbcInputRequestStoreTest extends PostgresTestSupport {
 
   private static final Instant T0 = Instant.parse("2026-11-02T10:00:00Z");

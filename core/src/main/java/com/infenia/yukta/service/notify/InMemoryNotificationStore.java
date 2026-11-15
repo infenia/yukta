@@ -130,11 +130,16 @@ public final class InMemoryNotificationStore implements NotificationStore {
 
   @Override
   public Mono<Void> saveReceipt(final Receipt receipt) {
+    // a receipt for a notification that is gone is not kept
     return Mono.fromRunnable(() ->
-        locked(() ->
+        locked(() -> {
+          if (byKey.values().stream().anyMatch(n -> n.id().equals(receipt.notificationId()))) {
             receiptsByRecipient
                 .computeIfAbsent(receipt.recipient(), r -> new HashMap<>())
-                .put(receipt.notificationId(), receipt)));
+                .put(receipt.notificationId(), receipt);
+          }
+          return null;
+        }));
   }
 
   @Override
@@ -223,8 +228,8 @@ public final class InMemoryNotificationStore implements NotificationStore {
   }
 
   @Override
-  public String epoch() {
-    return epochId;
+  public Mono<String> epoch() {
+    return Mono.just(epochId);
   }
 
   /** Whether the notification may be evicted or purged: not an active action. */

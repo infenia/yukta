@@ -22,9 +22,8 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Input requests, their answers and the queue of deliveries in PostgreSQL (tables {@code
- * input_request}, {@code input_response} and {@code input_delivery}, migration V9), so an open
- * request, its deadlines, its votes and its queued deliveries survive a restart.
+ * Input requests and their answers in PostgreSQL (tables {@code input_request} and {@code
+ * input_response}), so an open request, its deadlines and its votes survive a restart.
  *
  * <p>Every change of a request is one {@code UPDATE ... WHERE version = :expected}, so two changes
  * at once produce one winner, on one node or on two. {@link #dueBefore} does not lock the rows it

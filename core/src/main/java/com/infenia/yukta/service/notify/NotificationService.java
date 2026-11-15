@@ -321,9 +321,9 @@ public class NotificationService {
   /**
    * Names the life of the change sequence.
    *
-   * @return the store's epoch
+   * @return the store's epoch; emits once
    */
-  public String epoch() {
+  public Mono<String> epoch() {
     return store.epoch();
   }
 

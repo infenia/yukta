@@ -298,7 +298,10 @@ public class NotificationsController {
       @RequestHeader(value = "Last-Event-ID", required = false)
           final @Nullable String lastEventId) {
     return caller()
-        .flatMapMany(me -> {
+        .zipWith(service.epoch())
+        .flatMapMany(pair -> {
+          final Me me = pair.getT1();
+          final String epoch = pair.getT2();
           // ponytail: a change that moves an item out of my audience (an escalation to another
           // tier) is not sent to me; the client drops it when it loads the list again.
           final Sinks.Many<ServerSentEvent<NotificationEvent>> live =
@@ -307,11 +310,11 @@ public class NotificationsController {
           final Disposable feed =
               service
                   .changes()
-                  .concatMap(change -> event(me, change))
+                  .concatMap(change -> event(me, epoch, change))
                   .filter(sse -> after(sse, sent))
                   .subscribe(live::tryEmitNext);
           return SseStreams.named(
-              Flux.concat(replay(me, lastEventId, sent), live.asFlux())
+              Flux.concat(replay(me, epoch, lastEventId, sent), live.asFlux())
                   .doFinally(_ -> feed.dispose()),
               SseStreams.HEARTBEAT,
               MAX_STREAMS_PER_KEY);
@@ -330,7 +333,7 @@ public class NotificationsController {
   }
 
   private Flux<ServerSentEvent<NotificationEvent>> replay(
-      final Me me, final @Nullable String lastEventId, final AtomicLong sent) {
+      final Me me, final String epoch, final @Nullable String lastEventId, final AtomicLong sent) {
     if (lastEventId == null || lastEventId.isBlank()) {
       return Flux.empty();
     }
@@ -343,7 +346,7 @@ public class NotificationsController {
         since = -1;
       }
     }
-    if (since < 0 || !service.epoch().equals(lastEventId.substring(0, dash))) {
+    if (since < 0 || !epoch.equals(lastEventId.substring(0, dash))) {
       return Flux.just(reset());
     }
     final long from = since;
@@ -359,7 +362,8 @@ public class NotificationsController {
           return Flux.fromIterable(ascending)
               .concatMap(item ->
                   view(item)
-                      .map(v -> sse(replayType(item.notification()), v, item.notification())));
+                      .map(v ->
+                          sse(epoch, replayType(item.notification()), v, item.notification())));
         });
   }
 
@@ -377,10 +381,10 @@ public class NotificationsController {
         .build();
   }
 
-  private ServerSentEvent<NotificationEvent> sse(
-      final String type, final NotificationView view, final Notification n) {
+  private static ServerSentEvent<NotificationEvent> sse(
+      final String epoch, final String type, final NotificationView view, final Notification n) {
     return ServerSentEvent.<NotificationEvent>builder()
-        .id(service.epoch() + "-" + n.seq())
+        .id(epoch + "-" + n.seq())
         .event(type)
         .data(new NotificationEvent(type, view, null, null, null))
         .build();
@@ -388,7 +392,7 @@ public class NotificationsController {
 
   /** The stream event of a change, or nothing when the caller may not see it. */
   private Flux<ServerSentEvent<NotificationEvent>> event(
-      final Me me, final NotificationChange change) {
+      final Me me, final String epoch, final NotificationChange change) {
     final Notification n = change.notification();
     final Receipt receipt = change.receipt();
     if (change.kind() == NotificationChange.Kind.RECEIPT) {
@@ -416,7 +420,7 @@ public class NotificationsController {
         .map(r -> new Item(n, true, r.dismissedAt() != null))
         .defaultIfEmpty(new Item(n, false, false))
         .flatMap(this::view)
-        .map(v -> sse(type, v, n))
+        .map(v -> sse(epoch, type, v, n))
         .flux();
   }
 
