@@ -1,0 +1,33 @@
+{
+  "sessionId": "example-20-inbox",
+  "name": "Inbox notification",
+  "description": "A workflow raises a notification in the Yukta inbox with a NOTIFY_TERMINAL.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "20-inbox-notification" },
+  "workflows": {
+    "report": {
+      "workflowId": "report",
+      "description": "Run a command and tell the operators in the inbox",
+      "nodes": [
+        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
+        { "nodeId": "check", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "nightly report ready"] } },
+        {
+          "nodeId": "tell",
+          "type": "NOTIFY_TERMINAL",
+          "config": {
+            "target": "inbox",
+            "title": "Nightly report ready",
+            "severity": "INFO",
+            "audience": ["role:OPERATOR"],
+            "text": "The nightly report finished."
+          }
+        }
+      ],
+      "edges": [
+        { "source": "start", "target": "check" },
+        { "source": "check", "target": "tell" }
+      ]
+    }
+  }
+}

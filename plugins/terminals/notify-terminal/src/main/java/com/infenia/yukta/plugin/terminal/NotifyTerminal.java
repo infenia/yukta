@@ -10,12 +10,16 @@ import com.infenia.yukta.plugin.core.PluginGuard;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.UiDesign;
+import com.infenia.yukta.plugin.notify.NotificationGateway;
+import com.infenia.yukta.plugin.notify.NotificationSeverity;
+import com.infenia.yukta.plugin.notify.NotificationSpec;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.EgressPolicy;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -26,10 +30,28 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-/** Posts a {@code {"text": ...}} JSON notification (Slack/Teams/Discord-compatible) per message. */
+/**
+ * Notifies per message: by default it posts a {@code {"text": ...}} JSON notification
+ * (Slack/Teams/Discord-compatible) to a webhook; with {@code target: inbox} it raises a
+ * notification in the Yukta inbox instead. The run, node and session of an inbox notification are
+ * the node's own: a workflow cannot choose them.
+ */
 @Component
 @Slf4j
+@SuppressWarnings("PMD.TooManyMethods")
 public final class NotifyTerminal implements TerminalPlugin {
+
+  /** Config key of the failure mode. */
+  private static final String FAILURE_MODE = "failureMode";
+
+  /** Config key that picks where the notification goes. */
+  private static final String TARGET_KEY = "target";
+
+  /** The default target: a webhook. */
+  private static final String WEBHOOK = "webhook";
+
+  /** The target that raises a notification in the Yukta inbox. */
+  private static final String INBOX = "inbox";
 
   /** Config key and webhook body field holding the notification text. */
   private static final String TEXT_KEY = "text";
@@ -42,6 +64,9 @@ public final class NotifyTerminal implements TerminalPlugin {
 
   /** Metrics reporter. */
   private final PluginMetricsReporter reporter;
+
+  /** Raises the notifications of {@code target: inbox}; absent when no gateway bean exists. */
+  private ObjectProvider<NotificationGateway> gateway;
 
   /** Where the deployment, workflow and session allow calls to go. */
   private EgressPolicy egress = EgressPolicy.OPEN;
@@ -80,12 +105,26 @@ public final class NotifyTerminal implements TerminalPlugin {
     this.egress = policy;
   }
 
+  /**
+   * Sets the gateway for {@code target: inbox}.
+   *
+   * @param provider the gateway provider
+   */
+  @Autowired(required = false)
+  /* default */ void setNotificationGateway(final ObjectProvider<NotificationGateway> provider) {
+    this.gateway = provider;
+  }
+
   @Override
   public PluginDescriptor describe() {
     return new PluginDescriptor(
         "Sends each message as a JSON webhook notification (Slack-compatible).",
         "Configure with:\n"
-            + "- url: webhook URL (required, https; http only for localhost).\n"
+            + "- target: webhook (default) or inbox, the Yukta inbox.\n"
+            + "- url: webhook URL (required for target webhook, https; http only for localhost).\n"
+            + "- title, severity (INFO, WARN, ERROR) and audience (role:VIEWER, role:OPERATOR,"
+            + " role:ADMIN or key:<name>; default role:OPERATOR): for target inbox, where the text"
+            + " is the body.\n"
             + "- text: fixed text to send; otherwise the payload's 'text' field, or the payload"
             + " itself as a string.\n"
             + "- timeoutMs: request timeout (default 10000).\n"
@@ -97,13 +136,38 @@ public final class NotifyTerminal implements TerminalPlugin {
   @Override
   public List<ConfigField> getConfigSchema() {
     return List.of(
-        ConfigField.required(
-            "url", ConfigField.Type.STRING, "Webhook URL (https; http only for localhost)"),
+        ConfigField.choice(
+            TARGET_KEY,
+            false,
+            WEBHOOK,
+            "webhook posts to a URL; inbox raises a notification in the Yukta inbox",
+            WEBHOOK,
+            INBOX),
+        ConfigField.optional(
+            "url",
+            ConfigField.Type.STRING,
+            null,
+            "Webhook URL (required for target webhook; https, http only for localhost)"),
         ConfigField.optional(
             TEXT_KEY, ConfigField.Type.STRING, null, "Fixed text; otherwise the payload text"),
         ConfigField.optional("timeoutMs", ConfigField.Type.NUMBER, 10_000, "Request timeout in ms"),
+        ConfigField.optional(
+            "title", ConfigField.Type.STRING, null, "Inbox title (required for target inbox)"),
         ConfigField.choice(
-            "failureMode",
+            "severity",
+            false,
+            "INFO",
+            "Severity of an inbox notification",
+            "INFO",
+            "WARN",
+            "ERROR"),
+        ConfigField.optional(
+            "audience",
+            ConfigField.Type.LIST,
+            null,
+            "Who sees an inbox notification: role:VIEWER, role:OPERATOR, role:ADMIN or key:<name>"),
+        ConfigField.choice(
+            FAILURE_MODE,
             false,
             "ERROR",
             "ERROR fails the node on a failed send; CONTINUE logs it and keeps sending",
@@ -129,19 +193,26 @@ public final class NotifyTerminal implements TerminalPlugin {
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     return Mono.fromRunnable(() -> {
-      checkUrl(ConfigValidation.requiredString(config, "url"));
+      if (isInbox(config)) {
+        spec(config, "");
+      } else {
+        checkUrl(ConfigValidation.requiredString(config, "url"));
+      }
       ConfigValidation.positiveLong(config, "timeoutMs", DEFAULT_TIMEOUT_MS);
-      FailureMode.from(config.get("failureMode"));
+      FailureMode.from(config.get(FAILURE_MODE));
     });
   }
 
   @Override
   public Mono<Void> consume(final Flux<Message<?>> input, final Map<String, Object> config) {
+    if (isInbox(config)) {
+      return consumeInbox(input, config);
+    }
     final String url = ConfigValidation.requiredString(config, "url");
     checkUrl(url);
     final Duration timeout =
         Duration.ofMillis(ConfigValidation.positiveLong(config, "timeoutMs", DEFAULT_TIMEOUT_MS));
-    final FailureMode mode = FailureMode.from(config.get("failureMode"));
+    final FailureMode mode = FailureMode.from(config.get(FAILURE_MODE));
     final WebClient client = webClientBuilder.build();
     return input
         .concatMap(message ->
@@ -157,6 +228,73 @@ public final class NotifyTerminal implements TerminalPlugin {
           }
         })
         .then();
+  }
+
+  /** Raises a notification in the inbox per message. */
+  private Mono<Void> consumeInbox(final Flux<Message<?>> input, final Map<String, Object> config) {
+    spec(config, "");
+    final NotificationGateway notifications = gateway == null ? null : gateway.getIfAvailable();
+    if (notifications == null) {
+      return Mono.error(
+          new IllegalStateException(
+              "target inbox needs the notification gateway, which is absent"));
+    }
+    final FailureMode mode = FailureMode.from(config.get(FAILURE_MODE));
+    return input
+        .concatMap(message ->
+            PluginGuard.guard(
+                notifications
+                    .notify(spec(config, text(message, config)))
+                    .<Message<?>>thenReturn(message),
+                message,
+                mode,
+                reporter,
+                "notify"))
+        .doOnNext(m -> {
+          if (PluginGuard.ERROR_PORT.equals(m.sourcePort())) {
+            log.atWarn().log("Notification failed: {}", m.exceptionDetail());
+          }
+        })
+        .then();
+  }
+
+  private static boolean isInbox(final Map<String, Object> config) {
+    final Object target = config.get(TARGET_KEY);
+    if (target == null || WEBHOOK.equalsIgnoreCase(String.valueOf(target))) {
+      return false;
+    }
+    if (INBOX.equalsIgnoreCase(String.valueOf(target))) {
+      return true;
+    }
+    throw new IllegalArgumentException("target must be webhook or inbox, not '" + target + "'");
+  }
+
+  /** The inbox notification for a text; the title, severity and audience come from the config. */
+  private static NotificationSpec spec(final Map<String, Object> config, final String body) {
+    final String title = ConfigValidation.requiredString(config, "title");
+    final Object severity = config.get("severity");
+    final Object audience = config.get("audience");
+    final List<String> selectors =
+        audience == null
+            ? List.of()
+            : audience instanceof List<?> list
+                ? list.stream().map(String::valueOf).toList()
+                : List.of(String.valueOf(audience).split("\\s*,\\s*"));
+    return new NotificationSpec(
+        title,
+        body.isEmpty() ? null : body,
+        severity == null ? NotificationSeverity.INFO : severity(String.valueOf(severity)),
+        selectors,
+        null,
+        List.of());
+  }
+
+  private static NotificationSeverity severity(final String value) {
+    try {
+      return NotificationSeverity.valueOf(value.strip().toUpperCase(Locale.ROOT));
+    } catch (final IllegalArgumentException e) {
+      throw new IllegalArgumentException("severity must be INFO, WARN or ERROR", e);
+    }
   }
 
   private Mono<Void> send(

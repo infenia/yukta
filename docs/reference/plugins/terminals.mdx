@@ -22,20 +22,29 @@ Logs each payload.
 
 ## `NOTIFY_TERMINAL`
 
-Sends each message as a JSON webhook (`POST {"text": "..."}`, Slack-compatible), one at a time, in order.
+Notifies once per message, one at a time, in order. By default it sends a JSON webhook (`POST {"text": "..."}`, Slack-compatible); with `target: inbox` it raises a notification in the Yukta inbox instead.
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `url` | string | none | yes | Webhook URL; `https`, or `http` for localhost only. Used as written; `${...}` is not resolved. |
+| `target` | `webhook` or `inbox` | `webhook` | no | `webhook` posts to `url`; `inbox` raises a notification for people to see in the bell, the Inbox page, the CLI and MCP. |
+| `url` | string | none | for `webhook` | Webhook URL; `https`, or `http` for localhost only. Used as written; `${...}` is not resolved. Not needed for `inbox`. |
+| `title` | string | none | for `inbox` | One line; at most 200 characters. |
+| `severity` | `INFO`, `WARN` or `ERROR` | `INFO` | no | Severity of an inbox notification. |
+| `audience` | list of `role:VIEWER`, `role:OPERATOR`, `role:ADMIN` or `key:<name>` | `role:OPERATOR` | no | Who sees an inbox notification, limited to the sessions their key reaches. A comma-separated string works too. |
 | `text` | string | none | no | Fixed text; otherwise the payload's `text` field, or the payload as a string. |
 | `timeoutMs` | number | `10000` | no | Request timeout in milliseconds. |
 | `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `ERROR` fails the node on a non-2xx response (a redirect counts, and is never followed); `CONTINUE` logs it and keeps sending. |
 
 - **Egress:** the URL is checked against `yukta.egress.*`.
-- **Errors:** `url is not a valid URL`; `url must be https (http only for localhost)`.
+- **Inbox:** the text (or the payload) becomes the body, the category is `workflow`, and the session, workflow, run and node are the node's own. A run may raise 20 notifications a minute and 200 in all; beyond that the node fails with an error that names the limit. Existing configurations without `target` are unchanged. A plugin of your own raises the same through `NotificationGateway`.
+- **Errors:** `url is not a valid URL`; `url must be https (http only for localhost)`; `target must be webhook or inbox`; `title is required` (inbox); `severity must be INFO, WARN or ERROR`; `Not an audience selector`.
 
 ```json
 { "nodeId": "alert", "type": "NOTIFY_TERMINAL", "config": { "url": "https://hooks.slack.com/services/T000/B000/XXXX", "text": "Quality gate failed", "failureMode": "CONTINUE" } }
+```
+
+```json
+{ "nodeId": "tell", "type": "NOTIFY_TERMINAL", "config": { "target": "inbox", "title": "Nightly report ready", "severity": "INFO", "audience": ["role:OPERATOR"] } }
 ```
 
 ## `OUTCOME_TERMINAL`

@@ -175,6 +175,7 @@ com.infenia.yukta.service.metrics.MetricsConfiguration$1
 com.infenia.yukta.service.metrics.MetricsProperties
 com.infenia.yukta.service.metrics.MetricsSampler
 com.infenia.yukta.service.metrics.RunAnalytics
+com.infenia.yukta.service.notify.DefaultNotificationGateway
 com.infenia.yukta.service.notify.InMemoryNotificationStore
 com.infenia.yukta.service.notify.NotificationDeliveryWorker
 com.infenia.yukta.service.notify.NotificationOutbox

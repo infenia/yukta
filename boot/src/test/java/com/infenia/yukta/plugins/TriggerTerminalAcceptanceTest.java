@@ -30,6 +30,7 @@ class TriggerTerminalAcceptanceTest {
   @Autowired private WorkflowDefinitionStore definitions;
   @Autowired private SubWorkflowGateway runner;
   @Autowired private PluginRegistry registry;
+  @Autowired private com.infenia.yukta.service.notify.NotificationService notifications;
 
   private PluginWorkflows wf;
 
@@ -109,5 +110,42 @@ class TriggerTerminalAcceptanceTest {
       assertThat(hook.requests().get(0).method()).isEqualTo("POST");
       assertThat(hook.requests().get(0).body()).contains("deployed");
     }
+  }
+
+  @Test
+  void notifyTerminalWithInboxTargetRaisesANotificationOwnedByItsRun() {
+    final var key =
+        wf.save(
+            List.of(
+                node("in", "API_TRIGGER", Map.of()),
+                node(
+                    "end",
+                    "NOTIFY_TERMINAL",
+                    Map.of(
+                        "target", "inbox",
+                        "title", "Inbox from a workflow",
+                        "severity", "WARN",
+                        "text", "look at this"))),
+            List.of(new Edge("in", "end", null)));
+
+    wf.run(key, Map.of());
+
+    await()
+        .atMost(PluginWorkflows.WAIT)
+        .untilAsserted(() ->
+            assertThat(
+                    notifications
+                        .visible(com.infenia.yukta.service.notify.NotificationQuery.ALL, null)
+                        .filter(n -> "Inbox from a workflow".equals(n.title()))
+                        .collectList()
+                        .block())
+                .singleElement()
+                .satisfies(n -> {
+                  assertThat(n.category()).isEqualTo("workflow");
+                  assertThat(n.body()).isEqualTo("look at this");
+                  assertThat(n.nodeId()).isEqualTo("end");
+                  assertThat(n.executionId()).isNotBlank();
+                  assertThat(n.audience()).containsExactly("role:OPERATOR");
+                }));
   }
 }
