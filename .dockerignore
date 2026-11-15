@@ -17,7 +17,6 @@ README.md
 .pnpm-store
 .pnpm
 dist
-examples/dogfood
 .github
 .claude
 .remember

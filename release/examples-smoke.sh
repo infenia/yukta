@@ -34,11 +34,10 @@ allow_skip=" ${SMOKE_ALLOW_SKIP:-09-llm-chat-agent 15-input-pull 16-supervisor-p
 [[ -z "${SMOKE_IN_CONTAINER:-}" ]] || allow_skip+="02-agent-verification "
 
 # run-all.sh ends with one line per example: "PASS  name", "SKIP  name" or "FAIL  name (exit N)".
-# EXAMPLES_SKIP=dogfood: that example runs this repository's own Gradle check.
 log "running the examples against $YUKTA_URL"
 set +e
-[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || : "${EXAMPLES_SKIP:=dogfood 08-alert-triage}"
-output="$(EXAMPLES_SKIP="${EXAMPLES_SKIP:-dogfood}" bash "$REPO_ROOT/examples/run-all.sh" 2>&1)"
+[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || : "${EXAMPLES_SKIP:=08-alert-triage}"
+output="$(EXAMPLES_SKIP="${EXAMPLES_SKIP:-}" bash "$REPO_ROOT/examples/run-all.sh" 2>&1)"
 code=$?
 set -e
 summary="$(sed -n '/^=* summary$/,$p' <<< "$output" | tail -n +2)"
@@ -54,7 +53,7 @@ while read -r state name _; do
   case "$state" in
     FAIL) echo "examples smoke: $name failed" >&2; failed=1 ;;
     SKIP)
-      if [[ "$allow_skip" != *" $name "* && " ${EXAMPLES_SKIP:-dogfood} " != *" $name "* ]]; then
+      if [[ "$allow_skip" != *" $name "* && " ${EXAMPLES_SKIP:-} " != *" $name "* ]]; then
         echo "examples smoke: $name was skipped, which this server must not do" >&2
         failed=1
       fi ;;
