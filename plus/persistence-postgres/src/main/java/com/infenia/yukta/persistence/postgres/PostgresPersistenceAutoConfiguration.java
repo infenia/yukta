@@ -25,7 +25,7 @@ import tools.jackson.databind.ObjectMapper;
  * R2DBC support), with {@code spring.flyway.user} and {@code spring.flyway.password}.
  */
 @AutoConfiguration(before = DefaultsAutoConfiguration.class)
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @ConditionalOnProperty(name = "yukta.session.store-type", havingValue = "postgres")
 public class PostgresPersistenceAutoConfiguration {
 

@@ -5,6 +5,15 @@ description: "What a notification is, the difference between an alert and a ques
 keywords: ["notifications", "inbox", "alert", "action", "input request", "recipients", "desktop", "webhook"]
 ---
 
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="what a notification is, how an alert differs from a question, and who sees which one"
+  time="8 minutes"
+  need="you know what a run and an input request are (How Yukta works)"
+  end="a clear picture of where a notification reaches you and why a person may not see one"
+/>
+
 Yukta tells people two kinds of things. An **info** notification says something happened: a run failed, a supervisor held a run, a delivery gave up. An **action** notification asks for something: an input request is waiting for an answer. Both are stored as one record, the notification, and every surface reads that same record.
 
 <Info>

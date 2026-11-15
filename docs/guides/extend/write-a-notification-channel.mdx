@@ -5,6 +5,15 @@ description: "Send notifications to a system of your own, such as chat or e-mail
 keywords: ["NotificationChannel", "channel", "extend", "plugin-api", "outbound", "SPI", "webhook"]
 ---
 
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to send notifications to a system of your own with a NotificationChannel bean"
+  time="30 minutes"
+  need="Java 25, a checkout of the Yukta repository, and a system that should receive notifications"
+  end="a channel that a rule can name, delivering at least once and idempotently"
+/>
+
 A **channel** carries a notification out of Yukta. The built-in `webhook` channel covers a JSON post; write your own for anything else. It replaces the alpha.4 `InputResponder` (see [Migrate to alpha.5](/reference/migration-alpha-5)).
 
 ## The contract

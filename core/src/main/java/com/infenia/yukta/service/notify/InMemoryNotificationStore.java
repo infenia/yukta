@@ -13,7 +13,9 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
@@ -37,6 +39,12 @@ public final class InMemoryNotificationStore implements NotificationStore {
 
   /** The notifications by key, oldest first. */
   private final Map<String, Notification> byKey = new LinkedHashMap<>();
+
+  /** The key of each notification by id, so a lookup by id does not scan every item. */
+  private final Map<String, String> keyById = new HashMap<>();
+
+  /** The notifications by sequence, so a listing is already in order. */
+  private final NavigableMap<Long, Notification> bySeq = new TreeMap<>();
 
   /** The receipts by recipient, then notification id. */
   private final Map<String, Map<String, Receipt>> receiptsByRecipient = new HashMap<>();
@@ -81,7 +89,7 @@ public final class InMemoryNotificationStore implements NotificationStore {
           }
           final String id = current == null ? UUID.randomUUID().toString() : current.id();
           final Notification stored = merged.stored(id, nextSeq());
-          byKey.put(key, stored);
+          keep(stored);
           evict();
           return stored;
         }));
@@ -96,7 +104,7 @@ public final class InMemoryNotificationStore implements NotificationStore {
             return null;
           }
           final Notification stored = current.resolved(resolution, nextSeq(), at);
-          byKey.put(key, stored);
+          keep(stored);
           return stored;
         }));
   }
@@ -109,8 +117,10 @@ public final class InMemoryNotificationStore implements NotificationStore {
   @Override
   public Mono<Notification> findById(final String id) {
     return Mono.fromSupplier(() ->
-        locked(
-            () -> byKey.values().stream().filter(n -> n.id().equals(id)).findFirst().orElse(null)));
+        locked(() -> {
+          final String key = keyById.get(id);
+          return key == null ? null : byKey.get(key);
+        }));
   }
 
   @Override
@@ -119,12 +129,11 @@ public final class InMemoryNotificationStore implements NotificationStore {
     return Flux.defer(() ->
         Flux.fromIterable(
             locked(() ->
-                byKey.values().stream()
+                bySeq.descendingMap().values().stream()
+                    .takeWhile(n -> n.seq() > query.sinceSeq())
                     .filter(n -> query.state() == null || n.state() == query.state())
                     .filter(n -> query.kind() == null || n.kind() == query.kind())
                     .filter(n -> session == null || session.equals(n.sessionId()))
-                    .filter(n -> n.seq() > query.sinceSeq())
-                    .sorted(Comparator.comparingLong(Notification::seq).reversed())
                     .toList())));
   }
 
@@ -133,7 +142,7 @@ public final class InMemoryNotificationStore implements NotificationStore {
     // a receipt for a notification that is gone is not kept
     return Mono.fromRunnable(() ->
         locked(() -> {
-          if (byKey.values().stream().anyMatch(n -> n.id().equals(receipt.notificationId()))) {
+          if (keyById.containsKey(receipt.notificationId())) {
             receiptsByRecipient
                 .computeIfAbsent(receipt.recipient(), r -> new HashMap<>())
                 .put(receipt.notificationId(), receipt);
@@ -200,7 +209,7 @@ public final class InMemoryNotificationStore implements NotificationStore {
     // a delivery of a notification that is gone is not kept
     return Mono.fromRunnable(() ->
         locked(() -> {
-          if (byKey.values().stream().anyMatch(n -> n.id().equals(delivery.notificationId()))) {
+          if (keyById.containsKey(delivery.notificationId())) {
             deliveries.put(delivery.id(), delivery);
           } else {
             deliveries.remove(delivery.id());
@@ -254,7 +263,19 @@ public final class InMemoryNotificationStore implements NotificationStore {
     return seq;
   }
 
+  /** Stores a notification under its key, replacing the one it supersedes in the indexes. */
+  private void keep(final Notification n) {
+    final Notification old = byKey.put(n.key(), n);
+    if (old != null) {
+      bySeq.remove(old.seq());
+    }
+    keyById.put(n.id(), n.key());
+    bySeq.put(n.seq(), n);
+  }
+
   private void forget(final Notification n) {
+    keyById.remove(n.id());
+    bySeq.remove(n.seq());
     receiptsByRecipient.values().forEach(mine -> mine.remove(n.id()));
     deliveries.values().removeIf(d -> d.notificationId().equals(n.id()));
   }
