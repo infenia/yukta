@@ -12,7 +12,6 @@ import org.mapstruct.Mapping;
 
 /** MapStruct mapper from the conversation records of the plugin API to the REST responses. */
 @Mapper(componentModel = "spring")
-@SuppressWarnings("PMD.ImplicitFunctionalInterface") // a mapper, not a lambda target
 public interface ConversationMapper {
 
   /**
