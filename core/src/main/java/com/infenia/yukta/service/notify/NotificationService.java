@@ -5,6 +5,8 @@ package com.infenia.yukta.service.notify;
 import com.infenia.yukta.plugin.notify.Notification;
 import com.infenia.yukta.plugin.notify.NotificationKind;
 import com.infenia.yukta.security.ApiKeys;
+import com.infenia.yukta.service.ConflictException;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.util.SinkEmit;
 import io.micrometer.core.instrument.Metrics;
@@ -13,7 +15,6 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -212,11 +213,11 @@ public class NotificationService {
     final Instant now = clock.instant();
     return store
         .findById(id)
-        .switchIfEmpty(Mono.error(() -> new NoSuchElementException(id)))
+        .switchIfEmpty(Mono.error(() -> new NotFoundException("No notification " + id)))
         .flatMap(n -> {
           if (n.kind() == NotificationKind.ACTION && n.state() == Notification.State.ACTIVE) {
             return Mono.error(
-                new IllegalStateException("An action that is still open cannot be dismissed"));
+                new ConflictException("An action that is still open cannot be dismissed"));
           }
           return receipt(
               recipient,

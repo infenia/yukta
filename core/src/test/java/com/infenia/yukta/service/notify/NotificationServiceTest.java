@@ -14,7 +14,6 @@ import com.infenia.yukta.service.redact.InputRedactor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -101,7 +100,7 @@ class NotificationServiceTest {
     StepVerifier.create(service.dismiss(ARUN, n.id())).verifyComplete();
     assertThat(service.receipts(ARUN, List.of(n.id())).blockFirst().dismissedAt()).isNotNull();
     StepVerifier.create(service.dismiss(ARUN, "nope"))
-        .expectError(NoSuchElementException.class)
+        .expectError(com.infenia.yukta.service.NotFoundException.class)
         .verify();
   }
 

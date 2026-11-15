@@ -5,6 +5,7 @@ package com.infenia.yukta.service.review;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.util.SinkEmit;
 import io.micrometer.core.instrument.Metrics;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -35,6 +36,17 @@ public class ExecutionEventFeed {
   /** Most events the reliable tap holds before it drops one. */
   private static final int TAP_CAPACITY = 10_000;
 
+  /** The kinds of event the reliable tap carries. */
+  private static final Set<Class<? extends ExecutionEvent>> TAPPED =
+      Set.of(
+          ExecutionEvent.InputRequested.class,
+          ExecutionEvent.InputEscalated.class,
+          ExecutionEvent.InputAnswered.class,
+          ExecutionEvent.InputExpired.class,
+          ExecutionEvent.InputCancelled.class,
+          ExecutionEvent.WorkflowStatusChanged.class,
+          ExecutionEvent.ControlOutcome.class);
+
   /** The remainder of the first drop of each {@code LOG_EVERY}. */
   private static final long FIRST = 1;
 
@@ -64,17 +76,7 @@ public class ExecutionEventFeed {
   }
 
   private static boolean isReliable(final ExecutionEvent event) {
-    return switch (event) {
-      case ExecutionEvent.InputRequested _,
-          ExecutionEvent.InputEscalated _,
-          ExecutionEvent.InputAnswered _,
-          ExecutionEvent.InputExpired _,
-          ExecutionEvent.InputCancelled _,
-          ExecutionEvent.WorkflowStatusChanged _,
-          ExecutionEvent.ControlOutcome _ ->
-          true;
-      default -> false;
-    };
+    return TAPPED.contains(event.getClass());
   }
 
   private void dropped() {

@@ -25,6 +25,7 @@ com.infenia.yukta.controller.LogManagementController
 com.infenia.yukta.controller.MeController
 com.infenia.yukta.controller.MetricsController
 com.infenia.yukta.controller.NodeOutputController
+com.infenia.yukta.controller.NotificationsController
 com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.ProjectPathController
 com.infenia.yukta.controller.SessionConfigController

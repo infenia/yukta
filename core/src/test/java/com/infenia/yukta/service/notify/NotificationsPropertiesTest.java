@@ -53,6 +53,14 @@ class NotificationsPropertiesTest {
   }
 
   @Test
+  void negativeRetentionIsRefused() {
+    assertThatThrownBy(() ->
+            new YuktaProperties.Notifications(
+                true, Duration.ofDays(-1), 1, Duration.ZERO, Map.of(), Map.of()))
+        .hasMessageContaining("retention");
+  }
+
+  @Test
   void nonPositiveRetentionIsRefused() {
     assertThatThrownBy(() ->
             new YuktaProperties.Notifications(

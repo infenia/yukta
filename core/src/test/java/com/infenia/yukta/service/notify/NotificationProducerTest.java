@@ -120,11 +120,20 @@ class NotificationProducerTest {
 
   private static InputRequest request(
       final String id, final InputState state, final InputRisk risk, final String... targets) {
+    return request("Deploy build 2.4?\nIt goes to production.", id, state, risk, targets);
+  }
+
+  private static InputRequest request(
+      final String prompt,
+      final String id,
+      final InputState state,
+      final InputRisk risk,
+      final String... targets) {
     final InputRequestSpec spec =
         new InputRequestSpec(
             "k-" + id,
             InputKind.APPROVAL,
-            "Deploy build 2.4?\nIt goes to production.",
+            prompt,
             Map.of("secret", "never shown"),
             List.of(),
             null,
@@ -673,5 +682,26 @@ class NotificationProducerTest {
         .block();
 
     assertThat(items()).hasSize(1);
+  }
+
+  @Test
+  void oneLinePromptHasNoBodyUnlessItIsHandedUp() {
+    handle(
+        new ExecutionEvent.InputRequested(
+            request("Deploy?", "r1", InputState.OPEN, InputRisk.LOW, OPERATOR), NOW));
+    handle(
+        new ExecutionEvent.InputRequested(
+            request("Deploy?", "r2", InputState.OPEN, InputRisk.LOW, OPERATOR), NOW));
+    handle(
+        new ExecutionEvent.InputEscalated(
+            request("Deploy?", "r2", InputState.ESCALATED, InputRisk.LOW, "key:arun"),
+            "slow",
+            NOW));
+
+    assertThat(items())
+        .extracting(Notification::key, Notification::body)
+        .containsExactlyInAnyOrder(
+            org.assertj.core.api.Assertions.tuple("input:r1", null),
+            org.assertj.core.api.Assertions.tuple("input:r2", "Handed up: slow"));
   }
 }

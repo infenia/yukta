@@ -21,6 +21,9 @@ public enum ApiRole {
   /** Mutating paths an operator may call. */
   private static final List<String> OPERATOR_PATHS = List.of("/api/executions/", "/api/workflow/");
 
+  /** What a person does with their own inbox: any role may, nobody else's state is touched. */
+  private static final String INBOX_PATH = "/api/notifications/";
+
   /**
    * Whether this role may make the request.
    *
@@ -36,6 +39,7 @@ public enum ApiRole {
     // no ".." segments: a prefix match must not be a way out of the prefix
     return this == ADMIN
         || read
+        || (path.startsWith(INBOX_PATH) && !path.contains(".."))
         || (this == OPERATOR
             && !path.contains("..")
             && OPERATOR_PATHS.stream().anyMatch(path::startsWith));

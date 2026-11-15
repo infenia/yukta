@@ -69,9 +69,39 @@ public class SseStreams {
   public static <T> Flux<ServerSentEvent<T>> events(
       final Flux<T> data, final String lastEventId, final Duration heartbeat) {
     final long skip = parse(lastEventId) + 1;
+    return guarded(
+        data.index()
+            .filter(indexed -> indexed.getT1() >= skip)
+            .map(indexed ->
+                ServerSentEvent.<T>builder()
+                    .id(String.valueOf(indexed.getT1()))
+                    .data(indexed.getT2())
+                    .build()),
+        heartbeat,
+        DEFAULT_MAX_PER_KEY);
+  }
+
+  /**
+   * Wrap events that carry their own ids and names, with the same limits and keep-alive. For a
+   * stream whose ids mean something to the client, such as a position in a change log.
+   *
+   * @param events the events, ids and names already set
+   * @param heartbeat interval between keep-alive comments
+   * @param perKey most streams one named key may have open at once when {@value
+   *     #MAX_PER_KEY_PROPERTY} is not set
+   * @param <T> payload type
+   * @return the events
+   */
+  public static <T> Flux<ServerSentEvent<T>> named(
+      final Flux<ServerSentEvent<T>> events, final Duration heartbeat, final int perKey) {
+    return guarded(events, heartbeat, perKey);
+  }
+
+  private static <T> Flux<ServerSentEvent<T>> guarded(
+      final Flux<ServerSentEvent<T>> source, final Duration heartbeat, final int defaultPerKey) {
     return Flux.deferContextual(context -> {
       final int max = Integer.getInteger(MAX_CONCURRENT_PROPERTY, DEFAULT_MAX_CONCURRENT);
-      final int perKey = Integer.getInteger(MAX_PER_KEY_PROPERTY, DEFAULT_MAX_PER_KEY);
+      final int perKey = Integer.getInteger(MAX_PER_KEY_PROPERTY, defaultPerKey);
       final AtomicInteger mine =
           context
               .<String>getOrEmpty(ControlActor.CONTEXT_KEY)
@@ -87,17 +117,10 @@ public class SseStreams {
       final Sinks.Empty<Void> finished = Sinks.empty();
       final AtomicBoolean ended = new AtomicBoolean();
       final Flux<ServerSentEvent<T>> events =
-          data.index()
-              .filter(indexed -> indexed.getT1() >= skip)
-              .map(indexed ->
-                  ServerSentEvent.<T>builder()
-                      .id(String.valueOf(indexed.getT1()))
-                      .data(indexed.getT2())
-                      .build())
-              .doFinally(_ -> {
-                ended.set(true);
-                finished.tryEmitEmpty();
-              });
+          source.doFinally(_ -> {
+            ended.set(true);
+            finished.tryEmitEmpty();
+          });
       final Flux<ServerSentEvent<T>> keepAlive =
           Flux.interval(heartbeat)
               .filter(_ ->
