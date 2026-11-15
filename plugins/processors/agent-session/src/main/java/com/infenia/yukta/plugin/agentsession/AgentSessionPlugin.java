@@ -59,6 +59,8 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
 
   private static final String TYPE = "AGENT_SESSION";
 
+  private static final long DEFAULT_BEAT_SECONDS = 10;
+  private static final Runnable NO_BEAT = () -> {};
   private static final String FAILURE = "failure";
   private static final String STATUS = "status";
   private static final Duration BUSY_POLL = Duration.ofMillis(250);
@@ -96,11 +98,43 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
       final ObjectProvider<InputGateway> inputs,
       final ObjectProvider<AgentConversationGateway> conversations,
       final ObjectMapper json) {
+    this(
+        gateway,
+        resolver,
+        harnesses,
+        sessions,
+        inputs,
+        conversations,
+        json,
+        Duration.ofSeconds(DEFAULT_BEAT_SECONDS));
+  }
+
+  /**
+   * Creates the plugin with its own heartbeat interval, for tests.
+   *
+   * @param gateway starts the process
+   * @param resolver resolves config expressions
+   * @param harnesses the presets
+   * @param sessions remembers sessions between turns
+   * @param inputs the input request system, for approvals
+   * @param conversations records the conversations
+   * @param json the JSON mapper
+   * @param beat how often an open conversation tells the engine that its node is alive
+   */
+  /* default */ AgentSessionPlugin(
+      final ProcessExecutorGateway gateway,
+      final VariableResolver resolver,
+      final AgentHarnesses harnesses,
+      final AgentSessionStore sessions,
+      final ObjectProvider<InputGateway> inputs,
+      final ObjectProvider<AgentConversationGateway> conversations,
+      final ObjectMapper json,
+      final Duration beat) {
     this.resolver = resolver;
     this.settings = new AgentSessionConfig(harnesses);
     this.sessions = sessions;
     this.conversations = conversations;
-    final AgentAdapter jsonl = new JsonlAdapter(gateway, inputs, json);
+    final AgentAdapter jsonl = new JsonlAdapter(gateway, inputs, json, beat);
     adapters.put(jsonl.protocol(), jsonl);
   }
 
@@ -274,7 +308,7 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
                           who,
                           chat,
                           AgentSessionConfig.idleTimeout(config),
-                          ctx.<Runnable>getOrDefault(WorkflowContext.HEARTBEAT_KEY, () -> {})))
+                          ctx.<Runnable>getOrDefault(WorkflowContext.HEARTBEAT_KEY, NO_BEAT)))
                   .map(outcome -> reply(message, outcome, lease, attempt, conversation)));
     });
   }

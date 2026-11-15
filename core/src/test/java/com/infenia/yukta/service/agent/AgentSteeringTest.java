@@ -324,6 +324,16 @@ class AgentSteeringTest {
     assertThat(AgentSteering.willQueue(idle, false)).isFalse();
   }
 
+  @Test
+  void eachReasonHasItsHttpStatusAndCode() {
+    assertThat(Reason.FORBIDDEN.status()).isEqualTo(403);
+    assertThat(Reason.NOT_LIVE.status()).isEqualTo(409);
+    assertThat(Reason.UNSUPPORTED.status()).isEqualTo(409);
+    assertThat(Reason.TOO_LARGE.status()).isEqualTo(413);
+    assertThat(Reason.RATE_LIMITED.status()).isEqualTo(429);
+    assertThat(Reason.NOT_LIVE.code()).isEqualTo("not_live");
+  }
+
   private static AgentConversation conversation(
       final AgentState state, final Set<String> capabilities) {
     return AgentTestSupport.conversation("c-1").withState(state).withCapabilities(capabilities);

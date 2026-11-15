@@ -133,4 +133,24 @@ class AgentPresetTest {
         .hasMessage(
             "agent harness preset: 'live.kind' must be message, thought or tool, not 'banner'");
   }
+
+  @Test
+  void interactiveBlockSaysWhetherTheHarnessSteersAndHowItIsInterrupted() throws IOException {
+    final var root = claudeJson();
+    final var talk = AgentPreset.parse(root).interactive();
+    assertThat(talk.steer()).isTrue();
+    assertThat(talk.canInterrupt()).isTrue();
+
+    final var plain = (tools.jackson.databind.node.ObjectNode) claudeJson().get("interactive");
+    plain.remove("steer");
+    plain.remove("interrupt");
+    final var without = AgentPreset.parse(claudeJson().set("interactive", plain)).interactive();
+    assertThat(without.steer()).isFalse();
+    assertThat(without.canInterrupt()).isFalse();
+
+    plain.set("interrupt", JSON.nullNode());
+    assertThat(
+            AgentPreset.parse(claudeJson().set("interactive", plain)).interactive().canInterrupt())
+        .isFalse();
+  }
 }

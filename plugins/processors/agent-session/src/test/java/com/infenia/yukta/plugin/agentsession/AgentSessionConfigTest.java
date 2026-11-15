@@ -112,4 +112,71 @@ class AgentSessionConfigTest {
     assertThat(AgentSessionConfig.command(claude.command(), claude, Map.of(), turn, " "))
         .doesNotContain("--resume");
   }
+
+  @Test
+  void validate_refusesConversationWithAHarnessThatTakesNoMessages() {
+    assertThatThrownBy(() ->
+            config.validate(Map.of("harness", "codex", "prompt", "p", "mode", "CONVERSATION")))
+        .hasMessageContaining("harness 'codex'")
+        .hasMessageContaining("no interactive mode")
+        .hasMessageEndingWith("remove mode");
+    assertThatThrownBy(
+            () -> config.validate(Map.of("harness", "codex", "prompt", "p", "mode", "X")))
+        .hasMessage("mode must be TASK or CONVERSATION, got: X");
+  }
+
+  @Test
+  void validate_acceptsConversationWithAnInteractiveHarness() {
+    assertThatCode(() ->
+            config.validate(
+                Map.of(
+                    "harness",
+                    "claude-code",
+                    "prompt",
+                    "p",
+                    "mode",
+                    "conversation",
+                    "idleTimeout",
+                    60,
+                    "conversationTimeout",
+                    600,
+                    "steerAudience",
+                    List.of("key:ann", "supervisor:*"))))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void validate_refusesTimeoutsThatAreNotPositiveNumbers() {
+    assertThatThrownBy(() ->
+            config.validate(Map.of("harness", "claude-code", "prompt", "p", "idleTimeout", 0)))
+        .hasMessage("idleTimeout must be positive, got: 0");
+    assertThatThrownBy(() ->
+            config.validate(
+                Map.of("harness", "claude-code", "prompt", "p", "conversationTimeout", "x")))
+        .hasMessage("conversationTimeout must be positive, got: x");
+  }
+
+  @Test
+  void conversationTimesOutByItsConversationTimeoutAndWaitsForMessagesByTheIdleTimeout() {
+    assertThat(AgentSessionConfig.timeoutSeconds(Map.of("timeout", 5))).isEqualTo(5);
+    assertThat(AgentSessionConfig.timeoutSeconds(Map.of("mode", "CONVERSATION", "timeout", 5)))
+        .isEqualTo(14_400);
+    assertThat(
+            AgentSessionConfig.timeoutSeconds(
+                Map.of("mode", "CONVERSATION", "conversationTimeout", 90)))
+        .isEqualTo(90);
+    assertThat(AgentSessionConfig.idleTimeout(Map.of()))
+        .isEqualTo(java.time.Duration.ofSeconds(900));
+    assertThat(AgentSessionConfig.idleTimeout(Map.of("idleTimeout", 30)))
+        .isEqualTo(java.time.Duration.ofSeconds(30));
+  }
+
+  @Test
+  void theSteerAudienceDefaultsToOperators() {
+    assertThat(AgentSessionConfig.steerAudience(Map.of()).selectors())
+        .containsExactly("role:OPERATOR");
+    assertThat(
+            AgentSessionConfig.steerAudience(Map.of("steerAudience", List.of("key:a"))).selectors())
+        .containsExactly("key:a");
+  }
 }

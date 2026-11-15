@@ -100,7 +100,7 @@ class SupervisorCapabilitiesTest {
                     java.util.Arrays.stream(ExecutionControlCommand.class.getPermittedSubclasses())
                         .map(Class::getSimpleName)
                         .toList())));
-    assertThat(caps.allowedCommands()).hasSize(20);
+    assertThat(caps.allowedCommands()).hasSize(23);
   }
 
   @Test

@@ -28,10 +28,7 @@ import reactor.core.publisher.Mono;
  * conversation, results on the thread that reads the process output.
  */
 @SuppressWarnings("PMD.TooManyMethods")
-final class Chat implements Disposable {
-
-  /** How often a conversation tells the engine that its node is alive. */
-  private static final Duration BEAT = Duration.ofSeconds(10);
+final class Chat {
 
   private static final String STATUS = "status";
 
@@ -39,6 +36,7 @@ final class Chat implements Disposable {
   private final AgentOutput output;
   private final AgentRequests requests;
   private final ProcessExecutorGateway.StdinWriter stdin;
+  private final Duration beat;
   private final AgentConversationHandle handle;
   private final Mailbox mailbox = new Mailbox();
   private final Disposable.Composite background = Disposables.composite();
@@ -62,7 +60,7 @@ final class Chat implements Disposable {
   private AgentCommand.@Nullable End end;
 
   /** The outcome of the last turn that ended. */
-  private @Nullable Map<String, Object> last;
+  private Map<String, Object> last = Map.of();
 
   private int sent;
   private @Nullable Disposable idle;
@@ -71,8 +69,10 @@ final class Chat implements Disposable {
       final AgentRun run,
       final AgentOutput output,
       final AgentRequests requests,
-      final ProcessExecutorGateway.StdinWriter stdin) {
+      final ProcessExecutorGateway.StdinWriter stdin,
+      final Duration beat) {
     this.run = run;
+    this.beat = beat;
     this.output = output;
     this.requests = requests;
     this.stdin = stdin;
@@ -87,7 +87,7 @@ final class Chat implements Disposable {
     requests.say(run.prompt());
     background.add(handle.commands().subscribe(this::command));
     if (run.chat()) {
-      background.add(Flux.interval(BEAT).subscribe(_ -> run.heartbeat().run()));
+      background.add(Flux.interval(beat).subscribe(_ -> run.heartbeat().run()));
     }
   }
 
@@ -109,8 +109,7 @@ final class Chat implements Disposable {
    * @return the outcome of the node
    */
   /* default */ synchronized Map<String, Object> settle(final Map<String, Object> base) {
-    final Map<String, Object> outcome =
-        !busy && lastStopped && last != null ? new LinkedHashMap<>(last) : base;
+    final Map<String, Object> outcome = lastStopped ? new LinkedHashMap<>(last) : base;
     outcome.put("exitCode", base.get("exitCode"));
     outcome.put("turn", base.get("turn"));
     if (end != null && end.outcome() != null) {
@@ -181,6 +180,7 @@ final class Chat implements Disposable {
     output.nextTurn();
     busy = true;
     interrupted = false;
+    lastStopped = false;
     handle.state(AgentState.RUNNING, null);
     requests.say(text);
   }
@@ -208,11 +208,11 @@ final class Chat implements Disposable {
     }
   }
 
+  // ponytail: a message that arrives in the instant the timer fires can lose to the timer; a
+  // fixed epoch check would close it, add if idle timeouts get short
   private synchronized void idled() {
-    if (!busy) {
-      idleOut = true;
-      stdin.close();
-    }
+    idleOut = true;
+    stdin.close();
   }
 
   private void cancelIdle() {
@@ -232,14 +232,8 @@ final class Chat implements Disposable {
     return result;
   }
 
-  @Override
-  public void dispose() {
+  /* default */ void dispose() {
     background.dispose();
     cancelIdle();
-  }
-
-  @Override
-  public boolean isDisposed() {
-    return background.isDisposed();
   }
 }

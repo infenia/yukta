@@ -14,6 +14,7 @@ import com.infenia.yukta.service.input.ActorInfo;
 import com.infenia.yukta.service.input.ActorResolver;
 import java.nio.charset.StandardCharsets;
 import java.util.Set;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -26,6 +27,11 @@ import reactor.core.publisher.Mono;
  * conversation the caller does not reach is as unknown as one that does not exist.
  */
 @Component
+@ConditionalOnProperty(
+    prefix = "yukta.agents",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class AgentSteering {
 
   private static final String ANONYMOUS = "anonymous";

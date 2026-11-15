@@ -12,6 +12,7 @@ import com.infenia.yukta.plugin.input.InputGateway;
 import com.infenia.yukta.plugin.input.InputIdentity;
 import com.infenia.yukta.plugin.process.ProcessExecutionResult;
 import com.infenia.yukta.plugin.process.ProcessExecutorGateway;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -37,17 +38,23 @@ public final class JsonlAdapter implements AgentAdapter {
   private final ObjectProvider<InputGateway> inputs;
   private final ObjectMapper json;
 
+  /** How often a conversation tells the engine that its node is alive. */
+  private final Duration beat;
+
   /**
    * Creates the adapter.
    *
    * @param gateway starts the process
    * @param inputs the input request system, for approvals; found at use time
    * @param json the JSON mapper
+   * @param beat how often an open conversation tells the engine that its node is alive
    */
   public JsonlAdapter(
       final ProcessExecutorGateway gateway,
       final ObjectProvider<InputGateway> inputs,
-      final ObjectMapper json) {
+      final ObjectMapper json,
+      final Duration beat) {
+    this.beat = beat;
     this.gateway = gateway;
     this.inputs = inputs;
     this.json = json;
@@ -144,7 +151,7 @@ public final class JsonlAdapter implements AgentAdapter {
                       stdin,
                       run.handle());
               requests.set(a);
-              final Chat c = new Chat(run, output, a, stdin);
+              final Chat c = new Chat(run, output, a, stdin, beat);
               chat.set(c);
               c.start();
             })

@@ -12,6 +12,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.AgentMessageComm
 import com.infenia.yukta.service.agent.AgentSteering;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -20,7 +21,14 @@ import reactor.test.StepVerifier;
 class AgentCommandProcessorTest {
 
   private final AgentSteering steering = mock(AgentSteering.class);
-  private final AgentCommandProcessor processor = new AgentCommandProcessor(steering);
+  private final AgentCommandProcessor processor = new AgentCommandProcessor(provider(steering));
+
+  @SuppressWarnings("unchecked")
+  private static ObjectProvider<AgentSteering> provider(final AgentSteering steering) {
+    final ObjectProvider<AgentSteering> provider = mock(ObjectProvider.class);
+    when(provider.getIfAvailable()).thenReturn(steering);
+    return provider;
+  }
 
   @Test
   void whenMessageIsSentWithItsInterruptFlag() {
@@ -50,5 +58,16 @@ class AgentCommandProcessorTest {
         .verifyComplete();
 
     verify(steering).end("c-1", "failure", "why");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void whenAgentsAreOffACommandFailsWithThatReason() {
+    final ObjectProvider<AgentSteering> none = mock(ObjectProvider.class);
+    final AgentCommandProcessor off = new AgentCommandProcessor(none);
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> off.process(new AgentInterruptCommand("e", "n", "c-1")))
+        .hasMessageContaining("yukta.agents.enabled");
   }
 }

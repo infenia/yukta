@@ -120,12 +120,46 @@ class ExecutionControlCommandTest {
           case ExecutionControlCommand.SetPriorityCommand c -> "priority-" + c.priority();
           case ExecutionControlCommand.AnswerInputCommand c -> "answer-" + c.requestId();
           case ExecutionControlCommand.EscalateInputCommand c -> "escalate-" + c.requestId();
+          case ExecutionControlCommand.AgentMessageCommand c -> "agent-message-" + c.text();
+          case ExecutionControlCommand.AgentInterruptCommand c -> "agent-interrupt";
+          case ExecutionControlCommand.AgentEndCommand c -> "agent-end";
           case ExecutionControlCommand.StartWorkflowCommand c -> "start-" + c.workflowId();
           case ExecutionControlCommand.RecoverCommand c -> "recover-" + c.executionId();
           case ExecutionControlCommand.DrainCommand c -> "drain-" + c.draining();
         };
 
     assertThat(kind).isEqualTo("pause-node");
+  }
+
+  @Test
+  void agentCommandsNeedTheirIdsAndAMessageNeedsText() {
+    assertThatThrownBy(
+            () -> new ExecutionControlCommand.AgentMessageCommand("e", "n", "c", " ", false))
+        .hasMessage("text must not be blank");
+    assertThatThrownBy(
+            () -> new ExecutionControlCommand.AgentMessageCommand("e", "n", "", "t", false))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new ExecutionControlCommand.AgentInterruptCommand("e", " ", "c"))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new ExecutionControlCommand.AgentEndCommand("", "n", "c", null, null))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() ->
+            new ExecutionControlCommand.AgentEndCommand("e", "n", "c", null, "y".repeat(9000)))
+        .hasMessage("reason is longer than 8192 bytes");
+    assertThat(
+            new ExecutionControlCommand.AgentEndCommand("e", "n", "c", "failure", "why").nodeId())
+        .isEqualTo("n");
+  }
+
+  @Test
+  void agentCommandsAreTargetedAtTheirNode() {
+    assertThatThrownBy(
+            () -> new ExecutionControlCommand.AgentMessageCommand("e", "n", "c", null, false))
+        .hasMessage("text must not be blank");
+    assertThat(new ExecutionControlCommand.AgentInterruptCommand("e", "n", "c").nodeId())
+        .isEqualTo("n");
+    assertThat(new ExecutionControlCommand.AgentMessageCommand("e", "n", "c", "t", true).nodeId())
+        .isEqualTo("n");
   }
 
   @Test

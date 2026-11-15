@@ -828,6 +828,14 @@ class AgentSessionPluginTest {
     assertThat(recording.specs.getFirst().capabilities()).isEmpty();
   }
 
+  @Test
+  void nodeWithoutApprovalsOrAConversationGatewayRunsTheOneShotCommand() {
+    final Message<?> out = runInNode("asker", Map.of(), new CopyOnWriteArrayList<>());
+
+    assertThat(out.sourcePort()).isEqualTo("failure");
+    assertThat(payload(out)).containsEntry("exitCode", 9);
+  }
+
   /** Records what the plugin writes to a conversation, as readable lines. */
   private static final class RecordingGateway
       implements com.infenia.yukta.plugin.agent.AgentConversationGateway {

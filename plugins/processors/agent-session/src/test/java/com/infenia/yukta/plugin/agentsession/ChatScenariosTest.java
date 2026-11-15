@@ -15,6 +15,7 @@ import com.infenia.yukta.plugin.agent.AgentConversationHandle;
 import com.infenia.yukta.plugin.agent.AgentConversationSpec;
 import com.infenia.yukta.plugin.agent.AgentEventKind;
 import com.infenia.yukta.plugin.agent.AgentState;
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.input.InputGateway;
 import com.infenia.yukta.plugin.process.ProcessExecutorGateway;
 import com.infenia.yukta.plugin.util.VariableResolver;
@@ -64,9 +65,19 @@ class ChatScenariosTest {
       while IFS= read -r line; do
         case "$line" in
           *'"subtype":"interrupt"'*)
-            echo '{"type":"result","subtype":"error_during_execution","is_error":true,"result":"","session_id":"s"}' ;;
+            if [ "$held" = ok ]; then
+              echo '{"type":"result","subtype":"success","is_error":false,"result":"too late","session_id":"s"}'
+            else
+              echo '{"type":"result","subtype":"error_during_execution","is_error":true,"result":"","session_id":"s"}'
+            fi ;;
+          *'"content":"HOLDOK"'*) held=ok ;;
           *'"content":"HOLD"'*) : ;;
           *'"content":"DIE"'*) exit 3 ;;
+          *'"content":"ASKME"'*)
+            echo '{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{},"description":"d"}}'
+            read -r reply
+            m=$(printf %s "$reply" | sed -n 's/.*"message":"\\([^"]*\\)".*/\\1/p')
+            echo "{\\"type\\":\\"result\\",\\"subtype\\":\\"success\\",\\"is_error\\":false,\\"result\\":\\"$m\\",\\"session_id\\":\\"s\\"}" ;;
           *'"type":"control_request"'*)
             echo '{"type":"result","subtype":"success","is_error":false,"result":"asked","session_id":"s"}' ;;
           *)
@@ -109,6 +120,11 @@ class ChatScenariosTest {
     final String script = dir.resolve("agent.sh").toString();
     Files.writeString(dir.resolve("agent.sh"), SCRIPT);
     Files.writeString(dir.resolve("queuer.json"), PRESET.formatted("queuer", script, "false"));
+    Files.writeString(
+        dir.resolve("deaf.json"),
+        PRESET
+            .formatted("deaf", script, "false")
+            .replaceFirst(",\\s*\"interrupt\":\\{.*\\}\\},\\s*\"output\"", "},\n \"output\""));
     Files.writeString(dir.resolve("steerer.json"), PRESET.formatted("steerer", script, "true"));
     final VariableResolver resolver = mock(VariableResolver.class);
     when(resolver.resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
@@ -128,7 +144,8 @@ class ChatScenariosTest {
                       opened = spec;
                       return Mono.just(new Handle());
                     }),
-            JSON);
+            JSON,
+            Duration.ofMillis(50));
   }
 
   @SuppressWarnings("unchecked")
@@ -137,6 +154,16 @@ class ChatScenariosTest {
     when(provider.getIfAvailable()).thenReturn(value);
     return provider;
   }
+
+  /** Whether the engine's heartbeat is in the context of the next run. */
+  private boolean beating;
+
+  private Runnable beat() {
+    return beats::incrementAndGet;
+  }
+
+  private final java.util.concurrent.atomic.AtomicInteger beats =
+      new java.util.concurrent.atomic.AtomicInteger();
 
   private CompletableFuture<Message<?>> start(
       final String harness, final Map<String, Object> extra, final String prompt) {
@@ -147,7 +174,18 @@ class ChatScenariosTest {
             .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "in")), config)
             .contextWrite(
                 Context.of(
-                    "sessionId", "s-1", "workflowId", "w-1", "executionId", "e-1", "nodeId", "n-1"))
+                        "sessionId",
+                        "s-1",
+                        "workflowId",
+                        "w-1",
+                        "executionId",
+                        "e-1",
+                        "nodeId",
+                        "n-1")
+                    .putAll(
+                        beating
+                            ? Context.of(WorkflowContext.HEARTBEAT_KEY, beat()).readOnly()
+                            : Context.empty().readOnly()))
             .collectList()
             .blockOptional(Duration.ofSeconds(30))
             .orElseThrow()
@@ -317,6 +355,62 @@ class ChatScenariosTest {
     start("queuer", Map.of(), "one").get();
 
     assertThat(opened.steerAudience().selectors()).containsExactly("role:OPERATOR");
+  }
+
+  @Test
+  void anOpenConversationTellsTheEngineItIsAlive() throws Exception {
+    beating = true;
+    final var running = start("queuer", Map.of("mode", "CONVERSATION"), "one");
+    awaitCall("state IDLE null");
+
+    await().atMost(Duration.ofSeconds(20)).until(() -> beats.get() >= 2);
+    send(new AgentCommand.End(null, null, "key:ann"));
+    running.get();
+  }
+
+  @Test
+  void aTurnThatEndsWellAfterAnInterruptStaysAsItEnded() throws Exception {
+    final var running = start("queuer", Map.of(), "HOLDOK");
+    awaitCall("state RUNNING");
+
+    send(new AgentCommand.Interrupt("key:ann"));
+    final Message<?> out = running.get();
+
+    assertThat(out.sourcePort()).isEqualTo("success");
+    assertThat(payload(out)).containsEntry("text", "too late");
+  }
+
+  @Test
+  void anInterruptWhileTheAgentIsIdleDoesNothing() throws Exception {
+    final var running = start("queuer", Map.of("mode", "CONVERSATION"), "one");
+    awaitCall("state IDLE null");
+
+    send(new AgentCommand.Interrupt("key:ann"));
+    send(new AgentCommand.TerminalResize(80, 24));
+    send(new AgentCommand.End(null, null, "key:ann"));
+    final Message<?> out = running.get();
+
+    assertThat(payload(out)).containsEntry("turn", 1);
+  }
+
+  @Test
+  void anInterruptTheHarnessCannotTakeIsIgnored() throws Exception {
+    final var running = start("deaf", Map.of(), "HOLD");
+    awaitCall("state RUNNING");
+
+    send(new AgentCommand.Interrupt("key:ann"));
+    send(new AgentCommand.End("incomplete", "bye", "key:ann"));
+    final Message<?> out = running.get();
+
+    assertThat(out.sourcePort()).isEqualTo("incomplete");
+    assertThat(opened.capabilities()).doesNotContain("interrupt");
+  }
+
+  @Test
+  void aRequestIsRefusedWhenApprovalsAreOffForTheNode() throws Exception {
+    final Message<?> out = start("queuer", Map.of(), "ASKME").get();
+
+    assertThat(payload(out)).containsEntry("text", "approvals are off for this node");
   }
 
   /** The handle of the conversation: the commands come from the test. */
