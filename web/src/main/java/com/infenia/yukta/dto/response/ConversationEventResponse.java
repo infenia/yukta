@@ -39,4 +39,10 @@ public record ConversationEventResponse(
             })
         String kind,
     @Schema(description = "The item it belongs to", nullable = true) @Nullable String itemId,
-    @Schema(description = "The details; the keys depend on the kind") Map<String, Object> data) {}
+    @Schema(description = "The details; the keys depend on the kind") Map<String, Object> data) {
+
+  /** Keeps immutable copies of the collections. */
+  public ConversationEventResponse {
+    data = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(data));
+  }
+}

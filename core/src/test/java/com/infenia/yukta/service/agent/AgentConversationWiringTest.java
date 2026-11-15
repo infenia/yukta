@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.plugin.agent.AgentConversationGateway;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.startup.DefaultsAutoConfiguration;
@@ -30,7 +31,8 @@ class AgentConversationWiringTest {
           .withUserConfiguration(ScanAgentPackage.class)
           .withBean(ObjectMapper.class, () -> JsonMapper.builder().build())
           .withBean(InputRedactor.class, () -> new InputRedactor(List.of()))
-          .withBean(TaskTrackerService.class, () -> mock(TaskTrackerService.class));
+          .withBean(TaskTrackerService.class, () -> mock(TaskTrackerService.class))
+          .withBean(ControlBusGateway.class, () -> mock(ControlBusGateway.class));
 
   @Test
   void byDefaultTheStoreTheServiceTheGatewayAndTheRetentionExist() {

@@ -48,8 +48,12 @@ import reactor.core.publisher.Mono;
     name = "enabled",
     havingValue = "true",
     matchIfMissing = true)
+@SuppressWarnings({"PMD.ExcessiveImports"})
 @Tag(name = "Agent Conversations API", description = "Read the conversations with AI agents")
 public class ConversationsController {
+
+  /** The default of the options that are on unless a client turns them off. */
+  private static final String ON_BY_DEFAULT = "true";
 
   /** Conversation ID parameter description. */
   /** Most streams of the conversation changes one key may hold open. */
@@ -84,7 +88,6 @@ public class ConversationsController {
               + " state, sessionId and executionId; with executionId, tree=true (the default) also"
               + " lists those of the runs below it. limit defaults to 100, at most 500. An unknown"
               + " state is a 400.")
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<ApiResponse<List<ConversationResponse>>> listConversations(
       @Parameter(description = STATES) @RequestParam(required = false) final String state,
       @Parameter(description = "Only this session") @RequestParam(required = false)
@@ -92,7 +95,7 @@ public class ConversationsController {
       @Parameter(description = "Only this run") @RequestParam(required = false)
           final String executionId,
       @Parameter(description = "With executionId: also the runs below it (default true)")
-          @RequestParam(defaultValue = "true")
+          @RequestParam(defaultValue = ON_BY_DEFAULT)
           final boolean tree,
       @Parameter(description = "Most conversations returned (default 100, at most 500)")
           @RequestParam(required = false)
@@ -116,11 +119,10 @@ public class ConversationsController {
           "The conversations of the run and, with tree=true (the default), of its child runs,"
               + " newest first. 404 for an unknown run or one of a session the caller does not"
               + " reach.")
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<ApiResponse<List<ConversationResponse>>> listRunConversations(
       @Parameter(description = "Execution ID") @PathVariable final String executionId,
       @Parameter(description = "Also the runs below it (default true)")
-          @RequestParam(defaultValue = "true")
+          @RequestParam(defaultValue = ON_BY_DEFAULT)
           final boolean tree,
       @Parameter(description = STATES) @RequestParam(required = false) final String state,
       @Parameter(description = "Most conversations returned (default 100, at most 500)")
@@ -161,7 +163,6 @@ public class ConversationsController {
               + " 500. When more events follow, the X-Next-Cursor header holds the number to pass"
               + " as after. Terminal output is kept in a ring of bytes, so an old chunk may be"
               + " gone.")
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<ResponseEntity<ApiResponse<List<ConversationEventResponse>>>> getEvents(
       @Parameter(description = CONVERSATION_ID) @PathVariable final String id,
       @Parameter(description = "Sequence number of the last event the caller has")
@@ -218,13 +219,13 @@ public class ConversationsController {
   public Flux<ServerSentEvent<Object>> streamConversations(
       @Parameter(description = "Execution ID") @PathVariable final String executionId,
       @Parameter(description = "Also the runs below it (default true)")
-          @RequestParam(defaultValue = "true")
+          @RequestParam(defaultValue = ON_BY_DEFAULT)
           final boolean tree,
       @Parameter(description = "Only this conversation") @RequestParam(required = false)
           final String conversationId,
       @Parameter(description = KINDS) @RequestParam(required = false) final String kinds,
       @Parameter(description = "false: no terminal output, screens only")
-          @RequestParam(defaultValue = "true")
+          @RequestParam(defaultValue = ON_BY_DEFAULT)
           final boolean terminal,
       @RequestHeader(value = "Last-Event-ID", required = false) final String lastEventId) {
     final Set<com.infenia.yukta.plugin.agent.AgentEventKind> wanted =

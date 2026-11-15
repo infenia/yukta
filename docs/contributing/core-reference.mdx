@@ -694,7 +694,7 @@ A plugin can ask for a decision or an input and wait for the answer. This phase 
 
 **Status:** partial
 
-A plugin that runs an AI agent can record what the agent does as a conversation: a record with a state and an ordered list of events (messages, tool calls, requests, results, notices). This phase holds the record, the store, the limits and the live stream; no plugin opens a conversation yet, and no REST, MCP or CLI endpoint reads one.
+A plugin that runs an AI agent can record what the agent does as a conversation: a record with a state and an ordered list of events (messages, tool calls, requests, results, notices). This phase holds the record, the store, the limits and the live stream; `AGENT_SESSION` records one per message; REST reads them (`/api/conversations`, see the API pages), MCP and the CLI do not yet.
 
 **Behaviour**
 
@@ -704,10 +704,11 @@ A plugin that runs an AI agent can record what the agent does as a conversation:
 - Before an event is stored, `EventSanitizer` cuts text at `max-message-bytes`, tool input and output at `max-tool-bytes`, splits terminal output into chunks of at most 16 KB and replaces secrets (`InputRedactor`); whatever is cut gets `truncated: true`.
 - `InMemoryAgentConversationStore` is the default. Over `max-conversations`, ended conversations go first (the one that ended longest ago first) and a live one is never evicted. Per conversation the oldest events go first over `max-events-per-conversation`, and one `NOTICE` says so. Terminal output is not an event for that bound: it lives in a ring of `terminal-ring-bytes` and the latest screen is kept apart.
 - `AgentRetention` removes conversations that ended more than `retention` ago, hourly, on the leader only.
+- `AgentConversationQueries` is the read side shared by REST, MCP and the CLI: list (a run and, with `tree`, the runs below it, by `TaskTrackerService.isWithin`), one conversation, a page of events, the terminal screen, and `follow`, the live view of a run tree. `follow` collects the live changes from the first moment, sends the stored history after a sequence number, then the live changes the history does not already hold (by number), so a reconnecting client gets exactly what it missed; a client that falls more than 1024 changes behind is ended and resumes with its last number. Every read takes a `reaches` test for sessions: a conversation of a session the caller does not reach is as missing as one that does not exist.
 
 **Configure:** `yukta.agents.enabled` · `yukta.agents.retention` · `yukta.agents.max-conversations` · `yukta.agents.max-events-per-conversation` · `yukta.agents.max-message-bytes` · `yukta.agents.max-tool-bytes` · `yukta.agents.terminal-ring-bytes` · `yukta.agents.messages-per-minute` · `yukta.agents.pty.enabled` · `yukta.agents.pty.host` · `yukta.agents.pty.cols` · `yukta.agents.pty.rows`
 
-**Source:** `AgentConversationGateway` `AgentConversationHandle` `AgentConversationStore` `InMemoryAgentConversationStore` `AgentConversationService` `DefaultAgentConversationGateway` `LiveAgentConversation` `SerialWriter` `EventSanitizer` `AgentRetention`
+**Source:** `AgentConversationGateway` `AgentConversationHandle` `AgentConversationStore` `InMemoryAgentConversationStore` `AgentConversationService` `DefaultAgentConversationGateway` `LiveAgentConversation` `SerialWriter` `EventSanitizer` `AgentRetention` `AgentConversationQueries`
 
 **Limits:** With `yukta.agents.enabled=false` no gateway, service, store or retention bean exists. Conversations are kept in memory and are lost when the server restarts. `messages-per-minute` and the `pty.*` settings are read by later phases. Secrets are removed by patterns, not guaranteed, and terminal bytes are not redacted.
 

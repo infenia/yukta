@@ -58,10 +58,8 @@ import tools.jackson.databind.json.JsonMapper;
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyMethods",
   "PMD.TooManyStaticImports",
-  "PMD.CouplingBetweenObjects",
   "PMD.ExcessiveImports",
-  "PMD.UseConcurrentHashMap",
-  "PMD.GodClass"
+  "PMD.UseConcurrentHashMap"
 })
 @org.junit.jupiter.api.Timeout(30)
 class ConversationsControllerTest {
@@ -94,7 +92,7 @@ class ConversationsControllerTest {
   private final WebTestClient open;
   private final WebTestClient keyed;
 
-  ConversationsControllerTest() {
+  /* default */ ConversationsControllerTest() {
     when(tracker.lineage(anyString())).thenReturn(new TaskTrackerService.Lineage("root", 0));
     when(tracker.isWithin(anyString(), anyString()))
         .thenAnswer(call -> {
@@ -232,7 +230,7 @@ class ConversationsControllerTest {
   }
 
   @Test
-  void aChildRunsConversationIsListedWithTreeAndNotWithoutIt() {
+  void childRunsConversationIsListedWithTreeAndNotWithoutIt() {
     conversation("root", "s1");
     conversation("child-1", "s1");
 
@@ -254,7 +252,7 @@ class ConversationsControllerTest {
   }
 
   @Test
-  void anUnknownRunIsNotFound() {
+  void unknownRunIsNotFound() {
     get("/api/executions/nope/conversations").expectStatus().isNotFound();
     get("/api/executions/nope/conversations/stream").expectStatus().isNotFound();
   }
@@ -277,7 +275,7 @@ class ConversationsControllerTest {
   }
 
   @Test
-  void theEventsComeInPagesWithTheNextNumberInAHeader() {
+  void theEventsComeInPagesWithTheNextNumberInTheHeader() {
     final AgentConversationHandle handle = conversation("root", "s1");
     for (int i = 0; i < 5; i++) {
       say(handle, "t" + i);
@@ -321,7 +319,7 @@ class ConversationsControllerTest {
   }
 
   @Test
-  void theScreenOfATerminalIsReadWithItsCursor() {
+  void theScreenOfTheTerminalIsReadWithItsCursor() {
     final AgentConversationHandle plain = conversation("root", "s1");
     final AgentConversationHandle pty = conversation("root", "s1", AgentCapability.TERMINAL);
 
@@ -379,7 +377,7 @@ class ConversationsControllerTest {
   }
 
   @Test
-  void aReconnectingClientGetsExactlyWhatItMissed() {
+  void reconnectingClientGetsExactlyWhatItMissed() {
     final AgentConversationHandle handle = conversation("root", "s1");
     say(handle, "one");
     say(handle, "two");
@@ -400,7 +398,7 @@ class ConversationsControllerTest {
   }
 
   @Test
-  void aHeaderThatIsNotANumberStartsFromTheBeginning() {
+  void headerThatIsNotTheNumberStartsFromTheBeginning() {
     final AgentConversationHandle handle = conversation("root", "s1");
     say(handle, "one");
 
@@ -434,7 +432,8 @@ class ConversationsControllerTest {
     final AgentConversationHandle child = conversation("child-1", "s1");
     say(mine, "mine");
     say(child, "from the child");
-    final String bytes = Base64.getEncoder().encodeToString("x".getBytes());
+    final String bytes =
+        Base64.getEncoder().encodeToString("x".getBytes(java.nio.charset.StandardCharsets.UTF_8));
     mine.emit(AgentEventKind.TERMINAL, null, Map.of("data", bytes, "cols", 80, "rows", 24));
     service.flush().block();
 
@@ -465,14 +464,14 @@ class ConversationsControllerTest {
   }
 
   @Test
-  void anUnknownKindOnTheStreamIsABadRequest() {
+  void unknownKindOnTheStreamIsTheBadRequest() {
     get("/api/executions/root/conversations/stream?kinds=gossip").expectStatus().isBadRequest();
   }
 
   // --- who may read ---
 
   @Test
-  void aKeyLimitedToASessionReadsOnlyItsOwnRunsAndHidesTheOthers() {
+  void keyLimitedToTheSessionReadsOnlyItsOwnRunsAndHidesTheOthers() {
     conversation("root", "s1");
     conversation("elsewhere", "s2");
     endRun();
@@ -515,7 +514,7 @@ class ConversationsControllerTest {
   }
 
   @Test
-  void aConversationOfAnotherSessionIsNotFoundEvenWhenTheFilterLetsTheRequestThrough() {
+  void conversationOfAnotherSessionIsNotFoundEvenWhenTheFilterLetsTheRequestThrough() {
     final AgentConversationHandle foreign = conversation("elsewhere", "s2");
     final WebTestClient scoped =
         WebTestClient.bindToController(

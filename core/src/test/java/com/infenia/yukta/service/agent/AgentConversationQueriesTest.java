@@ -52,8 +52,7 @@ import tools.jackson.databind.json.JsonMapper;
   "PMD.AvoidDuplicateLiterals",
   "PMD.CouplingBetweenObjects",
   "PMD.ExcessiveImports",
-  "PMD.UseConcurrentHashMap",
-  "PMD.GodClass"
+  "PMD.UseConcurrentHashMap"
 })
 @org.junit.jupiter.api.Timeout(20)
 class AgentConversationQueriesTest {
@@ -75,7 +74,7 @@ class AgentConversationQueriesTest {
   private final AgentConversationQueries queries =
       new AgentConversationQueries(store, service, tracker, controlBus);
 
-  AgentConversationQueriesTest() {
+  /* default */ AgentConversationQueriesTest() {
     when(tracker.lineage(anyString())).thenReturn(new TaskTrackerService.Lineage("root", 0));
     when(tracker.isWithin(anyString(), anyString()))
         .thenAnswer(call -> {
@@ -149,10 +148,7 @@ class AgentConversationQueriesTest {
     final List<AgentConversation> all =
         queries.list(scope("root", false, ALL), 0).collectList().block();
     final List<AgentConversation> mine =
-        queries
-            .list(scope("root", false, session -> session.equals("s1")), 0)
-            .collectList()
-            .block();
+        queries.list(scope("root", false, "s1"::equals), 0).collectList().block();
 
     assertThat(all)
         .hasSize(3)
@@ -204,7 +200,7 @@ class AgentConversationQueriesTest {
         .hasSize(1);
     assertThat(
             queries
-                .list(new AgentConversationQueries.Scope(null, null, true, Set.of(), ALL), 100000)
+                .list(new AgentConversationQueries.Scope(null, null, true, Set.of(), ALL), 100_000)
                 .collectList()
                 .block())
         .hasSize(2);
@@ -214,7 +210,7 @@ class AgentConversationQueriesTest {
   void conversationOfAnotherSessionIsAsMissingAsAnUnknownOne() {
     final AgentConversationHandle handle = open("root", "s2");
 
-    StepVerifier.create(queries.require(handle.id(), session -> session.equals("s1")))
+    StepVerifier.create(queries.require(handle.id(), "s1"::equals))
         .expectErrorSatisfies(error -> {
           assertThat(error).isInstanceOf(NotFoundException.class);
           assertThat(error.getMessage()).isEqualTo("Conversation not found: " + handle.id());
@@ -232,7 +228,10 @@ class AgentConversationQueriesTest {
     }
 
     final var first = queries.events(handle.id(), 0, 3, Set.of(), ALL).block();
-    final var second = queries.events(handle.id(), first.next(), 3, Set.of(), ALL).block();
+    final var second =
+        queries
+            .events(handle.id(), java.util.Objects.requireNonNull(first.next()), 3, Set.of(), ALL)
+            .block();
 
     assertThat(first.events()).hasSize(3);
     assertThat(first.next()).isEqualTo(first.events().getLast().seq());
@@ -449,26 +448,14 @@ class AgentConversationQueriesTest {
     queries
         .follow(
             new AgentConversationQueries.Follow(
-                "root",
-                true,
-                mine.id(),
-                Set.of(AgentEventKind.MESSAGE),
-                true,
-                0,
-                session -> session.equals("s1")))
+                "root", true, mine.id(), Set.of(AgentEventKind.MESSAGE), true, 0, "s1"::equals))
         .doOnNext(one::add)
         .blockLast(Duration.ofSeconds(5));
     final List<AgentChange> reachable = new ArrayList<>();
     queries
         .follow(
             new AgentConversationQueries.Follow(
-                "root",
-                true,
-                null,
-                Set.of(AgentEventKind.MESSAGE),
-                true,
-                0,
-                session -> session.equals("s1")))
+                "root", true, null, Set.of(AgentEventKind.MESSAGE), true, 0, "s1"::equals))
         .doOnNext(reachable::add)
         .blockLast(Duration.ofSeconds(5));
 
@@ -479,7 +466,9 @@ class AgentConversationQueriesTest {
   @Test
   void newTerminalClientStartsAtTheScreenAndOutputCanBeLeftOut() {
     final AgentConversationHandle pty = open("root", "s1", AgentCapability.TERMINAL);
-    final String bytes = Base64.getEncoder().encodeToString("hello".getBytes());
+    final String bytes =
+        Base64.getEncoder()
+            .encodeToString("hello".getBytes(java.nio.charset.StandardCharsets.UTF_8));
     pty.emit(AgentEventKind.TERMINAL, null, Map.of("data", bytes, "cols", 80, "rows", 24));
     pty.emit(
         AgentEventKind.TERMINAL,

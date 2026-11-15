@@ -1,0 +1,114 @@
+---
+title: "Agent conversations API: read what AI agents say and do"
+sidebarTitle: "Agent conversations API"
+description: "List the conversations of agent nodes, read their messages, tool calls and requests, read the screen of a terminal agent, and follow every agent of a run live over server-sent events."
+keywords: ["agent conversations", "AGENT_SESSION", "AI agent", "SSE", "Last-Event-ID", "terminal screen"]
+---
+
+<Info>
+  **In plain terms:** an `AGENT_SESSION` node runs an AI agent such as Claude Code. Each message the node works on is a *conversation*: what the agent says, the tools it uses, what it asks, and how it ends. These endpoints let you read all of it, and follow every agent of a run in one stream.
+</Info>
+
+Every endpoint here needs only the `VIEWER` role. They exist while `yukta.agents.enabled` is `true` (the default). The text of a conversation is written by an AI agent: show it as plain, untrusted text.
+
+| Method and path | Result |
+|---|---|
+| `GET /api/conversations` | Conversations the caller reaches, newest first |
+| `GET /api/executions/{executionId}/conversations` | Those of a run and, by default, of its child runs |
+| `GET /api/conversations/{id}` | One conversation |
+| `GET /api/conversations/{id}/events` | A page of its events |
+| `GET /api/conversations/{id}/terminal/screen` | The latest screen of a terminal agent |
+| `GET /api/executions/{executionId}/conversations/stream` | Server-sent events for a run and its child runs |
+
+A key limited to some sessions reaches only `/api/executions/{executionId}/…` of runs in its sessions; a conversation of another session is `404`, as one that does not exist.
+
+## The conversation
+
+```json
+{
+  "id": "6b0c…",
+  "executionId": "550e8400-e29b-41d4-a716-446655440000",
+  "rootExecutionId": "550e8400-e29b-41d4-a716-446655440000",
+  "sessionId": "release", "workflowId": "review", "nodeId": "agent",
+  "harness": "claude-code", "protocol": "JSONL", "model": "opus",
+  "capabilities": ["ask", "resume"],
+  "state": "WAITING", "outcome": null, "reason": "approval",
+  "turn": 0, "queued": 0, "steerAudience": ["role:OPERATOR"],
+  "startedAt": "2026-11-15T10:00:00Z", "updatedAt": "2026-11-15T10:00:07Z", "endedAt": null,
+  "seq": 41
+}
+```
+
+`state` is `STARTING`, `RUNNING`, `WAITING` (a request is open), `IDLE` or `ENDED`; `outcome` is `success`, `failure` or `incomplete` once it ended. `seq` is the change sequence of the last change of this record.
+
+## Lists
+
+`GET /api/conversations` and `GET /api/executions/{executionId}/conversations` take:
+
+| Parameter | Default | Meaning |
+|---|---|---|
+| `state` | all | Comma-separated states. An unknown one is a `400` that lists the valid ones. |
+| `tree` | `true` | With a run: also the runs below it. `false`: only that run. |
+| `sessionId`, `executionId` | none | Only on `/api/conversations`: narrow the list. |
+| `limit` | `100` | Most conversations returned, at most `500`. |
+
+## Events
+
+`GET /api/conversations/{id}/events?after=&limit=&kinds=`
+
+An event has `seq` (strictly increasing over all conversations and events), `conversationId`, `timestamp`, `kind`, `itemId` and `data`. Events with the same `itemId` describe one item: message pieces are appended in order, a later tool, plan or request event replaces the fields it carries.
+
+| `kind` | `data` |
+|---|---|
+| `STATE` | `state`, `reason?`, and on the last one `outcome` |
+| `MESSAGE` | `role` (`user`, `agent`, `thought`), `text`, `more`, `author?` (`prompt` for the node's prompt), `truncated?` |
+| `TOOL` | `title`, `status` (`running`, `completed`, `failed`), `input?`, `output?`, `truncated?` |
+| `PLAN` | `entries` |
+| `REQUEST` | `inputKind`, `prompt`, `state` (`open`, `answered`, `expired`, `cancelled`), `tool?`, and once answered `inputRequestId`, `decision`, `by` |
+| `TERMINAL` | output: `data` (base64), `cols`, `rows`; or a screen: `screen`, `cols`, `rows`, `cursorRow`, `cursorCol`, `settled` |
+| `RESULT` | `status`, `reason?`, `text`, `turn` |
+| `NOTICE` | `level` (`INFO`, `WARN`, `ERROR`), `text` |
+
+Text is cut at `yukta.agents.max-message-bytes` and tool input and output at `max-tool-bytes` (`truncated: true`); secrets are replaced. A page has at most 500 events (`limit`, default 100). When more follow, the response header `X-Next-Cursor` holds the number to pass as `after`. Terminal output is kept in a ring of bytes, so an old chunk may be gone, and over `yukta.agents.max-events-per-conversation` the oldest events go first and a `NOTICE` says so.
+
+An agent's request is answered on the [input request](/api/executions) endpoints, not here.
+
+## The terminal screen
+
+`GET /api/conversations/{id}/terminal/screen` returns `{cols, rows, text, cursorRow, cursorCol, seq}` for an agent with a terminal. `404` before the program has drawn a screen, `409` for a conversation without a terminal.
+
+## The stream
+
+`GET /api/executions/{executionId}/conversations/stream`
+
+```http
+GET /api/executions/550e8400-e29b-41d4-a716-446655440000/conversations/stream?tree=true
+Accept: text/event-stream
+Last-Event-ID: 41
+```
+
+| Query parameter | Default | Meaning |
+|---|---|---|
+| `tree` | `true` | Also the runs below this one. |
+| `conversationId` | all | Only this conversation. |
+| `kinds` | all | Comma-separated event kinds. |
+| `terminal` | `true` | `false`: no terminal output, screens only. |
+
+Two kinds of event, with the sequence number as the SSE `id`:
+
+```text
+id: 42
+event: conversation
+data: {"id":"6b0c…","state":"RUNNING", …}
+
+id: 43
+event: event
+data: {"seq":43,"conversationId":"6b0c…","kind":"MESSAGE","itemId":"m1","data":{"role":"agent","text":"…"}}
+```
+
+- On connect a client gets the stored history, then every change, in order. A `conversation` event carries a record on connect (one per conversation) and on every change; an `event` event carries an event.
+- **Resuming.** Reconnect with `Last-Event-ID` set to the last `id` you saw: you get exactly what you missed, no gap and no duplicate.
+- **A slow client** that falls far behind is ended by the server and resumes the same way.
+- **Terminal agents.** A new client gets the latest screen before the live output; a terminal view resets itself with it.
+- **Ending.** The stream ends when the run does. An idle stream sends `: ping` every 15 seconds, as the other [streams](/api/streams) do.
+- **Errors.** `404` for an unknown run or one of an unreachable session, `400` for an unknown kind, `429` when too many streams are open.

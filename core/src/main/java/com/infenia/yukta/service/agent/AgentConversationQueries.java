@@ -425,12 +425,12 @@ public class AgentConversationQueries {
   }
 
   private Predicate<AgentConversation> wanted(final Follow follow, final String root) {
+    final String only = follow.conversationId();
     return conversation ->
         root.equals(conversation.rootExecutionId())
             && inRun(conversation, follow.executionId(), follow.tree())
             && follow.reaches().test(conversation.sessionId())
-            && (follow.conversationId() == null
-                || follow.conversationId().equals(conversation.id()));
+            && (only == null || only.equals(conversation.id()));
   }
 
   private boolean inRun(

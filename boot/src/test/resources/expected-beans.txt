@@ -13,6 +13,7 @@ com.infenia.yukta.controller.AgentMcpController
 com.infenia.yukta.controller.AiBackendController
 com.infenia.yukta.controller.ControlAuditController
 com.infenia.yukta.controller.ControlBusController
+com.infenia.yukta.controller.ConversationsController
 com.infenia.yukta.controller.EditionController
 com.infenia.yukta.controller.EventsController
 com.infenia.yukta.controller.ExecutionAccess
@@ -56,6 +57,7 @@ com.infenia.yukta.logging.api.PluginLogStoreConfig
 com.infenia.yukta.logging.impl.memory.InMemoryPluginLogStore
 com.infenia.yukta.logging.impl.memory.LogStoreAutoConfiguration
 com.infenia.yukta.mapper.AppConfigMapperImpl
+com.infenia.yukta.mapper.ConversationMapperImpl
 com.infenia.yukta.mapper.SessionMapperImpl
 com.infenia.yukta.mapper.WorkflowMapperImpl
 com.infenia.yukta.mcp.AppMcpPrompts
@@ -135,6 +137,7 @@ com.infenia.yukta.plugin.util.EgressPolicy
 com.infenia.yukta.plugin.util.VariableResolver
 com.infenia.yukta.security.ApiKeyAuthenticator
 com.infenia.yukta.service.EnvSecretProvider
+com.infenia.yukta.service.agent.AgentConversationQueries
 com.infenia.yukta.service.agent.AgentConversationService
 com.infenia.yukta.service.agent.AgentRetention
 com.infenia.yukta.service.agent.DefaultAgentConversationGateway

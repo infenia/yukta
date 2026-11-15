@@ -68,4 +68,11 @@ public record ConversationResponse(
     @Schema(description = "When it was opened") Instant startedAt,
     @Schema(description = "When this record last changed") Instant updatedAt,
     @Schema(description = "When it ended", nullable = true) @Nullable Instant endedAt,
-    @Schema(description = "The change sequence of the last change of this record") long seq) {}
+    @Schema(description = "The change sequence of the last change of this record") long seq) {
+
+  /** Keeps immutable copies of the collections. */
+  public ConversationResponse {
+    capabilities = List.copyOf(capabilities);
+    steerAudience = List.copyOf(steerAudience);
+  }
+}
