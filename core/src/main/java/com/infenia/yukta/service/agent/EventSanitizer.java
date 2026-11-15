@@ -179,23 +179,15 @@ final class EventSanitizer {
 
   /** Cuts a text to a number of bytes, at the end of a character. */
   /* default */ static Limited limit(final String text, final int maxBytes) {
-    if (text.length() * 3L <= maxBytes
-        || text.getBytes(StandardCharsets.UTF_8).length <= maxBytes) {
+    final byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+    if (bytes.length <= maxBytes) {
       return new Limited(text, false);
     }
-    int bytes = 0;
-    int end = 0;
-    while (end < text.length()) {
-      final int codePoint = text.codePointAt(end);
-      final int size =
-          new String(Character.toChars(codePoint)).getBytes(StandardCharsets.UTF_8).length;
-      if (bytes + size > maxBytes) {
-        break;
-      }
-      bytes += size;
-      end += Character.charCount(codePoint);
+    int end = maxBytes;
+    while (end > 0 && (bytes[end] & 0xC0) == 0x80) {
+      end--; // back up to the start of the character that does not fit
     }
-    return new Limited(text.substring(0, end), true);
+    return new Limited(new String(bytes, 0, end, StandardCharsets.UTF_8), true);
   }
 
   /**

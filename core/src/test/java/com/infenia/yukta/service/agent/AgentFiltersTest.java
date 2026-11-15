@@ -15,20 +15,20 @@ import org.junit.jupiter.api.Test;
 
 /** A filter keeps what matches every field that is set and ignores the rest. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class AgentFiltersTest {
 
   private final AgentConversation conversation = conversation("c1");
 
   @Test
-  void aConversationFilterWithNothingSetKeepsEverything() {
+  void conversationFilterWithNothingSetKeepsEverything() {
     assertThat(ConversationFilter.all().matches(conversation)).isTrue();
     assertThat(new ConversationFilter(null, null, null, Set.of(), 5).matches(conversation))
         .isTrue();
   }
 
   @Test
-  void aConversationFilterChecksEachFieldItHas() {
+  void conversationFilterChecksEachFieldItHas() {
     assertThat(
             new ConversationFilter("session-1", "exec-1", "root-1", Set.of(AgentState.RUNNING), 5)
                 .matches(conversation))
@@ -46,7 +46,7 @@ class AgentFiltersTest {
   }
 
   @Test
-  void anEventFilterWithNothingSetKeepsEverything() {
+  void eventFilterWithNothingSetKeepsEverything() {
     assertThat(new EventFilter(null, null, null, null, null).matches(conversation)).isTrue();
     assertThat(
             new EventFilter(null, null, null, null, Set.of())
@@ -55,7 +55,7 @@ class AgentFiltersTest {
   }
 
   @Test
-  void anEventFilterChecksEachFieldItHas() {
+  void eventFilterChecksEachFieldItHas() {
     assertThat(new EventFilter("c1", "session-1", "exec-1", "root-1", null).matches(conversation))
         .isTrue();
     assertThat(EventFilter.forConversation("c1").matches(conversation)).isTrue();
@@ -66,7 +66,7 @@ class AgentFiltersTest {
   }
 
   @Test
-  void anEventFilterKeepsOnlyTheKindsItNames() {
+  void eventFilterKeepsOnlyTheKindsItNames() {
     final EventFilter tools = new EventFilter(null, null, null, null, Set.of(AgentEventKind.TOOL));
 
     assertThat(tools.matches(event("c1", AgentEventKind.TOOL))).isTrue();

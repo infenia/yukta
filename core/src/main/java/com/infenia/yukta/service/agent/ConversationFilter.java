@@ -4,6 +4,7 @@ package com.infenia.yukta.service.agent;
 
 import com.infenia.yukta.plugin.agent.AgentConversation;
 import com.infenia.yukta.plugin.agent.AgentState;
+import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
@@ -61,9 +62,10 @@ public record ConversationFilter(
    * @return true if it matches every field that is set
    */
   public boolean matches(final AgentConversation conversation) {
+    final Set<AgentState> wanted = Objects.requireNonNullElse(states, Set.of());
     return (sessionId == null || sessionId.equals(conversation.sessionId()))
         && (executionId == null || executionId.equals(conversation.executionId()))
         && (rootExecutionId == null || rootExecutionId.equals(conversation.rootExecutionId()))
-        && (states == null || states.isEmpty() || states.contains(conversation.state()));
+        && (wanted.isEmpty() || wanted.contains(conversation.state()));
   }
 }

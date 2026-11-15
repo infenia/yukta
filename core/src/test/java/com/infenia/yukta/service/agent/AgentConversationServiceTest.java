@@ -90,6 +90,13 @@ class AgentConversationServiceTest {
     return store.events(EventFilter.forConversation(handle.id()), 0, 1000).collectList().block();
   }
 
+  /** A list that contains itself: Jackson cannot write it. */
+  private static List<Object> selfReferencing() {
+    final List<Object> list = new ArrayList<>();
+    list.add(list);
+    return list;
+  }
+
   private static Map<String, Object> data(final Object... keyValues) {
     final Map<String, Object> map = new LinkedHashMap<>();
     for (int i = 0; i < keyValues.length; i += 2) {
@@ -502,7 +509,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void aPlanKeepsOtherKeysAndNonTextValues() {
+  void planKeepsOtherKeysAndNonTextValues() {
     final AgentConversationHandle handle = open();
 
     handle.emit(
@@ -523,7 +530,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void aSmallTerminalChunkIsStoredAsIs() {
+  void smallTerminalChunkIsStoredAsIs() {
     final AgentConversationHandle handle = open();
     final String encoded = Base64.getEncoder().encodeToString(new byte[] {1, 2, 3});
 
@@ -543,7 +550,9 @@ class AgentConversationServiceTest {
     final AgentConversationHandle handle = open();
 
     handle.emit(
-        AgentEventKind.TOOL, "t", data("title", "Run", "status", "running", "input", new Broken()));
+        AgentEventKind.TOOL,
+        "t",
+        data("title", "Run", "status", "running", "input", selfReferencing()));
 
     assertThat(
             (String)
@@ -553,7 +562,7 @@ class AgentConversationServiceTest {
                     .orElseThrow()
                     .data()
                     .get("input"))
-        .startsWith("com.infenia.yukta.service.agent");
+        .startsWith("[(this Collection)]");
   }
 
   @Test
@@ -595,19 +604,6 @@ class AgentConversationServiceTest {
     assertThat(stored(handle).outcome()).isEqualTo("success");
     assertThat(events(handle)).hasSize(count);
     assertThat(service.live(handle.id())).isEmpty();
-  }
-
-  /** A value Jackson cannot write: reading it throws. */
-  public static final class Broken {
-
-    /**
-     * Always fails.
-     *
-     * @return never returns
-     */
-    public String getBad() {
-      throw new IllegalStateException("cannot be read");
-    }
   }
 
   /** A store that fails on demand. */

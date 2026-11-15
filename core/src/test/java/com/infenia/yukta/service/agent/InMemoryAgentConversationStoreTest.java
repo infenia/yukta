@@ -293,12 +293,13 @@ class InMemoryAgentConversationStoreTest {
   }
 
   @Test
-  void aScreenAndANoticeAreLeftOutWhenTheCallerAlreadyHasThem() {
+  void screenAndTheNoticeAreLeftOutWhenTheCallerAlreadyHasThem() {
     final InMemoryAgentConversationStore store = store(10, 1);
     store.save(conversation("a")).block();
     store.append(event("a", AgentEventKind.MESSAGE)).block();
     store.append(event("a", AgentEventKind.MESSAGE)).block();
-    final AgentEvent screen = store.append(screen("a", "s")).block().event();
+    final AgentEvent screen =
+        java.util.Objects.requireNonNull(store.append(screen("a", "s")).block()).event();
 
     final List<AgentEvent> all = events(store, "a");
     final long last = all.stream().mapToLong(AgentEvent::seq).max().orElseThrow();

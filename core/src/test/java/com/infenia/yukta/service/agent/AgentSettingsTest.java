@@ -88,4 +88,21 @@ class AgentSettingsTest {
             "pty.rows");
     assertThat(validator.validate(YuktaSettings.bind(Map.of()).agents())).isEmpty();
   }
+
+  @Test
+  void negativeRetentionIsRefusedToo() {
+    assertThatThrownBy(() ->
+            new YuktaProperties.Agents(
+                true,
+                Duration.ofSeconds(-1),
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                new YuktaProperties.Agents.Pty(false, "yukta-cli", 120, 40)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("yukta.agents.retention must be positive");
+  }
 }

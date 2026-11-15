@@ -5,6 +5,7 @@ package com.infenia.yukta.service.agent;
 import com.infenia.yukta.plugin.agent.AgentConversation;
 import com.infenia.yukta.plugin.agent.AgentEvent;
 import com.infenia.yukta.plugin.agent.AgentEventKind;
+import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
@@ -68,6 +69,7 @@ public record EventFilter(
    * @return true if no kinds are set or the event's kind is one of them
    */
   public boolean matches(final AgentEvent event) {
-    return kinds == null || kinds.isEmpty() || kinds.contains(event.kind());
+    final Set<AgentEventKind> wanted = Objects.requireNonNullElse(kinds, Set.of());
+    return wanted.isEmpty() || wanted.contains(event.kind());
   }
 }
