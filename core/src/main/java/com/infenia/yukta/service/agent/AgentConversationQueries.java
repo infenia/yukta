@@ -297,15 +297,14 @@ public class AgentConversationQueries {
       final Disposable upstream =
           service
               .changes()
-              .subscribe(
-                  change -> {
-                    if (!fits(seam.tryEmitNext(change))) {
-                      // a full buffer ends the live part: what is missing is read from the store
-                      seam.tryEmitComplete();
-                    }
-                  },
-                  error -> seam.tryEmitComplete(),
-                  seam::tryEmitComplete);
+              .onErrorComplete() // too far behind: the live part ends, the store has the rest
+              .doOnComplete(seam::tryEmitComplete)
+              .subscribe(change -> {
+                if (!seam.tryEmitNext(change).isSuccess()) {
+                  // a full buffer ends the live part: what is missing is read from the store
+                  seam.tryEmitComplete();
+                }
+              });
       final Flux<AgentChange> live =
           seam.asFlux()
               .filter(change -> accept(change, follow, wanted, followed, high))
@@ -317,15 +316,6 @@ public class AgentConversationQueries {
                   service.flush().thenMany(history(follow, wanted, followed, high, high.get()))))
           .doFinally(_ -> upstream.dispose());
     });
-  }
-
-  /**
-   * Whether the seam took a change. A full buffer is {@code FAIL_ZERO_SUBSCRIBER} while nobody
-   * reads it yet (the history is still being sent) and {@code FAIL_OVERFLOW} afterwards.
-   */
-  private static boolean fits(final Sinks.EmitResult result) {
-    return result != Sinks.EmitResult.FAIL_OVERFLOW
-        && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER;
   }
 
   /** The stored changes after a number: conversation records that changed, and events. */

@@ -16,6 +16,7 @@ import com.infenia.yukta.plugin.agent.AgentCapability;
 import com.infenia.yukta.plugin.agent.AgentConversation;
 import com.infenia.yukta.plugin.agent.AgentConversationHandle;
 import com.infenia.yukta.plugin.agent.AgentConversationSpec;
+import com.infenia.yukta.plugin.agent.AgentEvent;
 import com.infenia.yukta.plugin.agent.AgentEventKind;
 import com.infenia.yukta.plugin.agent.AgentProtocol;
 import com.infenia.yukta.plugin.agent.AgentState;
@@ -599,5 +600,189 @@ class AgentConversationQueriesTest {
                 .collectList()
                 .block(Duration.ofSeconds(5)))
         .isEmpty();
+  }
+
+  @Test
+  void blankNamesInAKindListAreSkipped() {
+    assertThat(AgentConversationQueries.kinds("tool,, ,notice"))
+        .containsExactlyInAnyOrder(AgentEventKind.TOOL, AgentEventKind.NOTICE);
+  }
+
+  @Test
+  void liveChangesTheHistoryAlreadyHoldsAreSkipped() {
+    final AgentConversationHandle handle = open("root", "s1");
+    final Sinks.Empty<Void> gate = Sinks.empty();
+    final AgentConversationStore held =
+        new AgentConversationStore() {
+          @Override
+          public String epoch() {
+            return store.epoch();
+          }
+
+          @Override
+          public reactor.core.publisher.Mono<AgentConversation> save(final AgentConversation c) {
+            return store.save(c);
+          }
+
+          @Override
+          public reactor.core.publisher.Mono<AppendResult> append(final AgentEvent e) {
+            return store.append(e);
+          }
+
+          @Override
+          public reactor.core.publisher.Mono<AgentConversation> find(final String id) {
+            return store.find(id);
+          }
+
+          @Override
+          public Flux<AgentConversation> list(final ConversationFilter filter) {
+            return gate.asMono().thenMany(Flux.defer(() -> store.list(filter)));
+          }
+
+          @Override
+          public Flux<AgentEvent> events(
+              final EventFilter filter, final long after, final int limit) {
+            return store.events(filter, after, limit);
+          }
+
+          @Override
+          public reactor.core.publisher.Mono<AgentEvent> latestScreen(final String id) {
+            return store.latestScreen(id);
+          }
+
+          @Override
+          public reactor.core.publisher.Mono<Long> purge(final Instant before) {
+            return store.purge(before);
+          }
+        };
+    final AgentConversationQueries slow =
+        new AgentConversationQueries(held, service, tracker, controlBus);
+    final List<AgentChange> seen = Collections.synchronizedList(new ArrayList<>());
+    final reactor.core.Disposable following = slow.follow(follow(0)).subscribe(seen::add);
+
+    say(handle, "during the read"); // stored and live, while the history read waits
+    gate.tryEmitEmpty();
+    say(handle, "after the read");
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .until(() -> texts(List.copyOf(seen)).size() == 2);
+    following.dispose();
+
+    assertThat(texts(List.copyOf(seen))).containsExactly("during the read", "after the read");
+    assertThat(seqs(List.copyOf(seen))).isSorted().doesNotHaveDuplicates();
+  }
+
+  @Test
+  void conversationsOfOtherRootsStrangersAndUnreachableSessionsAreNotFollowed() {
+    final AgentConversationHandle mine = open("root", "s1");
+    final AgentConversationQueries.Follow reachable =
+        new AgentConversationQueries.Follow("root", true, null, Set.of(), true, 0, "s1"::equals);
+    final List<AgentChange> seen = Collections.synchronizedList(new ArrayList<>());
+    final reactor.core.Disposable following = queries.follow(reachable).subscribe(seen::add);
+
+    final AgentConversationHandle otherSession = open("root", "s2");
+    final AgentConversationHandle stranger = open("stranger", "s1");
+    final AgentConversationHandle otherRoot =
+        service
+            .open(
+                new AgentConversationSpec(
+                    new InputIdentity("s1", "workflow-1", "root", "node-1"),
+                    "message-1",
+                    "claude-code",
+                    AgentProtocol.JSONL,
+                    null,
+                    Set.of(),
+                    Audience.CURRENT_TIER),
+                "other-root")
+            .block();
+    say(otherSession, "hidden session");
+    say(stranger, "not below the run");
+    say(otherRoot, "another tree");
+    say(mine, "mine");
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .until(() -> texts(List.copyOf(seen)).contains("mine"));
+    following.dispose();
+
+    assertThat(texts(List.copyOf(seen))).containsExactly("mine");
+  }
+
+  @Test
+  void liveEventsAreFilteredByKindAndTerminalOutput() {
+    final AgentConversationHandle pty = open("root", "s1", AgentCapability.TERMINAL);
+    final AgentConversationQueries.Follow onlyMessages =
+        new AgentConversationQueries.Follow(
+            "root", true, null, Set.of(AgentEventKind.MESSAGE), true, 0, ALL);
+    final AgentConversationQueries.Follow noOutput =
+        new AgentConversationQueries.Follow("root", true, null, Set.of(), false, 0, ALL);
+    final List<AgentChange> messages = Collections.synchronizedList(new ArrayList<>());
+    final List<AgentChange> screens = Collections.synchronizedList(new ArrayList<>());
+    final reactor.core.Disposable a = queries.follow(onlyMessages).subscribe(messages::add);
+    final reactor.core.Disposable b = queries.follow(noOutput).subscribe(screens::add);
+
+    pty.emit(AgentEventKind.NOTICE, null, Map.of("level", "INFO", "text", "fyi"));
+    pty.emit(
+        AgentEventKind.TERMINAL,
+        null,
+        Map.of(
+            "data",
+            Base64.getEncoder()
+                .encodeToString("x".getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+            "cols",
+            80,
+            "rows",
+            24));
+    pty.emit(
+        AgentEventKind.TERMINAL,
+        null,
+        Map.of(
+            "screen",
+            "x",
+            "cols",
+            80,
+            "rows",
+            24,
+            "cursorRow",
+            0,
+            "cursorCol",
+            1,
+            "settled",
+            true));
+    say(pty, "visible");
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .until(() -> texts(List.copyOf(messages)).contains("visible"));
+    a.dispose();
+    b.dispose();
+
+    assertThat(messages)
+        .filteredOn(AgentChange.EventAppended.class::isInstance)
+        .extracting(change -> ((AgentChange.EventAppended) change).event().kind())
+        .containsOnly(AgentEventKind.MESSAGE);
+    assertThat(terminalKinds(List.copyOf(screens))).containsExactly("screen");
+  }
+
+  @Test
+  void theStreamIgnoresRunProgressThatIsNotTheEnd() {
+    final AgentConversationHandle handle = open("root", "s1");
+    final WorkflowProgress running = mock(WorkflowProgress.class);
+    when(running.status()).thenReturn(TaskStatus.RUNNING);
+    final WorkflowProgress endedWithoutTime = mock(WorkflowProgress.class);
+    when(endedWithoutTime.status()).thenReturn(TaskStatus.SUCCESS);
+    when(endedWithoutTime.endTime()).thenReturn(null);
+
+    final List<AgentChange> seen = new ArrayList<>();
+    StepVerifier.create(queries.follow(follow(0)).doOnNext(seen::add))
+        .expectNextCount(2)
+        .then(() -> {
+          runEvents.tryEmitNext(running);
+          runEvents.tryEmitNext(endedWithoutTime);
+          say(handle, "still going");
+        })
+        .expectNextCount(1)
+        .then(this::endRun)
+        .verifyComplete();
+
+    assertThat(texts(seen)).containsExactly("still going");
   }
 }

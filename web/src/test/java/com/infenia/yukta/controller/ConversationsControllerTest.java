@@ -239,6 +239,10 @@ class ConversationsControllerTest {
         .expectBody()
         .jsonPath("$.data.length()")
         .isEqualTo(2);
+    get("/api/executions/root/conversations?limit=1")
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(1);
     get("/api/executions/root/conversations?tree=false")
         .expectBody()
         .jsonPath("$.data.length()")
