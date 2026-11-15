@@ -87,6 +87,9 @@ public class NotificationsController {
   /** Most streams one key may have open at once. */
   public static final int MAX_STREAMS_PER_KEY = 8;
 
+  /** Stands for the open server, which has no key, in {@link Shared#byCaller()}. */
+  private static final Object OPEN_SERVER = new Object();
+
   /** Largest page size. */
   private static final int MAX_SIZE = 200;
 
@@ -392,8 +395,21 @@ public class NotificationsController {
         .build();
   }
 
-  /** The stream event of a change, or nothing when the caller may not see it. */
+  /**
+   * The stream events of a change for a caller. Streams of the same caller (a person with several
+   * tabs, or 200 clients on a few keys) share one computation per change instead of each reading
+   * the receipts and building the view again.
+   */
   private Flux<ServerSentEvent<NotificationEvent>> event(
+      final Me me, final String epoch, final Shared shared) {
+    final Object caller = me.match() == null ? OPEN_SERVER : me.match();
+    return shared
+        .byCaller()
+        .computeIfAbsent(caller, _ -> eventFor(me, epoch, shared).collectList().cache())
+        .flatMapMany(Flux::fromIterable);
+  }
+
+  private Flux<ServerSentEvent<NotificationEvent>> eventFor(
       final Me me, final String epoch, final Shared shared) {
     final NotificationChange change = shared.change();
     final Notification n = change.notification();
@@ -494,7 +510,10 @@ public class NotificationsController {
   }
 
   /** A change with the input request it points at, read once for every stream. */
-  private record Shared(NotificationChange change, @Nullable InputRequestView input) {}
+  private record Shared(
+      NotificationChange change,
+      @Nullable InputRequestView input,
+      Map<Object, Mono<List<ServerSentEvent<NotificationEvent>>>> byCaller) {}
 
   /**
    * Every change once, with its input request. Each stream used to read and redact the request
@@ -508,8 +527,8 @@ public class NotificationsController {
                 .changes()
                 .concatMap(change ->
                     inputOf(change.notification())
-                        .map(input -> new Shared(change, input))
-                        .defaultIfEmpty(new Shared(change, null)))
+                        .map(input -> new Shared(change, input, new ConcurrentHashMap<>()))
+                        .defaultIfEmpty(new Shared(change, null, new ConcurrentHashMap<>())))
                 .share());
   }
 }

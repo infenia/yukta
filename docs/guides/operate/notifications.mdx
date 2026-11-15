@@ -87,3 +87,15 @@ For the desktop without a browser, run `yukta notify` at login: [Notifications f
 | `yukta.notifications.active{kind="ACTION"}` | stays high: questions are waiting for someone. |
 
 The event stream (`/api/notifications/stream`) allows 8 streams per key and replays at most 500 missed changes after a reconnect; beyond that, or after a restart, it sends `reset` and the client reads the list again. If clients reset constantly, look for restarts or for a stream behind a proxy that closes idle connections.
+
+## Size the server for many stream clients
+
+Every open stream receives every change it may see, so CPU grows with streams times changes. Measured with `perf/run.sh notifications` (1,000 open requests, 500 answers in 10 s, 50 inbox readers, 200 stream clients on 25 keys, the jar, no other load):
+
+| Server | Result |
+|---|---|
+| 2 vCPU, no streams | answer p95 0.8 s, inbox read p95 0.4 s, no dropped events |
+| 2 vCPU, 200 streams | the container uses both CPUs; answer p95 3 to 4 s, inbox read p95 1.7 s, 1 to 4 dropped events |
+| 4 vCPU, 200 streams | answer p95 1.4 s, inbox read p95 1.4 s, no dropped events |
+
+For comparison the input requests test (`perf/run.sh inputs`, no streams) has answer p95 0.2 s on 2 vCPU. Streams of the same key share the work of building each event, but each stream still writes every event. If answers get slow while many people or tools follow the stream, give the server more CPU, or have fewer clients follow it (a CLI that only needs questions can poll `yukta notifications list`). A dropped event shows in `yukta.notifications.tap.dropped`; the next list read or reconnect repairs the inbox.

@@ -424,6 +424,26 @@ class NotificationsControllerTest {
   }
 
   @Test
+  void streamsOfTheSameCallerAndTheOpenServerAllGetTheEvent() {
+    final Flux<ServerSentEvent<NotificationEvent>> openServer =
+        controller.stream(null).contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "anonymous"));
+    final var first = stream("v-key", null).take(1).collectList().toFuture();
+    final var second = stream("v-key", null).take(1).collectList().toFuture();
+    final var anyone = openServer.take(1).collectList().toFuture();
+    // let the three streams subscribe before the change
+    org.awaitility.Awaitility.await()
+        .atMost(WAIT)
+        .until(() -> {
+          raise("shared-" + System.nanoTime(), "s1", "role:VIEWER");
+          return first.isDone() && second.isDone() && anyone.isDone();
+        });
+
+    assertThat(first.join().get(0).data().notification().key()).startsWith("shared-");
+    assertThat(second.join().get(0).data().notification().key()).startsWith("shared-");
+    assertThat(anyone.join().get(0).data().type()).isEqualTo("created");
+  }
+
+  @Test
   void theStreamSendsWhatChangesToTheCallerOnly() {
     StepVerifier.create(stream("v-key", null).take(4))
         .then(() -> {
