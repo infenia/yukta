@@ -148,7 +148,7 @@ class NotificationServiceTest {
         .isEmpty();
     service.savePreferences(NotificationPreferences.defaults(ARUN)).block();
     assertThat(service.preferences(ARUN).block().recipient()).isEqualTo(ARUN);
-    assertThat(service.epoch()).isEqualTo(store.epoch());
+    assertThat(service.epoch().block()).isEqualTo(store.epoch().block());
   }
 
   @Test

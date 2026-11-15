@@ -5,9 +5,7 @@ package com.infenia.yukta.service.input;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputState;
-import com.infenia.yukta.service.input.delivery.InputDelivery;
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,9 +33,6 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
 
   /** The requests by id, oldest first. */
   private final SequencedMap<String, InputRequest> requests = new LinkedHashMap<>();
-
-  /** Deliveries to external responders, by id. */
-  private final Map<String, InputDelivery> deliveries = new ConcurrentHashMap<>();
 
   /** The answers by request id. */
   private final Map<String, InputResponse> responses = new ConcurrentHashMap<>();
@@ -172,41 +167,10 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
     return deadline != null && !deadline.isAfter(now);
   }
 
-  @Override
-  public Mono<InputDelivery> enqueueDelivery(final InputDelivery delivery) {
-    return Mono.fromSupplier(() -> {
-      deliveries.put(delivery.id(), delivery);
-      return delivery;
-    });
-  }
-
-  @Override
-  public Flux<InputDelivery> dueDeliveries(final Instant now) {
-    return Flux.defer(() ->
-        Flux.fromStream(
-            deliveries.values().stream()
-                .filter(d -> d.state() == InputDelivery.State.PENDING)
-                .filter(d -> !d.nextAttempt().isAfter(now))
-                .sorted(Comparator.comparing(InputDelivery::nextAttempt))));
-  }
-
-  @Override
-  public Mono<Void> saveDelivery(final InputDelivery delivery) {
-    // a delivery of a request that is gone (the worker saw it end) is not kept
-    return Mono.fromRunnable(() -> {
-      if (requests.containsKey(delivery.requestId())) {
-        deliveries.put(delivery.id(), delivery);
-      } else {
-        deliveries.remove(delivery.id());
-      }
-    });
-  }
-
-  /** Drops a request with its response and its deliveries: all are bounded by {@code memoryMax}. */
+  /** Drops a request with its response: both are bounded by {@code memoryMax}. */
   private void forget(final String requestId) {
     requests.remove(requestId);
     responses.remove(requestId);
-    deliveries.values().removeIf(delivery -> delivery.requestId().equals(requestId));
   }
 
   @Override

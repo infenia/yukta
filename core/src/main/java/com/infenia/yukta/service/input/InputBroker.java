@@ -21,7 +21,6 @@ import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.plugin.input.Vote;
-import com.infenia.yukta.service.input.delivery.InputDelivery;
 import com.infenia.yukta.service.input.route.RouteResolver;
 import com.infenia.yukta.service.input.route.TierTargets;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
@@ -604,27 +603,8 @@ public class InputBroker {
             return Mono.just(change.request());
           }
           escalated(change.request(), reason, by);
-          return queueDeliveries(change.request())
-              .then(Mono.defer(() -> skipUnreachable(change.request(), route)));
+          return skipUnreachable(change.request(), route);
         });
-  }
-
-  /** Queues a delivery for each external responder the tier of the request targets. */
-  private Mono<Void> queueDeliveries(final InputRequest request) {
-    return Flux.fromIterable(request.targets())
-        .filter(target -> target.startsWith("external:"))
-        .concatMap(target ->
-            store.enqueueDelivery(
-                new InputDelivery(
-                    UUID.randomUUID().toString(),
-                    request.id(),
-                    request.tier(),
-                    target,
-                    InputDelivery.State.PENDING,
-                    0,
-                    clock.instant(),
-                    null)))
-        .then();
   }
 
   /** The supervisors whose parents a {@code supervisor:parent} tier asks. */
@@ -799,8 +779,7 @@ public class InputBroker {
                     })
                     .flatMap(stored ->
                         stored.id().equals(created.id())
-                            ? queueDeliveries(stored)
-                                .then(Mono.defer(() -> skipUnreachable(stored, route)))
+                            ? skipUnreachable(stored, route)
                             : Mono.just(stored));
               });
         });

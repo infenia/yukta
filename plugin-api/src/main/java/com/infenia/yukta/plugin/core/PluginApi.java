@@ -20,7 +20,7 @@ public class PluginApi {
   public static final int MAJOR = 1;
 
   /** Minor version: additions only. */
-  public static final int MINOR = 0;
+  public static final int MINOR = 1;
 
   /** {@code MAJOR.MINOR}; a compile-time constant, so a plugin that returns it keeps its own. */
   public static final String VERSION = MAJOR + "." + MINOR;

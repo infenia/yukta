@@ -82,8 +82,8 @@ class InMemoryNotificationStoreTest {
 
   @Test
   void eachStoreHasItsOwnEpoch() {
-    assertThat(new InMemoryNotificationStore(1).epoch())
-        .isNotEqualTo(new InMemoryNotificationStore(1).epoch());
+    assertThat(new InMemoryNotificationStore(1).epoch().block())
+        .isNotEqualTo(new InMemoryNotificationStore(1).epoch().block());
   }
 
   @Test
@@ -150,5 +150,42 @@ class InMemoryNotificationStoreTest {
 
     assertThat(store.preferences(ARUN).block().levels()).containsKey("run.failed");
     assertThat(store.receipts(ARUN, List.of(n.id())).collectList().block()).isEmpty();
+  }
+
+  @Test
+  void deliveriesAreDueWhenPendingAndTimeComesAndGoWithTheirPurgedNotification() {
+    final InMemoryNotificationStore store = new InMemoryNotificationStore(10);
+    final NotificationService service = serviceOver(store);
+    final Notification n = service.raise(info("i").build()).block();
+    final NotificationDelivery later =
+        NotificationDelivery.pending(n.id(), "webhook:a", null, clock.instant().plusSeconds(60));
+    final NotificationDelivery now =
+        NotificationDelivery.pending(n.id(), "webhook:b", null, clock.instant());
+    store.enqueueDelivery(later).block();
+    store.enqueueDelivery(now).block();
+
+    assertThat(store.enqueueDelivery(now.sent()).block()).isEqualTo(now);
+    assertThat(store.dueDeliveries(clock.instant()).collectList().block()).containsExactly(now);
+    store.saveDelivery(now.sent()).block();
+    store
+        .saveDelivery(NotificationDelivery.pending("gone", "webhook:c", null, clock.instant()))
+        .block();
+    assertThat(store.dueDeliveries(clock.instant().plusSeconds(120)).collectList().block())
+        .containsExactly(later);
+
+    clock.advance(Duration.ofDays(8));
+    store.purge(clock.instant()).block();
+
+    assertThat(store.dueDeliveries(clock.instant().plusSeconds(120)).collectList().block())
+        .isEmpty();
+  }
+
+  @Test
+  void receiptForMissingNotificationIsNotKept() {
+    final InMemoryNotificationStore store = new InMemoryNotificationStore(10);
+
+    store.saveReceipt(new Receipt("missing", "arun", clock.instant(), null)).block();
+
+    assertThat(store.receipts("arun", List.of("missing")).collectList().block()).isEmpty();
   }
 }
