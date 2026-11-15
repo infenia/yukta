@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.agentsession.adapter;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -12,10 +12,10 @@ import org.jspecify.annotations.Nullable;
  */
 final class Mailbox {
 
+  private final Queue<Waiting> waiting = new ConcurrentLinkedQueue<>();
+
   /** A message that waits. */
   /* default */ record Waiting(String text, String actor) {}
-
-  private final Deque<Waiting> waiting = new ArrayDeque<>();
 
   /**
    * Adds a message.
@@ -24,8 +24,8 @@ final class Mailbox {
    * @param actor who sent it
    * @return how many messages wait now
    */
-  /* default */ synchronized int add(final String text, final String actor) {
-    waiting.addLast(new Waiting(text, actor));
+  /* default */ int add(final String text, final String actor) {
+    waiting.add(new Waiting(text, actor));
     return waiting.size();
   }
 
@@ -34,8 +34,8 @@ final class Mailbox {
    *
    * @return the message, or null when none waits
    */
-  /* default */ synchronized @Nullable Waiting next() {
-    return waiting.pollFirst();
+  /* default */ @Nullable Waiting next() {
+    return waiting.poll();
   }
 
   /**
@@ -43,7 +43,7 @@ final class Mailbox {
    *
    * @return the count
    */
-  /* default */ synchronized int size() {
+  /* default */ int size() {
     return waiting.size();
   }
 }

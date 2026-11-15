@@ -18,6 +18,7 @@ import reactor.test.StepVerifier;
 
 /** The processor hands each agent command to the steering with its parts. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class AgentCommandProcessorTest {
 
   private final AgentSteering steering = mock(AgentSteering.class);
@@ -62,7 +63,7 @@ class AgentCommandProcessorTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  void whenAgentsAreOffACommandFailsWithThatReason() {
+  void whenAgentsAreOffCommandFailsWithThatReason() {
     final ObjectProvider<AgentSteering> none = mock(ObjectProvider.class);
     final AgentCommandProcessor off = new AgentCommandProcessor(none);
 

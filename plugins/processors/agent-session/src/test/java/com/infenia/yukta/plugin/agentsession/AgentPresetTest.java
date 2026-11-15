@@ -141,7 +141,7 @@ class AgentPresetTest {
     assertThat(talk.steer()).isTrue();
     assertThat(talk.canInterrupt()).isTrue();
 
-    final var plain = (tools.jackson.databind.node.ObjectNode) claudeJson().get("interactive");
+    final var plain = (ObjectNode) claudeJson().get("interactive");
     plain.remove("steer");
     plain.remove("interrupt");
     final var without = AgentPreset.parse(claudeJson().set("interactive", plain)).interactive();

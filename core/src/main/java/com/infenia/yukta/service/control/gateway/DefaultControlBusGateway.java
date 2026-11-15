@@ -721,6 +721,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<Void> agentMessage(
       final String executionId,
       final String nodeId,

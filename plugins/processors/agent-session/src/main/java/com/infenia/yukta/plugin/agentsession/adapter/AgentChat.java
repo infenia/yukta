@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.locks.ReentrantLock;
 import org.jspecify.annotations.Nullable;
 import reactor.core.Disposable;
 import reactor.core.Disposables;
@@ -27,10 +28,12 @@ import reactor.core.publisher.Mono;
  * <p>All state changes go through this object's lock: commands arrive on a thread of the
  * conversation, results on the thread that reads the process output.
  */
-@SuppressWarnings("PMD.TooManyMethods")
-final class Chat {
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"}) // local maps, never shared
+final class AgentChat {
 
   private static final String STATUS = "status";
+  private static final String TURN = "turn";
+  private static final String REASON = "reason";
 
   private final AgentRun run;
   private final AgentOutput output;
@@ -38,6 +41,7 @@ final class Chat {
   private final ProcessExecutorGateway.StdinWriter stdin;
   private final Duration beat;
   private final AgentConversationHandle handle;
+  private final ReentrantLock lock = new ReentrantLock();
   private final Mailbox mailbox = new Mailbox();
   private final Disposable.Composite background = Disposables.composite();
 
@@ -65,7 +69,7 @@ final class Chat {
   private int sent;
   private @Nullable Disposable idle;
 
-  /* default */ Chat(
+  /* default */ AgentChat(
       final AgentRun run,
       final AgentOutput output,
       final AgentRequests requests,
@@ -81,7 +85,16 @@ final class Chat {
   }
 
   /** Starts the first turn and listens for commands. */
-  /* default */ synchronized void start() {
+  /* default */ void start() {
+    lock.lock();
+    try {
+      startLocked();
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private void startLocked() {
     output.converse(requests::handle, this::turnEnded);
     busy = true;
     requests.say(run.prompt());
@@ -96,8 +109,13 @@ final class Chat {
    *
    * @return true until the result of the turn arrives
    */
-  /* default */ synchronized boolean busy() {
-    return busy;
+  /* default */ boolean working() {
+    lock.lock();
+    try {
+      return busy;
+    } finally {
+      lock.unlock();
+    }
   }
 
   /**
@@ -108,23 +126,41 @@ final class Chat {
    * @param base what the output rules made of the process
    * @return the outcome of the node
    */
-  /* default */ synchronized Map<String, Object> settle(final Map<String, Object> base) {
+  /* default */ Map<String, Object> settle(final Map<String, Object> base) {
+    lock.lock();
+    try {
+      return settleLocked(base);
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private Map<String, Object> settleLocked(final Map<String, Object> base) {
     final Map<String, Object> outcome = lastStopped ? new LinkedHashMap<>(last) : base;
     outcome.put("exitCode", base.get("exitCode"));
-    outcome.put("turn", base.get("turn"));
+    outcome.put(TURN, base.get(TURN));
     if (end != null && end.outcome() != null) {
       outcome.put(STATUS, end.outcome());
-      outcome.remove("reason");
+      outcome.remove(REASON);
     }
     if (end != null && end.reason() != null) {
-      outcome.put("reason", end.reason());
+      outcome.put(REASON, end.reason());
     } else if (idleOut) {
-      outcome.put("reason", "idle");
+      outcome.put(REASON, "idle");
     }
     return outcome;
   }
 
-  private synchronized void command(final AgentCommand command) {
+  private void command(final AgentCommand command) {
+    lock.lock();
+    try {
+      route(command);
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private void route(final AgentCommand command) {
     switch (command) {
       case AgentCommand.Message message -> message(message);
       case AgentCommand.Interrupt _ -> interrupt();
@@ -145,7 +181,8 @@ final class Chat {
     if (wait) {
       data.put("queued", true);
     }
-    handle.emit(AgentEventKind.MESSAGE, "u" + (++sent), data);
+    sent++;
+    handle.emit(AgentEventKind.MESSAGE, "u" + sent, data);
     if (!busy) {
       begin(message.text());
       return;
@@ -185,13 +222,22 @@ final class Chat {
     requests.say(text);
   }
 
-  private synchronized void turnEnded() {
+  private void turnEnded() {
+    lock.lock();
+    try {
+      turnEndedLocked();
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private void turnEndedLocked() {
     busy = false;
     final Map<String, Object> outcome = output.outcome(0, false, 0);
     lastStopped = interrupted && AgentOutcome.FAILURE.equals(outcome.get(STATUS));
     if (lastStopped) {
       outcome.put(STATUS, AgentOutcome.INCOMPLETE);
-      outcome.put("reason", "interrupted");
+      outcome.put(REASON, "interrupted");
     }
     last = outcome;
     output.closeTools(AgentOutcome.FAILURE.equals(outcome.get(STATUS)));
@@ -210,9 +256,14 @@ final class Chat {
 
   // ponytail: a message that arrives in the instant the timer fires can lose to the timer; a
   // fixed epoch check would close it, add if idle timeouts get short
-  private synchronized void idled() {
-    idleOut = true;
-    stdin.close();
+  private void idled() {
+    lock.lock();
+    try {
+      idleOut = true;
+      stdin.close();
+    } finally {
+      lock.unlock();
+    }
   }
 
   private void cancelIdle() {
@@ -224,11 +275,11 @@ final class Chat {
   private static Map<String, Object> result(final Map<String, Object> outcome) {
     final Map<String, Object> result = new LinkedHashMap<>();
     result.put(STATUS, outcome.get(STATUS));
-    if (outcome.get("reason") != null) {
-      result.put("reason", outcome.get("reason"));
+    if (outcome.get(REASON) != null) {
+      result.put(REASON, outcome.get(REASON));
     }
     result.put("text", outcome.get("text"));
-    result.put("turn", outcome.get("turn"));
+    result.put(TURN, outcome.get(TURN));
     return result;
   }
 

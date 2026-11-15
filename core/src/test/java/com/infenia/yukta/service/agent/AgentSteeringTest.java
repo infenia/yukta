@@ -44,7 +44,9 @@ import tools.jackson.databind.json.JsonMapper;
 @SuppressWarnings({
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.CouplingBetweenObjects"
+  "PMD.ExcessiveImports",
+  "PMD.TooManyStaticImports",
+  "PMD.UnitTestShouldIncludeAssert" // the assertions are in refused()
 })
 class AgentSteeringTest {
 
@@ -68,13 +70,13 @@ class AgentSteeringTest {
     service.destroy();
   }
 
-  private AgentSteering steering(final YuktaProperties.Agents settings) {
+  private AgentSteering newSteering(final YuktaProperties.Agents settings) {
     when(properties.agents()).thenReturn(settings);
     return new AgentSteering(service, actors, properties);
   }
 
   private String open(final List<String> audience, final String... capabilities) {
-    steering = steering(agents);
+    steering = newSteering(agents);
     final AgentConversationHandle handle =
         service
             .open(
@@ -93,7 +95,7 @@ class AgentSteeringTest {
     return handle.id();
   }
 
-  private void as(final ActorInfo actor) {
+  private void actingAs(final ActorInfo actor) {
     when(actors.resolve()).thenReturn(Mono.just(actor));
   }
 
@@ -115,9 +117,9 @@ class AgentSteeringTest {
   }
 
   @Test
-  void anOperatorOfTheDefaultAudienceSendsAMessage() {
+  void anOperatorOfTheDefaultAudienceSendsMessage() {
     final String id = open(List.of("role:OPERATOR"), AgentCapability.MESSAGE);
-    as(operator("ann"));
+    actingAs(operator("ann"));
 
     steering.message(id, "hello", false).block();
 
@@ -127,9 +129,9 @@ class AgentSteeringTest {
   @Test
   void anAdminSelectorNeedsAnAdmin() {
     final String id = open(List.of("role:ADMIN"), AgentCapability.MESSAGE);
-    as(operator("ann"));
+    actingAs(operator("ann"));
     refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
-    as(ActorInfo.human("root", ApiRole.ADMIN, Set.of()));
+    actingAs(ActorInfo.human("root", ApiRole.ADMIN, Set.of()));
 
     steering.message(id, "hi", false).block();
 
@@ -137,11 +139,11 @@ class AgentSteeringTest {
   }
 
   @Test
-  void anAdminMatchesAnOperatorSelectorAndAViewerDoesNot() {
+  void anAdminMatchesAnOperatorSelectorAndViewerDoesNot() {
     final String id = open(List.of("role:OPERATOR"), AgentCapability.MESSAGE);
-    as(ActorInfo.human("root", ApiRole.ADMIN, Set.of()));
+    actingAs(ActorInfo.human("root", ApiRole.ADMIN, Set.of()));
     steering.message(id, "hi", false).block();
-    as(ActorInfo.human("eve", ApiRole.VIEWER, Set.of()));
+    actingAs(ActorInfo.human("eve", ApiRole.VIEWER, Set.of()));
 
     refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
 
@@ -151,9 +153,9 @@ class AgentSteeringTest {
   @Test
   void whenNamedKeyMatchesItsSelectorOnly() {
     final String id = open(List.of("key:ann"), AgentCapability.MESSAGE);
-    as(operator("bob"));
+    actingAs(operator("bob"));
     refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
-    as(operator("ann"));
+    actingAs(operator("ann"));
 
     steering.message(id, "hi", false).block();
 
@@ -161,11 +163,11 @@ class AgentSteeringTest {
   }
 
   @Test
-  void anAgentKeyMatchesOnlyASelectorThatNamesIt() {
+  void anAgentKeyMatchesOnlySelectorThatNamesIt() {
     final String id = open(List.of("role:OPERATOR", "key:bot"), AgentCapability.MESSAGE);
-    as(ActorInfo.agent("other", ApiRole.OPERATOR, Set.of()));
+    actingAs(ActorInfo.agent("other", ApiRole.OPERATOR, Set.of()));
     refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
-    as(ActorInfo.agent("bot", ApiRole.OPERATOR, Set.of()));
+    actingAs(ActorInfo.agent("bot", ApiRole.OPERATOR, Set.of()));
 
     steering.message(id, "hi", false).block();
 
@@ -173,14 +175,14 @@ class AgentSteeringTest {
   }
 
   @Test
-  void whenSupervisorNeedsASelectorThatNamesItOrAllSupervisors() {
+  void whenSupervisorNeedsSelectorThatNamesItOrAllSupervisors() {
     final String id = open(List.of("supervisor:guard"), AgentCapability.MESSAGE);
-    as(supervisor("other"));
+    actingAs(supervisor("other"));
     refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
-    as(supervisor("guard"));
+    actingAs(supervisor("guard"));
     steering.message(id, "hi", false).block();
     final String all = open(List.of("supervisor:*"), AgentCapability.MESSAGE);
-    as(supervisor("anyone"));
+    actingAs(supervisor("anyone"));
 
     steering.message(all, "hi", false).block();
 
@@ -192,9 +194,9 @@ class AgentSteeringTest {
   @Test
   void whenTokenCallerAndAnUnidentifiedCallerMaySteerNothing() {
     final String id = open(List.of("role:OPERATOR", "supervisor:*"), AgentCapability.MESSAGE);
-    as(ActorInfo.external("tier"));
+    actingAs(ActorInfo.external("tier"));
     refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
-    as(ActorInfo.unauthenticated());
+    actingAs(ActorInfo.unauthenticated());
 
     refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
   }
@@ -202,10 +204,10 @@ class AgentSteeringTest {
   @Test
   void whenKeyLimitedToOtherSessionsDoesNotSeeTheConversation() {
     final String id = open(List.of("role:OPERATOR"), AgentCapability.MESSAGE);
-    as(ActorInfo.human("ann", ApiRole.OPERATOR, Set.of("session-2")));
+    actingAs(ActorInfo.human("ann", ApiRole.OPERATOR, Set.of("session-2")));
     assertThatThrownBy(() -> steering.message(id, "hi", false).block())
         .isInstanceOf(NotFoundException.class);
-    as(ActorInfo.human("ann", ApiRole.OPERATOR, Set.of("session-1")));
+    actingAs(ActorInfo.human("ann", ApiRole.OPERATOR, Set.of("session-1")));
 
     steering.message(id, "hi", false).block();
 
@@ -215,7 +217,7 @@ class AgentSteeringTest {
   @Test
   void anUnknownConversationIsNotFound() {
     open(List.of("role:OPERATOR"), AgentCapability.MESSAGE);
-    as(operator("ann"));
+    actingAs(operator("ann"));
 
     assertThatThrownBy(() -> steering.message("nope", "hi", false).block())
         .isInstanceOf(NotFoundException.class);
@@ -224,7 +226,7 @@ class AgentSteeringTest {
   @Test
   void whenCommandNeedsTheCapabilityAndTheErrorNamesIt() {
     final String id = open(List.of("role:OPERATOR"), AgentCapability.MESSAGE);
-    as(operator("ann"));
+    actingAs(operator("ann"));
 
     assertThatThrownBy(() -> steering.interrupt(id).block())
         .isInstanceOfSatisfying(
@@ -242,7 +244,7 @@ class AgentSteeringTest {
   void interruptAndEndAreHandedOverWithTheActor() {
     final String id =
         open(List.of("role:OPERATOR"), AgentCapability.MESSAGE, AgentCapability.INTERRUPT);
-    as(ActorInfo.human("anonymous", ApiRole.ADMIN, Set.of()));
+    actingAs(ActorInfo.human("anonymous", ApiRole.ADMIN, Set.of()));
 
     steering.interrupt(id).block();
     steering.message(id, "now", true).block();
@@ -259,14 +261,14 @@ class AgentSteeringTest {
   void whenConversationThatEndedIsNotLive() {
     final String id = open(List.of("role:OPERATOR"), AgentCapability.MESSAGE);
     service.live(id).orElseThrow().end("success", null);
-    as(operator("ann"));
+    actingAs(operator("ann"));
 
     refused(steering.message(id, "hi", false), Reason.NOT_LIVE);
   }
 
   @Test
   void whenConversationWhoseAgentReadsNoCommandsIsNotLiveOnceTheQueueIsFull() {
-    steering = steering(agents);
+    steering = newSteering(agents);
     final String id =
         service
             .open(
@@ -281,7 +283,7 @@ class AgentSteeringTest {
                 "root-1")
             .block()
             .id();
-    as(operator("ann"));
+    actingAs(operator("ann"));
     for (int i = 0; i < 256; i++) {
       steering.end(id, null, null).block();
     }
@@ -292,7 +294,7 @@ class AgentSteeringTest {
   @Test
   void whenMessageOverTheLimitIsTooLarge() {
     final String id = open(List.of("role:OPERATOR"), AgentCapability.MESSAGE);
-    as(operator("ann"));
+    actingAs(operator("ann"));
 
     refused(steering.message(id, "x".repeat(65), false), Reason.TOO_LARGE);
   }
@@ -301,7 +303,7 @@ class AgentSteeringTest {
   void whenCallerThatSendsTooManyMessagesIsLimitedPerConversation() {
     final String id = open(List.of("role:OPERATOR"), AgentCapability.MESSAGE);
     final String other = open(List.of("role:OPERATOR"), AgentCapability.MESSAGE);
-    as(operator("ann"));
+    actingAs(operator("ann"));
     for (int i = 0; i < 30; i++) {
       steering.message(id, "m", false).block();
     }
@@ -325,11 +327,11 @@ class AgentSteeringTest {
   }
 
   @Test
-  void aSelectorForSupervisorsMatchesNoKeyAndAViewerIsRefusedEvenWhenNamed() {
+  void selectorForSupervisorsMatchesNoKeyAndViewerIsRefusedEvenWhenNamed() {
     final String id = open(List.of("supervisor:*", "key:eve"), AgentCapability.MESSAGE);
-    as(operator("ann"));
+    actingAs(operator("ann"));
     refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
-    as(ActorInfo.human("eve", ApiRole.VIEWER, Set.of()));
+    actingAs(ActorInfo.human("eve", ApiRole.VIEWER, Set.of()));
 
     refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
   }

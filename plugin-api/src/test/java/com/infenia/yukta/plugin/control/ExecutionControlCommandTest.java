@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
   "PMD.UnnecessaryFullyQualifiedName",
+  "PMD.TooManyMethods",
   "PMD.UnusedLocalVariable",
   "PMD.UseConcurrentHashMap"
 })
@@ -132,7 +133,7 @@ class ExecutionControlCommandTest {
   }
 
   @Test
-  void agentCommandsNeedTheirIdsAndAMessageNeedsText() {
+  void agentCommandsNeedTheirIdsAndMessagesNeedText() {
     assertThatThrownBy(
             () -> new ExecutionControlCommand.AgentMessageCommand("e", "n", "c", " ", false))
         .hasMessage("text must not be blank");

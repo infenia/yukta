@@ -47,7 +47,13 @@ import tools.jackson.databind.exc.UnrecognizedPropertyException;
 @RestControllerAdvice
 @NullMarked
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects", "PMD.ExcessiveImports"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports",
+  "PMD.GodClass",
+  "PMD.AvoidDuplicateLiterals"
+})
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
   @Override

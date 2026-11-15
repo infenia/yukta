@@ -57,7 +57,8 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({
   "PMD.ExcessiveImports",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.TooManyStaticImports"
+  "PMD.TooManyStaticImports",
+  "PMD.TooManyMethods"
 })
 class DirectiveDispatcherInputTest {
 
@@ -71,10 +72,6 @@ class DirectiveDispatcherInputTest {
 
   private DirectiveDispatcher dispatcherWith(final InputCommandGuard guard) {
     return dispatcherWith(guard, mock(AgentCommandProcessor.class));
-  }
-
-  private DirectiveDispatcher dispatcherWithAgent(final AgentCommandProcessor agent) {
-    return dispatcherWith(flow.guard, agent);
   }
 
   private DirectiveDispatcher dispatcherWith(
@@ -116,6 +113,10 @@ class DirectiveDispatcherInputTest {
         flow.log,
         ControlReviewerFixture.create(providerOf(reviewer)),
         new ExecutionEventFeed());
+  }
+
+  private DirectiveDispatcher dispatcherWithAgent(final AgentCommandProcessor agent) {
+    return dispatcherWith(flow.guard, agent);
   }
 
   private InputRequest ask(final InputRisk risk) {
@@ -248,8 +249,8 @@ class DirectiveDispatcherInputTest {
   }
 
   @Test
-  void anAgentMessageIsAuditedWithItsActorAndAReviewerCanRefuseIt() {
-    final var agent = org.mockito.Mockito.mock(AgentCommandProcessor.class);
+  void anAgentMessageIsAuditedWithItsActorAndReviewerCanRefuseIt() {
+    final var agent = mock(AgentCommandProcessor.class);
     when(agent.process(
             any(
                 com.infenia.yukta.plugin.control.ExecutionControlCommand.AgentMessageCommand

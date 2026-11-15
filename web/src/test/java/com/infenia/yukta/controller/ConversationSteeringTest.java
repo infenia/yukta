@@ -30,7 +30,12 @@ import reactor.core.publisher.Mono;
 
 /** The three commands that steer an agent, and how their refusals look to a client. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.TooManyStaticImports",
+  "PMD.UnitTestShouldIncludeAssert" // the expectations are on the WebTestClient
+})
 class ConversationSteeringTest {
 
   private static final Instant NOW = Instant.parse("2026-11-15T10:00:00Z");
@@ -74,7 +79,7 @@ class ConversationSteeringTest {
   }
 
   @Test
-  void aMessageIsAcceptedAndSaysWhetherItWaits() {
+  void messageIsAcceptedAndSaysWhetherItWaits() {
     found(Set.of(AgentCapability.MESSAGE));
     when(control.agentMessage("e-1", "n-1", "c-1", "hi", false)).thenReturn(Mono.empty());
 
@@ -92,7 +97,7 @@ class ConversationSteeringTest {
   }
 
   @Test
-  void aMessageWithInterruptDoesNotWait() {
+  void messageWithInterruptDoesNotWait() {
     found(Set.of(AgentCapability.MESSAGE, AgentCapability.INTERRUPT));
     when(control.agentMessage("e-1", "n-1", "c-1", "hi", true)).thenReturn(Mono.empty());
 
@@ -110,7 +115,7 @@ class ConversationSteeringTest {
   }
 
   @Test
-  void aBlankMessageIsABadRequest() {
+  void blankMessageIsBadRequest() {
     client
         .post()
         .uri("/api/conversations/c-1/messages")
@@ -132,7 +137,7 @@ class ConversationSteeringTest {
   }
 
   @Test
-  void anEndWithoutABodyEndsWithTheLastStatus() {
+  void anEndWithoutBodyEndsWithTheLastStatus() {
     found(Set.of());
     when(control.agentEnd(anyString(), anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
@@ -143,7 +148,7 @@ class ConversationSteeringTest {
   }
 
   @Test
-  void anEndWithAnOutcomeAndAReasonPassesThemOn() {
+  void anEndWithAnOutcomeAndReasonPassesThemOn() {
     found(Set.of());
     when(control.agentEnd(anyString(), anyString(), anyString(), any(), any()))
         .thenReturn(Mono.empty());
@@ -161,7 +166,7 @@ class ConversationSteeringTest {
   }
 
   @Test
-  void anOutcomeThatIsNotOneOfTheThreeIsABadRequest() {
+  void anOutcomeThatIsNotOneOfTheThreeIsBadRequest() {
     client
         .post()
         .uri("/api/conversations/c-1/end")
@@ -173,7 +178,7 @@ class ConversationSteeringTest {
   }
 
   @Test
-  void aConversationTheCallerDoesNotReachIsNotFound() {
+  void conversationTheCallerDoesNotReachIsNotFound() {
     when(queries.require(eq("c-1"), any()))
         .thenReturn(Mono.error(new NotFoundException("Conversation not found: c-1")));
 

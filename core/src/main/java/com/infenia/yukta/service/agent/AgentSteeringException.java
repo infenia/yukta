@@ -25,12 +25,12 @@ public class AgentSteeringException extends RuntimeException {
     /** The caller sent more than {@code yukta.agents.messages-per-minute} messages. */
     RATE_LIMITED(429, "rate_limited");
 
-    private final int status;
-    private final String code;
+    private final int httpStatus;
+    private final String errorCode;
 
     Reason(final int status, final String code) {
-      this.status = status;
-      this.code = code;
+      this.httpStatus = status;
+      this.errorCode = code;
     }
 
     /**
@@ -39,7 +39,7 @@ public class AgentSteeringException extends RuntimeException {
      * @return the status
      */
     public int status() {
-      return status;
+      return httpStatus;
     }
 
     /**
@@ -48,12 +48,12 @@ public class AgentSteeringException extends RuntimeException {
      * @return the code
      */
     public String code() {
-      return code;
+      return errorCode;
     }
   }
 
-  private final Reason reason;
-  private final @Nullable String capability;
+  private final Reason refusal;
+  private final @Nullable String missing;
 
   /**
    * Creates the exception.
@@ -65,8 +65,8 @@ public class AgentSteeringException extends RuntimeException {
   public AgentSteeringException(
       final Reason reason, final String message, final @Nullable String capability) {
     super(message);
-    this.reason = reason;
-    this.capability = capability;
+    this.refusal = reason;
+    this.missing = capability;
   }
 
   /**
@@ -75,7 +75,7 @@ public class AgentSteeringException extends RuntimeException {
    * @return the reason
    */
   public Reason reason() {
-    return reason;
+    return refusal;
   }
 
   /**
@@ -84,6 +84,6 @@ public class AgentSteeringException extends RuntimeException {
    * @return the capability, or {@code null}
    */
   public @Nullable String capability() {
-    return capability;
+    return missing;
   }
 }

@@ -32,9 +32,12 @@ import reactor.core.publisher.Mono;
     name = "enabled",
     havingValue = "true",
     matchIfMissing = true)
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CognitiveComplexity"})
 public class AgentSteering {
 
   private static final String ANONYMOUS = "anonymous";
+
+  private static final Set<String> MESSAGE_ONLY = Set.of(AgentCapability.MESSAGE);
 
   /** Looks up conversations and the live handle of the running ones. */
   private final AgentConversationService service;
@@ -77,7 +80,7 @@ public class AgentSteering {
       final String conversationId, final String text, final boolean interrupt) {
     return send(
         conversationId,
-        interrupt ? Set.of(AgentCapability.MESSAGE, AgentCapability.INTERRUPT) : MESSAGE,
+        interrupt ? Set.of(AgentCapability.MESSAGE, AgentCapability.INTERRUPT) : MESSAGE_ONLY,
         text.getBytes(StandardCharsets.UTF_8).length,
         true,
         actor -> new AgentCommand.Message(text, interrupt, actor));
@@ -118,8 +121,6 @@ public class AgentSteering {
     final boolean busy = conversation.state() == com.infenia.yukta.plugin.agent.AgentState.RUNNING;
     return busy && !interrupt && !conversation.capabilities().contains(AgentCapability.STEER);
   }
-
-  private static final Set<String> MESSAGE = Set.of(AgentCapability.MESSAGE);
 
   private Mono<Void> send(
       final String conversationId,
@@ -221,9 +222,9 @@ public class AgentSteering {
   }
 
   private static String name(final ActorInfo actor) {
-    return switch (actor.type()) {
-      case SUPERVISOR -> "supervisor:" + actor.id();
-      default -> ANONYMOUS.equals(actor.id()) ? ANONYMOUS : "key:" + actor.id();
-    };
+    if (actor.type() == ActorInfo.Type.SUPERVISOR) {
+      return "supervisor:" + actor.id();
+    }
+    return ANONYMOUS.equals(actor.id()) ? ANONYMOUS : "key:" + actor.id();
   }
 }

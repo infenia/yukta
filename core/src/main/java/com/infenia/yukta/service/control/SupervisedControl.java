@@ -308,6 +308,7 @@ public class SupervisedControl {
    * @param interrupt whether to stop the agent's turn first
    * @return completes when applied
    */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<Void> agentMessage(
       final String executionId,
       final String nodeId,

@@ -16,6 +16,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /** The parsing and checks of an AGENT_SESSION node's configuration. */
 @NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class AgentSessionConfigTest {
   private static final String APPROVAL_TIMEOUT = "approvalTimeout";
 
@@ -114,7 +115,7 @@ class AgentSessionConfigTest {
   }
 
   @Test
-  void validate_refusesConversationWithAHarnessThatTakesNoMessages() {
+  void validate_refusesConversationWithHarnessThatTakesNoMessages() {
     assertThatThrownBy(() ->
             config.validate(Map.of("harness", "codex", "prompt", "p", "mode", "CONVERSATION")))
         .hasMessageContaining("harness 'codex'")
@@ -165,10 +166,9 @@ class AgentSessionConfigTest {
             AgentSessionConfig.timeoutSeconds(
                 Map.of("mode", "CONVERSATION", "conversationTimeout", 90)))
         .isEqualTo(90);
-    assertThat(AgentSessionConfig.idleTimeout(Map.of()))
-        .isEqualTo(java.time.Duration.ofSeconds(900));
+    assertThat(AgentSessionConfig.idleTimeout(Map.of())).isEqualTo(Duration.ofSeconds(900));
     assertThat(AgentSessionConfig.idleTimeout(Map.of("idleTimeout", 30)))
-        .isEqualTo(java.time.Duration.ofSeconds(30));
+        .isEqualTo(Duration.ofSeconds(30));
   }
 
   @Test

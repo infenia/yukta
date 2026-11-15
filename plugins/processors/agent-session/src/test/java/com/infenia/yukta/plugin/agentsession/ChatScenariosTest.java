@@ -49,12 +49,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @NoArgsConstructor
 @DisabledOnOs(OS.WINDOWS)
-@SuppressWarnings({
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.TooManyMethods",
-  "PMD.CouplingBetweenObjects",
-  "PMD.ExcessiveImports"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.ExcessiveImports"})
 class ChatScenariosTest {
 
   private static final ObjectMapper JSON = new ObjectMapper();
@@ -88,17 +83,17 @@ class ChatScenariosTest {
       done
       """;
 
-  private static final String PRESET =
+  private static final String FIXTURE_PRESET =
       """
-      {"id":"%s","description":"fixture","command":["sh","-c","exit 9"],
+      {"id":"@ID@","description":"fixture","command":["sh","-c","exit 9"],
        "capabilities":{"ask":true},
-       "interactive":{"command":["sh","%s"],
+       "interactive":{"command":["sh","@SCRIPT@"],
          "userMessage":{"type":"user","message":{"role":"user","content":"{prompt}"}},
          "requestWhen":{"type":"control_request","request.subtype":"can_use_tool"},
          "requestId":"request_id","tool":"request.tool_name","input":"request.input","description":"request.description",
          "allow":{"type":"control_response","response":{"request_id":"{id}"}},
          "deny":{"type":"control_response","response":{"request_id":"{id}","message":"{message}"}},
-         "steer":%s,
+         "steer":@STEER@,
          "interrupt":{"type":"control_request","request_id":"{id}","request":{"subtype":"interrupt"}}},
        "output":{"resultWhen":{"type":"result"},"text":"result","sessionId":"session_id","isError":"is_error","subtype":"subtype"}}
       """;
@@ -115,17 +110,22 @@ class ChatScenariosTest {
 
   private AgentConversationSpec opened;
 
+  /** Whether the engine's heartbeat is in the context of the next run. */
+  private boolean beating;
+
+  private final java.util.concurrent.atomic.AtomicInteger beats =
+      new java.util.concurrent.atomic.AtomicInteger();
+
   @BeforeEach
   void setUp() throws IOException {
     final String script = dir.resolve("agent.sh").toString();
     Files.writeString(dir.resolve("agent.sh"), SCRIPT);
-    Files.writeString(dir.resolve("queuer.json"), PRESET.formatted("queuer", script, "false"));
+    Files.writeString(dir.resolve("queuer.json"), preset("queuer", script, "false"));
     Files.writeString(
         dir.resolve("deaf.json"),
-        PRESET
-            .formatted("deaf", script, "false")
+        preset("deaf", script, "false")
             .replaceFirst(",\\s*\"interrupt\":\\{.*\\}\\},\\s*\"output\"", "},\n \"output\""));
-    Files.writeString(dir.resolve("steerer.json"), PRESET.formatted("steerer", script, "true"));
+    Files.writeString(dir.resolve("steerer.json"), preset("steerer", script, "true"));
     final VariableResolver resolver = mock(VariableResolver.class);
     when(resolver.resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
         .thenAnswer(i -> Mono.just(i.getArgument(0)));
@@ -155,15 +155,13 @@ class ChatScenariosTest {
     return provider;
   }
 
-  /** Whether the engine's heartbeat is in the context of the next run. */
-  private boolean beating;
+  private static String preset(final String id, final String script, final String steer) {
+    return FIXTURE_PRESET.replace("@ID@", id).replace("@SCRIPT@", script).replace("@STEER@", steer);
+  }
 
   private Runnable beat() {
     return beats::incrementAndGet;
   }
-
-  private final java.util.concurrent.atomic.AtomicInteger beats =
-      new java.util.concurrent.atomic.AtomicInteger();
 
   private CompletableFuture<Message<?>> start(
       final String harness, final Map<String, Object> extra, final String prompt) {
@@ -208,7 +206,7 @@ class ChatScenariosTest {
   }
 
   @Test
-  void whenMessageDuringATurnWaitsAndIsSentWhenTheTurnEnds() throws Exception {
+  void whenMessageDuringTurnWaitsAndIsSentWhenTheTurnEnds() throws Exception {
     final var running = start("queuer", Map.of(), "HOLD");
     awaitCall("state RUNNING");
 
@@ -224,7 +222,7 @@ class ChatScenariosTest {
             c.startsWith("emit RESULT")
                 && c.contains("status=incomplete")
                 && c.contains("reason=interrupted"))
-        .anyMatch(c -> c.equals("queued 0"))
+        .anyMatch("queued 0"::equals)
         .anyMatch(c -> c.startsWith("emit RESULT") && c.contains("turn 1: later"));
     assertThat(out.sourcePort()).isEqualTo("success");
     assertThat(payload(out)).containsEntry("text", "turn 1: later").containsEntry("turn", 2);
@@ -263,7 +261,7 @@ class ChatScenariosTest {
     send(new AgentCommand.Message("two", false, "key:ann"));
     await()
         .atMost(Duration.ofSeconds(20))
-        .until(() -> calls.stream().filter(c -> c.equals("state IDLE null")).count() == 2);
+        .until(() -> calls.stream().filter("state IDLE null"::equals).count() == 2);
     assertThat(running).isNotDone();
     send(new AgentCommand.End(null, null, "key:ann"));
     final Message<?> out = running.get();
@@ -296,7 +294,7 @@ class ChatScenariosTest {
   }
 
   @Test
-  void endingATurnThatIsRunningStopsItFirst() throws Exception {
+  void endingTurnThatIsRunningStopsItFirst() throws Exception {
     final var running = start("queuer", Map.of(), "HOLD");
     awaitCall("state RUNNING");
 
@@ -364,12 +362,13 @@ class ChatScenariosTest {
     awaitCall("state IDLE null");
 
     await().atMost(Duration.ofSeconds(20)).until(() -> beats.get() >= 2);
+    assertThat(beats.get()).isGreaterThanOrEqualTo(2);
     send(new AgentCommand.End(null, null, "key:ann"));
     running.get();
   }
 
   @Test
-  void aTurnThatEndsWellAfterAnInterruptStaysAsItEnded() throws Exception {
+  void turnThatEndsWellAfterInterruptStaysAsItEnded() throws Exception {
     final var running = start("queuer", Map.of(), "HOLDOK");
     awaitCall("state RUNNING");
 
@@ -407,7 +406,7 @@ class ChatScenariosTest {
   }
 
   @Test
-  void aRequestIsRefusedWhenApprovalsAreOffForTheNode() throws Exception {
+  void requestIsRefusedWhenApprovalsAreOffForTheNode() throws Exception {
     final Message<?> out = start("queuer", Map.of(), "ASKME").get();
 
     assertThat(payload(out)).containsEntry("text", "approvals are off for this node");

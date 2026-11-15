@@ -74,7 +74,7 @@ public final class JsonlAdapter implements AgentAdapter {
               run.preset().output(), run.talk(), new LogMirror(run.log()), conversation, json);
       conversation.emit(AgentEventKind.MESSAGE, PROMPT_ITEM, prompt(run.prompt()));
       conversation.state(AgentState.RUNNING, null);
-      final AtomicReference<Chat> chat = new AtomicReference<>();
+      final AtomicReference<AgentChat> chat = new AtomicReference<>();
       final Mono<ProcessExecutionResult> ended =
           run.talk() == null
               ? gateway.executeForResult(run.spec(), output)
@@ -90,7 +90,7 @@ public final class JsonlAdapter implements AgentAdapter {
   }
 
   private static Map<String, Object> settle(
-      final @Nullable Chat chat, final Map<String, Object> outcome) {
+      final @Nullable AgentChat chat, final Map<String, Object> outcome) {
     return chat == null ? outcome : chat.settle(outcome);
   }
 
@@ -99,7 +99,7 @@ public final class JsonlAdapter implements AgentAdapter {
       final AgentConversationHandle conversation,
       final AgentOutput output,
       final Map<String, Object> outcome,
-      final @Nullable Chat chat) {
+      final @Nullable AgentChat chat) {
     final String status = String.valueOf(outcome.get("status"));
     final Object reason = outcome.get("reason");
     output.closeTools(AgentOutcome.FAILURE.equals(status));
@@ -111,7 +111,7 @@ public final class JsonlAdapter implements AgentAdapter {
     result.put("text", outcome.get("text"));
     result.put("turn", outcome.get("turn"));
     // a turn that ended with its result line has written its RESULT already
-    if (chat == null || chat.busy()) {
+    if (chat == null || chat.working()) {
       conversation.emit(AgentEventKind.RESULT, null, result);
     }
     conversation.end(status, reason == null ? null : String.valueOf(reason));
@@ -130,7 +130,7 @@ public final class JsonlAdapter implements AgentAdapter {
       final AgentRun run,
       final AgentPreset.Interactive talk,
       final AgentOutput output,
-      final AtomicReference<Chat> chat) {
+      final AtomicReference<AgentChat> chat) {
     final InputIdentity who =
         Objects.requireNonNull(run.who(), "an agent that takes messages must run inside a node");
     final AtomicReference<AgentRequests> requests = new AtomicReference<>();
@@ -151,13 +151,13 @@ public final class JsonlAdapter implements AgentAdapter {
                       stdin,
                       run.handle());
               requests.set(a);
-              final Chat c = new Chat(run, output, a, stdin, beat);
+              final AgentChat c = new AgentChat(run, output, a, stdin, beat);
               chat.set(c);
               c.start();
             })
         .doFinally(signal -> {
           Mono.justOrEmpty(requests.get()).subscribe(AgentRequests::dispose);
-          Mono.justOrEmpty(chat.get()).subscribe(Chat::dispose);
+          Mono.justOrEmpty(chat.get()).subscribe(AgentChat::dispose);
         });
   }
 }

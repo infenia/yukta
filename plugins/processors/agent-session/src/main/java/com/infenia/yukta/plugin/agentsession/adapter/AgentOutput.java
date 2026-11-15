@@ -203,18 +203,18 @@ final class AgentOutput implements PluginLogSink {
     }
   }
 
-  /**
-   * Closes the tool calls that are still open: the turn is over, so none of them is running.
-   *
-   * @param failed whether the turn failed, which fails the calls that never reported an end
-   */
-  /** Forgets the result of the last turn: the next turn starts. */
+  // Forgets the result of the last turn: the next turn starts.
   /* default */ void nextTurn() {
     result.set(null);
     failure.set(null);
     turns.incrementAndGet();
   }
 
+  /**
+   * Closes the tool calls that are still open: the turn is over, so none of them is running.
+   *
+   * @param failed whether the turn failed, which fails the calls that never reported an end
+   */
   /* default */ void closeTools(final boolean failed) {
     String id = runningTools.poll();
     while (id != null) {

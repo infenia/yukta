@@ -829,7 +829,7 @@ class AgentSessionPluginTest {
   }
 
   @Test
-  void nodeWithoutApprovalsOrAConversationGatewayRunsTheOneShotCommand() {
+  void nodeWithoutApprovalsOrConversationGatewayRunsTheOneShotCommand() {
     final Message<?> out = runInNode("asker", Map.of(), new CopyOnWriteArrayList<>());
 
     assertThat(out.sourcePort()).isEqualTo("failure");

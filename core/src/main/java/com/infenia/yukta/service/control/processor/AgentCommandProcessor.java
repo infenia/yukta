@@ -21,7 +21,7 @@ import reactor.core.publisher.Mono;
 public class AgentCommandProcessor {
 
   /** Checks the sender and delivers the command; none when {@code yukta.agents.enabled} is off. */
-  private final ObjectProvider<AgentSteering> steering;
+  private final ObjectProvider<AgentSteering> provider;
 
   /** Applies a message. */
   public Mono<Void> process(final AgentMessageCommand command) {
@@ -39,7 +39,7 @@ public class AgentCommandProcessor {
   }
 
   private AgentSteering steering() {
-    final AgentSteering found = steering.getIfAvailable();
+    final AgentSteering found = provider.getIfAvailable();
     if (found == null) {
       throw new IllegalStateException("Agent conversations are off (yukta.agents.enabled)");
     }

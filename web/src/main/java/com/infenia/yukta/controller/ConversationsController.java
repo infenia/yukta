@@ -60,7 +60,7 @@ import reactor.core.publisher.Mono;
     name = "enabled",
     havingValue = "true",
     matchIfMissing = true)
-@SuppressWarnings({"PMD.ExcessiveImports"})
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.CouplingBetweenObjects", "PMD.TooManyMethods"})
 @Tag(name = "Agent Conversations API", description = "Read the conversations with AI agents")
 public class ConversationsController {
 

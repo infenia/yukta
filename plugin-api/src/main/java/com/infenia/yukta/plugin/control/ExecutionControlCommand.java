@@ -25,6 +25,7 @@ import java.util.Map;
  *   <li>No race conditions from multiple access paths
  * </ul>
  */
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 public sealed interface ExecutionControlCommand
     permits ExecutionControlCommand.PauseWorkflowCommand,
         ExecutionControlCommand.ResumeWorkflowCommand,
