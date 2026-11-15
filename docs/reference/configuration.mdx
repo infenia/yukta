@@ -24,7 +24,7 @@ Durations take a unit (`30s`, `10m`, `1h`); `0` means off where the row says so.
 
 A native binary activates the `prod` profile itself unless `--spring.profiles.active=...` is passed as an argument. Setting `SPRING_PROFILES_ACTIVE=postgres` alone replaces `prod`; name both (`prod,postgres`).
 
-Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) need the Plus edition; the Community build refuses them at start-up. See [Licensing and editions](/reference/licensing).
+Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`) need the Plus edition; the Community build refuses them at start-up. See [Licensing and editions](/reference/licensing).
 
 ## Server and network
 
@@ -107,8 +107,6 @@ Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execu
 | `yukta.restart.store-type` | enum | file if `yukta.restart.dir` is set, else memory | `postgres` stores checkpoints in PostgreSQL (not re-checked). |
 | `yukta.session.store-type` | enum | `in-memory` | `in-memory`, `file` or `postgres` (not re-checked). |
 | `yukta.session.base-dir` (`YUKTA_SESSION_BASE_DIR`) | path | `<user.home>/.yukta` | Root of the file store. |
-| `yukta.kv.store-type` | enum | `memory` | `postgres` keeps `KV_STORE` state in PostgreSQL (not re-checked). |
-| `yukta.session-memory.store-type`, `.dir`, `.ttl`, `.max-sessions` | enum, path, duration, int | `memory`, unset, unset, `10000` | Chat history store, directory, idle expiry, in-memory cap (not re-checked). |
 | `yukta.input.store-type` | enum | `memory` | `postgres` keeps input requests; needs `yukta.session.store-type=postgres` (not re-checked). |
 | `yukta.bootstrap.dir`, `.watch`, `.watch-interval` | path, boolean, duration | unset, `false`, `5s` | Session files applied at start-up and optionally watched (not re-checked). |
 | `yukta.cache.ttl` | duration | `10m` | How long an unused prepared workflow stays cached. |
@@ -248,7 +246,6 @@ A tier name matches `[A-Za-z0-9._-]{1,64}`. A tier's `type` defaults to `AUTO` w
 | SSE keep-alive | every 15 s |
 | List page size | default 500, maximum 1000 (`limit`) |
 | Audit list | default 100, 1 to 500 (`limit`) |
-| `KV_STORE` entries | 10000 (`maxEntries` on the node) |
 | `WAIT_FOR_SIGNAL` wait | 3600 s (`timeoutSeconds`) |
 | Resumes per run | 1 |
 | Worker reconnect pause | 1 s growing to 30 s |

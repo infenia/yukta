@@ -77,10 +77,6 @@ class FixtureReadTest extends PostgresTestSupport {
       final Message<?> checkpoint =
           new R2dbcNodeCheckpointStore(db, mapper).get("r1", "n1").block();
       assertThat(checkpoint.payload()).isEqualTo(Map.of("k", 1));
-
-      assertThat(new R2dbcKeyValueStore(db, mapper).get("w1:count").block()).isEqualTo(3);
-      assertThat(new R2dbcSessionHistoryStore(db, mapper, null).load("s1"))
-          .contains(List.of(Map.of("role", "user", "text", "hi")));
     }
   }
 }

@@ -55,6 +55,12 @@ func validate(cmd *cobra.Command, dir, config, payload string) error {
 	}
 	out := cmd.OutOrStdout()
 	_, _ = fmt.Fprintf(out, "manifest  ok (%s, %s)\n", manifest["type"], manifest["category"])
+	if run, _ := manifest["run"].(map[string]any); run["mcp"] != nil {
+		// ponytail: an MCP tool is not run here; its pin covers the tool's schema, which the server
+		// reads at startup. Add an MCP client here if authors need the check without a server.
+		_, _ = fmt.Fprintln(out, "enable    the server logs the digest to pin at startup (it covers the tool's input schema)")
+		return nil
+	}
 	_, _ = fmt.Fprintf(out, "enable    %s@%s\n", manifest["type"], digest)
 	res, err := pluginspec.Run(dir, manifest, cfg, body)
 	if res.Stderr != "" {

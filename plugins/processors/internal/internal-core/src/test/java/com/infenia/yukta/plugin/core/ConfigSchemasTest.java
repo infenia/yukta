@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.core.filter.ValidateProcessor;
 import com.infenia.yukta.plugin.core.flow.DelayProcessor;
-import com.infenia.yukta.plugin.core.flow.KvStoreProcessor;
 import com.infenia.yukta.plugin.core.flow.LoopPredicateProcessor;
 import com.infenia.yukta.plugin.core.flow.LoopStreamProcessor;
 import com.infenia.yukta.plugin.core.router.AggregateProcessor;
@@ -96,13 +95,5 @@ class ConfigSchemasTest {
     final var plugin = new AggregateProcessor();
     assertThat(names(plugin)).containsExactly("size", "timeoutMs");
     assertThat(required(plugin)).containsExactly("size");
-  }
-
-  @Test
-  void kvStoreOffersTheFourOperations() {
-    final var plugin = new KvStoreProcessor();
-    assertThat(names(plugin)).containsExactly("op", "key", "namespace", "maxEntries");
-    assertThat(plugin.getConfigSchema().getFirst().options())
-        .containsExactly("get", "put", "incr", "delete");
   }
 }

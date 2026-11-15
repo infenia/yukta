@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.external;
 
 import com.infenia.yukta.plugin.core.PluginSource;
+import com.infenia.yukta.plugin.mcp.McpClientGateway;
 import com.infenia.yukta.plugin.process.ProcessExecutorGateway;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import java.nio.file.Path;
@@ -38,6 +39,7 @@ public class ExternalPluginsAutoConfiguration {
    * @param runtime the container CLI for {@code run.image} plugins
    * @param env reads {@code yukta.plugins.container.args.<TYPE>}
    * @param gateway runs the commands
+   * @param mcpGateway reaches {@code run.mcp} plugins over HTTP
    * @param resolver resolves the node configuration per message
    * @return the plugin source
    */
@@ -50,6 +52,7 @@ public class ExternalPluginsAutoConfiguration {
       @Value("${yukta.plugins.container.runtime:docker}") final String runtime,
       final Environment env,
       final ProcessExecutorGateway gateway,
+      final McpClientGateway mcpGateway,
       final VariableResolver resolver) {
     return new ExternalPlugins(
         dir.isBlank() ? null : Path.of(dir),
@@ -58,7 +61,8 @@ public class ExternalPluginsAutoConfiguration {
         resolver,
         maxOutputBytes,
         maxOutputs,
-        new Containers(runtime, containerArgs(env)));
+        new Containers(runtime, containerArgs(env)),
+        mcpGateway);
   }
 
   /**

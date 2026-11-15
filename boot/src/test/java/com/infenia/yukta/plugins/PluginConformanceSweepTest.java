@@ -64,9 +64,7 @@ class PluginConformanceSweepTest {
 
   /** Payloads for plugins whose config reads fields of the input; the rest get a string. */
   private static final Map<String, List<Object>> INPUTS =
-      Map.of(
-          "KV_STORE", List.of(Map.of("value", "v")),
-          "SPLITTER", List.of(Map.of("items", List.of(1, 2))));
+      Map.of("SPLITTER", List.of(Map.of("items", List.of(1, 2))));
 
   /** Type to a supplier of its minimal config; suppliers because some need the fake server. */
   private static final Map<String, Supplier<Map<String, Object>>> FIXTURES = fixtures();
@@ -166,7 +164,6 @@ class PluginConformanceSweepTest {
     fixtures.put("RECIPIENT_LIST", () -> Map.of("mode", "STATIC", "recipients", List.of("p1")));
     fixtures.put("SPLITTER", () -> Map.of("itemsPath", "payload.items"));
     fixtures.put("VALIDATE", () -> Map.of("required", List.of()));
-    fixtures.put("KV_STORE", () -> Map.of("op", "put", "key", "k1", "namespace", "conformance"));
     fixtures.put(
         "LOOP_PREDICATE",
         () ->
@@ -196,7 +193,6 @@ class PluginConformanceSweepTest {
     fixtures.put(
         "SQL_QUERY",
         () -> Map.of("url", H2_URL, "username", "sa", "password", "", "sql", "select 1"));
-    fixtures.put("SESSION_MEMORY", () -> Map.of("mode", "append", "assistant", "hi"));
     return Map.copyOf(fixtures);
   }
 }

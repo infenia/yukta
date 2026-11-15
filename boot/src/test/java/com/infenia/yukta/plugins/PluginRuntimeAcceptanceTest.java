@@ -64,7 +64,6 @@ class PluginRuntimeAcceptanceTest {
           Map.entry("SUPERVISOR_SIGNAL", Map.of()),
           Map.entry("WEBHOOK_TRIGGER", Map.of("path", "p", "secret", "s")),
           Map.entry("CONSTANT_SOURCE", Map.of()),
-          Map.entry("KV_STORE", Map.of("op", "put", "key", "k", "namespace", "runtime")),
           Map.entry("OUTCOME_TERMINAL", Map.of("outcome", "SUCCESS")),
           Map.entry("SUPERVISOR_DECISION", Map.of()),
           Map.entry("SCHEDULE_TRIGGER", Map.of("intervalMs", 1000)));
@@ -91,7 +90,6 @@ class PluginRuntimeAcceptanceTest {
           Map.entry("LOOP_STREAM", "drives another plugin of a running workflow"),
           Map.entry("WAIT_FOR_SIGNAL", "waits for a signal of a running execution"),
           Map.entry("ASK_INPUT", "waits for an answer of a running execution"),
-          Map.entry("SESSION_MEMORY", "needs the history store of a session"),
           Map.entry(
               "FILE_READ", "needs a directory and a file; covered by IoPluginsAcceptanceTest"),
           Map.entry("FILE_WRITE", "needs a directory; covered by IoPluginsAcceptanceTest"),

@@ -11,7 +11,7 @@ import reactor.core.publisher.Mono;
 /** A community terminal: one run of its command per message, in order; its stdout is ignored. */
 public final class ExternalTerminalPlugin extends ExternalPlugin implements TerminalPlugin {
 
-  /* default */ ExternalTerminalPlugin(final PluginManifest manifest, final CommandRun run) {
+  /* default */ ExternalTerminalPlugin(final PluginManifest manifest, final PluginRun run) {
     super(manifest, run);
   }
 
