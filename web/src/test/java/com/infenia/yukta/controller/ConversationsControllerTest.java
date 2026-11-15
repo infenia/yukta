@@ -106,7 +106,8 @@ class ConversationsControllerTest {
         new ConversationsController(
             new AgentConversationQueries(store, service, tracker, controlBus),
             new ConversationMapper(),
-            new ExecutionAccess(controlBus));
+            new ExecutionAccess(controlBus),
+            org.mockito.Mockito.mock(com.infenia.yukta.service.control.SupervisedControl.class));
     open =
         WebTestClient.bindToController(controller)
             .controllerAdvice(new GlobalExceptionHandler())
@@ -524,7 +525,8 @@ class ConversationsControllerTest {
                 new ConversationsController(
                     new AgentConversationQueries(store, service, tracker, controlBus),
                     new ConversationMapper(),
-                    new ExecutionAccess(controlBus)))
+                    new ExecutionAccess(controlBus),
+                    org.mockito.Mockito.mock(com.infenia.yukta.service.control.SupervisedControl.class)))
             .webFilter((exchange, chain) ->
                 chain
                     .filter(exchange)
