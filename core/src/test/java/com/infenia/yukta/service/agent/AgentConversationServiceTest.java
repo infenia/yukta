@@ -501,6 +501,115 @@ class AgentConversationServiceTest {
     fromProperties.destroy();
   }
 
+  @Test
+  void aPlanKeepsOtherKeysAndNonTextValues() {
+    final AgentConversationHandle handle = open();
+
+    handle.emit(
+        AgentEventKind.PLAN,
+        "plan",
+        data("entries", List.of(data("text", "step", "priority", 2)), "version", 3));
+
+    final Map<String, Object> plan =
+        events(handle).stream()
+            .filter(e -> e.kind() == AgentEventKind.PLAN)
+            .findFirst()
+            .orElseThrow()
+            .data();
+    assertThat(plan).containsEntry("version", 3);
+    assertThat((List<?>) plan.get("entries"))
+        .singleElement()
+        .isEqualTo(data("text", "step", "priority", 2));
+  }
+
+  @Test
+  void aSmallTerminalChunkIsStoredAsIs() {
+    final AgentConversationHandle handle = open();
+    final String encoded = Base64.getEncoder().encodeToString(new byte[] {1, 2, 3});
+
+    handle.emit(AgentEventKind.TERMINAL, null, data("data", encoded, "cols", 80, "rows", 24));
+
+    assertThat(
+            events(handle).stream()
+                .filter(e -> e.kind() == AgentEventKind.TERMINAL)
+                .findFirst()
+                .orElseThrow()
+                .data())
+        .containsEntry("data", encoded);
+  }
+
+  @Test
+  void toolInputThatCannotBeWrittenAsJsonBecomesItsOwnText() {
+    final AgentConversationHandle handle = open();
+
+    handle.emit(
+        AgentEventKind.TOOL, "t", data("title", "Run", "status", "running", "input", new Broken()));
+
+    assertThat(
+            (String)
+                events(handle).stream()
+                    .filter(e -> e.kind() == AgentEventKind.TOOL)
+                    .findFirst()
+                    .orElseThrow()
+                    .data()
+                    .get("input"))
+        .startsWith("com.infenia.yukta.service.agent");
+  }
+
+  @Test
+  void theNoticeAboutDroppedEventsReachesTheLiveStream() {
+    final InMemoryAgentConversationStore small = new InMemoryAgentConversationStore(10, 2, 1000);
+    service = newService(settings(64, 32, 2), small);
+    final List<AgentChange> seen = Collections.synchronizedList(new ArrayList<>());
+    subscriptions.add(service.changes().subscribe(seen::add));
+    final AgentConversationHandle handle = open();
+
+    for (int i = 0; i < 4; i++) {
+      handle.emit(AgentEventKind.MESSAGE, "m", data("role", "agent", "text", "x"));
+    }
+    service.flush().block();
+
+    assertThat(seen)
+        .filteredOn(AgentChange.EventAppended.class::isInstance)
+        .map(change -> ((AgentChange.EventAppended) change).event().kind())
+        .filteredOn(kind -> kind == AgentEventKind.NOTICE)
+        .hasSize(1);
+  }
+
+  @Test
+  void writesThatArriveAfterTheEndAreRefusedByTheServiceItself() {
+    final AgentConversationHandle handle = open();
+    final LiveAgentConversation live = service.live(handle.id()).orElseThrow();
+    handle.end("success", null);
+    service.flush().block();
+    final long seq = stored(handle).seq();
+    final int count = events(handle).size();
+
+    service.appendEvent(live, AgentEventKind.MESSAGE, "m", data("role", "agent", "text", "late"));
+    service.changeQueued(live, 3);
+    service.changeState(live, AgentState.RUNNING, null);
+    service.finish(live, "failure", "twice");
+    service.flush().block();
+
+    assertThat(stored(handle).seq()).isEqualTo(seq);
+    assertThat(stored(handle).outcome()).isEqualTo("success");
+    assertThat(events(handle)).hasSize(count);
+    assertThat(service.live(handle.id())).isEmpty();
+  }
+
+  /** A value Jackson cannot write: reading it throws. */
+  public static final class Broken {
+
+    /**
+     * Always fails.
+     *
+     * @return never returns
+     */
+    public String getBad() {
+      throw new IllegalStateException("cannot be read");
+    }
+  }
+
   /** A store that fails on demand. */
   private static final class FlakyStore implements AgentConversationStore {
 

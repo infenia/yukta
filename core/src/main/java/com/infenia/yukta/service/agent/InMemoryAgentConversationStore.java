@@ -220,21 +220,21 @@ public final class InMemoryAgentConversationStore implements AgentConversationSt
 
   /** Removes ended conversations, the one that ended longest ago first, down to the bound. */
   private void evictEnded(final String keep) {
-    if (entries.size() <= maxConversations) {
+    final int excess = entries.size() - maxConversations;
+    if (excess <= 0) {
       return;
     }
-    final List<Entry> ended =
-        entries.values().stream()
-            .filter(entry -> entry.conversation.isEnded() && entry.conversation.endedAt() != null)
-            .filter(entry -> !entry.conversation.id().equals(keep))
-            .sorted(Comparator.comparing(entry -> entry.conversation.endedAt()))
-            .toList();
-    for (final Entry entry : ended) {
-      if (entries.size() <= maxConversations) {
-        return;
-      }
-      entries.remove(entry.conversation.id());
-    }
+    entries.values().stream()
+        .filter(entry -> entry.conversation.isEnded())
+        .filter(entry -> !entry.conversation.id().equals(keep))
+        .sorted(
+            Comparator.comparing(
+                entry -> entry.conversation.endedAt(),
+                Comparator.nullsLast(Comparator.naturalOrder())))
+        .limit(excess)
+        .map(entry -> entry.conversation.id())
+        .toList()
+        .forEach(entries::remove);
   }
 
   private static boolean endedBefore(final AgentConversation conversation, final Instant before) {

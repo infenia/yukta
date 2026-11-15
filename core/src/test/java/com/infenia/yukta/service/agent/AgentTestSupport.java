@@ -64,7 +64,7 @@ public class AgentTestSupport {
    * @return the conversation
    */
   public static AgentConversation ended(final String id, final Instant endedAt) {
-    return conversation(id).withState(AgentState.ENDED).withOutcome("success").withEndedAt(endedAt);
+    return conversation(id).withOutcome("success").withEndedAt(endedAt).withState(AgentState.ENDED);
   }
 
   /**

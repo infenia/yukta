@@ -166,34 +166,26 @@ public class AgentConversationService implements DisposableBean {
       final AgentEventKind kind,
       final @Nullable String itemId,
       final Map<String, Object> data) {
-    run(handle, () -> doAppend(handle, kind, itemId, data));
+    run(() -> doAppend(handle, kind, itemId, data));
   }
 
   /* default */ void changeState(
       final LiveAgentConversation handle, final AgentState state, final @Nullable String reason) {
-    run(handle, () -> doChangeState(handle, state, reason));
+    run(() -> doChangeState(handle, state, reason));
   }
 
   /* default */ void changeQueued(final LiveAgentConversation handle, final int count) {
-    run(handle, () -> doChangeQueued(handle, count));
+    run(() -> doChangeQueued(handle, count));
   }
 
   /* default */ void finish(
       final LiveAgentConversation handle, final String outcome, final @Nullable String reason) {
-    run(handle, () -> doFinish(handle, outcome, reason));
+    run(() -> doFinish(handle, outcome, reason));
   }
 
-  private void run(
-      final LiveAgentConversation handle, final java.util.function.Supplier<Mono<Void>> job) {
-    writer
-        .submit(job)
-        .subscribe(
-            ignored -> {},
-            error ->
-                log.atWarn()
-                    .addKeyValue("conversationId", handle.id())
-                    .setCause(error)
-                    .log("Could not record a change of an agent conversation"));
+  private void run(final java.util.function.Supplier<Mono<Void>> job) {
+    // a failed write is logged by the writer; the plugin must not fail for it
+    writer.submit(job).onErrorResume(error -> Mono.empty()).subscribe();
   }
 
   private Mono<AgentConversationHandle> create(
@@ -300,10 +292,10 @@ public class AgentConversationService implements DisposableBean {
     return saveChange(
             handle,
             conversation
-                .withState(AgentState.ENDED)
                 .withOutcome(outcome)
-                .withReason(cleanReason)
                 .withEndedAt(now)
+                .withState(AgentState.ENDED)
+                .withReason(cleanReason)
                 .withUpdatedAt(now))
         .then(storeEvent(conversation.id(), AgentEventKind.STATE, null, data))
         .doFinally(signal -> liveByConversation.remove(conversation.id()));

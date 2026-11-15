@@ -80,7 +80,10 @@ class AgentValuesTest {
   @Test
   void witherChangesOneFieldAndKeepsTheRest() {
     final AgentConversation ended =
-        conversation(Set.of()).withState(AgentState.ENDED).withOutcome(AgentOutcome.SUCCESS);
+        conversation(Set.of())
+            .withOutcome(AgentOutcome.SUCCESS)
+            .withEndedAt(NOW)
+            .withState(AgentState.ENDED);
 
     assertThat(ended.isEnded()).isTrue();
     assertThat(ended.outcome()).isEqualTo("success");
@@ -147,6 +150,7 @@ class AgentValuesTest {
         .isEqualTo(new AgentCommand.TerminalInput(new byte[] {1, 2, 3}, "arun").hashCode());
     assertThat(input).isNotEqualTo(new AgentCommand.TerminalInput(new byte[] {1}, "arun"));
     assertThat(input).isNotEqualTo("text");
+    assertThat(input).isNotEqualTo(new AgentCommand.TerminalInput(new byte[] {1, 2, 3}, "other"));
     assertThat(input.toString()).contains("3 bytes").doesNotContain("[1, 2, 3]");
   }
 
@@ -184,5 +188,64 @@ class AgentValuesTest {
         .thenCancel()
         .verify();
     assertThat(List.of(AgentProtocol.values())).hasSize(3);
+  }
+
+  @Test
+  void endedNeedsAnOutcomeAndAnEndTimeAndNullIdsAreRefused() {
+    final AgentConversation live = conversation(Set.of());
+
+    assertThatThrownBy(() -> live.withState(AgentState.ENDED))
+        .hasMessageContaining("outcome and an end time");
+    assertThatThrownBy(() -> live.withOutcome(AgentOutcome.FAILURE).withState(AgentState.ENDED))
+        .hasMessageContaining("outcome and an end time");
+    assertThatThrownBy(() -> live.withId(null)).hasMessageContaining("id must not be blank");
+  }
+
+  @Test
+  void specRefusesNullTextParts() {
+    final InputIdentity who = new InputIdentity("s1", "w1", "e1", "n1");
+
+    assertThatThrownBy(() ->
+            new AgentConversationSpec(
+                who, null, "h", AgentProtocol.PTY, null, Set.of(), Audience.CURRENT_TIER))
+        .hasMessageContaining("messageId");
+    assertThatThrownBy(() ->
+            new AgentConversationSpec(
+                who, "m", null, AgentProtocol.PTY, null, Set.of(), Audience.CURRENT_TIER))
+        .hasMessageContaining("harness");
+  }
+
+  @Test
+  void validCommandsAreBuiltAsGiven() {
+    final AgentCommand.Message message = new AgentCommand.Message("hi", true, "arun");
+    final AgentCommand.Interrupt interrupt = new AgentCommand.Interrupt("arun");
+    final AgentCommand.End end = new AgentCommand.End("success", "done", "arun");
+
+    assertThat(message.text()).isEqualTo("hi");
+    assertThat(message.interrupt()).isTrue();
+    assertThat(message.actor()).isEqualTo("arun");
+    assertThat(interrupt.actor()).isEqualTo("arun");
+    assertThat(end.outcome()).isEqualTo("success");
+    assertThat(end.reason()).isEqualTo("done");
+    assertThatThrownBy(() -> new AgentCommand.Message("hi", false, null))
+        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> new AgentCommand.End(null, null, null))
+        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> new AgentCommand.TerminalInput(null, "a"))
+        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> new AgentCommand.TerminalInput(new byte[0], null))
+        .isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
+  void everyEdgeOfTheTerminalSizeIsChecked() {
+    assertThatCode(() -> new AgentCommand.TerminalResize(1, 1)).doesNotThrowAnyException();
+    assertThatCode(() -> new AgentCommand.TerminalResize(1000, 1000)).doesNotThrowAnyException();
+    assertThatThrownBy(() -> new AgentCommand.TerminalResize(1001, 10))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new AgentCommand.TerminalResize(10, 0))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new AgentCommand.TerminalResize(-1, 10))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 }

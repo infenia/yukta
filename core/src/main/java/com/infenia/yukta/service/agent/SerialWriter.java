@@ -21,7 +21,7 @@ import reactor.core.publisher.Sinks;
  * its turn instead of recursing. A write that fails is logged and does not stop the ones behind it.
  */
 @Slf4j
-final class SerialWriter implements Disposable {
+final class SerialWriter {
 
   /** Takes the jobs; thread-safe and safe against re-entry. */
   private final FluxSink<Mono<Void>> jobs;
@@ -68,13 +68,7 @@ final class SerialWriter implements Disposable {
     });
   }
 
-  @Override
-  public void dispose() {
+  /* default */ void dispose() {
     subscription.dispose();
-  }
-
-  @Override
-  public boolean isDisposed() {
-    return subscription.isDisposed();
   }
 }

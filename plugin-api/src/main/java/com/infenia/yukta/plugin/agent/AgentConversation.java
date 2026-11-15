@@ -25,7 +25,8 @@ import org.jspecify.annotations.Nullable;
  * @param protocol how Yukta talks to the agent
  * @param model the model, when the agent or the node names one
  * @param capabilities what the conversation can do, see {@link AgentCapability}
- * @param state where the conversation is
+ * @param state where the conversation is; {@link AgentState#ENDED} needs an outcome and an end
+ *     time, so set those first when using the with-ers
  * @param outcome how it ended; null until {@link AgentState#ENDED}
  * @param reason why it is in this state or ended; null when there is nothing to say
  * @param turn how many turns have finished
@@ -109,6 +110,9 @@ public record AgentConversation(
     }
     if (outcome != null) {
       AgentOutcome.require(outcome);
+    }
+    if (state == AgentState.ENDED && (outcome == null || endedAt == null)) {
+      throw new IllegalArgumentException("An ended conversation needs an outcome and an end time");
     }
   }
 

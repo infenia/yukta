@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.agent.AgentConversationGateway;
 import com.infenia.yukta.plugin.agent.AgentConversationHandle;
 import com.infenia.yukta.plugin.agent.AgentConversationSpec;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -50,6 +51,6 @@ public class DefaultAgentConversationGateway implements AgentConversationGateway
       return executionId;
     }
     final String root = progress.rootExecutionId();
-    return root == null || root.isBlank() ? executionId : root;
+    return Objects.requireNonNullElse(root, executionId);
   }
 }

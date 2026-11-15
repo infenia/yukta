@@ -266,6 +266,56 @@ class InMemoryAgentConversationStoreTest {
         .isInstanceOf(IllegalArgumentException.class);
   }
 
+  @Test
+  void onlyAsManyEndedConversationsGoAsTheBoundNeeds() {
+    final InMemoryAgentConversationStore store = store(2, 10);
+    store.save(ended("a", NOW.minusSeconds(30))).block();
+    store.save(ended("b", NOW.minusSeconds(20))).block();
+    store.save(conversation("live")).block();
+
+    assertThat(ids(store, ConversationFilter.all())).containsExactlyInAnyOrder("b", "live");
+  }
+
+  @Test
+  void outputWithoutDataOrOnlyPaddingCountsAsNoBytes() {
+    final InMemoryAgentConversationStore store = new InMemoryAgentConversationStore(10, 10, 4);
+    store.save(conversation("a")).block();
+    store
+        .append(
+            new AgentEvent(
+                0, "a", NOW, AgentEventKind.TERMINAL, null, java.util.Map.of("cols", 80)))
+        .block();
+    store.append(output("a", "====")).block();
+    store.append(output("a", "")).block();
+    store.append(output("a", FOUR_BYTES)).block();
+
+    assertThat(events(store, "a")).hasSize(4);
+  }
+
+  @Test
+  void aScreenAndANoticeAreLeftOutWhenTheCallerAlreadyHasThem() {
+    final InMemoryAgentConversationStore store = store(10, 1);
+    store.save(conversation("a")).block();
+    store.append(event("a", AgentEventKind.MESSAGE)).block();
+    store.append(event("a", AgentEventKind.MESSAGE)).block();
+    final AgentEvent screen = store.append(screen("a", "s")).block().event();
+
+    final List<AgentEvent> all = events(store, "a");
+    final long last = all.stream().mapToLong(AgentEvent::seq).max().orElseThrow();
+
+    assertThat(all)
+        .extracting(AgentEvent::kind)
+        .contains(AgentEventKind.NOTICE, AgentEventKind.TERMINAL);
+    assertThat(store.events(EventFilter.forConversation("a"), last, 10).collectList().block())
+        .isEmpty();
+    assertThat(
+            store
+                .events(EventFilter.forConversation("a"), screen.seq() - 1, 10)
+                .collectList()
+                .block())
+        .containsExactly(screen);
+  }
+
   private static List<String> ids(
       final AgentConversationStore store, final ConversationFilter filter) {
     return store.list(filter).map(AgentConversation::id).collectList().block();
