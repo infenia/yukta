@@ -435,13 +435,13 @@ class NotificationsControllerTest {
           raise("b", "s1", "role:VIEWER");
         })
         .assertNext(e -> {
-          assertThat(e.event()).isEqualTo("created");
+          assertThat(e.data().type()).isEqualTo("created");
           assertThat(e.id()).startsWith(service.epoch() + "-");
           assertThat(e.data().notification().key()).isEqualTo("a");
         })
-        .assertNext(e -> assertThat(e.event()).isEqualTo("updated"))
+        .assertNext(e -> assertThat(e.data().type()).isEqualTo("updated"))
         .assertNext(e -> {
-          assertThat(e.event()).isEqualTo("receipt");
+          assertThat(e.data().type()).isEqualTo("receipt");
           assertThat(e.data().readAt()).isNotNull();
         })
         .assertNext(e -> assertThat(e.data().notification().key()).isEqualTo("b"))
@@ -455,7 +455,7 @@ class NotificationsControllerTest {
 
     StepVerifier.create(stream("a-key", null).take(1))
         .then(() -> service.resolve("input:x", "answered").block())
-        .assertNext(e -> assertThat(e.event()).isEqualTo("resolved"))
+        .assertNext(e -> assertThat(e.data().type()).isEqualTo("resolved"))
         .expectComplete()
         .verify(WAIT);
   }
@@ -470,9 +470,9 @@ class NotificationsControllerTest {
     service.raise(NotifyDrafts.again(first)).block();
 
     StepVerifier.create(stream("s-key", service.epoch() + "-" + first.seq()).take(3))
-        .assertNext(e -> assertThat(e.event()).isEqualTo("resolved"))
-        .assertNext(e -> assertThat(e.event()).isEqualTo("created"))
-        .assertNext(e -> assertThat(e.event()).isEqualTo("updated"))
+        .assertNext(e -> assertThat(e.data().type()).isEqualTo("resolved"))
+        .assertNext(e -> assertThat(e.data().type()).isEqualTo("created"))
+        .assertNext(e -> assertThat(e.data().type()).isEqualTo("updated"))
         .expectComplete()
         .verify(WAIT);
     assertThat(second.seq()).isGreaterThan(first.seq());
@@ -497,19 +497,19 @@ class NotificationsControllerTest {
     }
 
     StepVerifier.create(stream("a-key", "other-epoch-5").take(1))
-        .assertNext(e -> assertThat(e.event()).isEqualTo("reset"))
+        .assertNext(e -> assertThat(e.data().type()).isEqualTo("reset"))
         .expectComplete()
         .verify(WAIT);
     StepVerifier.create(stream("a-key", "garbage").take(1))
-        .assertNext(e -> assertThat(e.event()).isEqualTo("reset"))
+        .assertNext(e -> assertThat(e.data().type()).isEqualTo("reset"))
         .expectComplete()
         .verify(WAIT);
     StepVerifier.create(stream("a-key", service.epoch() + "-x").take(1))
-        .assertNext(e -> assertThat(e.event()).isEqualTo("reset"))
+        .assertNext(e -> assertThat(e.data().type()).isEqualTo("reset"))
         .expectComplete()
         .verify(WAIT);
     StepVerifier.create(stream("a-key", service.epoch() + "-0").take(1))
-        .assertNext(e -> assertThat(e.event()).isEqualTo("reset"))
+        .assertNext(e -> assertThat(e.data().type()).isEqualTo("reset"))
         .expectComplete()
         .verify(WAIT);
   }

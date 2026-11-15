@@ -283,17 +283,18 @@ public class NotificationsController {
    * The caller's changes as they happen.
    *
    * @param lastEventId the last event id the client saw, {@code <epoch>-<seq>}
-   * @return events named created, updated, resolved, receipt or reset
+   * @return events whose data carries type created, updated, resolved, receipt or reset
    */
   @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   @Operation(
       summary = "Stream my notifications",
       description =
-          "created, updated, resolved and receipt events for the caller, with ids <epoch>-<seq>."
-              + " A reconnect with Last-Event-ID replays the changes after it (at most 500); a"
-              + " position of another epoch (the server restarted) or too far back gets one reset"
-              + " event, and the client loads the list again. At most 8 streams per key; 503 on a"
-              + " standby server.")
+          "created, updated, resolved and receipt events for the caller (the type is in the data;"
+              + " the events have no SSE name, so a browser EventSource delivers them to"
+              + " onmessage), with ids <epoch>-<seq>. A reconnect with Last-Event-ID replays the"
+              + " changes after it (at most 500); a position of another epoch (the server"
+              + " restarted) or too far back gets one reset event, and the client loads the list"
+              + " again. At most 8 streams per key; 503 on a standby server.")
   public Flux<ServerSentEvent<NotificationEvent>> stream(
       @RequestHeader(value = "Last-Event-ID", required = false)
           final @Nullable String lastEventId) {
@@ -372,7 +373,6 @@ public class NotificationsController {
 
   private ServerSentEvent<NotificationEvent> reset() {
     return ServerSentEvent.<NotificationEvent>builder()
-        .event(RESET_EVENT)
         .data(new NotificationEvent(RESET_EVENT, null, null, null, null))
         .build();
   }
@@ -381,7 +381,6 @@ public class NotificationsController {
       final String type, final NotificationView view, final Notification n) {
     return ServerSentEvent.<NotificationEvent>builder()
         .id(service.epoch() + "-" + n.seq())
-        .event(type)
         .data(new NotificationEvent(type, view, null, null, null))
         .build();
   }
@@ -395,7 +394,6 @@ public class NotificationsController {
       return Objects.requireNonNull(receipt).recipient().equals(me.recipient())
           ? Flux.just(
               ServerSentEvent.<NotificationEvent>builder()
-                  .event("receipt")
                   .data(
                       new NotificationEvent(
                           "receipt",
