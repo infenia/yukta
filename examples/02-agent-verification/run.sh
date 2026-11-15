@@ -10,15 +10,18 @@ require_server
 for p in OUTCOME_TERMINAL PROCESS_EXECUTOR SUB_WORKFLOW LOOP_PREDICATE; do require_plugin "$p"; done
 
 SID=$(jq -r .sessionId session.json)
-BASE=/tmp/yukta-example-agent-verification   # the paths in session.json point here
+BASE=/tmp/yukta-examples/agent-verification   # the paths in session.json point here
 REPO=$BASE/repo
 rm -rf "$BASE"; mkdir -p "$BASE"
 cp patch-guard.sh "$BASE/"
 
 # --- helpers (local to this example) -------------------------------------------------------
-# require_process: SKIP (exit 3) when the server refuses to run commands
+# require_process [COMMAND_JSON] [SKIP_MESSAGE]: SKIP (exit 3) when the server cannot run the command
+# (default: echo, which a server that refuses commands, or has no shell, cannot run)
 require_process() {
-  local probe='{"sessionId":"example-uc-probe","name":"probe","description":"probe","initiator":"examples","projectPath":"/tmp","workflows":{"p":{"workflowId":"p","description":"p","nodes":[{"nodeId":"t","type":"CONSTANT_SOURCE","config":{}},{"nodeId":"e","type":"PROCESS_EXECUTOR","config":{"command":["echo","ok"]}},{"nodeId":"x","type":"CONSOLE_TERMINAL","config":{}}],"edges":[{"source":"t","target":"e"},{"source":"e","target":"x"}]}}}'
+  local cmd=${1:-'["echo","ok"]'} msg=${2:-"the server does not run commands (set yukta.process.allowed-commands=sh,echo or YUKTA_PROCESS_ALLOW_ANY=true)"}
+  local probe='{"sessionId":"example-uc-probe","name":"probe","description":"probe","initiator":"examples","projectPath":"/tmp","workflows":{"p":{"workflowId":"p","description":"p","nodes":[{"nodeId":"t","type":"CONSTANT_SOURCE","config":{}},{"nodeId":"e","type":"PROCESS_EXECUTOR","config":{"command":__CMD__}},{"nodeId":"x","type":"CONSOLE_TERMINAL","config":{}}],"edges":[{"source":"t","target":"e"},{"source":"e","target":"x"}]}}}'
+  probe=${probe/__CMD__/$cmd}
   local eid st i
   api POST /api/sessions "$probe" >/dev/null
   eid=$(api POST /api/workflow/start '{"sessionId":"example-uc-probe","workflowId":"p"}' | jq -r .data.executionId)
@@ -28,7 +31,7 @@ require_process() {
   done
   api DELETE /api/sessions/example-uc-probe >/dev/null 2>&1 || true
   if [[ $st != SUCCESS ]]; then
-    echo "SKIP: the server does not run commands (set yukta.process.allowed-commands=sh,echo or YUKTA_PROCESS_ALLOW_ANY=true)"
+    echo "SKIP: $msg"
     exit 3
   fi
 }
@@ -115,6 +118,7 @@ use_fixer() { cp "$BASE/fixer-$1.sh" "$BASE/fixer.sh"; }
 # --------------------------------------------------------------------------------------------
 
 require_process
+require_process '["sh","-c","git --version"]' "git is not installed where the server runs (the Docker image has no git); this example needs it"
 apply_session session.json
 
 echo "--> 1: clean change passes every gate on the first attempt"

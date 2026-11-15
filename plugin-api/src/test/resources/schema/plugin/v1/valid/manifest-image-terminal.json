@@ -1,0 +1,7 @@
+{
+  "apiVersion": "yukta/plugin/v1",
+  "type": "ARCHIVE_TO_S3",
+  "category": "terminal",
+  "description": "Store each message in a bucket",
+  "run": { "image": "ghcr.io/acme/archive@sha256:9f2c4e7b1d0a3c5e8f6b2a1d9c7e4f3b0a8d6c5e2f1b9a7d4c3e0f8b6a5d2c1e" }
+}

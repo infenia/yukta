@@ -1,0 +1,10 @@
+{
+  "apiVersion": "yukta/message/v1",
+  "config": { "channel": "#builds", "token": "resolved-secret" },
+  "message": {
+    "id": "6f1c2b3a-0d4e-4f5a-9b8c-7d6e5f4a3b2c",
+    "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+    "metadata": { "source": "ci" },
+    "payload": { "text": "build passed" }
+  }
+}

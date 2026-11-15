@@ -1,0 +1,7 @@
+{
+  "apiVersion": "yukta/plugin/v1",
+  "type": "SEARCH_TICKETS",
+  "category": "processor",
+  "description": "Search tickets through an MCP server",
+  "run": { "mcp": { "url": "https://mcp.example.com/mcp", "tool": "search_tickets" } }
+}

@@ -38,7 +38,7 @@ bump-request ─► validate ──invalid──► mark-invalid ─────
 | `after-review` | `BRANCH` | Reads `metadata['signal.decision']`: `timeout`, `deny`, or anything else (approve) |
 | `reviewer-approve`, `reviewer-deny`, `review-timeout` | `MAPPER` | Record the maintainer's result, or say the review is taking longer |
 | `security-escalation` | `OUTCOME_TERMINAL` | A `reject` signal hands the update to the security team and ends the run as `ESCALATE`; no merge, no notification |
-| `changelog-line`, `changelog` | `MAPPER`, `FILE_WRITE` | Write one line to `/tmp/yukta-example-dependency-updates/changelog.log` (stand-in for the merge and changelog commit) |
+| `changelog-line`, `changelog` | `MAPPER`, `FILE_WRITE` | Write one line to `/tmp/yukta-examples/dependency-updates/changelog.log` (stand-in for the merge and changelog commit) |
 | `redact` | `CONTENT_FILTER` | Removes `registryToken`, `riskScore`, `decidedBy` and the internal counters |
 | `compose`, `notify-maintainer` | `MAPPER`, `FILE_WRITE` | Append the message to `outbox.log` (stand-in for Slack or email) |
 

@@ -25,7 +25,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { ApiError } from '@/lib/apiClient';
 import { checkProjectPath, getSessionDraft, saveSession } from '../api';
 import type { SessionDraft, TemplateDetail } from '../types';
-import { newSession, slugify } from './SessionFormPage.helpers';
+import { newSession, slugify, templatePath } from './SessionFormPage.helpers';
 import { TemplateGallery } from './TemplateGallery';
 
 const FORMATS: [CommandFormat, string][] = [
@@ -175,7 +175,7 @@ function SessionForm({
     name: loaded?.name ?? template?.title ?? '',
     description: loaded?.description ?? template?.summary ?? '',
     initiator: loaded?.initiator ?? 'ui',
-    projectPath: loaded?.projectPath ?? '',
+    projectPath: loaded?.projectPath ?? templatePath(template),
   });
   const [supervisors, setSupervisors] = useState<SupervisorRef[]>(
     loaded?.assignments ?? template?.session.assignments ?? []
@@ -218,6 +218,7 @@ function SessionForm({
     setBusy(true);
     setError(null);
     setSupervisorErrors([]);
+    let created: SessionDraft | undefined;
     try {
       const metadata = {
         ...fields,
@@ -243,15 +244,19 @@ function SessionForm({
           workflows: current.workflows,
         });
       } else {
-        await saveSession(
-          newSession(fields, metadata.tags, template, supervisors)
-        );
+        created = newSession(fields, metadata.tags, template, supervisors);
+        await saveSession(created);
       }
       await queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      const sessionPath = `/sessions/${encodeURIComponent(fields.sessionId)}`;
+      // A template is there to be run: open its first workflow. A blank start opens the starter's editor.
+      const first = template && Object.keys(created?.workflows ?? {})[0];
       navigate(
         loaded
-          ? `/sessions/${encodeURIComponent(fields.sessionId)}`
-          : `/sessions/${encodeURIComponent(fields.sessionId)}/workflow/main/edit`
+          ? sessionPath
+          : first
+            ? `${sessionPath}/workflow/${encodeURIComponent(first)}`
+            : `${sessionPath}/workflow/main/edit`
       );
     } catch (e) {
       setSupervisorErrors(supervisorProblems(e));

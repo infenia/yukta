@@ -1,0 +1,6 @@
+{
+  "apiVersion": "yukta/message/v1",
+  "config": {},
+  "message": { "id": "m1", "metadata": {}, "payload": null, "addedLater": 1 },
+  "addedLater": true
+}

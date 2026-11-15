@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.plugin;
 
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.core.PluginApi;
 import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.gateway.PluginLookup;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -11,15 +12,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /** Registry for workflow plugins. */
+@Slf4j
 @Service
 @SuppressFBWarnings(
     value = "CT_CONSTRUCTOR_THROW",
-    justification = "Fails fast at startup on duplicate plugin types")
+    justification = "Fails fast at startup on duplicate or incompatible plugin types")
 public class PluginRegistry implements PluginLookup {
   /** Plugin type to plugin, sorted by type so listings are stable; filled once, never changed. */
   @SuppressWarnings("PMD.UseConcurrentHashMap") // never changed after construction
@@ -56,7 +59,9 @@ public class PluginRegistry implements PluginLookup {
       @NotEmpty final List<Plugin> pluginList,
       @Value("${yukta.plugins.enabled:}") final List<String> enabled) {
     final boolean all = enabled.contains("all");
+    log.atInfo().log("Plugin SPI {}", PluginApi.VERSION);
     for (final Plugin plugin : pluginList) {
+      requireCompatible(plugin);
       if (!all
           && (plugin.getTier() == PluginTier.SPECIFIC || plugin.isRestricted())
           && !enabled.contains(plugin.getType())) {
@@ -73,6 +78,20 @@ public class PluginRegistry implements PluginLookup {
                 + " and "
                 + plugin.getClass().getName());
       }
+    }
+  }
+
+  /** Fails startup, naming the plugin, when it was built for an SPI this server cannot run. */
+  private static void requireCompatible(final Plugin plugin) {
+    final String incompatible = PluginApi.refusal(plugin.apiVersion());
+    if (incompatible != null) {
+      throw new IllegalStateException(
+          "Plugin '"
+              + plugin.getType()
+              + "' ("
+              + plugin.getClass().getName()
+              + ") cannot run: "
+              + incompatible);
     }
   }
 

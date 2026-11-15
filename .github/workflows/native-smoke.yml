@@ -50,9 +50,29 @@ jobs:
           NATIVE_HEAP: 12g
         run: release/build-server.sh
 
+      # The UI test drives a real browser against the native server: Node, pnpm, the UI's dependencies and Chromium.
+      - name: Set up pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          package_json_file: ui/package.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install the UI test dependencies
+        working-directory: ui
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
       # The examples run commands (sh, echo) and a Python pager stand-in, which a default server refuses.
-      - name: Smoke test and examples
+      - name: Smoke test, examples and UI
         env:
+          YUKTA_PLUGINS_ENABLED: all
           YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,python3
         run: |
           dist/linux-amd64/yukta &
@@ -60,6 +80,7 @@ jobs:
           trap 'kill "$pid" || true' EXIT
           release/smoke-test.sh http://127.0.0.1:9858
           release/examples-smoke.sh http://127.0.0.1:9858
+          release/ui-smoke.sh http://127.0.0.1:9858
 
       # Run modes of the same binary: daemon commands and the console on a pseudo-terminal. Here and
       # not on pull requests, because it needs the native build above.

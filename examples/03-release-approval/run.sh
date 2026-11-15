@@ -11,7 +11,7 @@ require_server
 for p in PROCESS_EXECUTOR WAIT_FOR_SIGNAL FILE_WRITE OUTCOME_TERMINAL; do require_plugin "$p"; done
 
 SID=$(jq -r .sessionId session.json)
-STATE=/tmp/yukta-example-release-approval   # the paths in session.json point here
+STATE=/tmp/yukta-examples/release-approval   # the paths in session.json point here
 rm -rf "$STATE"; mkdir -p "$STATE"; : >"$STATE/notices.log"
 cp release.sh "$STATE/release.sh"
 echo "v1.4.0" >"$STATE/live"   # what runs in production before the release

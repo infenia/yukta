@@ -1,0 +1,4 @@
+{
+  "apiVersion": "yukta/plugin/v1", "type": "TWO_FORMS", "category": "processor", "description": "x",
+  "run": { "command": ["a"], "image": "b" }
+}

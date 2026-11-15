@@ -1,0 +1,14 @@
+{
+  "apiVersion": "yukta/plugin/v1",
+  "type": "SLACK_NOTIFY",
+  "category": "processor",
+  "description": "Post a message to Slack",
+  "config": [
+    { "name": "channel", "type": "STRING", "required": true },
+    { "name": "token", "type": "SECRET", "required": true },
+    { "name": "style", "type": "ENUM", "options": ["plain", "blocks"], "default": "plain" }
+  ],
+  "ports": ["default", "failed"],
+  "timeout": "30s",
+  "run": { "command": ["python3", "main.py"] }
+}

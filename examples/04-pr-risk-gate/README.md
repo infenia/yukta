@@ -42,7 +42,7 @@ pr ─► validate ──invalid──► mark-invalid ────────�
 | `rejected-stop` | `OUTCOME_TERMINAL` | A `reject` signal pulls the PR out of the automatic flow and ends the run as `FAILED`; nothing is sent |
 | `redact` | `CONTENT_FILTER` | Removes `githubToken` and `awsKey` |
 | `compose` | `MAPPER` | Builds the notification `text` |
-| `notify` | `FILE_WRITE` | Appends the text to `/tmp/yukta-example-pr-risk-gate/outbox.log` (stand-in for a chat or email call) |
+| `notify` | `FILE_WRITE` | Appends the text to `/tmp/yukta-examples/pr-risk-gate/outbox.log` (stand-in for a chat or email call) |
 
 `reject` is special in `WAIT_FOR_SIGNAL`: it fails the node, and the node's `engine.onError: ROUTE`
 sends the message to the `error` port. To record a human "no" and still notify the channel,

@@ -3,7 +3,7 @@
 # Usage: release.sh STEP VERSION. The version name picks the outcome so the example can run offline:
 #   *build-fails*  the build step exits 1      *test-fails*  the test step exits 1
 #   *smoke-fails*  the smoke check exits 1 once that version is live
-state=/tmp/yukta-example-release-approval
+state=/tmp/yukta-examples/release-approval
 v=$2
 case "$1" in
   build)   case "$v" in *build-fails*) echo "build: compile error in $v"; exit 1;; esac; echo "build: $v ok" ;;

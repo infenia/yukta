@@ -43,17 +43,21 @@ revision="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 # so the check runs from the host against a published port.
 smoke_test() {
   local image="$1" platform="$2" port=18080 name="yukta-smoke-$$"
+  # The examples keep their files in /tmp/yukta-examples, shared with the container; the container runs as
+  # this user so both sides can delete them, and needs a writable home and working directory for that.
+  mkdir -p /tmp/yukta-examples
   docker run -d --rm --name "$name" --platform "linux/$platform" -p "127.0.0.1:$port:9858" \
-    -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=smoke-test-key -e YUKTA_API_KEYS_0_ROLE=ADMIN "$image" >/dev/null
+    --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp -v /tmp/yukta-examples:/tmp/yukta-examples \
+    -e YUKTA_PLUGINS_ENABLED=all -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=smoke-test-key -e YUKTA_API_KEYS_0_ROLE=ADMIN "$image" >/dev/null
   trap 'docker rm -f "$name" >/dev/null 2>&1 || true' RETURN
   for _ in $(seq 1 60); do
     if curl -fsS "http://127.0.0.1:$port/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
       "$RELEASE_DIR/smoke-test.sh" "http://127.0.0.1:$port" smoke-test-key ||
         { docker logs "$name" >&2 || true; docker rm -f "$name" >/dev/null 2>&1 || true; die "smoke test failed for $platform"; }
       # The examples, on the image that runs natively here (arm64 runs under QEMU: the Quickstart is enough). The
-      # image has no shell, so the examples that run commands skip; the others must pass.
+      # image has no git, and 08 needs a pager on the host, so those two skip; the others must pass.
       if [[ "$platform" == "amd64" ]]; then
-        SMOKE_NO_SHELL=1 "$RELEASE_DIR/examples-smoke.sh" "http://127.0.0.1:$port" smoke-test-key ||
+        SMOKE_IN_CONTAINER=1 "$RELEASE_DIR/examples-smoke.sh" "http://127.0.0.1:$port" smoke-test-key ||
           { docker logs "$name" >&2 || true; docker rm -f "$name" >/dev/null 2>&1 || true; die "examples smoke failed for $platform"; }
       fi
       # /actuator/info needs the key and must report the version this image was built for.

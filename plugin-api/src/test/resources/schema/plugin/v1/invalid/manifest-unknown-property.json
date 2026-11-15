@@ -1,0 +1,4 @@
+{
+  "apiVersion": "yukta/plugin/v1", "type": "TYPO", "category": "processor", "description": "x",
+  "timout": "30s", "run": { "command": ["a"] }
+}

@@ -1,0 +1,4 @@
+{
+  "apiVersion": "yukta/plugin/v1", "type": "SINK", "category": "terminal", "description": "x",
+  "ports": ["default"], "run": { "command": ["a"] }
+}

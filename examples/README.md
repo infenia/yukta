@@ -9,10 +9,37 @@ example is a session JSON plus a small bash script.
 - A running Yukta server: `./gradlew bootRun`, or the native binary, or the Docker image
   (set `YUKTA_SERVER_ADDRESS=0.0.0.0` in a container). Default address: `http://localhost:9858`.
 - `curl` and `jq`.
+- Plugins that touch the outside (`PROCESS_EXECUTOR`, `FILE_*`, `HTTP_REQUEST`, `NOTIFY_TERMINAL`, `SESSION_MEMORY`,
+  `LLM_CALL`, ...) are off until named. Start the server with `YUKTA_PLUGINS_ENABLED=all` (or list the plugins) or the examples
+  that use them exit `3` (SKIP) or fail; `GET /api/plugins` shows what is enabled.
 - Examples 01, 02, 03 and 08 run operating-system commands, which Yukta refuses by default. Allow only what they need, for
   example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo` (property `yukta.process.allowed-commands`); each README names its set.
   Example 08 also needs `python3` for its local pager stand-in. Without an allowlist those examples exit `3` (SKIP).
 - Optional: an OpenAI-compatible LLM endpoint for example 09.
+
+### With Docker
+
+The image carries BusyBox (`sh`, `echo`), so examples 01, 03 and 04 run in it. The examples keep their files in
+`/tmp/yukta-examples` and read them back, so the container shares that folder with the machine running the scripts. Run
+it as your own user (the image's default user cannot clean up files the scripts create, and needs a writable home):
+
+```bash
+mkdir -p /tmp/yukta-examples
+docker run --rm -p 127.0.0.1:9858:9858 --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp \
+  -v /tmp/yukta-examples:/tmp/yukta-examples \
+  -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=<a-long-random-key> -e YUKTA_API_KEYS_0_ROLE=ADMIN \
+  -e YUKTA_PLUGINS_ENABLED=all -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo \
+  ghcr.io/infenia/yukta:<version>
+YUKTA_API_KEY=<the-key> ./examples/run-all.sh
+```
+
+Two examples need something the image does not have: **02** needs `git` where the server runs (it skips with a message), and
+**08** posts to a pager on this machine's `127.0.0.1:9877`, which a container cannot reach. Add `--network host` (Linux) in
+place of `-p`, and set `SERVER_PORT` if 9858 is taken, to run 08; its pager also needs `python3` here. Example 09 needs an
+LLM endpoint and `YUKTA_SECRET_LLM_API_KEY` set on the server (see its README).
+
+The same examples from the browser: `release/ui-smoke.sh <url>` (Playwright against the real server, `ui/e2e/real/`) creates a
+session from each template and runs examples through the UI.
 
 Sessions are kept in memory. Re-run an example after restarting the server; `run.sh` applies
 its session again each time.

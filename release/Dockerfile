@@ -9,9 +9,11 @@
 #   docker buildx build --platform linux/amd64 -f release/Dockerfile -t yukta:test .
 # The build context is the dist/ directory layout: dist/linux-<arch>/yukta
 #
+# Same pinned base image as the root Dockerfile: the distroless debug variant, which adds BusyBox so
+# PROCESS_EXECUTOR workflows and the examples can run sh and echo.
 # Same pinned base image as the root Dockerfile. Check that it is a multi-architecture index:
 #   docker buildx imagetools inspect <image>@<digest>   (must list linux/amd64 and linux/arm64)
-FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+FROM gcr.io/distroless/cc-debian12:debug-nonroot@sha256:923320b891f20d5f4bd43ed3a72eeee2f3323d481d6f4bd8d0b2c96d1c0758bc
 
 ARG TARGETARCH
 ARG VERSION=dev

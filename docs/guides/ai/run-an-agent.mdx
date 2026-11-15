@@ -25,8 +25,11 @@ import { ReaderState } from "/snippets/reader-state.jsx";
     `AGENT_SESSION` starts a process, so it is off by default:
 
     ```bash
-    YUKTA_PLUGINS_ENABLED=AGENT_SESSION YUKTA_PROCESS_ALLOWED_COMMANDS=claude ./gradlew bootRun
+    YUKTA_PLUGINS_ENABLED=AGENT_SESSION YUKTA_PROCESS_ALLOWED_COMMANDS=claude \
+      YUKTA_PROCESS_PASS_ENV=HOME ./gradlew bootRun
     ```
+
+    A process gets only `PATH` from the server's environment. The agent reads its login from `HOME`, so pass it; add `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` for Codex) to `YUKTA_PROCESS_PASS_ENV` if it signs in with a key.
   </Step>
 
   <Step title="Read the options from the server">

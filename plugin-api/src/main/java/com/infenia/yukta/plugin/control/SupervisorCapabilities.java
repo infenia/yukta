@@ -3,7 +3,6 @@
 package com.infenia.yukta.plugin.control;
 
 import com.infenia.yukta.plugin.input.InputRisk;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -11,7 +10,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -63,10 +61,31 @@ public record SupervisorCapabilities(
   private static final int LEAST_INITIATIVE_PER_MINUTE = 1;
 
   /** The names of the command types, which an {@code allowedCommands} setting must come from. */
+  // Listed by hand: a native image cannot read the permitted subclasses of a sealed interface, so
+  // Class#getPermittedSubclasses is empty there. SupervisorCapabilitiesTest checks the list against
+  // it on the JVM.
   private static final Set<String> KNOWN_COMMANDS =
-      Arrays.stream(ExecutionControlCommand.class.getPermittedSubclasses())
-          .map(Class::getSimpleName)
-          .collect(Collectors.toUnmodifiableSet());
+      Set.of(
+          "PauseWorkflowCommand",
+          "ResumeWorkflowCommand",
+          "PauseNodeCommand",
+          "ResumeNodeCommand",
+          "StopNodeCommand",
+          "SkipNodeCommand",
+          "EnableStepModeCommand",
+          "DisableStepModeCommand",
+          "StepNodeCommand",
+          "StopWorkflowCommand",
+          "RestartCommand",
+          "RestartFromNodeCommand",
+          "SetBreakpointCommand",
+          "SetLimitsCommand",
+          "SetPriorityCommand",
+          "AnswerInputCommand",
+          "EscalateInputCommand",
+          "StartWorkflowCommand",
+          "RecoverCommand",
+          "DrainCommand");
 
   /**
    * The names of the command types a supervisor may be allowed to send.

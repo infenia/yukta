@@ -1,0 +1,8 @@
+{
+  "apiVersion": "yukta/plugin/v1",
+  "type": "POST_MESSAGE",
+  "category": "processor",
+  "description": "Post a message through a local MCP server",
+  "timeout": "500ms",
+  "run": { "mcp": { "command": ["slack-mcp", "--stdio"], "tool": "post_message" } }
+}

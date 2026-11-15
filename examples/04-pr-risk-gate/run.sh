@@ -10,7 +10,7 @@ require_server
 for p in VALIDATE WAIT_FOR_SIGNAL CONTENT_FILTER FILE_WRITE; do require_plugin "$p"; done
 
 SID=$(jq -r .sessionId session.json)
-OUT=/tmp/yukta-example-pr-risk-gate
+OUT=/tmp/yukta-examples/pr-risk-gate
 rm -rf "$OUT"; mkdir -p "$OUT"
 SUPERVISED="$OUT/supervised.json"
 
