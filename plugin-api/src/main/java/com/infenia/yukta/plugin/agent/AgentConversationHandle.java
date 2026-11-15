@@ -20,6 +20,7 @@ public interface AgentConversationHandle {
    *
    * @return the id
    */
+  @SuppressWarnings("PMD.ShortMethodName") // the id of a record is called id everywhere
   String id();
 
   /**

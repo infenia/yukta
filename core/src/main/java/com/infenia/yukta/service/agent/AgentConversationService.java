@@ -48,7 +48,7 @@ import tools.jackson.databind.ObjectMapper;
     name = "enabled",
     havingValue = "true",
     matchIfMissing = true)
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 public class AgentConversationService implements DisposableBean {
 
   /** How many changes a subscriber of the live stream may fall behind. */
@@ -67,10 +67,10 @@ public class AgentConversationService implements DisposableBean {
   private final SerialWriter writer = new SerialWriter();
 
   /** The live stream, before each subscriber's own buffer. */
-  private final Sinks.Many<AgentChange> changes = Sinks.many().multicast().directBestEffort();
+  private final Sinks.Many<AgentChange> changeSink = Sinks.many().multicast().directBestEffort();
 
   /** The conversations whose agent runs here and has not ended. */
-  private final Map<String, LiveAgentConversation> live = new ConcurrentHashMap<>();
+  private final Map<String, LiveAgentConversation> liveByConversation = new ConcurrentHashMap<>();
 
   /**
    * Creates the service.
@@ -129,7 +129,7 @@ public class AgentConversationService implements DisposableBean {
    * @return its handle, or empty
    */
   public Optional<LiveAgentConversation> live(final String conversationId) {
-    return Optional.ofNullable(live.get(conversationId));
+    return Optional.ofNullable(liveByConversation.get(conversationId));
   }
 
   /**
@@ -140,7 +140,7 @@ public class AgentConversationService implements DisposableBean {
    * @return the live changes
    */
   public Flux<AgentChange> changes() {
-    return changes
+    return changeSink
         .asFlux()
         .onBackpressureBuffer(STREAM_BUFFER, dropped -> {}, BufferOverflowStrategy.ERROR)
         .onErrorMap(Exceptions::isOverflow, error -> new AgentStreamLaggedException(STREAM_BUFFER));
@@ -158,7 +158,7 @@ public class AgentConversationService implements DisposableBean {
   @Override
   public void destroy() {
     writer.dispose();
-    changes.tryEmitComplete();
+    changeSink.tryEmitComplete();
   }
 
   /* default */ void appendEvent(
@@ -226,8 +226,8 @@ public class AgentConversationService implements DisposableBean {
         .save(conversation)
         .flatMap(saved -> {
           final LiveAgentConversation handle = new LiveAgentConversation(this, saved);
-          live.put(saved.id(), handle);
-          changes.tryEmitNext(new AgentChange.ConversationChanged(saved));
+          liveByConversation.put(saved.id(), handle);
+          changeSink.tryEmitNext(new AgentChange.ConversationChanged(saved));
           return storeEvent(
                   saved.id(), AgentEventKind.STATE, null, stateData(AgentState.STARTING, null))
               .thenReturn(handle);
@@ -290,7 +290,7 @@ public class AgentConversationService implements DisposableBean {
       final LiveAgentConversation handle, final String outcome, final @Nullable String reason) {
     final AgentConversation conversation = handle.conversation();
     if (conversation.isEnded()) {
-      live.remove(conversation.id());
+      liveByConversation.remove(conversation.id());
       return Mono.empty();
     }
     final Instant now = clock.instant();
@@ -306,7 +306,7 @@ public class AgentConversationService implements DisposableBean {
                 .withEndedAt(now)
                 .withUpdatedAt(now))
         .then(storeEvent(conversation.id(), AgentEventKind.STATE, null, data))
-        .doFinally(signal -> live.remove(conversation.id()));
+        .doFinally(signal -> liveByConversation.remove(conversation.id()));
   }
 
   private Mono<Void> saveChange(final LiveAgentConversation handle, final AgentConversation next) {
@@ -314,7 +314,7 @@ public class AgentConversationService implements DisposableBean {
         .save(next)
         .doOnNext(saved -> {
           handle.update(saved);
-          changes.tryEmitNext(new AgentChange.ConversationChanged(saved));
+          changeSink.tryEmitNext(new AgentChange.ConversationChanged(saved));
         })
         .then();
   }
@@ -327,14 +327,15 @@ public class AgentConversationService implements DisposableBean {
     return store
         .append(new AgentEvent(0, conversationId, clock.instant(), kind, itemId, data))
         .doOnNext(result -> {
-          changes.tryEmitNext(new AgentChange.EventAppended(result.event()));
+          changeSink.tryEmitNext(new AgentChange.EventAppended(result.event()));
           if (result.notice() != null) {
-            changes.tryEmitNext(new AgentChange.EventAppended(result.notice()));
+            changeSink.tryEmitNext(new AgentChange.EventAppended(result.notice()));
           }
         })
         .then();
   }
 
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // a local map, never shared
   private static Map<String, Object> stateData(
       final AgentState state, final @Nullable String reason) {
     final Map<String, Object> data = new LinkedHashMap<>();

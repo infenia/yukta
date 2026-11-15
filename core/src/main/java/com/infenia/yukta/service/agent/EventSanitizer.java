@@ -21,13 +21,17 @@ import tools.jackson.databind.ObjectMapper;
  * 16 KB (a longer one becomes several), and secrets are replaced everywhere but in terminal bytes.
  * Whatever is cut gets {@code truncated: true}.
  */
+@SuppressWarnings({
+  "PMD.UseConcurrentHashMap",
+  "PMD.AvoidInstantiatingObjectsInLoops"
+}) // local maps, never shared
 final class EventSanitizer {
 
   /** The largest terminal chunk of one event, in bytes. */
-  static final int TERMINAL_CHUNK_BYTES = 16 * 1024;
+  /* default */ static final int TERMINAL_CHUNK_BYTES = 16 * 1024;
 
   /** The data key that flags cut content. */
-  static final String TRUNCATED = "truncated";
+  /* default */ static final String TRUNCATED = "truncated";
 
   /** Removes secrets. */
   private final InputRedactor redactor;
@@ -41,7 +45,7 @@ final class EventSanitizer {
   /** Longest tool input or output, in bytes. */
   private final int maxToolBytes;
 
-  EventSanitizer(
+  /* default */ EventSanitizer(
       final InputRedactor redactor,
       final ObjectMapper json,
       final int maxMessageBytes,
@@ -60,28 +64,17 @@ final class EventSanitizer {
    * @return one data map, or several for a terminal chunk that was too long, or none for terminal
    *     output that is not base64
    */
-  List<Map<String, Object>> sanitize(final AgentEventKind kind, final Map<String, Object> data) {
+  /* default */ List<Map<String, Object>> sanitize(
+      final AgentEventKind kind, final Map<String, Object> data) {
     if (kind == AgentEventKind.TERMINAL) {
       return terminal(data);
     }
     final Map<String, Object> clean = new LinkedHashMap<>();
     boolean truncated = false;
     for (final Map.Entry<String, Object> entry : data.entrySet()) {
-      final String key = entry.getKey();
-      final Object value = entry.getValue();
-      if (kind == AgentEventKind.TOOL && ("input".equals(key) || "output".equals(key))) {
-        final Limited limited = tool(value);
-        clean.put(key, limited.value);
-        truncated |= limited.cut;
-      } else if (kind == AgentEventKind.PLAN && "entries".equals(key)) {
-        clean.put(key, plan(value));
-      } else if (value instanceof final String text) {
-        final Limited limited = limit(redactor.text(text), maxMessageBytes);
-        clean.put(key, limited.value);
-        truncated |= limited.cut;
-      } else {
-        clean.put(key, value);
-      }
+      final Limited limited = clean(kind, entry.getKey(), entry.getValue());
+      clean.put(entry.getKey(), limited.value);
+      truncated |= limited.cut;
     }
     if (truncated) {
       clean.put(TRUNCATED, true);
@@ -95,8 +88,22 @@ final class EventSanitizer {
    * @param text the text, or null
    * @return the cleaned text, or null
    */
-  @Nullable String text(final @Nullable String text) {
+  /* default */ @Nullable String text(final @Nullable String text) {
     return text == null ? null : (String) limit(redactor.text(text), maxMessageBytes).value();
+  }
+
+  /** Cleans one entry of the data of an event. */
+  private Limited clean(final AgentEventKind kind, final String key, final Object value) {
+    if (kind == AgentEventKind.TOOL && ("input".equals(key) || "output".equals(key))) {
+      return tool(value);
+    }
+    if (kind == AgentEventKind.PLAN && "entries".equals(key)) {
+      return new Limited(plan(value), false);
+    }
+    if (value instanceof final String text) {
+      return limit(redactor.text(text), maxMessageBytes);
+    }
+    return new Limited(value, false);
   }
 
   private List<Map<String, Object>> terminal(final Map<String, Object> data) {
@@ -171,7 +178,7 @@ final class EventSanitizer {
   }
 
   /** Cuts a text to a number of bytes, at the end of a character. */
-  static Limited limit(final String text, final int maxBytes) {
+  /* default */ static Limited limit(final String text, final int maxBytes) {
     if (text.length() * 3L <= maxBytes
         || text.getBytes(StandardCharsets.UTF_8).length <= maxBytes) {
       return new Limited(text, false);
@@ -197,5 +204,5 @@ final class EventSanitizer {
    * @param value the value
    * @param cut true if content was dropped
    */
-  record Limited(Object value, boolean cut) {}
+  /* default */ record Limited(Object value, boolean cut) {}
 }

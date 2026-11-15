@@ -19,7 +19,7 @@ import reactor.test.StepVerifier;
 
 /** The records and small types of the agent conversation contract. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyStaticImports")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
 class AgentValuesTest {
 
   private static final Instant NOW = Instant.parse("2026-11-15T10:00:00Z");
@@ -50,7 +50,7 @@ class AgentValuesTest {
   }
 
   @Test
-  void aConversationKeepsAnImmutableCopyOfItsCapabilities() {
+  void conversationKeepsAnImmutableCopyOfItsCapabilities() {
     final Set<String> source = new java.util.HashSet<>(Set.of(AgentCapability.MESSAGE));
     final AgentConversation conversation = conversation(source);
     source.add(AgentCapability.STEER);
@@ -60,7 +60,7 @@ class AgentValuesTest {
   }
 
   @Test
-  void anUnknownCapabilityIsRefusedWithTheKnownOnes() {
+  void unknownCapabilityIsRefusedWithTheKnownOnes() {
     assertThatThrownBy(() -> conversation(Set.of("fly")))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Unknown capability 'fly'")
@@ -68,7 +68,7 @@ class AgentValuesTest {
   }
 
   @Test
-  void aConversationRejectsBlankIdsAndNegativeCounts() {
+  void conversationRejectsBlankIdsAndNegativeCounts() {
     final AgentConversation ok = conversation(Set.of());
 
     assertThatThrownBy(() -> ok.withNodeId(" ")).hasMessageContaining("nodeId");
@@ -78,7 +78,7 @@ class AgentValuesTest {
   }
 
   @Test
-  void aWitherChangesOneFieldAndKeepsTheRest() {
+  void witherChangesOneFieldAndKeepsTheRest() {
     final AgentConversation ended =
         conversation(Set.of()).withState(AgentState.ENDED).withOutcome(AgentOutcome.SUCCESS);
 
@@ -88,7 +88,7 @@ class AgentValuesTest {
   }
 
   @Test
-  void anEventCopiesItsDataInOrderAndAllowsNullValues() {
+  void eventCopiesItsDataInOrderAndAllowsNullValues() {
     final Map<String, Object> data = new HashMap<>();
     data.put("text", "hi");
     data.put("author", null);
@@ -101,7 +101,7 @@ class AgentValuesTest {
   }
 
   @Test
-  void aSpecChecksItsParts() {
+  void specChecksItsParts() {
     final InputIdentity who = new InputIdentity("s1", "w1", "e1", "n1");
 
     assertThatCode(() ->
@@ -167,7 +167,7 @@ class AgentValuesTest {
   }
 
   @Test
-  void theHandleWithoutAGatewayDropsEverythingAndNeverSendsACommand() {
+  void theHandleWithoutTheGatewayDropsEverythingAndNeverSendsTheCommand() {
     final AgentConversationHandle none = AgentConversationHandle.none();
 
     none.emit(AgentEventKind.MESSAGE, "m1", Map.of("text", "x"));

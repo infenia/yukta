@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.agent;
 
 import com.infenia.yukta.plugin.input.Audience;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Set;
@@ -37,6 +38,9 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1.0-alpha.4
  */
 @With
+@SuppressFBWarnings(
+    value = "EI_EXPOSE_REP",
+    justification = "capabilities is an immutable copy made in the constructor")
 public record AgentConversation(
     String id,
     String executionId,

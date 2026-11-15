@@ -27,7 +27,7 @@ class AgentConversationWiringTest {
   private final ApplicationContextRunner runner =
       new ApplicationContextRunner()
           .withConfiguration(AutoConfigurations.of(DefaultsAutoConfiguration.class))
-          .withUserConfiguration(Scan.class)
+          .withUserConfiguration(ScanAgentPackage.class)
           .withBean(ObjectMapper.class, () -> JsonMapper.builder().build())
           .withBean(InputRedactor.class, () -> new InputRedactor(List.of()))
           .withBean(TaskTrackerService.class, () -> mock(TaskTrackerService.class));
@@ -66,7 +66,7 @@ class AgentConversationWiringTest {
   }
 
   @Test
-  void aStoreOfYourOwnReplacesTheInMemoryOne() {
+  void storeOfYourOwnReplacesTheInMemoryOne() {
     final AgentConversationStore own = mock(AgentConversationStore.class);
 
     runner
@@ -80,5 +80,5 @@ class AgentConversationWiringTest {
   /** Scans the conversation package the way the application does. */
   @Configuration
   @ComponentScan(basePackageClasses = AgentConversationService.class)
-  static class Scan {}
+  /* default */ static class ScanAgentPackage {}
 }

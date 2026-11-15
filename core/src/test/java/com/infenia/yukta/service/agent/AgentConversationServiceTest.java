@@ -37,16 +37,23 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** The service opens conversations, records changes in order and refuses what the rules refuse. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.TooManyStaticImports",
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.UseConcurrentHashMap",
+  "PMD.ExcessiveImports"
+})
 class AgentConversationServiceTest {
 
   private final InMemoryAgentConversationStore store =
       new InMemoryAgentConversationStore(50, 5000, 262_144);
   private final List<Disposable> subscriptions = new ArrayList<>();
 
-  private AgentConversationService service = service(settings(64, 32, 5000), store);
+  private AgentConversationService service = newService(settings(64, 32, 5000), store);
 
-  private static AgentConversationService service(
+  private static AgentConversationService newService(
       final com.infenia.yukta.config.YuktaProperties.Agents settings,
       final AgentConversationStore store) {
     return new AgentConversationService(
@@ -71,9 +78,16 @@ class AgentConversationServiceTest {
     return store.find(handle.id()).block();
   }
 
+  private AgentEvent lastEvent(final AgentConversationHandle handle, final int limit) {
+    final List<AgentEvent> all =
+        java.util.Objects.requireNonNull(
+            store.events(EventFilter.forConversation(handle.id()), 0, limit).collectList().block());
+    return all.getLast();
+  }
+
   private List<AgentEvent> events(final AgentConversationHandle handle) {
     service.flush().block();
-    return store.events(EventFilter.of(handle.id()), 0, 1000).collectList().block();
+    return store.events(EventFilter.forConversation(handle.id()), 0, 1000).collectList().block();
   }
 
   private static Map<String, Object> data(final Object... keyValues) {
@@ -85,7 +99,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void openingStartsAConversationInStateStartingWithItsRootAndAFirstStateEvent() {
+  void openingStartsTheConversationInStateStartingWithItsRootAndTheFirstStateEvent() {
     final AgentConversationHandle handle = open();
 
     final AgentConversation conversation = stored(handle);
@@ -107,7 +121,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void stateChangesFollowTheTableAndEachRecordsAStateEvent() {
+  void stateChangesFollowTheTableAndEachRecordsTheStateEvent() {
     final AgentConversationHandle handle = open();
 
     handle.state(AgentState.RUNNING, null);
@@ -123,7 +137,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void aMoveThatIsNotAllowedAndAMoveToTheSameStateAreIgnored() {
+  void moveThatIsNotAllowedAndTheMoveToTheSameStateAreIgnored() {
     final AgentConversationHandle handle = open();
     final long seq = stored(handle).seq();
 
@@ -146,7 +160,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void aTurnIsCountedWhenAResultIsRecorded() {
+  void turnIsCountedWhenTheResultIsRecorded() {
     final AgentConversationHandle handle = open();
     handle.state(AgentState.RUNNING, null);
 
@@ -158,7 +172,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void theQueuedCountIsRecordedAndAnUnchangedCountIsNotAChange() {
+  void theQueuedCountIsRecordedAndAnUnchangedCountIsNotTheChange() {
     final AgentConversationHandle handle = open();
 
     handle.queued(2);
@@ -198,7 +212,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void anEndedConversationAcceptsNoEventNoStateChangeAndNoQueuedCount() {
+  void endedConversationAcceptsNoEventNoStateChangeAndNoQueuedCount() {
     final AgentConversationHandle handle = open();
     handle.state(AgentState.RUNNING, null);
     handle.end("incomplete", null);
@@ -248,7 +262,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void aSenderIsToldWhenTooManyCommandsWait() {
+  void senderIsToldWhenTooManyCommandsWait() {
     final AgentConversationHandle handle = open();
     final LiveAgentConversation live = service.live(handle.id()).orElseThrow();
 
@@ -262,7 +276,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void anOversizedTextIsCutAtACharacterBoundaryAndFlagged() {
+  void oversizedTextIsCutAtTheCharacterBoundaryAndFlagged() {
     final AgentConversationHandle handle = open();
 
     handle.emit(AgentEventKind.MESSAGE, "m", data("role", "agent", "text", "é".repeat(100)));
@@ -297,7 +311,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void aToolInputThatIsNotAMapOrAStringBecomesText() {
+  void toolInputThatIsNotTheMapOrTheStringBecomesText() {
     final AgentConversationHandle handle = open();
 
     handle.emit(
@@ -335,7 +349,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void aPlanThatIsNotAListBecomesEmpty() {
+  void planThatIsNotTheListBecomesEmpty() {
     final AgentConversationHandle handle = open();
 
     handle.emit(AgentEventKind.PLAN, "plan", data("entries", "oops"));
@@ -350,7 +364,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void aLongTerminalChunkBecomesSeveralAndBadBase64IsDropped() {
+  void longTerminalChunkBecomesSeveralAndBadBase64IsDropped() {
     final AgentConversationHandle handle = open();
     final byte[] bytes = new byte[40 * 1024];
     final String encoded = Base64.getEncoder().encodeToString(bytes);
@@ -371,7 +385,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void everyChangeOnTheLiveStreamHasAStrictlyIncreasingNumber() {
+  void everyChangeOnTheLiveStreamHasTheStrictlyIncreasingNumber() {
     final List<AgentChange> seen = Collections.synchronizedList(new ArrayList<>());
     subscriptions.add(service.changes().subscribe(seen::add));
 
@@ -390,7 +404,7 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void aSubscriberThatFallsFarBehindFailsAndTheServiceCarriesOn() {
+  void subscriberThatFallsFarBehindFailsAndTheServiceCarriesOn() {
     final AgentConversationHandle handle = open();
     final AtomicBoolean lagged = new AtomicBoolean();
 
@@ -408,18 +422,11 @@ class AgentConversationServiceTest {
     handle.emit(AgentEventKind.MESSAGE, "m", data("role", "agent", "text", "after"));
     service.flush().block();
     assertThat(lagged).isTrue();
-    assertThat(
-            store
-                .events(EventFilter.of(handle.id()), 0, 5000)
-                .collectList()
-                .block()
-                .getLast()
-                .data())
-        .containsEntry("text", "after");
+    assertThat(lastEvent(handle, 5000).data()).containsEntry("text", "after");
   }
 
   @Test
-  void aSubscriberThatWritesBackFromTheStreamDoesNotDeadlock() {
+  void subscriberThatWritesBackFromTheStreamDoesNotDeadlock() {
     final AgentConversationHandle handle = open();
     final AtomicBoolean written = new AtomicBoolean();
     subscriptions.add(
@@ -439,9 +446,9 @@ class AgentConversationServiceTest {
   }
 
   @Test
-  void aFailedWriteIsLoggedAndTheNextOneStillRuns() {
+  void failedWriteIsLoggedAndTheNextOneStillRuns() {
     final FlakyStore flaky = new FlakyStore(store);
-    service = service(settings(64, 32, 5000), flaky);
+    service = newService(settings(64, 32, 5000), flaky);
     final AgentConversationHandle handle = open();
 
     flaky.failNextAppend.set(true);
@@ -457,16 +464,11 @@ class AgentConversationServiceTest {
   @Test
   void openingFailsWhenTheConversationCannotBeStored() {
     final FlakyStore flaky = new FlakyStore(store);
-    service = service(settings(64, 32, 5000), flaky);
+    service = newService(settings(64, 32, 5000), flaky);
     flaky.failNextSave.set(true);
 
     StepVerifier.create(service.open(spec(), "root-1")).expectErrorMessage("disk full").verify();
-    assertThat(
-            store
-                .list(com.infenia.yukta.service.agent.ConversationFilter.all())
-                .collectList()
-                .block())
-        .isEmpty();
+    assertThat(store.list(ConversationFilter.all()).collectList().block()).isEmpty();
   }
 
   @Test
@@ -488,12 +490,12 @@ class AgentConversationServiceTest {
                 Map.of("yukta.agents.max-message-bytes", "8")),
             JsonMapper.builder().build());
 
-    final AgentConversationHandle handle = fromProperties.open(spec(), "root-1").block();
+    final AgentConversationHandle handle =
+        java.util.Objects.requireNonNull(fromProperties.open(spec(), "root-1").block());
     handle.emit(AgentEventKind.MESSAGE, "m", data("role", "agent", "text", "0123456789"));
     fromProperties.flush().block();
 
-    assertThat(
-            store.events(EventFilter.of(handle.id()), 0, 10).collectList().block().getLast().data())
+    assertThat(lastEvent(handle, 10).data())
         .containsEntry("text", "01234567")
         .containsEntry("truncated", true);
     fromProperties.destroy();

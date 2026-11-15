@@ -23,7 +23,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** The gateway files a conversation under the root of the run's tree. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyStaticImports")
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.AvoidDuplicateLiterals"})
 class DefaultAgentConversationGatewayTest {
 
   private final InMemoryAgentConversationStore store =
@@ -46,11 +46,11 @@ class DefaultAgentConversationGatewayTest {
 
   private String rootOfOpened() {
     final AgentConversationHandle handle = gateway.open(spec()).block();
-    return store.find(handle.id()).block().rootExecutionId();
+    return java.util.Objects.requireNonNull(store.find(handle.id()).block()).rootExecutionId();
   }
 
   @Test
-  void aChildRunIsFiledUnderTheRootOfItsTree() {
+  void childRunIsFiledUnderTheRootOfItsTree() {
     final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(progress.rootExecutionId()).thenReturn("the-root");
     when(tracker.getProgressByExecutionId("exec-1")).thenReturn(progress);
@@ -59,7 +59,7 @@ class DefaultAgentConversationGatewayTest {
   }
 
   @Test
-  void aRunWithoutAParentIsItsOwnRoot() {
+  void runWithoutTheParentIsItsOwnRoot() {
     final WorkflowProgress progress = mock(WorkflowProgress.class);
     when(tracker.getProgressByExecutionId("exec-1")).thenReturn(progress);
 
@@ -67,9 +67,8 @@ class DefaultAgentConversationGatewayTest {
   }
 
   @Test
-  void aRunTheTrackerDoesNotKnowIsItsOwnRoot() {
-    when(tracker.getProgressByExecutionId("exec-1"))
-        .thenThrow(new IllegalStateException("unknown"));
+  void runTheTrackerDoesNotKnowIsItsOwnRoot() {
+    when(tracker.getProgressByExecutionId("exec-1")).thenReturn(null);
 
     assertThat(rootOfOpened()).isEqualTo("exec-1");
   }

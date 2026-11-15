@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.agent;
 
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.agent.AgentConversationGateway;
 import com.infenia.yukta.plugin.agent.AgentConversationHandle;
 import com.infenia.yukta.plugin.agent.AgentConversationSpec;
@@ -41,15 +42,14 @@ public class DefaultAgentConversationGateway implements AgentConversationGateway
 
   /** The root of the tree, or the run itself when the tracker does not know it (yet). */
   private String rootOf(final String executionId) {
-    try {
-      final String root = tracker.getProgressByExecutionId(executionId).rootExecutionId();
-      return root == null || root.isBlank() ? executionId : root;
-    } catch (RuntimeException e) {
+    final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+    if (progress == null) {
       log.atDebug()
           .addKeyValue("executionId", executionId)
-          .setCause(e)
           .log("The run is not known to the tracker; its conversation is its own root");
       return executionId;
     }
+    final String root = progress.rootExecutionId();
+    return root == null || root.isBlank() ? executionId : root;
   }
 }

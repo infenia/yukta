@@ -10,11 +10,12 @@ import reactor.core.publisher.Flux;
 final class NoHandle implements AgentConversationHandle {
 
   /** The only instance. */
-  static final NoHandle INSTANCE = new NoHandle();
+  /* default */ static final NoHandle INSTANCE = new NoHandle();
 
   private NoHandle() {}
 
   @Override
+  @SuppressWarnings("PMD.ShortMethodName")
   public String id() {
     return "none";
   }

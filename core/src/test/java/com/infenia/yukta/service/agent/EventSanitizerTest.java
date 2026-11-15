@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class EventSanitizerTest {
 
   @Test
-  void aTextThatFitsIsReturnedAsIs() {
+  void textThatFitsIsReturnedAsIs() {
     final EventSanitizer.Limited limited = EventSanitizer.limit("hello", 5);
 
     assertThat(limited.value()).isEqualTo("hello");
@@ -20,7 +20,7 @@ class EventSanitizerTest {
   }
 
   @Test
-  void aTextOverTheLimitIsCutAndFlagged() {
+  void textOverTheLimitIsCutAndFlagged() {
     final EventSanitizer.Limited limited = EventSanitizer.limit("hello world", 5);
 
     assertThat(limited.value()).isEqualTo("hello");
@@ -28,7 +28,7 @@ class EventSanitizerTest {
   }
 
   @Test
-  void aCharacterThatDoesNotFitIsDroppedWhole() {
+  void characterThatDoesNotFitIsDroppedWhole() {
     assertThat(EventSanitizer.limit("aé", 2).value()).isEqualTo("a");
     assertThat(EventSanitizer.limit("😀😀", 5).value()).isEqualTo("😀");
     assertThat(EventSanitizer.limit("😀", 3).value()).isEqualTo("");

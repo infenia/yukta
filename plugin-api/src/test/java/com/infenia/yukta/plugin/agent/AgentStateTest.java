@@ -34,7 +34,7 @@ class AgentStateTest {
   }
 
   @Test
-  void aStateNeverMovesToItself() {
+  void stateNeverMovesToItself() {
     for (final AgentState state : AgentState.values()) {
       assertThat(state.canMoveTo(state)).isFalse();
     }

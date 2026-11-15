@@ -54,13 +54,13 @@ class AgentSettingsTest {
   }
 
   @Test
-  void aNonPositiveRetentionStopsStartUp() {
+  void nonPositiveRetentionStopsStartUp() {
     assertThatThrownBy(() -> YuktaSettings.bind(Map.of("yukta.agents.retention", "0s")))
         .hasStackTraceContaining("yukta.agents.retention must be positive");
   }
 
   @Test
-  void aBoundBelowOneOrATerminalTooBigIsAViolation() {
+  void boundBelowOneOrTheTerminalTooBigIsTheViolation() {
     final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
     final YuktaProperties.Agents bad =
         new YuktaProperties.Agents(

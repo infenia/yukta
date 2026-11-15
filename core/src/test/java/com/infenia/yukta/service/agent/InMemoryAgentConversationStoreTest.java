@@ -26,7 +26,7 @@ import reactor.test.StepVerifier;
 
 /** The in-memory store: one sequence, two bounds, a ring for terminal output. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class InMemoryAgentConversationStoreTest {
 
   /** Four bytes of terminal output, in base64. */
@@ -37,18 +37,27 @@ class InMemoryAgentConversationStoreTest {
   }
 
   private static List<AgentEvent> events(final AgentConversationStore store, final String id) {
-    return store.events(EventFilter.of(id), 0, 1000).collectList().block();
+    return store.events(EventFilter.forConversation(id), 0, 1000).collectList().block();
   }
 
   @Test
   void theSequenceStrictlyIncreasesOverConversationsAndEvents() {
     final InMemoryAgentConversationStore store = store(10, 10);
 
-    final long first = store.save(conversation("a")).block().seq();
-    final long second = store.append(event("a", AgentEventKind.MESSAGE)).block().event().seq();
-    final long third = store.save(conversation("a").withTurn(1)).block().seq();
-    final long fourth = store.save(conversation("b")).block().seq();
-    final long fifth = store.append(event("b", AgentEventKind.TOOL)).block().event().seq();
+    final long first =
+        java.util.Objects.requireNonNull(store.save(conversation("a")).block()).seq();
+    final long second =
+        java.util.Objects.requireNonNull(store.append(event("a", AgentEventKind.MESSAGE)).block())
+            .event()
+            .seq();
+    final long third =
+        java.util.Objects.requireNonNull(store.save(conversation("a").withTurn(1)).block()).seq();
+    final long fourth =
+        java.util.Objects.requireNonNull(store.save(conversation("b")).block()).seq();
+    final long fifth =
+        java.util.Objects.requireNonNull(store.append(event("b", AgentEventKind.TOOL)).block())
+            .event()
+            .seq();
 
     assertThat(List.of(first, second, third, fourth, fifth)).isSorted().doesNotHaveDuplicates();
     assertThat(first).isPositive();
@@ -88,7 +97,7 @@ class InMemoryAgentConversationStoreTest {
   }
 
   @Test
-  void aLiveConversationIsNeverEvictedEvenOverTheBound() {
+  void liveConversationIsNeverEvictedEvenOverTheBound() {
     final InMemoryAgentConversationStore store = store(1, 10);
     store.save(conversation("a")).block();
     store.save(conversation("b")).block();
@@ -153,7 +162,7 @@ class InMemoryAgentConversationStoreTest {
   }
 
   @Test
-  void aSingleChunkLargerThanTheRingIsKept() {
+  void singleChunkLargerThanTheRingIsKept() {
     final InMemoryAgentConversationStore store = new InMemoryAgentConversationStore(10, 10, 2);
     store.save(conversation("a")).block();
     store.append(output("a", FOUR_BYTES)).block();
@@ -166,7 +175,8 @@ class InMemoryAgentConversationStoreTest {
     final InMemoryAgentConversationStore store = store(10, 10);
     store.save(conversation("a")).block();
     store.append(screen("a", "first")).block();
-    final AgentEvent latest = store.append(screen("a", "second")).block().event();
+    final AgentEvent latest =
+        java.util.Objects.requireNonNull(store.append(screen("a", "second")).block()).event();
 
     StepVerifier.create(store.latestScreen("a")).expectNext(latest).verifyComplete();
     assertThat(events(store, "a")).containsExactly(latest);
@@ -179,9 +189,15 @@ class InMemoryAgentConversationStoreTest {
     final InMemoryAgentConversationStore store = store(10, 10);
     store.save(conversation("a")).block();
     store.save(conversation("b").withExecutionId("exec-2").withRootExecutionId("root-2")).block();
-    final AgentEvent a1 = store.append(event("a", AgentEventKind.MESSAGE)).block().event();
-    final AgentEvent b1 = store.append(event("b", AgentEventKind.TOOL)).block().event();
-    final AgentEvent a2 = store.append(event("a", AgentEventKind.TOOL)).block().event();
+    final AgentEvent a1 =
+        java.util.Objects.requireNonNull(store.append(event("a", AgentEventKind.MESSAGE)).block())
+            .event();
+    final AgentEvent b1 =
+        java.util.Objects.requireNonNull(store.append(event("b", AgentEventKind.TOOL)).block())
+            .event();
+    final AgentEvent a2 =
+        java.util.Objects.requireNonNull(store.append(event("a", AgentEventKind.TOOL)).block())
+            .event();
 
     final EventFilter root1 = new EventFilter(null, null, null, "root-1", null);
     final EventFilter exec2 = new EventFilter(null, null, "exec-2", null, null);
@@ -232,7 +248,7 @@ class InMemoryAgentConversationStoreTest {
   }
 
   @Test
-  void anEventForAnUnknownConversationFails() {
+  void eventForAnUnknownConversationFails() {
     StepVerifier.create(store(10, 10).append(event("nope", AgentEventKind.MESSAGE)))
         .expectErrorMessage("Unknown conversation 'nope'")
         .verify();

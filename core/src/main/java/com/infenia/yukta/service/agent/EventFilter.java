@@ -44,7 +44,7 @@ public record EventFilter(
    * @param conversationId the conversation
    * @return the filter
    */
-  public static EventFilter of(final String conversationId) {
+  public static EventFilter forConversation(final String conversationId) {
     return new EventFilter(conversationId, null, null, null, null);
   }
 

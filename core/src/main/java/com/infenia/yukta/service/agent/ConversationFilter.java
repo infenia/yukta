@@ -26,6 +26,9 @@ public record ConversationFilter(
   /** The limit of {@link #all()}. */
   public static final int DEFAULT_LIMIT = 200;
 
+  /** The smallest limit. */
+  private static final int MIN_LIMIT = 1;
+
   /**
    * Keeps an immutable copy of the states and checks the limit.
    *
@@ -37,7 +40,7 @@ public record ConversationFilter(
    */
   public ConversationFilter {
     states = states == null ? Set.of() : Set.copyOf(states);
-    if (limit < 1) {
+    if (limit < MIN_LIMIT) {
       throw new IllegalArgumentException("limit must be at least 1");
     }
   }

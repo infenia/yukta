@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.agent;
 
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputIdentity;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -20,6 +21,9 @@ import org.jspecify.annotations.Nullable;
  * @param steerAudience who may steer it
  * @since 0.1.0-alpha.4
  */
+@SuppressFBWarnings(
+    value = "EI_EXPOSE_REP",
+    justification = "capabilities is an immutable copy made in the constructor")
 public record AgentConversationSpec(
     InputIdentity who,
     String messageId,

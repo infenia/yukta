@@ -12,6 +12,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @since 0.1.0-alpha.4
  */
+@SuppressWarnings("PMD.AvoidDuplicateLiterals") // the same null check message on every command
 public sealed interface AgentCommand {
 
   /**

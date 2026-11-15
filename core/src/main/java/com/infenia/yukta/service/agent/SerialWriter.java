@@ -29,7 +29,7 @@ final class SerialWriter implements Disposable {
   /** Runs the jobs one at a time. */
   private final Disposable subscription;
 
-  SerialWriter() {
+  /* default */ SerialWriter() {
     final AtomicReference<FluxSink<Mono<Void>>> sink = new AtomicReference<>();
     this.subscription =
         Flux.<Mono<Void>>create(sink::set).concatMap(Function.identity()).subscribe();
@@ -44,7 +44,7 @@ final class SerialWriter implements Disposable {
    * @return what the write returns; empty if it returns nothing; its error if it fails. Cancelling
    *     the result does not cancel the write
    */
-  <T> Mono<T> submit(final Supplier<Mono<T>> operation) {
+  /* default */ <T> Mono<T> submit(final Supplier<Mono<T>> operation) {
     return Mono.defer(() -> {
       if (subscription.isDisposed()) {
         return Mono.error(new IllegalStateException("The conversation writer is stopped"));

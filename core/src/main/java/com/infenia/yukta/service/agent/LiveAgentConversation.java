@@ -34,7 +34,7 @@ public final class LiveAgentConversation implements AgentConversationHandle {
   private final AtomicReference<AgentConversation> current;
 
   /** The commands for the plugin; one subscriber, bounded. */
-  private final Sinks.Many<AgentCommand> commands =
+  private final Sinks.Many<AgentCommand> commandSink =
       Sinks.many().unicast().onBackpressureBuffer(Queues.<AgentCommand>get(COMMAND_BUFFER).get());
 
   /** Serialises senders: a sink accepts one emission at a time. */
@@ -50,6 +50,7 @@ public final class LiveAgentConversation implements AgentConversationHandle {
   }
 
   @Override
+  @SuppressWarnings("PMD.ShortMethodName")
   public String id() {
     return current.get().id();
   }
@@ -93,7 +94,7 @@ public final class LiveAgentConversation implements AgentConversationHandle {
 
   @Override
   public Flux<AgentCommand> commands() {
-    return commands.asFlux();
+    return commandSink.asFlux();
   }
 
   @Override
@@ -102,7 +103,7 @@ public final class LiveAgentConversation implements AgentConversationHandle {
     if (ending.compareAndSet(false, true)) {
       commandLock.lock();
       try {
-        commands.tryEmitComplete();
+        commandSink.tryEmitComplete();
       } finally {
         commandLock.unlock();
       }
@@ -124,7 +125,7 @@ public final class LiveAgentConversation implements AgentConversationHandle {
     }
     commandLock.lock();
     try {
-      return commands.tryEmitNext(command) == Sinks.EmitResult.OK;
+      return commandSink.tryEmitNext(command) == Sinks.EmitResult.OK;
     } finally {
       commandLock.unlock();
     }

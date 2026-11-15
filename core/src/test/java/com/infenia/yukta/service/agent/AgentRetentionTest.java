@@ -62,7 +62,7 @@ class AgentRetentionTest {
   }
 
   @Test
-  void aStandbyServerDoesNotPurge() {
+  void standbyServerDoesNotPurge() {
     leader.set(false);
     retention.start();
 
@@ -72,7 +72,7 @@ class AgentRetentionTest {
   }
 
   @Test
-  void aFailedPurgeIsLoggedNotRaised() {
+  void failedPurgeIsLoggedNotRaised() {
     when(store.purge(any())).thenReturn(Mono.error(new IllegalStateException("db down")));
 
     StepVerifier.create(retention.purge()).verifyComplete();

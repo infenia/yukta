@@ -31,11 +31,11 @@ import reactor.core.publisher.Mono;
  * so. Terminal output is not an event for this bound: it lives in a ring of bytes per conversation,
  * and the latest screen is kept apart.
  */
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap", "PMD.CouplingBetweenObjects"})
 public final class InMemoryAgentConversationStore implements AgentConversationStore {
 
   /** The text of the notice that says events were dropped. */
-  static final String DROPPED_NOTICE =
+  /* default */ static final String DROPPED_NOTICE =
       "The oldest events of this conversation were dropped to stay within"
           + " yukta.agents.max-events-per-conversation; its history is incomplete.";
 
@@ -49,7 +49,7 @@ public final class InMemoryAgentConversationStore implements AgentConversationSt
   private final AtomicLong sequence = new AtomicLong();
 
   /** Identifies this sequence. */
-  private final String epoch = UUID.randomUUID().toString();
+  private final String epochId = UUID.randomUUID().toString();
 
   /** The time of a notice. */
   private final Clock clock;
@@ -101,7 +101,7 @@ public final class InMemoryAgentConversationStore implements AgentConversationSt
 
   @Override
   public String epoch() {
-    return epoch;
+    return epochId;
   }
 
   @Override
@@ -152,11 +152,7 @@ public final class InMemoryAgentConversationStore implements AgentConversationSt
     return Mono.fromSupplier(() ->
         locked(() -> {
           final int sizeBefore = entries.size();
-          entries
-              .values()
-              .removeIf(entry ->
-                  entry.conversation.endedAt() != null
-                      && entry.conversation.endedAt().isBefore(before));
+          entries.values().removeIf(entry -> endedBefore(entry.conversation, before));
           return (long) (sizeBefore - entries.size());
         }));
   }
@@ -239,6 +235,11 @@ public final class InMemoryAgentConversationStore implements AgentConversationSt
       }
       entries.remove(entry.conversation.id());
     }
+  }
+
+  private static boolean endedBefore(final AgentConversation conversation, final Instant before) {
+    final Instant endedAt = conversation.endedAt();
+    return endedAt != null && endedAt.isBefore(before);
   }
 
   private <T> T locked(final java.util.function.Supplier<T> action) {
