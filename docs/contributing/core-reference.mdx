@@ -2,14 +2,14 @@
 title: "Core module reference: architecture and features"
 sidebarTitle: "Core module reference"
 description: "Architecture, feature catalog and reference for the Yukta core module: the execution engine, admission, control plane, observability, durability and security."
-verifiedCommit: "392c138ef"
-verifiedDate: "2026-11-09"
+verifiedCommit: "c10778fe0"
+verifiedDate: "2026-11-15"
 keywords: ["core module", "architecture", "feature catalog"]
 ---
 
 The `core` module is the engine and control plane of Yukta. It takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and records enough to explain or resume it afterwards.
 
-Last verified against commit `392c138ef` on 2026-11-09.
+Last verified against commit `c10778fe0` on 2026-11-15.
 
 <CardGroup cols={2}>
   <Card title="Reactive">
@@ -222,6 +222,7 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `service.control` | Start facade and control bus | `WorkflowService` `ControlBusService` | ADM, CTL |
 | `…control.gateway` | The facade REST and MCP call; split by concern | `ControlBusGateway` `DefaultControlBusGateway` `WorkflowStarter` `NodeCommands` `RestartCoordinator` `ExecutionQueries` `StartIdempotency` | ADM-02, CTL |
 | `…control.processor / valve / directive / store` | One processor per command; the valve; plugin-level directives; control handle stores | `ReactiveControlValve` `DirectiveDispatcher` `InMemoryExecutionControlStore` | CTL |
+| `service.agent` | Conversations with AI agents: store, service, gateway, retention, live stream | `AgentConversationStore` `InMemoryAgentConversationStore` `AgentConversationService` `DefaultAgentConversationGateway` `AgentRetention` | CTL-10 |
 | `service.supervisor` | Supervisor host, service and definitions | `SupervisorHost` `SupervisorService` `DefinitionSupervisors` | CTL-06, CTL-07 |
 | `service.review` | Reviewer hook, event feed and attached-supervisor contracts the lower layers use | `ControlReviewer` `ExecutionEventFeed` `AttachedSupervisors` `BoundSupervisor` `ReviewVerdict` | CTL-06, CTL-07 |
 | `service.log / archive / store` | Execution log, archive, node checkpoint stores | `ExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionArchive` `FileNodeCheckpointStore` | DUR |
@@ -689,6 +690,27 @@ A plugin can ask for a decision or an input and wait for the answer. This phase 
 
 **Limits:** A ttl above `yukta.input.max-ttl` is refused, not cut. The open-request limits are checked just before the request is stored, so a burst of parallel asks can pass them by a few. Open requests are lost when the server restarts.
 
+### CTL-10: Agent conversations
+
+**Status:** partial
+
+A plugin that runs an AI agent can record what the agent does as a conversation: a record with a state and an ordered list of events (messages, tool calls, requests, results, notices). This phase holds the record, the store, the limits and the live stream; no plugin opens a conversation yet, and no REST, MCP or CLI endpoint reads one.
+
+**Behaviour**
+
+- A plugin takes `AgentConversationGateway` (as a lazy Spring provider, like `InputGateway`) and calls `open(spec)`; without the bean it uses a handle that drops everything. `DefaultAgentConversationGateway` files the conversation under the root of the run's tree of runs.
+- The handle writes events (`emit`), the state (`STARTING`, `RUNNING`, `WAITING`, `IDLE`, `ENDED`, moving only along the allowed arrows), the number of queued messages and the end (`end`, idempotent). A conversation that has ended accepts no event and no state change. A `RESULT` event counts a finished turn. `commands()` is the stream of commands from clients and completes on `end`.
+- One change sequence covers every conversation record and event, so the numbers strictly increase; the store assigns them and `AgentConversationService` writes one change at a time (`SerialWriter`), so the order of the numbers is the order of the live stream. `changes()` gives every subscriber its own buffer of 1024 changes; one that falls further behind fails with `AgentStreamLaggedException` and reads the rest from the store.
+- Before an event is stored, `EventSanitizer` cuts text at `max-message-bytes`, tool input and output at `max-tool-bytes`, splits terminal output into chunks of at most 16 KB and replaces secrets (`InputRedactor`); whatever is cut gets `truncated: true`.
+- `InMemoryAgentConversationStore` is the default. Over `max-conversations`, ended conversations go first (the one that ended longest ago first) and a live one is never evicted. Per conversation the oldest events go first over `max-events-per-conversation`, and one `NOTICE` says so. Terminal output is not an event for that bound: it lives in a ring of `terminal-ring-bytes` and the latest screen is kept apart.
+- `AgentRetention` removes conversations that ended more than `retention` ago, hourly, on the leader only.
+
+**Configure:** `yukta.agents.enabled` · `yukta.agents.retention` · `yukta.agents.max-conversations` · `yukta.agents.max-events-per-conversation` · `yukta.agents.max-message-bytes` · `yukta.agents.max-tool-bytes` · `yukta.agents.terminal-ring-bytes` · `yukta.agents.messages-per-minute` · `yukta.agents.pty.enabled` · `yukta.agents.pty.host` · `yukta.agents.pty.cols` · `yukta.agents.pty.rows`
+
+**Source:** `AgentConversationGateway` `AgentConversationHandle` `AgentConversationStore` `InMemoryAgentConversationStore` `AgentConversationService` `DefaultAgentConversationGateway` `LiveAgentConversation` `SerialWriter` `EventSanitizer` `AgentRetention`
+
+**Limits:** With `yukta.agents.enabled=false` no gateway, service, store or retention bean exists. Conversations are kept in memory and are lost when the server restarts. `messages-per-minute` and the `pty.*` settings are read by later phases. Secrets are removed by patterns, not guaranteed, and terminal bytes are not redacted.
+
 ## Observability
 
 Turning what happens in a run into ordered state, live streams, results and metrics.
@@ -1075,6 +1097,18 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.notifications.max-items` | 5000 | [CTL-09](#ctl-09-input-requests) | Most notifications kept |
 | `yukta.notifications.action-grace` | 2s | [CTL-09](#ctl-09-input-requests) | A question reaches people only if still open after this time |
 | `yukta.notifications.rules.<name>.*` | none | [CTL-09](#ctl-09-input-requests) | category, sessions, workflows, audience, severity, channels, cooldown |
+| `yukta.agents.enabled` | true | [CTL-10](#ctl-10-agent-conversations) | false: no conversation is recorded |
+| `yukta.agents.retention` | 7d | [CTL-10](#ctl-10-agent-conversations) | How long an ended conversation is kept |
+| `yukta.agents.max-conversations` | 500 | [CTL-10](#ctl-10-agent-conversations) | Conversations the in-memory store keeps before ended ones are evicted |
+| `yukta.agents.max-events-per-conversation` | 5000 | [CTL-10](#ctl-10-agent-conversations) | Events kept per conversation; the oldest go first |
+| `yukta.agents.max-message-bytes` | 65536 | [CTL-10](#ctl-10-agent-conversations) | Longest text of one event |
+| `yukta.agents.max-tool-bytes` | 4096 | [CTL-10](#ctl-10-agent-conversations) | Longest tool input and output of one event |
+| `yukta.agents.terminal-ring-bytes` | 262144 | [CTL-10](#ctl-10-agent-conversations) | Terminal output kept per conversation |
+| `yukta.agents.messages-per-minute` | 30 | [CTL-10](#ctl-10-agent-conversations) | Messages one caller may send to one conversation a minute (read by a later phase) |
+| `yukta.agents.pty.enabled` | false | [CTL-10](#ctl-10-agent-conversations) | Whether terminal agents may run (read by a later phase) |
+| `yukta.agents.pty.host` | yukta-cli | [CTL-10](#ctl-10-agent-conversations) | Executable that provides the `pty-host` command (read by a later phase) |
+| `yukta.agents.pty.cols` | 120 | [CTL-10](#ctl-10-agent-conversations) | Width of a new terminal (read by a later phase) |
+| `yukta.agents.pty.rows` | 40 | [CTL-10](#ctl-10-agent-conversations) | Height of a new terminal (read by a later phase) |
 | `yukta.tracker.max-sessions` | 0 (off) | [OBS-01](#obs-01-tracker-and-live-progress) | Evict the oldest session without a running run beyond this count |
 | `yukta.tracker.session-ttl` | unset (off) | [OBS-01](#obs-01-tracker-and-live-progress) | Drop a session with no running run once it has been idle this long |
 | `yukta.tracker.cleanup-ttl` | 10m | [OBS-01](#obs-01-tracker-and-live-progress) | How long execution data is kept after a terminal status |

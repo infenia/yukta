@@ -7,6 +7,8 @@ import com.infenia.yukta.edition.EditionInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.security.ApiAuthenticator;
 import com.infenia.yukta.security.ApiKeyAuthenticator;
+import com.infenia.yukta.service.agent.AgentConversationStore;
+import com.infenia.yukta.service.agent.InMemoryAgentConversationStore;
 import com.infenia.yukta.service.input.AnswerAuthorizer;
 import com.infenia.yukta.service.input.CommandProposals;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
@@ -32,6 +34,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
@@ -95,6 +98,26 @@ public class DefaultsAutoConfiguration {
   @ConditionalOnMissingBean(SupervisorStore.class)
   public InMemorySupervisorStore inMemorySupervisorStore() {
     return new InMemorySupervisorStore();
+  }
+
+  /**
+   * Agent conversations kept in memory: they are gone after a restart. A durable store replaces it.
+   *
+   * @param properties the {@code yukta.agents} settings, which hold the bounds
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnMissingBean(AgentConversationStore.class)
+  @ConditionalOnProperty(
+      prefix = "yukta.agents",
+      name = "enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public InMemoryAgentConversationStore inMemoryAgentConversationStore(
+      final YuktaProperties properties) {
+    final YuktaProperties.Agents agents = properties.agents();
+    return new InMemoryAgentConversationStore(
+        agents.maxConversations(), agents.maxEventsPerConversation(), agents.terminalRingBytes());
   }
 
   /**

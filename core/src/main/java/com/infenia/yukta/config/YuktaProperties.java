@@ -8,6 +8,7 @@ import com.infenia.yukta.model.notify.NotificationRuleSettings;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.List;
@@ -37,6 +38,7 @@ import org.springframework.validation.annotation.Validated;
  * @param controlBus the plugin-level control bus
  * @param cache the prepared workflow cache
  * @param control control commands that wait for approval
+ * @param agents conversations with terminal AI agents: limits, retention and the terminal tier
  */
 @Validated
 @ConfigurationProperties(prefix = "yukta")
@@ -53,7 +55,8 @@ public record YuktaProperties(
     @Valid @DefaultValue Results results,
     @Valid @DefaultValue Workers workers,
     @Valid @DefaultValue Cache cache,
-    @Valid @DefaultValue Control control) {
+    @Valid @DefaultValue Control control,
+    @Valid @DefaultValue Agents agents) {
 
   /** The default cap of the bounded counts: messages, attachments and executions kept. */
   private static final String DEFAULT_CAP = "200";
@@ -291,6 +294,55 @@ public record YuktaProperties(
       channels = configured;
       rules.forEach((name, rule) -> rule.check(name, configured));
     }
+  }
+
+  /**
+   * Conversations with terminal AI agents (the agent console).
+   *
+   * @param enabled false: no conversation is recorded and the agent plugin runs as it did before
+   *     conversations existed
+   * @param retention how long an ended conversation is kept
+   * @param maxConversations most conversations the in-memory store keeps; ended ones go first
+   * @param maxEventsPerConversation most events kept per conversation; the oldest go first and a
+   *     notice says so once
+   * @param maxMessageBytes longest text of one event, and of one message sent to an agent
+   * @param maxToolBytes longest tool input and tool output kept per event
+   * @param terminalRingBytes terminal output kept per conversation
+   * @param messagesPerMinute most messages one caller may send to one conversation in a minute
+   * @param pty the terminal tier
+   */
+  public record Agents(
+      @DefaultValue("true") boolean enabled,
+      @NotNull @DefaultValue("7d") Duration retention,
+      @Min(1) @DefaultValue("500") int maxConversations,
+      @Min(1) @DefaultValue("5000") int maxEventsPerConversation,
+      @Min(1) @DefaultValue("65536") int maxMessageBytes,
+      @Min(1) @DefaultValue("4096") int maxToolBytes,
+      @Min(1) @DefaultValue("262144") int terminalRingBytes,
+      @Min(1) @DefaultValue("30") int messagesPerMinute,
+      @Valid @DefaultValue Pty pty) {
+
+    /** Checks that the retention is positive. */
+    public Agents {
+      if (retention.isZero() || retention.isNegative()) {
+        throw new IllegalArgumentException("yukta.agents.retention must be positive");
+      }
+    }
+
+    /**
+     * The terminal tier: a pseudo-terminal for agents with no structured mode.
+     *
+     * @param enabled whether a terminal agent may run; off by default because a terminal accepts
+     *     any keystroke and nothing can review what is typed
+     * @param host the executable that provides the {@code pty-host} command
+     * @param cols the width of a new terminal, until a client resizes it
+     * @param rows the height of a new terminal, until a client resizes it
+     */
+    public record Pty(
+        @DefaultValue("false") boolean enabled,
+        @NotBlank @DefaultValue("yukta-cli") String host,
+        @Min(1) @Max(1000) @DefaultValue("120") int cols,
+        @Min(1) @Max(1000) @DefaultValue("40") int rows) {}
   }
 
   /**

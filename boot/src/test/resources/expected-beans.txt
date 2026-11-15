@@ -134,6 +134,10 @@ com.infenia.yukta.plugin.util.EgressPolicy
 com.infenia.yukta.plugin.util.VariableResolver
 com.infenia.yukta.security.ApiKeyAuthenticator
 com.infenia.yukta.service.EnvSecretProvider
+com.infenia.yukta.service.agent.AgentConversationService
+com.infenia.yukta.service.agent.AgentRetention
+com.infenia.yukta.service.agent.DefaultAgentConversationGateway
+com.infenia.yukta.service.agent.InMemoryAgentConversationStore
 com.infenia.yukta.service.archive.ExecutionArchive
 com.infenia.yukta.service.control.ControlBusService
 com.infenia.yukta.service.control.SupervisedControl
