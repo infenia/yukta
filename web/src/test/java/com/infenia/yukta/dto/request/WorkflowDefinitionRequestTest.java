@@ -15,6 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -85,6 +87,66 @@ class WorkflowDefinitionRequestTest {
   void setUp() {
     validNodes = List.of(new WorkflowDefinitionRequest.NodeRequest(NODE1, GRADLE, null));
     validEdges = List.of();
+  }
+
+  /**
+   * Guards against the request DTOs falling behind the core model: a field added to the core
+   * workflow model but not to the apply request is rejected as "Unknown field" (#2046 added color,
+   * group and groupColors to the model only).
+   */
+  @Test
+  void requestRecordsExposeEveryCoreWorkflowField() {
+    assertThat(componentNames(WorkflowDefinitionRequest.class))
+        .containsAll(componentNames(com.infenia.yukta.model.workflow.WorkflowDefinition.class));
+    assertThat(componentNames(WorkflowDefinitionRequest.NodeRequest.class))
+        .containsAll(
+            componentNames(com.infenia.yukta.model.workflow.WorkflowDefinition.Node.class));
+    assertThat(componentNames(WorkflowDefinitionRequest.EdgeRequest.class))
+        .containsAll(
+            componentNames(com.infenia.yukta.model.workflow.WorkflowDefinition.Edge.class));
+  }
+
+  private static List<String> componentNames(final Class<? extends Record> type) {
+    return java.util.Arrays.stream(type.getRecordComponents())
+        .map(java.lang.reflect.RecordComponent::getName)
+        .toList();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"red", "#ff0000", "Teal", ""})
+  void nodeColorOutsideThePaletteViolatesTheColorProperty(final String color) {
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(
+            WORKFLOW_ID_WF1,
+            DESCRIPTION,
+            List.of(new WorkflowDefinitionRequest.NodeRequest(NODE1, GRADLE, null, null, color)),
+            validEdges);
+
+    assertThat(validator.validate(request))
+        .anyMatch(v -> v.getPropertyPath().toString().endsWith("color"));
+  }
+
+  @Test
+  void paletteColorsAndGroupColorsAreValid() {
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(
+            WORKFLOW_ID_WF1,
+            DESCRIPTION,
+            List.of(new WorkflowDefinitionRequest.NodeRequest(NODE1, GRADLE, null, "g", "teal")),
+            validEdges,
+            List.of(),
+            Map.of("g", "sky"));
+
+    assertThat(validator.validate(request)).isEmpty();
+  }
+
+  @Test
+  void groupColorOutsideThePaletteIsRejected() {
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(
+            WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges, List.of(), Map.of("g", "red"));
+
+    assertThat(validator.validate(request)).isNotEmpty();
   }
 
   // === WorkflowDefinitionRequest Tests ===

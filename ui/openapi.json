@@ -4749,10 +4749,19 @@
       "NodeRequest" : {
         "description" : "A single node in the workflow DAG",
         "properties" : {
+          "color" : {
+            "description" : "Palette color of the node, for display only: teal, sky, violet, magenta, stone",
+            "pattern" : "teal|sky|violet|magenta|stone",
+            "type" : [ "string", "null" ]
+          },
           "config" : {
             "additionalProperties" : { },
             "description" : "Plugin configuration",
             "type" : "object"
+          },
+          "group" : {
+            "description" : "The stage the node belongs to, for display only",
+            "type" : [ "string", "null" ]
           },
           "nodeId" : {
             "description" : "Unique ID for the node",
@@ -6363,6 +6372,13 @@
             },
             "type" : "array"
           },
+          "groupColors" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "Palette color of a group by group name, for display only: teal, sky, violet, magenta, stone",
+            "type" : [ "object", "null" ]
+          },
           "nodes" : {
             "description" : "Nodes in the workflow",
             "items" : {
@@ -6840,8 +6856,7 @@
   },
   "info" : {
     "description" : "Create sessions and workflows, start and steer executions, and read their status, logs and results. Alpha: paths and schemas may change before v0.1.0.",
-    "title" : "Yukta REST API",
-    "version" : "0.1.0-alpha.3"
+    "title" : "Yukta REST API"
   },
   "openapi" : "3.1.0",
   "paths" : {
