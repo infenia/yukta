@@ -27,7 +27,7 @@ import tools.jackson.databind.json.JsonMapper;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 @NoArgsConstructor
 class AiPluginsAcceptanceTest {
 
