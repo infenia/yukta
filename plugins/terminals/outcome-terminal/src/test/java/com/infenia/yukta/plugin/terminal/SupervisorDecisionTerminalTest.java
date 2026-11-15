@@ -98,11 +98,10 @@ class SupervisorDecisionTerminalTest {
     assertThat(terminal.getConfigSchema())
         .filteredOn(field -> "outcome".equals(field.name()))
         .singleElement()
-        .satisfies(
-            field -> {
-              assertThat(field.type()).isEqualTo(ConfigField.Type.ENUM);
-              assertThat(field.options()).containsExactly("SUCCESS", "RETRY", "ESCALATE", "FAILED");
-            });
+        .satisfies(field -> {
+          assertThat(field.type()).isEqualTo(ConfigField.Type.ENUM);
+          assertThat(field.options()).containsExactly("SUCCESS", "RETRY", "ESCALATE", "FAILED");
+        });
     assertThat(terminal.getConfigSchema()).anyMatch(f -> !"outcome".equals(f.name()));
   }
 }
