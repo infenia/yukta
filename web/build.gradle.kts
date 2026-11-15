@@ -39,11 +39,11 @@ coverageConfig {
 }
 
 // The example sessions become session templates (GET /api/templates): examples/NN-name/session.json
-// and README.md, without the dogfood setup and the shared scripts.
+// and README.md, without the shared scripts.
 tasks.processResources {
     from(rootProject.layout.projectDirectory.dir("examples")) {
         include("*/session.json", "*/README.md")
-        exclude("dogfood/**", "lib/**")
+        exclude("lib/**")
         into("templates")
     }
 }
