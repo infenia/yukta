@@ -33,6 +33,7 @@ public interface AppConfigMapper {
    * @return the workflow definition
    */
   @Mapping(target = "supervisors", expression = "java(request.supervisors())")
+  @Mapping(target = "groupColors", expression = "java(request.groupColors())")
   WorkflowDefinition toWorkflowDefinition(WorkflowDefinitionRequest request);
 
   /**

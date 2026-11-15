@@ -102,6 +102,7 @@ public record WorkflowDefinitionRequest(
     description = description == null || description.isBlank() ? workflowId : description;
     nodes = nodes != null ? List.copyOf(nodes) : List.of();
     edges = edges != null ? List.copyOf(edges) : List.of();
+    groupColors = groupColors != null ? Map.copyOf(groupColors) : Map.of();
   }
 
   /**
