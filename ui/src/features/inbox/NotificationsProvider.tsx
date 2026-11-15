@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useCallback,
   useEffect,
@@ -11,6 +12,7 @@ import {
 } from 'react';
 import { useEventSourceJson } from '@/hooks/useEventSourceJson';
 import {
+  dismissNotification,
   listNotifications,
   markNotificationsRead,
   NOTIFICATIONS_STREAM,
@@ -89,6 +91,8 @@ function useTitleCount(count: number) {
  * replay what was missed) reads the list again.
  */
 export function NotificationsProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+  const [loaded, setLoaded] = useState(false);
   const [items, setItems] = useState<AppNotification[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const seen = useRef(new Set<string>());
@@ -96,11 +100,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const load = useCallback(() => {
     listNotifications()
       .then((list) => setItems((current) => merge(list, current)))
-      .catch(() => undefined); // the bell stays as it was; the next try may work
+      .catch(() => undefined) // the bell stays as it was; the next try may work
+      .finally(() => setLoaded(true));
   }, []);
 
   const onEvent = useCallback(
     (event: NotificationEvent) => {
+      // the panels of a run that show its questions read them from the inputs queries
+      void queryClient.invalidateQueries({ queryKey: ['inputs'] });
       if (event.type === 'reset') {
         load();
         return;
@@ -137,7 +144,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         );
       }
     },
-    [load]
+    [load, queryClient]
   );
 
   const { status } = useEventSourceJson<NotificationEvent>(
@@ -171,6 +178,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     [load]
   );
 
+  const dismiss = useCallback(
+    (id: string) => {
+      setItems((current) => current.filter((i) => i.id !== id));
+      dismissNotification(id).catch(load);
+    },
+    [load]
+  );
+
   const state = useMemo<NotificationsState>(() => {
     const actions = items.filter(
       (i) => i.kind === 'ACTION' && i.state === 'ACTIVE'
@@ -188,10 +203,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       highest,
       connected,
       toasts,
+      loaded,
       dismissToast,
       markRead,
+      dismiss,
     };
-  }, [items, connected, toasts, dismissToast, markRead]);
+  }, [items, connected, toasts, loaded, dismissToast, markRead, dismiss]);
 
   useTitleCount(state.actions.length);
 

@@ -54,8 +54,10 @@ const state = (
     highest,
     connected: true,
     toasts: [],
+    loaded: true,
     dismissToast: vi.fn(),
     markRead: vi.fn(),
+    dismiss: vi.fn(),
     ...over,
   };
 };

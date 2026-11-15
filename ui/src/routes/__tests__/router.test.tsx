@@ -80,9 +80,9 @@ describe('router', () => {
   });
 
   describe('route paths', () => {
-    it('should have 17 child routes', () => {
+    it('should have 18 child routes', () => {
       const rootRoute = router.routes[0];
-      expect(rootRoute.children?.length).toBe(17);
+      expect(rootRoute.children?.length).toBe(18);
     });
 
     it('should have correct number of parameterized routes', () => {
@@ -149,6 +149,7 @@ describe('router', () => {
       expect(await load('supervisors/:supervisorId/edit')).toBe(
         'SupervisorEditPage'
       );
+      expect(await load('inbox')).toBe('InboxPage');
       expect(await load('control')).toBe('ControlPage');
       expect(await load('runs')).toBe('RunsPage');
       expect(await load('showcase/dashboard')).toBe('DashboardShowcase');

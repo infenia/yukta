@@ -4,7 +4,11 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as apiClient from '@/lib/apiClient';
-import { listNotifications, markNotificationsRead } from '../api';
+import {
+  dismissNotification,
+  listNotifications,
+  markNotificationsRead,
+} from '../api';
 import { useNotifications } from '../NotificationsContext';
 
 vi.mock('@/lib/apiClient', async (importOriginal) => ({
@@ -47,6 +51,14 @@ describe('notifications api', () => {
     );
   });
 
+  it('dismisses one item with an empty body', async () => {
+    await dismissNotification('a b');
+    expect(apiClient.fetchApi).toHaveBeenCalledWith(
+      '/api/notifications/a%20b/dismiss',
+      { method: 'POST', body: '{}' }
+    );
+  });
+
   it('is empty and harmless outside a provider', () => {
     const { result } = renderHook(() => useNotifications());
 
@@ -55,6 +67,7 @@ describe('notifications api', () => {
     expect(() => {
       result.current.dismissToast('x');
       result.current.markRead();
+      result.current.dismiss('x');
     }).not.toThrow();
   });
 });

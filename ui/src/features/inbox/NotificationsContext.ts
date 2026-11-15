@@ -22,8 +22,11 @@ export interface NotificationsState {
   /** False while the stream is down: the list is polled instead. */
   connected: boolean;
   toasts: Toast[];
+  /** False until the first answer of the server (or its failure) is in. */
+  loaded: boolean;
   dismissToast: (id: string) => void;
   markRead: (ids?: string[]) => void;
+  dismiss: (id: string) => void;
 }
 
 const EMPTY: NotificationsState = {
@@ -33,8 +36,10 @@ const EMPTY: NotificationsState = {
   highest: null,
   connected: true,
   toasts: [],
+  loaded: true,
   dismissToast: () => undefined,
   markRead: () => undefined,
+  dismiss: () => undefined,
 };
 
 export const NotificationsContext = createContext<NotificationsState>(EMPTY);

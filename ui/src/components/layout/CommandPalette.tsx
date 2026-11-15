@@ -240,6 +240,13 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
       perform: go('/sessions/new'),
     },
     {
+      id: 'action:inbox',
+      group: 'Actions',
+      icon: 'inbox',
+      label: 'Open inbox',
+      perform: go('/inbox'),
+    },
+    {
       id: 'action:theme',
       group: 'Actions',
       icon: 'contrast',

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { fetchApi } from '@/lib/apiClient';
+import { api, fetchApi } from '@/lib/apiClient';
 import type { InputRequest } from '@/features/workflow/api/inputs';
 
 export type NotificationKind = 'INFO' | 'ACTION';
@@ -52,4 +52,11 @@ export const markNotificationsRead = (ids?: string[]) =>
   fetchApi<{ marked: number }>('/api/notifications/read', {
     method: 'POST',
     body: JSON.stringify(ids ? { ids } : { all: true }),
+  });
+
+/** Hides an alert, or a question that has ended, for the caller. */
+export const dismissNotification = (id: string) =>
+  fetchApi<null>(api`/api/notifications/${id}/dismiss`, {
+    method: 'POST',
+    body: '{}',
   });

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { act, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   installMockEventSource,
@@ -16,6 +17,7 @@ vi.mock('../api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api')>()),
   listNotifications: vi.fn(),
   markNotificationsRead: vi.fn(),
+  dismissNotification: vi.fn(),
 }));
 
 function Probe() {
@@ -28,6 +30,8 @@ function Probe() {
       </p>
       <button onClick={() => s.markRead(['a'])}>read-a</button>
       <button onClick={() => s.markRead()}>read-all</button>
+      <button onClick={() => s.dismiss('x')}>drop-x</button>
+      <p data-testid="loaded">{String(s.loaded)}</p>
       <button onClick={() => s.dismissToast(s.toasts[0]?.id ?? '')}>
         dismiss
       </button>
@@ -56,14 +60,17 @@ describe('NotificationsProvider', () => {
     document.title = 'Yukta | Sessions';
     vi.mocked(api.listNotifications).mockResolvedValue([]);
     vi.mocked(api.markNotificationsRead).mockResolvedValue({ marked: 1 });
+    vi.mocked(api.dismissNotification).mockResolvedValue(null);
   });
   afterEach(() => vi.useRealTimers());
 
   const mount = () =>
     render(
-      <NotificationsProvider>
-        <Probe />
-      </NotificationsProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <NotificationsProvider>
+          <Probe />
+        </NotificationsProvider>
+      </QueryClientProvider>
     );
 
   it('loads the list and counts actions, unread info and the highest severity', async () => {
@@ -145,9 +152,11 @@ describe('NotificationsProvider', () => {
       );
     };
     render(
-      <NotificationsProvider>
-        <Toasts />
-      </NotificationsProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <NotificationsProvider>
+          <Toasts />
+        </NotificationsProvider>
+      </QueryClientProvider>
     );
     open();
     emit({ type: 'created', notification: action({ id: 'q', seq: 1 }) });
@@ -158,6 +167,27 @@ describe('NotificationsProvider', () => {
     });
 
     expect(screen.getByTestId('t').textContent).toBe('ACTIVE,RESOLVED');
+  });
+
+  it('dismisses an item at once and reads the list again if the server refuses', async () => {
+    vi.mocked(api.listNotifications).mockResolvedValue([note({ id: 'x' })]);
+    mount();
+    open();
+    await waitFor(() => expect(counts()).toBe('0/1/INFO/true/1/0'));
+    expect(screen.getByTestId('loaded').textContent).toBe('true');
+
+    act(() => screen.getByText('drop-x').click());
+    expect(counts()).toBe('0/0/none/true/0/0');
+    expect(api.dismissNotification).toHaveBeenCalledWith('x');
+
+    vi.mocked(api.dismissNotification).mockRejectedValue(new Error('no'));
+    const reads = vi.mocked(api.listNotifications).mock.calls.length;
+    act(() => screen.getByText('drop-x').click());
+    await waitFor(() =>
+      expect(
+        vi.mocked(api.listNotifications).mock.calls.length
+      ).toBeGreaterThan(reads)
+    );
   });
 
   it('reads the list again on a reset', async () => {
