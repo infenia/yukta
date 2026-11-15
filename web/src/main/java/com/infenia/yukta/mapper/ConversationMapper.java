@@ -7,13 +7,11 @@ import com.infenia.yukta.dto.response.ConversationResponse;
 import com.infenia.yukta.dto.response.TerminalScreenResponse;
 import com.infenia.yukta.plugin.agent.AgentConversation;
 import com.infenia.yukta.plugin.agent.AgentEvent;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import org.springframework.stereotype.Component;
 
 /** MapStruct mapper from the conversation records of the plugin API to the REST responses. */
-@Mapper(componentModel = "spring")
-@FunctionalInterface
-public interface ConversationMapper {
+@Component
+public class ConversationMapper {
 
   /**
    * Map a conversation.
@@ -21,11 +19,30 @@ public interface ConversationMapper {
    * @param conversation the conversation
    * @return the response, with the capabilities sorted
    */
-  @Mapping(
-      target = "capabilities",
-      expression = "java(conversation.capabilities().stream().sorted().toList())")
-  @Mapping(target = "steerAudience", source = "steerAudience.selectors")
-  ConversationResponse toResponse(AgentConversation conversation);
+  public ConversationResponse toResponse(final AgentConversation conversation) {
+    return new ConversationResponse(
+        conversation.id(),
+        conversation.executionId(),
+        conversation.rootExecutionId(),
+        conversation.sessionId(),
+        conversation.workflowId(),
+        conversation.nodeId(),
+        conversation.messageId(),
+        conversation.harness(),
+        conversation.protocol().name(),
+        conversation.model(),
+        conversation.capabilities().stream().sorted().toList(),
+        conversation.state().name(),
+        conversation.outcome(),
+        conversation.reason(),
+        conversation.turn(),
+        conversation.queued(),
+        conversation.steerAudience().selectors(),
+        conversation.startedAt(),
+        conversation.updatedAt(),
+        conversation.endedAt(),
+        conversation.seq());
+  }
 
   /**
    * Map an event.
@@ -33,7 +50,7 @@ public interface ConversationMapper {
    * @param event the event
    * @return the response
    */
-  default ConversationEventResponse toResponse(final AgentEvent event) {
+  public ConversationEventResponse toResponse(final AgentEvent event) {
     return new ConversationEventResponse(
         event.seq(),
         event.conversationId(),
@@ -49,7 +66,7 @@ public interface ConversationMapper {
    * @param event the event
    * @return the screen; a number the event lacks is 0 and the text empty
    */
-  default TerminalScreenResponse toScreen(final AgentEvent event) {
+  public TerminalScreenResponse toScreen(final AgentEvent event) {
     return new TerminalScreenResponse(
         number(event, "cols"),
         number(event, "rows"),

@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.mapstruct.factory.Mappers;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -106,7 +105,7 @@ class ConversationsControllerTest {
     final ConversationsController controller =
         new ConversationsController(
             new AgentConversationQueries(store, service, tracker, controlBus),
-            Mappers.getMapper(ConversationMapper.class),
+            new ConversationMapper(),
             new ExecutionAccess(controlBus));
     open =
         WebTestClient.bindToController(controller)
@@ -524,7 +523,7 @@ class ConversationsControllerTest {
         WebTestClient.bindToController(
                 new ConversationsController(
                     new AgentConversationQueries(store, service, tracker, controlBus),
-                    Mappers.getMapper(ConversationMapper.class),
+                    new ConversationMapper(),
                     new ExecutionAccess(controlBus)))
             .webFilter((exchange, chain) ->
                 chain
@@ -562,7 +561,7 @@ class ConversationsControllerTest {
   @Test
   void screenEventWithoutNumbersOrTextMapsToZerosAndEmptyText() {
     final var screen =
-        Mappers.getMapper(ConversationMapper.class)
+        new ConversationMapper()
             .toScreen(
                 new com.infenia.yukta.plugin.agent.AgentEvent(
                     7, "c", Instant.now(), AgentEventKind.TERMINAL, null, Map.of()));

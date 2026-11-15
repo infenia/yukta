@@ -57,7 +57,7 @@ com.infenia.yukta.logging.api.PluginLogStoreConfig
 com.infenia.yukta.logging.impl.memory.InMemoryPluginLogStore
 com.infenia.yukta.logging.impl.memory.LogStoreAutoConfiguration
 com.infenia.yukta.mapper.AppConfigMapperImpl
-com.infenia.yukta.mapper.ConversationMapperImpl
+com.infenia.yukta.mapper.ConversationMapper
 com.infenia.yukta.mapper.SessionMapperImpl
 com.infenia.yukta.mapper.WorkflowMapperImpl
 com.infenia.yukta.mcp.AppMcpPrompts
