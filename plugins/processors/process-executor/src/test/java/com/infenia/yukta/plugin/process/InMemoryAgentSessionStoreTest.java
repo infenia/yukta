@@ -79,4 +79,26 @@ class InMemoryAgentSessionStoreTest {
     assertThat(store.tryAcquire("s0")).as("still held").isNull();
     held.forEach(AgentSessionStore.Lease::close);
   }
+
+  private static void remember(final AgentSessionStore store, final String key) {
+    final var lease = acquire(store, key);
+    lease.complete("t-" + key);
+    lease.close();
+  }
+
+  @Test
+  void atTheCapNothingIsForgotten_oneOverForgetsOnlyTheOldest() {
+    final var store = new InMemoryAgentSessionStore();
+    for (int i = 0; i < InMemoryAgentSessionStore.MAX_SESSIONS; i++) {
+      remember(store, "s" + i);
+    }
+    assertThat(acquire(store, "s0").token()).as("at the cap").isEqualTo("t-s0");
+
+    final var store2 = new InMemoryAgentSessionStore();
+    for (int i = 0; i <= InMemoryAgentSessionStore.MAX_SESSIONS; i++) {
+      remember(store2, "s" + i);
+    }
+    assertThat(acquire(store2, "s0").token()).as("the oldest is gone").isNull();
+    assertThat(acquire(store2, "s2").token()).as("the next one stays").isEqualTo("t-s2");
+  }
 }

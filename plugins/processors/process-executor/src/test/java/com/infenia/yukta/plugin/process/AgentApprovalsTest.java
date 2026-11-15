@@ -138,4 +138,12 @@ class AgentApprovalsTest {
 
     assertThat(written).isEmpty();
   }
+
+  @Test
+  void theUserMessageFillsThePromptInNestedObjects() throws IOException {
+    final var template = JSON.readTree("{\"m\":{\"text\":\"{prompt}\"},\"k\":\"keep\"}");
+
+    assertThat(AgentApprovals.userMessage(template, "hi", JSON))
+        .isEqualTo("{\"m\":{\"text\":\"hi\"},\"k\":\"keep\"}");
+  }
 }

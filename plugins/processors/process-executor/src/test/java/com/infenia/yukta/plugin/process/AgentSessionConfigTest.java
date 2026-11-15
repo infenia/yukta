@@ -17,6 +17,7 @@ import tools.jackson.databind.ObjectMapper;
 /** The parsing and checks of an AGENT_SESSION node's configuration. */
 @NoArgsConstructor
 class AgentSessionConfigTest {
+  private static final String APPROVAL_TIMEOUT = "approvalTimeout";
 
   private final AgentHarnesses harnesses = shipped();
   private final AgentSessionConfig config = new AgentSessionConfig(harnesses);
@@ -59,11 +60,13 @@ class AgentSessionConfigTest {
 
   @Test
   void approvalTimeout_mustBePositiveNumber() {
-    assertThatThrownBy(() -> AgentSessionConfig.settings(Map.of("approvalTimeout", "soon")))
+    assertThatThrownBy(() -> AgentSessionConfig.settings(Map.of(APPROVAL_TIMEOUT, "soon")))
         .hasMessage("approvalTimeout must be positive, got: soon");
-    assertThatThrownBy(() -> AgentSessionConfig.settings(Map.of("approvalTimeout", -1)))
+    assertThatThrownBy(() -> AgentSessionConfig.settings(Map.of(APPROVAL_TIMEOUT, -1)))
         .hasMessage("approvalTimeout must be positive, got: -1");
-    assertThat(AgentSessionConfig.settings(Map.of("approvalTimeout", 60)).ttl())
+    assertThatThrownBy(() -> AgentSessionConfig.settings(Map.of(APPROVAL_TIMEOUT, 0)))
+        .hasMessage("approvalTimeout must be positive, got: 0");
+    assertThat(AgentSessionConfig.settings(Map.of(APPROVAL_TIMEOUT, 60)).ttl())
         .isEqualTo(Duration.ofSeconds(60));
     assertThat(AgentSessionConfig.settings(Map.of()).ttl()).isEqualTo(Duration.ofMinutes(5));
   }
