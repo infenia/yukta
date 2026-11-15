@@ -558,4 +558,18 @@ class ConversationsControllerTest {
         .jsonPath("$.data.length()")
         .isEqualTo(0);
   }
+
+  @Test
+  void screenEventWithoutNumbersOrTextMapsToZerosAndEmptyText() {
+    final var screen =
+        Mappers.getMapper(ConversationMapper.class)
+            .toScreen(
+                new com.infenia.yukta.plugin.agent.AgentEvent(
+                    7, "c", Instant.now(), AgentEventKind.TERMINAL, null, Map.of()));
+
+    assertThat(screen.cols()).isZero();
+    assertThat(screen.cursorRow()).isZero();
+    assertThat(screen.text()).isEmpty();
+    assertThat(screen.seq()).isEqualTo(7);
+  }
 }

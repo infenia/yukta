@@ -603,7 +603,7 @@ class AgentConversationQueriesTest {
   }
 
   @Test
-  void blankNamesInAKindListAreSkipped() {
+  void blankNamesInTheKindListAreSkipped() {
     assertThat(AgentConversationQueries.kinds("tool,, ,notice"))
         .containsExactlyInAnyOrder(AgentEventKind.TOOL, AgentEventKind.NOTICE);
   }
@@ -683,18 +683,19 @@ class AgentConversationQueriesTest {
     final AgentConversationHandle otherSession = open("root", "s2");
     final AgentConversationHandle stranger = open("stranger", "s1");
     final AgentConversationHandle otherRoot =
-        service
-            .open(
-                new AgentConversationSpec(
-                    new InputIdentity("s1", "workflow-1", "root", "node-1"),
-                    "message-1",
-                    "claude-code",
-                    AgentProtocol.JSONL,
-                    null,
-                    Set.of(),
-                    Audience.CURRENT_TIER),
-                "other-root")
-            .block();
+        java.util.Objects.requireNonNull(
+            service
+                .open(
+                    new AgentConversationSpec(
+                        new InputIdentity("s1", "workflow-1", "root", "node-1"),
+                        "message-1",
+                        "claude-code",
+                        AgentProtocol.JSONL,
+                        null,
+                        Set.of(),
+                        Audience.CURRENT_TIER),
+                    "other-root")
+                .block());
     say(otherSession, "hidden session");
     say(stranger, "not below the run");
     say(otherRoot, "another tree");
