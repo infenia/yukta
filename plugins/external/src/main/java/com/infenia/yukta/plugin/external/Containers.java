@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
@@ -96,9 +97,19 @@ public record Containers(String runtime, Map<String, List<String>> args) {
    * @return the variables of {@link #CLIENT_ENV} the server has
    */
   /* default */ static Map<String, String> clientEnv() {
+    return clientEnv(System::getenv);
+  }
+
+  /**
+   * The runtime's own variables, read through the given lookup.
+   *
+   * @param lookup gives the value of a variable, or null when it is not set
+   * @return the variables of {@link #CLIENT_ENV} the lookup has
+   */
+  /* default */ static Map<String, String> clientEnv(final UnaryOperator<String> lookup) {
     final Map<String, String> env = new HashMap<>();
     for (final String name : CLIENT_ENV) {
-      final String value = System.getenv(name);
+      final String value = lookup.apply(name);
       if (value != null) {
         env.put(name, value);
       }

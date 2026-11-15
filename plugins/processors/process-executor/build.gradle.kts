@@ -13,3 +13,9 @@ dependencies {
 
 coverageConfig {
 }
+
+// The environment tests expect a server variable besides PATH. Set it here so they do not depend on
+// the runner (a clean environment, such as the `yk` runner's, has no HOME).
+tasks.withType<Test>().configureEach {
+    environment("HOME", System.getProperty("user.home"))
+}
