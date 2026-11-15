@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -128,28 +127,6 @@ class AiPluginsAcceptanceTest {
     assertThat(model.requests())
         .singleElement()
         .satisfies(r -> assertThat(r.body()).contains("say hello"));
-  }
-
-  @Test
-  void sessionMemory_remembersTheConversation() {
-    wf.requirePlugin("SESSION_MEMORY");
-    final var key =
-        wf.chain(
-            node(
-                "load",
-                "SESSION_MEMORY",
-                Map.of(
-                    "mode", "load",
-                    "sessionId", "${payload.sessionId}",
-                    "message", "${payload.message}")),
-            node("save", "SESSION_MEMORY", Map.of("mode", "append", "assistant", "answer-one")));
-    final String session = "chat-" + UUID.randomUUID();
-    wf.run(key, Map.of("sessionId", session, "message", "question-one"));
-
-    final Map<String, Object> second =
-        wf.runOne(key, Map.of("sessionId", session, "message", "question-two"));
-
-    assertThat(second.toString()).contains("question-one").contains("answer-one");
   }
 
   @Test

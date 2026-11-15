@@ -850,12 +850,12 @@ Sessions, definitions with versions, the execution log, node checkpoints, KV sta
 **Behaviour**
 
 - R2DBC at run time (`spring.r2dbc.url`); Flyway migrations applied over JDBC (`spring.flyway.url`) from `plus/persistence-postgres/src/main/resources/db/migration`. Profile `postgres`; build with `-Pyukta.persistence=postgres`.
-- Stores: `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (newest 20 versions, notes), `R2dbcExecutionLogStore` (one writer thread; trims to `retained-runs`; never drops a run without an end), `R2dbcNodeCheckpointStore` (one JSONB row per message plus a state row per node with the end marker; migration V3), `R2dbcKeyValueStore` (`KV_STORE`; V5), `R2dbcSessionHistoryStore` (`SESSION_MEMORY`; V6). Leader lease is V4.
+- Stores: `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (newest 20 versions, notes), `R2dbcExecutionLogStore` (one writer thread; trims to `retained-runs`; never drops a run without an end), `R2dbcNodeCheckpointStore` (one JSONB row per message plus a state row per node with the end marker; migration V3). Leader lease is V4.
 - The in-memory and file defaults step aside when the type is `postgres`.
 
 - The single-server defaults (`InMemoryExecutionLogStore`, `InMemoryNodeCheckpointStore`, `SingleServerLeader`) are registered by `DefaultsAutoConfiguration` with `@ConditionalOnMissingBean`; an extension module replaces one by declaring `@AutoConfiguration(before = DefaultsAutoConfiguration.class)`. `FeatureGateEnvironmentPostProcessor` refuses a store, leader or worker setting whose module is not in the build, and `EditionInfo` (`GET /api/edition`) reports the edition.
 
-**Configure:** `yukta.session.store-type=postgres` · `yukta.restart.store-type=postgres` · `yukta.kv.store-type=postgres` · `yukta.session-memory.store-type=postgres`
+**Configure:** `yukta.session.store-type=postgres` · `yukta.restart.store-type=postgres`
 
 **Limits:** Pool tuning, health checks and native-image metadata for R2DBC and Flyway are not finished.
 
@@ -899,7 +899,7 @@ A processor node with `engine.placement {pool}` runs on a worker process of that
 
 **Source:** `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `RemoteNodeExecutor` `WorkerRegistration`. Module `workers`. Design: [remote workers plan](https://github.com/infenia/yukta/blob/main/design/plans/remote-workers.md).
 
-**Limits:** Triggers, terminals and the stateful plugins (`SESSION_MEMORY`, `KV_STORE`, `WAIT_FOR_SIGNAL`, `SUB_WORKFLOW`) cannot be placed. Without the `workers` module a placed node fails to prepare. The control plane still sees every message (a data hop). Default transport is a shared token over plain TCP. Native-image worker registration is not verified.
+**Limits:** Triggers, terminals and the stateful plugins (`WAIT_FOR_SIGNAL`, `SUB_WORKFLOW`) cannot be placed. Without the `workers` module a placed node fails to prepare. The control plane still sees every message (a data hop). Default transport is a shared token over plain TCP. Native-image worker registration is not verified.
 
 ### SCL-02: Active/standby high availability
 
@@ -1093,10 +1093,7 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.restart.bytes-per-node` | 4194304 (4 MiB) | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Memory cap per node, bytes |
 | `yukta.restart.auto-resume` | false | [DUR-03](#dur-03-resume-and-recovery), [SCL-02](#scl-02-active/standby-high-availability) | Resume interrupted runs after recovery |
 | `yukta.session.store-type` | `in-memory` | [DEF-01](#def-01-definition-store-and-versions), [DUR-05](#dur-05-session-configuration) | `in-memory` \| `file` \| `postgres` |
-| `yukta.kv.store-type` | memory | [DUR-04](#dur-04-postgresql-stores) | State of `KV_STORE` (module: persistence-postgres) |
-| `yukta.session-memory.store-type` | memory | [DUR-04](#dur-04-postgresql-stores) | History of `SESSION_MEMORY` (module: persistence-postgres) |
 | `yukta.bootstrap.dir` | unset | [DUR-05](#dur-05-session-configuration) | Folder of session files applied at start-up (module: web) |
-| `yukta.session-memory.dir` | unset (memory) | [DUR-04](#dur-04-postgresql-stores) | Keep `SESSION_MEMORY` history on disk (Plus build) |
 | `yukta.workers.lease` | 15s | [SCL-01](#scl-01-remote-workers) | Worker lease; a missed renewal drops the worker |
 | `yukta.workers.token` | unset | [SCL-01](#scl-01-remote-workers) | Shared token (module: workers) |
 | `yukta.workers.control-plane` | unset | [SCL-01](#scl-01-remote-workers) | Worker side: `host:port`, comma-separated for HA (workers) |
@@ -1230,12 +1227,11 @@ What survives a restart, by deployment profile. "Memory" is the default; "File" 
 | Resume an aborted run | Not possible | Needs log + restart dirs | Log and outputs in PostgreSQL |
 | Queued starts and slots | Lost | Lost; run marked ABORTED, recoverable | Lost; run marked ABORTED, recoverable |
 | Signal waits (approvals) | Lost | Lost; an answered signal is reused on resume | Lost; an answered signal is reused on resume |
-| Session memory (chat history) | Lost | Kept with its own directory | Kept (`session-memory.store-type`) |
 | Limits changed at run time | Reset | Restored from the log | Restored from the log |
 | Execution results | Lost | Lost | Lost |
 
 <Warning>
-  **Check before relying on this.** The PostgreSQL column assumes the matching store properties are set. Each backend has its own switch (`session.store-type`, `execution-log.dir`, `restart.dir` / `restart.store-type`, `session-memory`), so a deployment can be half durable.
+  **Check before relying on this.** The PostgreSQL column assumes the matching store properties are set. Each backend has its own switch (`session.store-type`, `execution-log.dir`, `restart.dir` / `restart.store-type`), so a deployment can be half durable.
 </Warning>
 
 ### Capacity ceilings
