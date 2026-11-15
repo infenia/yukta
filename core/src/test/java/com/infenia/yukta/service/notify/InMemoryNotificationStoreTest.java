@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.plugin.notify.Notification;
+import com.infenia.yukta.plugin.notify.NotificationKind;
 import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
 import com.infenia.yukta.service.redact.InputRedactor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -20,7 +21,11 @@ import org.junit.jupiter.api.Test;
 @SuppressFBWarnings(
     value = "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
     justification = "block() of a store call that always emits")
+@SuppressWarnings("PMD.TooManyMethods")
 class InMemoryNotificationStoreTest {
+
+  private static final String INPUT_1 = "input:1";
+  private static final String ARUN = "arun";
 
   private final MutableClock clock = new MutableClock();
 
@@ -50,12 +55,12 @@ class InMemoryNotificationStoreTest {
   void overTheBoundTheOldestInfoGoesAndAnActiveActionStays() {
     final InMemoryNotificationStore store = new InMemoryNotificationStore(2);
     final NotificationService service = serviceOver(store);
-    service.raise(action("input:1").build()).block();
+    service.raise(action(INPUT_1).build()).block();
     service.raise(info("i1").build()).block();
     service.raise(info("i2").build()).block();
 
     assertThat(store.find(NotificationQuery.ALL).map(Notification::key).collectList().block())
-        .containsExactlyInAnyOrder("input:1", "i2");
+        .containsExactlyInAnyOrder(INPUT_1, "i2");
   }
 
   @Test
@@ -85,11 +90,65 @@ class InMemoryNotificationStoreTest {
   void inputPreferencesCannotTurnInputOff() {
     assertThatThrownBy(() ->
             new NotificationPreferences(
-                "arun",
+                ARUN,
                 java.util.Map.of("input", NotificationPreferences.Level.OFF),
                 java.util.Set.of()))
         .isInstanceOf(IllegalArgumentException.class);
     final InMemoryNotificationStore store = new InMemoryNotificationStore(1);
-    assertThat(store.preferences("arun").block().levels()).isEmpty();
+    assertThat(store.preferences(ARUN).block().levels()).isEmpty();
+  }
+
+  @Test
+  void findFiltersByStateKindAndSessionAndResolveOfUnknownIsEmpty() {
+    final InMemoryNotificationStore store = new InMemoryNotificationStore(10);
+    final NotificationService service = serviceOver(store);
+    service.raise(action(INPUT_1).sessionId("s1").build()).block();
+    service.raise(info("i").sessionId("s2").build()).block();
+    service.resolve(INPUT_1, "done").block();
+
+    assertThat(count(store, new NotificationQuery(Notification.State.RESOLVED, null, null, 0)))
+        .isEqualTo(1);
+    assertThat(count(store, new NotificationQuery(null, NotificationKind.INFO, null, 0)))
+        .isEqualTo(1);
+    assertThat(count(store, new NotificationQuery(null, null, "s2", 0))).isEqualTo(1);
+    assertThat(store.findByKey("i").block().key()).isEqualTo("i");
+    assertThat(store.findByKey("nope").block()).isNull();
+    assertThat(store.resolve("nope", "x", clock.instant()).block()).isNull();
+    assertThat(store.resolve(INPUT_1, "again", clock.instant()).block()).isNull();
+    assertThat(store.findById("nope").block()).isNull();
+  }
+
+  private static long count(final InMemoryNotificationStore store, final NotificationQuery query) {
+    return store.find(query).count().block();
+  }
+
+  @Test
+  void activeActionsAreNeverEvictedEvenOverTheBound() {
+    final InMemoryNotificationStore store = new InMemoryNotificationStore(1);
+    final NotificationService service = serviceOver(store);
+    service.raise(action(INPUT_1).build()).block();
+    service.raise(action("input:2").build()).block();
+
+    assertThat(count(store, NotificationQuery.ALL)).isEqualTo(2);
+  }
+
+  @Test
+  void savedPreferencesComeBackAndPurgeDropsTheReceiptsOfRemovedItems() {
+    final InMemoryNotificationStore store = new InMemoryNotificationStore(10);
+    final NotificationService service = serviceOver(store);
+    store
+        .savePreferences(
+            new NotificationPreferences(
+                ARUN,
+                java.util.Map.of("run.failed", NotificationPreferences.Level.DESKTOP),
+                java.util.Set.of("s1")))
+        .block();
+    final Notification n = service.raise(info("i").build()).block();
+    service.markRead(ARUN, List.of(n.id())).block();
+    clock.advance(Duration.ofDays(8));
+    store.purge(clock.instant()).block();
+
+    assertThat(store.preferences(ARUN).block().levels()).containsKey("run.failed");
+    assertThat(store.receipts(ARUN, List.of(n.id())).collectList().block()).isEmpty();
   }
 }

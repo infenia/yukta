@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 @NoArgsConstructor
 class NotificationsPropertiesTest {
 
+  private static final String FAILED = "run.failed";
+
   private static NotificationRuleSettings rule(
       final String category, final List<String> audience, final List<String> channels) {
     return new NotificationRuleSettings(
@@ -34,8 +36,7 @@ class NotificationsPropertiesTest {
 
     assertThat(
             with(
-                    rule(
-                        "run.failed", List.of("role:OPERATOR", "key:arun"), List.of("webhook:ops")),
+                    rule(FAILED, List.of("role:OPERATOR", "key:arun"), List.of("webhook:ops")),
                     channels)
                 .rules())
         .containsKey("my-rule");
@@ -45,9 +46,9 @@ class NotificationsPropertiesTest {
   void badRuleStopsStartUpNamingTheRule() {
     assertThatThrownBy(() -> with(rule("nope", List.of(), List.of()), Map.of()))
         .hasMessageContaining("rules.my-rule.category");
-    assertThatThrownBy(() -> with(rule("run.failed", List.of("supervisor:*"), List.of()), Map.of()))
+    assertThatThrownBy(() -> with(rule(FAILED, List.of("supervisor:*"), List.of()), Map.of()))
         .hasMessageContaining("rules.my-rule.audience");
-    assertThatThrownBy(() -> with(rule("run.failed", List.of(), List.of("webhook:ops")), Map.of()))
+    assertThatThrownBy(() -> with(rule(FAILED, List.of(), List.of("webhook:ops")), Map.of()))
         .hasMessageContaining("rules.my-rule.channels");
   }
 
@@ -57,5 +58,37 @@ class NotificationsPropertiesTest {
             new YuktaProperties.Notifications(
                 true, Duration.ZERO, 1, Duration.ZERO, Map.of(), Map.of()))
         .hasMessageContaining("retention");
+  }
+
+  @Test
+  void missingCategoryNegativeCooldownAndChannelWithoutTypeAreRefused() {
+    assertThatThrownBy(() -> with(rule(null, List.of(), List.of()), Map.of()))
+        .hasMessageContaining("category");
+    assertThatThrownBy(() ->
+            with(
+                new NotificationRuleSettings(
+                    FAILED,
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    null,
+                    List.of(),
+                    Duration.ofSeconds(-1)),
+                Map.of()))
+        .hasMessageContaining("cooldown");
+    assertThatThrownBy(() -> with(rule(FAILED, List.of(), List.of("nocolon")), Map.of()))
+        .hasMessageContaining("nocolon");
+    assertThatThrownBy(() ->
+            new YuktaProperties.Notifications(
+                true, Duration.ofDays(1), 1, Duration.ofSeconds(-1), Map.of(), Map.of()))
+        .hasMessageContaining("action-grace");
+  }
+
+  @Test
+  void knownChannelTypeWithUnknownNameIsRefused() {
+    final var channels = Map.of("webhook", Map.of("ops", Map.<String, Object>of("url", "x")));
+
+    assertThatThrownBy(() -> with(rule(FAILED, List.of(), List.of("webhook:other")), channels))
+        .hasMessageContaining("webhook:other");
   }
 }

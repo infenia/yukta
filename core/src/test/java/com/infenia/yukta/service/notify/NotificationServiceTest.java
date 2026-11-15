@@ -7,12 +7,15 @@ import static com.infenia.yukta.service.notify.NotifyTestSupport.info;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.notify.Notification;
+import com.infenia.yukta.security.ApiKeys;
+import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
 import com.infenia.yukta.service.redact.InputRedactor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
@@ -114,5 +117,48 @@ class NotificationServiceTest {
         .expectNextMatches(c -> c.kind() == NotificationChange.Kind.UPDATED)
         .expectNextMatches(c -> c.kind() == NotificationChange.Kind.RESOLVED)
         .verifyComplete();
+  }
+
+  @Test
+  void readingTwiceKeepsTheFirstTimeAndDismissingAfterReadingKeepsIt() {
+    final Notification n = service.raise(info("k").build()).block();
+    service.markRead(ARUN, List.of(n.id())).block();
+    final var first = service.receipts(ARUN, List.of(n.id())).blockFirst().readAt();
+    clock.advance(Duration.ofMinutes(1));
+    service.markRead(ARUN, List.of(n.id())).block();
+    service.dismiss(ARUN, n.id()).block();
+    clock.advance(Duration.ofMinutes(1));
+    service.dismiss(ARUN, n.id()).block();
+
+    final var receipt = service.receipts(ARUN, List.of(n.id())).blockFirst();
+    assertThat(receipt.readAt()).isEqualTo(first);
+    assertThat(receipt.dismissedAt()).isNotNull().isBefore(clock.instant());
+  }
+
+  @Test
+  void visibleFiltersByCallerAndPreferencesAndEpochPassThrough() {
+    service.raise(info("a").build()).block();
+    service.raise(info("b").build()).block();
+
+    assertThat(service.visible(NotificationQuery.ALL, null).collectList().block()).hasSize(2);
+    assertThat(
+            service
+                .visible(NotificationQuery.ALL, new ApiKeys.Match("v", ApiRole.VIEWER, Set.of()))
+                .collectList()
+                .block())
+        .isEmpty();
+    service.savePreferences(NotificationPreferences.defaults(ARUN)).block();
+    assertThat(service.preferences(ARUN).block().recipient()).isEqualTo(ARUN);
+    assertThat(service.epoch()).isEqualTo(store.epoch());
+  }
+
+  @Test
+  void theSpringConstructorUsesTheSystemClock() {
+    final Notification n =
+        new NotificationService(store, new InputRedactor(List.of()))
+            .raise(info("c").build())
+            .block();
+
+    assertThat(n.createdAt()).isNotNull();
   }
 }

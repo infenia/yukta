@@ -117,4 +117,12 @@ class RecipientsTest {
     assertThat(action("x").build().audience()).containsExactly(OPERATOR);
     assertThat(info("y").build().audience()).containsExactly(OPERATOR);
   }
+
+  @Test
+  void selectorOfNeitherShapeMatchesNobody() {
+    assertThat(
+            Recipients.sees(
+                build(NotificationKind.INFO, null, "supervisor:x"), key("a", ApiRole.ADMIN, false)))
+        .isFalse();
+  }
 }
