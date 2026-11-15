@@ -12,6 +12,7 @@ import org.mapstruct.Mapping;
 
 /** MapStruct mapper from the conversation records of the plugin API to the REST responses. */
 @Mapper(componentModel = "spring")
+@FunctionalInterface
 public interface ConversationMapper {
 
   /**
