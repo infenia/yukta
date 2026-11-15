@@ -550,11 +550,10 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(gateway.executeInstalled(spec, PluginLogSink.NOOP))
-        .assertNext(
-            r ->
-                assertThat(r.stdoutLines())
-                    .extracting(line -> line.substring(0, line.indexOf('=')))
-                    .containsExactlyInAnyOrder("PATH", "LD_PRELOAD"))
+        .assertNext(r ->
+            assertThat(r.stdoutLines())
+                .extracting(line -> line.substring(0, line.indexOf('=')))
+                .containsExactlyInAnyOrder("PATH", "LD_PRELOAD"))
         .verifyComplete();
   }
 

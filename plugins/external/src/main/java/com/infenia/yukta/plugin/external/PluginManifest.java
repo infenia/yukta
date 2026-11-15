@@ -72,9 +72,8 @@ public record PluginManifest(
     return Flux.fromIterable(config())
         .map(ConfigField::name)
         .filter(name -> config.get(name) != null)
-        .concatMap(
-            name ->
-                resolver.resolve(config.get(name), message).map(value -> Map.entry(name, value)))
+        .concatMap(name ->
+            resolver.resolve(config.get(name), message).map(value -> Map.entry(name, value)))
         .collectMap(Map.Entry::getKey, Map.Entry::getValue, LinkedHashMap::new);
   }
 

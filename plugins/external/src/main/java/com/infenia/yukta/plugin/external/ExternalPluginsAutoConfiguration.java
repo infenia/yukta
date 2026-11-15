@@ -74,10 +74,9 @@ public class ExternalPluginsAutoConfiguration {
   /* default */ static Map<String, List<String>> containerArgs(final Environment env) {
     return Binder.get(env)
         .bind("yukta.plugins.container.args", Bindable.mapOf(String.class, String[].class))
-        .map(
-            bound ->
-                bound.entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> List.of(e.getValue()))))
+        .map(bound ->
+            bound.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> List.of(e.getValue()))))
         .orElse(Map.of());
   }
 }

@@ -99,15 +99,13 @@ import tools.jackson.databind.json.JsonMapper;
     final Mono<ProcessExecutionResult> result =
         manifest
             .resolve(resolver, message, config)
-            .flatMap(
-                resolved ->
-                    Mono.deferContextual(
-                        ctx ->
-                            gateway.executeInstalled(
-                                spec(message, resolved, container),
-                                stderrOnly(
-                                    ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
-                                        .orElse(PluginLogSink.NOOP)))));
+            .flatMap(resolved ->
+                Mono.deferContextual(ctx ->
+                    gateway.executeInstalled(
+                        spec(message, resolved, container),
+                        stderrOnly(
+                            ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
+                                .orElse(PluginLogSink.NOOP)))));
     return (container == null ? result : removedWhenStopped(result, container))
         .flatMap(this::requireSuccess);
   }

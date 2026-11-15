@@ -25,11 +25,10 @@ public record McpRun(PluginManifest manifest, McpConnection mcp, VariableResolve
   @Override
   public Flux<Message<?>> outputs(final Message<?> message, final Map<String, Object> config) {
     return call(message, config)
-        .<Message<?>>map(
-            result ->
-                DefaultMessage.from(
-                        message, result.structured() != null ? result.structured() : result.text())
-                    .withSourcePort(manifest.ports().get(0)))
+        .<Message<?>>map(result ->
+            DefaultMessage.from(
+                    message, result.structured() != null ? result.structured() : result.text())
+                .withSourcePort(manifest.ports().get(0)))
         .flux();
   }
 
@@ -43,17 +42,16 @@ public record McpRun(PluginManifest manifest, McpConnection mcp, VariableResolve
     return manifest
         .resolve(resolver, message, config)
         .flatMap(arguments -> mcp.call(tool, arguments))
-        .flatMap(
-            result ->
-                result.isError()
-                    ? Mono.error(
-                        new IllegalStateException(
-                            "Plugin "
-                                + manifest.type()
-                                + ": tool "
-                                + tool
-                                + " failed: "
-                                + result.error()))
-                    : Mono.just(result));
+        .flatMap(result ->
+            result.isError()
+                ? Mono.error(
+                    new IllegalStateException(
+                        "Plugin "
+                            + manifest.type()
+                            + ": tool "
+                            + tool
+                            + " failed: "
+                            + result.error()))
+                : Mono.just(result));
   }
 }

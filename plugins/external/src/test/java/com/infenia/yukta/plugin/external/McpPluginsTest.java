@@ -91,11 +91,10 @@ class McpPluginsTest {
             org.assertj.core.groups.Tuple.tuple("opts", ConfigField.Type.MAP, false));
     StepVerifier.create(
             echo.process(Flux.just(input()), Map.of("text", "hi", "undeclared", "kept out")))
-        .assertNext(
-            out -> {
-              assertThat(out.payload()).isEqualTo(Map.of("text", "hi"));
-              assertThat(out.sourcePort()).isEqualTo("default");
-            })
+        .assertNext(out -> {
+          assertThat(out.payload()).isEqualTo(Map.of("text", "hi"));
+          assertThat(out.sourcePort()).isEqualTo("default");
+        })
         .verifyComplete();
   }
 

@@ -125,13 +125,12 @@ public final class ExternalPlugins implements PluginSource, AutoCloseable {
         }
       }
     }
-    enabled.forEach(
-        (type, pin) -> {
-          if (!pin.isEmpty() && !found.containsKey(type)) {
-            throw new IllegalStateException(
-                type + "@" + pin + " is enabled but no plugin in " + dir + " has that type");
-          }
-        });
+    enabled.forEach((type, pin) -> {
+      if (!pin.isEmpty() && !found.containsKey(type)) {
+        throw new IllegalStateException(
+            type + "@" + pin + " is enabled but no plugin in " + dir + " has that type");
+      }
+    });
     return found.values().stream().map(this::plugin).toList();
   }
 

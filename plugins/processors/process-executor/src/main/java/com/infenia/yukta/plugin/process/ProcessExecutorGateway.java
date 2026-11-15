@@ -205,9 +205,8 @@ public class ProcessExecutorGateway {
         spec.useShell() ? wrapInShell(spec.command()) : spec.command();
 
     return Mono.fromSupplier(System::nanoTime)
-        .flatMap(
-            startNanos ->
-                runProcess(spec, actualCommand, startNanos, sink, interactive, installed));
+        .flatMap(startNanos ->
+            runProcess(spec, actualCommand, startNanos, sink, interactive, installed));
   }
 
   /**

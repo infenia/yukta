@@ -84,11 +84,10 @@ public abstract class ExternalPlugin implements Plugin {
     return manifest.config().stream()
         .filter(f -> f.required() && (config == null || config.get(f.name()) == null))
         .findFirst()
-        .<Mono<Void>>map(
-            f ->
-                Mono.error(
-                    new IllegalArgumentException(
-                        getType() + ": required config '" + f.name() + "' is missing")))
+        .<Mono<Void>>map(f ->
+            Mono.error(
+                new IllegalArgumentException(
+                    getType() + ": required config '" + f.name() + "' is missing")))
         .orElseGet(Mono::empty);
   }
 }

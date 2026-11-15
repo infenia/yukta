@@ -38,12 +38,11 @@ public class McpTools {
     final List<Object> required = (List<Object>) inputSchema.getOrDefault("required", List.of());
     final Map<String, Object> properties =
         (Map<String, Object>) inputSchema.getOrDefault("properties", Map.of());
-    properties.forEach(
-        (name, schema) -> {
-          if (!names.contains(name) && schema instanceof Map<?, ?> property) {
-            fields.add(field(name, (Map<String, Object>) property, required.contains(name)));
-          }
-        });
+    properties.forEach((name, schema) -> {
+      if (!names.contains(name) && schema instanceof Map<?, ?> property) {
+        fields.add(field(name, (Map<String, Object>) property, required.contains(name)));
+      }
+    });
     return fields;
   }
 

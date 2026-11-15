@@ -274,10 +274,8 @@ class PluginRegistryTest {
     when(restricted.isRestricted()).thenReturn(true);
     final Plugin external = plugin("RESTRICTED");
 
-    assertThatThrownBy(
-            () ->
-                new PluginRegistry(
-                    List.of(restricted), List.of(), List.of(() -> List.of(external))))
+    assertThatThrownBy(() ->
+            new PluginRegistry(List.of(restricted), List.of(), List.of(() -> List.of(external))))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("is already used by");
   }
@@ -287,10 +285,8 @@ class PluginRegistryTest {
     final Plugin external = plugin("OLD_EXTERNAL");
     when(external.apiVersion()).thenReturn("2.0");
 
-    assertThatThrownBy(
-            () ->
-                new PluginRegistry(
-                    List.of(plugin("ANY")), List.of(), List.of(() -> List.of(external))))
+    assertThatThrownBy(() ->
+            new PluginRegistry(List.of(plugin("ANY")), List.of(), List.of(() -> List.of(external))))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Plugin 'OLD_EXTERNAL'");
   }

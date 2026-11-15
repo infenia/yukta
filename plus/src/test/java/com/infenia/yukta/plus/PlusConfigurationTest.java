@@ -36,16 +36,15 @@ class PlusConfigurationTest {
 
   @Test
   void withoutDirectoriesOrModules_itIsPlusAndTheInfoShowsTheSource() {
-    runner.run(
-        context -> {
-          assertThat(context).doesNotHaveBean(NodeCheckpointStore.class);
-          final EditionInfo edition = context.getBean(EditionInfo.class);
-          assertThat(edition.edition()).isEqualTo(Edition.PLUS);
-          assertThat(edition.features()).contains(FILE_STORES);
-          final Info.Builder info = new Info.Builder();
-          context.getBean(InfoContributor.class).contribute(info);
-          assertThat(info.build().getDetails()).containsEntry("edition", edition);
-        });
+    runner.run(context -> {
+      assertThat(context).doesNotHaveBean(NodeCheckpointStore.class);
+      final EditionInfo edition = context.getBean(EditionInfo.class);
+      assertThat(edition.edition()).isEqualTo(Edition.PLUS);
+      assertThat(edition.features()).contains(FILE_STORES);
+      final Info.Builder info = new Info.Builder();
+      context.getBean(InfoContributor.class).contribute(info);
+      assertThat(info.build().getDetails()).containsEntry("edition", edition);
+    });
   }
 
   @Test
@@ -75,22 +74,20 @@ class PlusConfigurationTest {
                     return List.of("sso");
                   }
                 })
-        .run(
-            context -> {
-              final EditionInfo edition = context.getBean(EditionInfo.class);
-              assertThat(edition.edition()).isEqualTo(Edition.ENTERPRISE);
-              assertThat(edition.features()).contains("sso", FILE_STORES);
-            });
+        .run(context -> {
+          final EditionInfo edition = context.getBean(EditionInfo.class);
+          assertThat(edition.edition()).isEqualTo(Edition.ENTERPRISE);
+          assertThat(edition.features()).contains("sso", FILE_STORES);
+        });
   }
 
   @Test
   void withDirectories_fileStoresAreRegistered(@TempDir final Path dir) {
     runner
         .withPropertyValues("yukta.restart.dir=" + dir.resolve("r"))
-        .run(
-            context ->
-                assertThat(context.getBean(NodeCheckpointStore.class))
-                    .isInstanceOf(FileNodeCheckpointStore.class));
+        .run(context ->
+            assertThat(context.getBean(NodeCheckpointStore.class))
+                .isInstanceOf(FileNodeCheckpointStore.class));
   }
 
   @Test

@@ -102,11 +102,10 @@ public final class StdioMcp implements McpConnection {
   @SuppressWarnings("unchecked")
   public Mono<Map<String, Object>> tool(final String name) {
     return request(LIST, Map.of())
-        .expand(
-            page ->
-                page.get("nextCursor") instanceof String cursor
-                    ? request(LIST, Map.of("cursor", cursor))
-                    : Mono.empty())
+        .expand(page ->
+            page.get("nextCursor") instanceof String cursor
+                ? request(LIST, Map.of("cursor", cursor))
+                : Mono.empty())
         .take(MAX_PAGES)
         .flatMapIterable(page -> (List<Map<String, Object>>) page.getOrDefault("tools", List.of()))
         .filter(tool -> name.equals(tool.get("name")))
@@ -181,11 +180,10 @@ public final class StdioMcp implements McpConnection {
                 Map.of(),
                 "clientInfo",
                 Map.of("name", "yukta", "version", "1")))
-        .doOnNext(
-            result ->
-                writer.write(
-                    json.writeValueAsString(
-                        Map.of(JSONRPC, "2.0", METHOD, "notifications/initialized"))))
+        .doOnNext(result ->
+            writer.write(
+                json.writeValueAsString(
+                    Map.of(JSONRPC, "2.0", METHOD, "notifications/initialized"))))
         .then();
   }
 

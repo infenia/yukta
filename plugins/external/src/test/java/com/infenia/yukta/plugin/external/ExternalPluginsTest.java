@@ -89,16 +89,15 @@ class ExternalPluginsTest {
                     Flux.just(input(Map.of("text", "hi"))),
                     Map.of("greeting", "hello", "undeclared", "kept out"))
                 .contextWrite(ctx -> ctx.put(WorkflowContext.LOG_SINK_KEY, sink)))
-        .assertNext(
-            out -> {
-              @SuppressWarnings("unchecked")
-              final Map<String, Object> envelope = (Map<String, Object>) out.payload();
-              assertThat(envelope)
-                  .containsEntry("apiVersion", "yukta/message/v1")
-                  .containsEntry("config", Map.of("greeting", "hello"));
-              assertThat(envelope.get("message").toString()).contains("text=hi");
-              assertThat(out.sourcePort()).isEqualTo("default");
-            })
+        .assertNext(out -> {
+          @SuppressWarnings("unchecked")
+          final Map<String, Object> envelope = (Map<String, Object>) out.payload();
+          assertThat(envelope)
+              .containsEntry("apiVersion", "yukta/message/v1")
+              .containsEntry("config", Map.of("greeting", "hello"));
+          assertThat(envelope.get("message").toString()).contains("text=hi");
+          assertThat(out.sourcePort()).isEqualTo("default");
+        })
         .verifyComplete();
     assertThat(log).containsExactly("stderr:plugin says hi");
   }
@@ -114,12 +113,11 @@ class ExternalPluginsTest {
     final ProcessorPlugin echo = (ProcessorPlugin) only(load(List.of(ECHO)));
 
     StepVerifier.create(echo.process(Flux.just(input("x")), Map.of()))
-        .assertNext(
-            out -> {
-              assertThat(out.payload()).isEqualTo(1);
-              assertThat(out.sourcePort()).isEqualTo("other");
-              assertThat(out.metadata()).containsEntry("k", "v");
-            })
+        .assertNext(out -> {
+          assertThat(out.payload()).isEqualTo(1);
+          assertThat(out.sourcePort()).isEqualTo("other");
+          assertThat(out.metadata()).containsEntry("k", "v");
+        })
         .assertNext(out -> assertThat(out.sourcePort()).isEqualTo("default"))
         .verifyComplete();
   }
