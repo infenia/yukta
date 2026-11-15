@@ -270,18 +270,19 @@ class AgentSteeringTest {
   void whenConversationWhoseAgentReadsNoCommandsIsNotLiveOnceTheQueueIsFull() {
     steering = newSteering(agents);
     final String id =
-        service
-            .open(
-                new AgentConversationSpec(
-                    new InputIdentity("session-1", "workflow-1", "exec-1", "node-1"),
-                    "message-1",
-                    "claude-code",
-                    AgentProtocol.JSONL,
-                    null,
-                    Set.of(),
-                    new Audience(List.of("role:OPERATOR"))),
-                "root-1")
-            .block()
+        java.util.Objects.requireNonNull(
+                service
+                    .open(
+                        new AgentConversationSpec(
+                            new InputIdentity("session-1", "workflow-1", "exec-1", "node-1"),
+                            "message-1",
+                            "claude-code",
+                            AgentProtocol.JSONL,
+                            null,
+                            Set.of(),
+                            new Audience(List.of("role:OPERATOR"))),
+                        "root-1")
+                    .block())
             .id();
     actingAs(operator("ann"));
     for (int i = 0; i < 256; i++) {

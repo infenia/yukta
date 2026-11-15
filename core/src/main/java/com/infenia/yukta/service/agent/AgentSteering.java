@@ -176,10 +176,11 @@ public class AgentSteering {
   }
 
   private static boolean reaches(final ActorInfo actor, final String sessionId) {
+    final Set<String> sessions = actor.sessions();
     return actor.type() == ActorInfo.Type.SUPERVISOR
-        || actor.sessions() == null
-        || actor.sessions().isEmpty()
-        || actor.sessions().contains(sessionId);
+        || sessions == null
+        || sessions.isEmpty()
+        || sessions.contains(sessionId);
   }
 
   private static void authorize(final AgentConversation conversation, final ActorInfo actor) {
