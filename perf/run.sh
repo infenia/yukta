@@ -69,7 +69,15 @@ cleanup() {
 trap cleanup EXIT
 
 # notifications: STREAMS (200) stream clients need STREAMS/8 keys, the server allows 8 streams per key
-STREAMS=${STREAMS:-200}
+if [[ $type == notifications ]]; then
+  SCENARIO=${SCENARIO:-steady}
+  case $SCENARIO in
+    steady) export ANSWER_SECONDS=${ANSWER_SECONDS:-120} ANSWERS=${ANSWERS:-600} ;;   # 5 changes a second
+    burst) export ANSWER_SECONDS=${ANSWER_SECONDS:-10} ANSWERS=${ANSWERS:-500} ;;
+    *) echo "unknown SCENARIO '$SCENARIO' (steady|burst)" >&2; exit 2 ;;
+  esac
+fi
+STREAMS=${STREAMS:-$([[ $CPUS -le 2 ]] && echo 100 || echo 200)}   # people with a tab open; 100 on 2 vCPU, 200 on 4
 if [[ $type == notifications ]]; then
   KEYS_ENV=$dir/keys.env; : > "$KEYS_ENV"; export KEYS_ENV
   for i in $(seq 1 $(( (STREAMS + 7) / 8 ))); do
@@ -100,15 +108,17 @@ jq -n --arg test "$type" --arg mode "$mode" --arg commit "$sha" --argjson dirty 
 stats_pid=$!
 
 envs=()
-for v in RATE RAMP HOLD DURATION WORKFLOWS LENIENT GRACE MAX_REJECTED; do
+for v in RATE RAMP HOLD DURATION WORKFLOWS LENIENT GRACE MAX_REJECTED SCENARIO ANSWERS ANSWER_SECONDS READERS READ_EVERY OPEN_REQUESTS; do
   [[ -n ${!v:-} ]] && envs+=(-e "$v=${!v}")
 done
 
 stream_pids=()
 if [[ $type == notifications ]]; then
   for n in $(seq 0 $((STREAMS - 1))); do
-    curl -sN -m 3600 -H "Authorization: Bearer stream-key-$((n / 8 + 1))-$API_KEY" -o "$dir/stream-$n.out" \
-      -w '%{http_code}\n' localhost:$PORT/api/notifications/stream > "$dir/stream-$n.code" 2>/dev/null &
+    # every line gets the time it arrived ($EPOCHREALTIME, no fork), to measure the delivery lag
+    ( curl -sN -m 3600 -H "Authorization: Bearer stream-key-$((n / 8 + 1))-$API_KEY" \
+        -w '%{http_code}\n' localhost:$PORT/api/notifications/stream 2>/dev/null |
+      while IFS= read -r line; do printf '%s %s\n' "$EPOCHREALTIME" "$line"; done > "$dir/stream-$n.out" ) &
     stream_pids+=($!)
   done
   sleep 2
@@ -122,15 +132,12 @@ K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$dir/dashboard.html" K6_WEB_DASHB
   --out csv="$dir/metrics.csv" "$@" 2>&1 | tee "$dir/k6.log"
 rc=${PIPESTATUS[0]}
 if [[ $type == notifications ]]; then
-  sleep 5; [[ ${#stream_pids[@]} -eq 0 ]] || { kill "${stream_pids[@]}" 2>/dev/null || true; wait "${stream_pids[@]}" 2>/dev/null || true; }
-  ok=0; reset=0
-  for n in $(seq 0 $((STREAMS - 1))); do
-    [[ -s $dir/stream-$n.out ]] && ok=$((ok + 1))
-    grep -q '"type":"reset"' "$dir/stream-$n.out" 2>/dev/null && reset=$((reset + 1))
-  done
-  echo "streams: $ok of $STREAMS received events, $reset got a reset" | tee -a "$dir/k6.log"
-  [[ $ok -eq $STREAMS && $reset -eq 0 ]] || rc=1
-  rm -f "$dir"/stream-*.out "$dir"/stream-*.code
+  sleep 5
+  # stopping the server ends every stream, so the clients finish and their files are complete
+  "${compose[@]}" stop yukta >/dev/null 2>&1 || true
+  [[ ${#stream_pids[@]} -eq 0 ]] || wait "${stream_pids[@]}" 2>/dev/null || true
+  python3 perf/stream-lag.py "$dir" "$STREAMS" | tee -a "$dir/k6.log" || rc=1
+  rm -f "$dir"/stream-*.out
 fi
 gzip -f "$dir/metrics.csv" 2>/dev/null
 exit "$rc"

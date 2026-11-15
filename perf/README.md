@@ -32,6 +32,17 @@ read a stream), and 100 parked commands with section supervisors. The mean time 
 resource limits): answer p95 10 ms, read p95 230 ms, heap 260 MB. The nightly run on the hosted runner is the one
 to compare against, not this.
 
+## Notifications (`k6/notifications.js`)
+
+`perf/run.sh notifications` is the input requests test plus what people do with the inbox: it opens 1,000 questions, then
+`SCENARIO=steady` (default; 5 answers a second for 2 minutes, 10 readers every 5 s) or `SCENARIO=burst` (500 answers in 10 s,
+50 readers every second) while `STREAMS` clients follow `/api/notifications/stream` (default 100 on 2 vCPU, 200 on 4; one key per 8
+streams, because the server allows 8 per key). k6 cannot read a stream, so `run.sh` starts the clients with curl, stamps each line with
+its arrival time and `perf/stream-lag.py` turns that into the delay between a change and its arrival. Fails when an event was dropped
+(`yukta.notifications.tap.dropped`), a question is missing from the inbox, a stream got nothing or a reset, the stream lag p95 is above
+1 s (`LAG_P95_MS`), or answers (500 ms, burst 1 s) or inbox reads (500 ms) are slow. Results are in the operate guide, "Configure
+notifications".
+
 ## Benchmark with fixed resources (recommended)
 
 `perf/run.sh <perf|load|soak> [k6 args]` runs the server in a container with fixed CPU and memory, runs the test

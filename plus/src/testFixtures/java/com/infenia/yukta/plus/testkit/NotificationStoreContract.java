@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -50,6 +51,7 @@ public abstract class NotificationStoreContract {
    * @param first the store that was used
    * @return a store that sees what the first one wrote, or {@code null}
    */
+  @SuppressWarnings("PMD.EmptyMethodInAbstractClassShouldBeAbstract") // null means: keeps nothing
   protected @Nullable NotificationStore restarted(final NotificationStore first) {
     return null;
   }
@@ -78,16 +80,16 @@ public abstract class NotificationStoreContract {
         T0);
   }
 
-  private static Function<Optional<Notification>, Notification> create(final Notification draft) {
+  private static Function<Optional<Notification>, Notification> creating(final Notification draft) {
     return current -> current.orElse(draft);
   }
 
   private static Notification put(final NotificationStore store, final Notification draft) {
-    return store.upsert(draft.key(), create(draft)).block();
+    return store.upsert(draft.key(), creating(draft)).block();
   }
 
   @Test
-  void upsertCreatesOnceAndAKeyHasOneItemWithGrowingSequence() {
+  void upsertCreatesOnceAndKeyHasOneItemWithGrowingSequence() {
     final NotificationStore store = create();
 
     final Notification a = put(store, draft("a", NotificationKind.INFO, "s1"));
@@ -106,7 +108,7 @@ public abstract class NotificationStoreContract {
   }
 
   @Test
-  void aMergeThatChangesAnItemKeepsItsIdAndAdvancesTheSequence() {
+  void mergeThatChangesItemKeepsItsIdAndAdvancesTheSequence() {
     final NotificationStore store = create();
     final Notification a = put(store, draft("a", NotificationKind.ACTION, "s1"));
 
@@ -204,7 +206,7 @@ public abstract class NotificationStoreContract {
   }
 
   @Test
-  void aReceiptForAMissingNotificationIsNotKept() {
+  void receiptForMissingNotificationIsNotKept() {
     final NotificationStore store = create();
 
     store.saveReceipt(new Receipt("missing", "arun", T0, null)).block();
@@ -245,7 +247,7 @@ public abstract class NotificationStoreContract {
     store.saveReceipt(new Receipt(info.id(), "arun", T0, null)).block();
     store.enqueueDelivery(NotificationDelivery.pending(info.id(), "webhook:a", null, T0)).block();
 
-    final long removed = store.purge(T0.plus(Duration.ofDays(1))).block();
+    final Long removed = store.purge(T0.plus(Duration.ofDays(1))).block();
 
     assertThat(removed).isEqualTo(2);
     assertThat(keys(store, NotificationQuery.ALL)).containsExactly("open");
@@ -292,7 +294,7 @@ public abstract class NotificationStoreContract {
   }
 
   @Test
-  void aDeliveryOfANotificationThatIsGoneIsNotKept() {
+  void deliveryOfGoneNotificationIsNotKept() {
     final NotificationStore store = create();
 
     store.saveDelivery(NotificationDelivery.pending("gone", "webhook:a", null, T0)).block();
@@ -308,7 +310,7 @@ public abstract class NotificationStoreContract {
   }
 
   @Test
-  void aRestartKeepsTheItemsReceiptsPreferencesDeliveriesAndTheEpoch() {
+  void restartKeepsTheItemsReceiptsPreferencesDeliveriesAndTheEpoch() {
     final NotificationStore store = create();
     final Notification a = put(store, draft("a", NotificationKind.ACTION, "s1"));
     store.saveReceipt(new Receipt(a.id(), "arun", T0, T0.plusSeconds(1))).block();
@@ -334,12 +336,13 @@ public abstract class NotificationStoreContract {
     final NotificationStore store = create();
 
     final List<Notification> both =
-        reactor.core.publisher.Flux.merge(
-                store.upsert("k", create(draft("k", NotificationKind.ACTION, "s1"))),
-                store.upsert("k", create(draft("k", NotificationKind.ACTION, "s1"))),
-                store.upsert("k", create(draft("k", NotificationKind.ACTION, "s1"))))
-            .collectList()
-            .block();
+        Objects.requireNonNull(
+            reactor.core.publisher.Flux.merge(
+                    store.upsert("k", creating(draft("k", NotificationKind.ACTION, "s1"))),
+                    store.upsert("k", creating(draft("k", NotificationKind.ACTION, "s1"))),
+                    store.upsert("k", creating(draft("k", NotificationKind.ACTION, "s1"))))
+                .collectList()
+                .block());
 
     assertThat(both).extracting(Notification::id).containsOnly(both.getFirst().id());
     assertThat(keys(store, NotificationQuery.ALL)).containsExactly("k");
