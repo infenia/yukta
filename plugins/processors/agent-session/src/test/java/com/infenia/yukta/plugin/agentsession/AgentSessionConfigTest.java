@@ -101,7 +101,8 @@ class AgentSessionConfigTest {
   void command_addsResumeModelTurnLimitAndExtraArguments() {
     final AgentPreset claude = harnesses.get("claude-code");
     final AgentSessionPlugin.Turn turn =
-        new AgentSessionPlugin.Turn("fix it", "", "opus", Map.of());
+        new AgentSessionPlugin.Turn(
+            "fix it", "", "opus", Map.of(), List.of("--allowedTools", "Read"));
 
     final List<String> command =
         AgentSessionConfig.command(
@@ -120,7 +121,8 @@ class AgentSessionConfigTest {
   @Test
   void command_isTheBareCommandWithoutOptions() {
     final AgentPreset claude = harnesses.get("claude-code");
-    final AgentSessionPlugin.Turn turn = new AgentSessionPlugin.Turn("go", "", "", Map.of());
+    final AgentSessionPlugin.Turn turn =
+        new AgentSessionPlugin.Turn("go", "", "", Map.of(), List.of());
 
     assertThat(AgentSessionConfig.command(claude.command(), claude, Map.of(), turn, null))
         .startsWith("claude", "-p", "go")
@@ -349,7 +351,7 @@ class AgentSessionConfigTest {
   @Test
   void commandIsTheGivenOneOnlyForTerminalThatTakesIt() {
     final AgentPreset takes = ptyPreset("[]");
-    final var turn = new AgentSessionPlugin.Turn("go", "", "", Map.of());
+    final var turn = new AgentSessionPlugin.Turn("go", "", "", Map.of(), List.of());
 
     assertThat(
             AgentSessionConfig.command(List.of("base"), takes, Map.of("command", "sh"), turn, null))

@@ -81,7 +81,7 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
 
   /** What a message resolved to for one turn. */
   /* default */ record Turn(
-      String prompt, String workingDir, String model, Map<String, String> env) {}
+      String prompt, String workingDir, String model, Map<String, String> env, List<String> args) {}
 
   /**
    * Creates the plugin.
@@ -221,7 +221,9 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
             + "- model, maxTurns: only for a harness that supports them.\n"
             + "- session: a key; the same key continues the conversation (harness capability"
             + " resume). onBusy WAIT (default) or FAIL for a second turn while one runs.\n"
-            + "- args: extra command-line arguments, e.g. [\"--allowedTools\", \"Read,Edit\"].\n"
+            + "- args: extra command-line arguments, e.g. [\"--allowedTools\", \"Read,Edit\"]; each"
+            + " may be an\n"
+            + "  expression such as ${start.budget}.\n"
             + "- approvals: ASK to have each tool use approved through the input request system"
             + " (approvalRisk, approvalTimeout seconds, approvalAudience); needs a harness with the"
             + " ask capability.\n"
@@ -290,9 +292,10 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
             resolve(config.get(AgentSessionConfig.WORKING_DIR), message),
             resolve(config.get(AgentSessionConfig.MODEL), message),
             resolveEnv(config.get(AgentSessionConfig.ENV), message),
-            resolve(config.get(AgentSessionConfig.SESSION), message))
+            resolve(config.get(AgentSessionConfig.SESSION), message),
+            resolveArgs(config.get(AgentSessionConfig.ARGS), message))
         .flatMap(t -> {
-          final Turn turn = new Turn(t.getT1(), t.getT2(), t.getT3(), t.getT4());
+          final Turn turn = new Turn(t.getT1(), t.getT2(), t.getT3(), t.getT4(), t.getT6());
           final String key = t.getT5();
           if (key.isEmpty()) {
             return turn(message, config, preset, turn, null);
@@ -515,6 +518,14 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
     return value == null
         ? Mono.just("")
         : resolver.resolve(value, message).map(String::valueOf).defaultIfEmpty("");
+  }
+
+  /** Each argument may be an expression ({@code ${start.budget}}); a plain one stays as it is. */
+  private Mono<List<String>> resolveArgs(final Object args, final Message<?> message) {
+    if (!(args instanceof final List<?> list) || list.isEmpty()) {
+      return Mono.just(List.of());
+    }
+    return Flux.fromIterable(list).concatMap(a -> resolve(a, message)).collectList();
   }
 
   private Mono<Map<String, String>> resolveEnv(final Object env, final Message<?> message) {

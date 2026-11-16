@@ -41,7 +41,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
     { "nodeId": "agent", "type": "AGENT_SESSION", "config": { "harness": "claude-code", "prompt": "${payload.task}", "maxTurns": 20, "args": ["--allowedTools", "Read,Grep,Glob"] } }
     ```
 
-    The payload is `{status, reason, text, sessionId, turn, exitCode}` and, with Claude Code, `costUsd`, `numTurns` and `structured` (the answer to `--json-schema`). `args` are extra command-line arguments for the agent: give it the tools it may use without asking.
+    The payload is `{status, reason, text, sessionId, turn, exitCode}` and, with Claude Code, `costUsd`, `numTurns` and `structured` (the answer to `--json-schema`). `args` are extra command-line arguments for the agent: give it the tools it may use without asking. Each argument may be an expression such as `${start.budget}`, resolved per message; a plain one stays as written (`timeout` is still a fixed number).
   </Step>
 
   <Step title="Approve its tool use">
