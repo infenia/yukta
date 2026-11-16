@@ -17,6 +17,11 @@ import reactor.core.publisher.Mono;
  */
 public interface AgentConversationStore {
 
+  /** The text of the notice that tells a reader the oldest events of a conversation are gone. */
+  String DROPPED_NOTICE =
+      "The oldest events of this conversation were dropped to stay within"
+          + " yukta.agents.max-events-per-conversation; its history is incomplete.";
+
   /**
    * Returns the identity of this store's sequence. It changes when the sequence restarts (a new
    * in-memory store after a restart), so a client holding a number of another epoch knows it must

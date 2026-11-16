@@ -10,3 +10,6 @@
 yukta:
   session:
     store-type: postgres
+  # Conversations with AI agents survive a restart (those still open are ended as failed).
+  agents:
+    store-type: postgres
