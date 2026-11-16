@@ -286,10 +286,14 @@ class BoundaryFuzzAcceptanceTest {
   }
 
   @Test
-  void mcpNullBodyAndUnknownMethod_are400() throws Exception {
+  void mcpNullBody_is400_andUnknownMethod_isJsonRpcMethodNotFound() throws Exception {
     assertThat(send("/mcp", "null").statusCode()).isEqualTo(400);
-    assertThat(send("/mcp", MCP_START.replace("tools/call", "tools/eall")).statusCode())
-        .isEqualTo(400);
+
+    // MCP SDK 2.1.0 answers an unknown method with HTTP 200 and a JSON-RPC -32601 error body
+    final HttpResponse<String> unknown =
+        send("/mcp", MCP_START.replace("tools/call", "tools/eall"));
+    assertThat(unknown.statusCode()).isEqualTo(200);
+    assertThat(unknown.body()).contains("\"code\":-32601");
   }
 
   @Test
