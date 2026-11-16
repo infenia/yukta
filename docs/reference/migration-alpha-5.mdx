@@ -32,3 +32,16 @@ Implement `NotificationChannel` instead: `deliver(Notification, ChannelContext)`
 - Deliveries are queued when the question reaches a tier that names a channel, even when no person is asked. They are written by the notification producer, so `yukta.notifications.enabled=false` also stops them.
 - A delivery given up after 10 tries raises a `delivery.failed` notification for administrators (change it with a rule for the category `delivery.failed`).
 - Queued deliveries live in the notification store: in memory in Community, so they are lost on a restart.
+
+## `AGENT_SESSION` moved to its own module and talks to the conversations
+
+`AGENT_SESSION` now lives in the `agent-session` module (package `com.infenia.yukta.plugin.agentsession`) and no longer in `process-executor`. The node type, its options and the harness presets are the same. What changes:
+
+- **Plugin authors and embedders:** `ProcessExecutorAutoConfiguration` no longer creates the agent beans; the new `AgentSessionAutoConfiguration` does. `ProcessExecutionSpec` has a new `launcher` (a prefix only code sets, such as the terminal host), so code that builds a spec with the record constructor needs the extra component; the builder is unchanged.
+- **A harness with an `interactive` block** now starts in its interactive mode whenever conversations are recorded (the default), so a message can be sent to it. With `approvals: NONE` an approval request the agent raises is **denied** with the text "approvals are off for this node" instead of being left to the agent's own setting. Add `"approvals": "ASK"` to be asked.
+- **The payload** gains `conversationId`. The run log keeps the same `agent` lines.
+- **New settings** `yukta.agents.*`: `enabled` (default true), `retention` (7d), `max-conversations`, `max-events-per-conversation`, `max-message-bytes`, `max-tool-bytes`, `terminal-ring-bytes`, `messages-per-minute`, and the terminal tier `yukta.agents.pty.enabled` (default **false**), `host`, `cols`, `rows`. `yukta.agents.store-type=postgres` keeps conversations across a restart (Plus).
+- **New node options** `mode`, `idleTimeout`, `conversationTimeout`, `steerAudience`, and for the `terminal` harness `command` and `terminalSize`. The default `steerAudience` is `role:OPERATOR`: a key or supervisor that should steer an agent must be named.
+- **New API, CLI, MCP and events:** `/api/conversations/**`, `yukta-cli conversations` and `attach`, seven `*_agent_*` MCP tools, the event `AgentConversationChanged` and the commands `AgentMessageCommand`, `AgentInterruptCommand` and `AgentEndCommand`. See [Run an AI agent](/guides/ai/run-an-agent).
+- **Server-sent events with names:** the conversation stream names its events (`conversation`, `event`). A client of any other stream is not affected.
+
