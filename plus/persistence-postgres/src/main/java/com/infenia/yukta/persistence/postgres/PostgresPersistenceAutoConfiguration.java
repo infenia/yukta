@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.persistence.postgres;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
@@ -15,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.r2dbc.core.DatabaseClient;
 import tools.jackson.databind.ObjectMapper;
 
@@ -167,6 +169,31 @@ public class PostgresPersistenceAutoConfiguration {
   public NotificationStore notificationStore(
       final DatabaseClient client, final ObjectMapper mapper) {
     return new R2dbcNotificationStore(client, mapper);
+  }
+
+  /**
+   * Conversations with AI agents, so they survive a restart: when {@code
+   * yukta.agents.store-type=postgres}. A conversation a restart left open is ended with the outcome
+   * {@code failure} at start. That runs SQL during bean creation, so it waits for Flyway: Boot
+   * orders the migrations only before JPA, and the tables do not exist before them.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes the JSON columns
+   * @param properties the {@code yukta.agents} settings, which hold the bounds
+   * @return the store
+   */
+  @Bean(initMethod = "endOpenConversationsNow")
+  @DependsOn("flywayInitializer")
+  @ConditionalOnProperty(name = "yukta.agents.store-type", havingValue = "postgres")
+  public R2dbcAgentConversationStore agentConversationStore(
+      final DatabaseClient client, final ObjectMapper mapper, final YuktaProperties properties) {
+    final YuktaProperties.Agents agents = properties.agents();
+    return new R2dbcAgentConversationStore(
+        client,
+        mapper,
+        agents.maxConversations(),
+        agents.maxEventsPerConversation(),
+        agents.terminalRingBytes());
   }
 
   /**

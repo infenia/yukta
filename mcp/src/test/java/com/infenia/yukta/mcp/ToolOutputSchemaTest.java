@@ -68,7 +68,8 @@ class ToolOutputSchemaTest {
   }
 
   private static List<Class<?>> resultTypes() {
-    return Arrays.stream(AppMcpTools.class.getMethods())
+    return java.util.stream.Stream.of(AppMcpTools.class, ConversationTools.class)
+        .flatMap(type -> Arrays.stream(type.getMethods()))
         .filter(m -> {
           final McpTool t = m.getAnnotation(McpTool.class);
           return t != null && t.generateOutputSchema();

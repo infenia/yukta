@@ -41,6 +41,22 @@ class McpToolAccessTest {
   }
 
   @Test
+  void viewerReadsAgentConversationsButOnlyOperatorSteersThem() {
+    for (final String read :
+        List.of("list_agent_conversations", "get_agent_conversation", "read_agent_screen")) {
+      assertThat(McpToolAccess.permitted(key("VIEWER", null), read, "a")).isTrue();
+      assertThat(McpToolAccess.permitted(key("VIEWER", "a"), read, "b")).isFalse();
+    }
+    for (final String write :
+        List.of(
+            "send_agent_message", "interrupt_agent", "end_agent_conversation", "send_agent_keys")) {
+      assertThat(McpToolAccess.permitted(key("VIEWER", null), write, "a")).isFalse();
+      assertThat(McpToolAccess.permitted(key("OPERATOR", null), write, "a")).isTrue();
+      assertThat(McpToolAccess.permitted(key("OPERATOR", "a"), write, "b")).isFalse();
+    }
+  }
+
+  @Test
   void viewerBodyMayListInputsButNotAnswerThem() {
     final String list =
         "{\"method\":\"tools/call\",\"params\":{\"name\":\"list_pending_inputs\","

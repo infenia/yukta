@@ -16,13 +16,16 @@ export type EventSourceStatus = 'idle' | 'connecting' | 'open' | 'error';
  * Frames are JSON unless `parse` says otherwise (the raw log stream sends plain text lines).
  */
 export const RECONNECT_BASE_MS = 1000;
+/** For a stream whose events have no name: they all arrive as `message`. */
+const NO_EVENT_NAMES: readonly string[] = [];
 export const RECONNECT_MAX_MS = 30_000;
 
 export function useEventSourceJson<T>(
   url: string | null,
-  onMessage: (data: T) => void,
+  onMessage: (data: T, eventName?: string) => void,
   reconnect = true,
-  parse: (data: string) => T = (data) => JSON.parse(data) as T
+  parse: (data: string) => T = (data) => JSON.parse(data) as T,
+  eventNames: readonly string[] = NO_EVENT_NAMES
 ): { status: EventSourceStatus } {
   // Connection events are recorded against the url they belong to; the visible status is
   // derived so switching urls resets to 'connecting'/'idle' without setState in effects.
@@ -60,16 +63,29 @@ export function useEventSourceJson<T>(
         attempt = 0;
         setConnection({ url, status: 'open' });
       };
-      current.onmessage = (event: MessageEvent) => {
+      const deliver = (event: MessageEvent, name?: string) => {
         if (event.lastEventId) {
           lastEventId = event.lastEventId;
         }
         try {
-          handlerRef.current(parseRef.current(event.data as string));
+          const data = parseRef.current(event.data as string);
+          // the name is passed only for a named event, so a handler of an unnamed stream sees one argument
+          if (name === undefined) {
+            handlerRef.current(data);
+          } else {
+            handlerRef.current(data, name);
+          }
         } catch {
           // Malformed frames are dropped; the stream itself stays healthy.
         }
       };
+      current.onmessage = (event: MessageEvent) => deliver(event);
+      // a server may name its events (`event: conversation`); those do not reach onmessage
+      eventNames.forEach((name) =>
+        current.addEventListener(name, (event: Event) =>
+          deliver(event as MessageEvent, name)
+        )
+      );
       current.onerror = () => {
         // A native EventSource that dropped is already reconnecting (readyState CONNECTING) and
         // sends Last-Event-ID itself; closing it for a new one would replay the whole stream.
@@ -99,7 +115,7 @@ export function useEventSourceJson<T>(
       clearTimeout(timer);
       source?.close();
     };
-  }, [url]);
+  }, [url, eventNames]);
 
   let status: EventSourceStatus;
   if (!url) {

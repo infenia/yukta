@@ -299,6 +299,59 @@ public class SupervisedControl {
   }
 
   /**
+   * Send a message to the agent of a conversation.
+   *
+   * @param executionId the run
+   * @param nodeId the node that runs the agent
+   * @param conversationId the conversation
+   * @param text the message
+   * @param interrupt whether to stop the agent's turn first
+   * @return completes when applied
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> agentMessage(
+      final String executionId,
+      final String nodeId,
+      final String conversationId,
+      final String text,
+      final boolean interrupt) {
+    return operator(gateway.agentMessage(executionId, nodeId, conversationId, text, interrupt));
+  }
+
+  /**
+   * Stop the current turn of the agent of a conversation.
+   *
+   * @param executionId the run
+   * @param nodeId the node that runs the agent
+   * @param conversationId the conversation
+   * @return completes when applied
+   */
+  public Mono<Void> agentInterrupt(
+      final String executionId, final String nodeId, final String conversationId) {
+    return operator(gateway.agentInterrupt(executionId, nodeId, conversationId));
+  }
+
+  /**
+   * End a conversation.
+   *
+   * @param executionId the run
+   * @param nodeId the node that runs the agent
+   * @param conversationId the conversation
+   * @param outcome the outcome that overrides the last turn's, or {@code null}
+   * @param reason why, or {@code null}
+   * @return completes when applied
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> agentEnd(
+      final String executionId,
+      final String nodeId,
+      final String conversationId,
+      @Nullable final String outcome,
+      @Nullable final String reason) {
+    return operator(gateway.agentEnd(executionId, nodeId, conversationId, outcome, reason));
+  }
+
+  /**
    * Pass an input request up.
    *
    * @param executionId the run

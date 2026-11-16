@@ -31,6 +31,9 @@ public final class EventRule {
   /** Window used when a counting rule gives none. */
   private static final int DEFAULT_WINDOW_SECONDS = 60;
 
+  /** Start of every message about a rule. */
+  private static final String RULE = "Rule '";
+
   /** Prefix of a {@code from} that reads the event's metadata. */
   private static final String METADATA_PREFIX = "metadata.";
 
@@ -39,6 +42,9 @@ public final class EventRule {
 
   /** The events that carry an input request, the only ones an answer or escalation can act on. */
   private static final Set<String> INPUT_EVENTS = Set.of("InputRequested", "InputEscalated");
+
+  /** The only event a rule that steers an agent reacts to. */
+  private static final String AGENT_EVENT = "AgentConversationChanged";
 
   /** Stands in for the ids while a rule is checked at load time. */
   private static final String PROBE = "probe";
@@ -76,6 +82,10 @@ public final class EventRule {
       checkInputAction();
     } else {
       commandFor(then, PROBE, "node", "new", Map.of());
+      if (steersAgent() && when.event() != null && !AGENT_EVENT.equals(when.event())) {
+        throw new IllegalArgumentException(
+            RULE + identifier + "' steers an agent, so it must react to " + AGENT_EVENT);
+      }
     }
   }
 
@@ -96,7 +106,7 @@ public final class EventRule {
   private void requireOneAction() {
     if (then.command() != null || (then.answer() != null && then.escalate() != null)) {
       throw new IllegalArgumentException(
-          "Rule '" + identifier + "' must have exactly one of command, answer and escalate");
+          RULE + identifier + "' must have exactly one of command, answer and escalate");
     }
   }
 
@@ -105,7 +115,7 @@ public final class EventRule {
     requireOneAction();
     if (when.event() != null && !INPUT_EVENTS.contains(when.event())) {
       throw new IllegalArgumentException(
-          "Rule '"
+          RULE
               + identifier
               + "' answers or escalates, so it must react to InputRequested or InputEscalated");
     }
@@ -113,7 +123,7 @@ public final class EventRule {
       inputCommand(PROBE, PROBE, 0);
     } catch (final IllegalArgumentException e) {
       throw new IllegalArgumentException(
-          "Rule '" + identifier + "' has an invalid answer or escalation: " + e.getMessage(), e);
+          RULE + identifier + "' has an invalid answer or escalation: " + e.getMessage(), e);
     }
   }
 
@@ -192,6 +202,7 @@ public final class EventRule {
     final String name = event.getClass().getSimpleName();
     return (kind == null || kind.equals(name))
         && (!actsOnInput() || INPUT_EVENTS.contains(name))
+        && (!steersAgent() || AGENT_EVENT.equals(name))
         && same(when.status(), fields.get(Fields.STATUS))
         && same(when.module(), fields.get(Fields.MODULE))
         && same(when.nodeId(), fields.get(Fields.NODE_ID))
@@ -229,6 +240,16 @@ public final class EventRule {
    */
   public boolean restarts() {
     return commandName().startsWith("restart");
+  }
+
+  /** The id of the conversation of the event, or a stand-in while the rule is checked. */
+  private static String conversationOf(final Map<String, Object> fields) {
+    return String.valueOf(fields.getOrDefault("conversationId", PROBE));
+  }
+
+  /** True for a rule that steers an agent: it can only react to a change of a conversation. */
+  private boolean steersAgent() {
+    return commandName().startsWith("agent");
   }
 
   /** A node command has nothing to address when the event carries no node. */
@@ -328,6 +349,19 @@ public final class EventRule {
               executionId, nodeId, Boolean.TRUE.equals(then.immediate()), reason);
       case "restart" -> new ExecutionControlCommand.RestartCommand(executionId, newExecutionId);
       case "restartfromnode" -> restart(then, executionId, nodeId, newExecutionId, fields);
+      case "agentmessage" ->
+          new ExecutionControlCommand.AgentMessageCommand(
+              executionId,
+              nodeId,
+              conversationOf(fields),
+              Objects.requireNonNull(then.text(), "an agentMessage rule needs then.text"),
+              Boolean.TRUE.equals(then.interrupt()));
+      case "agentinterrupt" ->
+          new ExecutionControlCommand.AgentInterruptCommand(
+              executionId, nodeId, conversationOf(fields));
+      case "agentend" ->
+          new ExecutionControlCommand.AgentEndCommand(
+              executionId, nodeId, conversationOf(fields), then.outcome(), reason);
       default ->
           throw new IllegalArgumentException("Unknown command in rule: '" + then.command() + "'");
     };

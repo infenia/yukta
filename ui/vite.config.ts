@@ -41,6 +41,12 @@ export default defineConfig({
               priority: 25,
             },
             {
+              // Only the lazy agent terminal imports xterm, so the main chunks never load it
+              name: 'xterm',
+              test: /node_modules[\\/]@xterm[\\/]/,
+              priority: 25,
+            },
+            {
               name: 'ui-kit',
               test: /node_modules[\\/]@base-ui[\\/]/,
               priority: 20,

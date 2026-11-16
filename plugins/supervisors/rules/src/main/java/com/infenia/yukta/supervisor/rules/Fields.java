@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.supervisor.rules;
 
+import com.infenia.yukta.plugin.agent.AgentConversation;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.input.InputOption;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.experimental.UtilityClass;
@@ -102,6 +104,7 @@ public class Fields {
         fields.put(STATUS, "INPUT_EXPIRED");
         fields.put(REQUEST_ID, expired.requestId());
       }
+      case ExecutionEvent.AgentConversationChanged changed -> agentFields(fields, changed);
       case ExecutionEvent.InputCancelled cancelled -> {
         fields.put(WORKFLOW_ID, cancelled.workflowId());
         fields.put(STATUS, "INPUT_CANCELLED");
@@ -110,6 +113,29 @@ public class Fields {
       }
     }
     return fields;
+  }
+
+  /**
+   * The fields of a change of a conversation with an agent: what rules match on to steer it. The
+   * text of the conversation is not a field; {@code runningSeconds} is the time since it began.
+   */
+  private static void agentFields(
+      final Map<String, Object> fields, final ExecutionEvent.AgentConversationChanged changed) {
+    final AgentConversation c = changed.conversation();
+    fields.put(WORKFLOW_ID, c.workflowId());
+    fields.put(NODE_ID, c.nodeId());
+    fields.put(STATUS, "AGENT_" + c.state().name());
+    fields.put("conversationId", c.id());
+    fields.put("harness", c.harness());
+    fields.put("protocol", c.protocol().name());
+    fields.put("model", c.model());
+    fields.put("state", c.state().name());
+    fields.put("outcome", c.outcome());
+    fields.put("turn", c.turn());
+    fields.put("queued", c.queued());
+    fields.put(
+        "runningSeconds",
+        Math.max(0, Duration.between(c.startedAt(), changed.timestamp()).toSeconds()));
   }
 
   /**

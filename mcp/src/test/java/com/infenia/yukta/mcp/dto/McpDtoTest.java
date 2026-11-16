@@ -112,4 +112,19 @@ class McpDtoTest {
     assertThatThrownBy(() -> logs.lines().add("l2"))
         .isInstanceOf(UnsupportedOperationException.class);
   }
+
+  @Test
+  void agentListsAreNeverNull() {
+    org.assertj.core.api.Assertions.assertThat(
+            new com.infenia.yukta.mcp.dto.AgentConversationView(null, null, null).items())
+        .isEmpty();
+    org.assertj.core.api.Assertions.assertThat(
+            new com.infenia.yukta.mcp.dto.AgentConversationList(null, false).conversations())
+        .isEmpty();
+    org.assertj.core.api.Assertions.assertThat(
+            new com.infenia.yukta.mcp.dto.AgentConversationList.Summary(
+                    "c", "s", "e", "n", "h", "JSONL", null, "RUNNING", null, 0, 0, null)
+                .capabilities())
+        .isEmpty();
+  }
 }

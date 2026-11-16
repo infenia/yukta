@@ -99,6 +99,7 @@ class NotificationProducerTest {
         null,
         null,
         null,
+        null,
         null);
   }
 

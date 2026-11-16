@@ -54,6 +54,7 @@ class DefaultNotificationGatewayTest {
         null,
         null,
         null,
+        null,
         null);
   }
 

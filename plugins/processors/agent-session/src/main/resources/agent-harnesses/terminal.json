@@ -1,0 +1,15 @@
+{
+  "id": "terminal",
+  "protocol": "pty",
+  "description": "Any program in a terminal. The node gives the command.",
+  "command": [],
+  "pty": {
+    "type": "{prompt}\r",
+    "readyPattern": null,
+    "readyDelayMs": 1500,
+    "submit": "\r",
+    "interruptKeys": "\u0003",
+    "attentionPattern": null,
+    "donePattern": null
+  }
+}

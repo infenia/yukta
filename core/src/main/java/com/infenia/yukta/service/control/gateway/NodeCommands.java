@@ -50,6 +50,11 @@ final class NodeCommands extends ControlDispatch {
         .flatMap(_ -> executeCommand(buildCommand(command)));
   }
 
+  /* default */ Mono<Void> agentCommand(final ExecutionControlCommand command) {
+    return Mono.fromSupplier(() -> findExecutionOrThrow(command.executionId()))
+        .flatMap(_ -> executeCommand(buildCommand(command)));
+  }
+
   /* default */ Mono<Void> escalateInput(final EscalateInputCommand command) {
     return Mono.fromSupplier(() -> findExecutionOrThrow(command.executionId()))
         .flatMap(_ -> executeCommand(buildCommand(command)));

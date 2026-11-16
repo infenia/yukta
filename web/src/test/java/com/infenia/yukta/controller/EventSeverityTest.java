@@ -4,10 +4,15 @@ package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.agent.AgentConversation;
+import com.infenia.yukta.plugin.agent.AgentProtocol;
+import com.infenia.yukta.plugin.agent.AgentState;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.core.LogLevel;
+import com.infenia.yukta.plugin.input.Audience;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -87,7 +92,7 @@ class EventSeverityTest {
             java.util.List.of(),
             null,
             com.infenia.yukta.plugin.input.InputRisk.LOW,
-            com.infenia.yukta.plugin.input.Audience.CURRENT_TIER,
+            Audience.CURRENT_TIER,
             java.time.Duration.ofMinutes(1),
             com.infenia.yukta.plugin.input.TimeoutAction.FAIL,
             null,
@@ -132,5 +137,39 @@ class EventSeverityTest {
         .isEqualTo(EventSeverity.WARN);
     assertThat(EventSeverity.of(new ExecutionEvent.InputExpired("e", "s", "w", "r", NOW)))
         .isEqualTo(EventSeverity.WARN);
+  }
+
+  @ParameterizedTest
+  @CsvSource(
+      value = {"failure,WARN", "success,INFO", "NULL,INFO"},
+      nullValues = "NULL")
+  void agentConversationIsWarnedOnlyWhenItFailed(
+      final String outcome, final EventSeverity expected) {
+    final AgentConversation conversation =
+        new AgentConversation(
+            "c1",
+            "e1",
+            "e1",
+            "s1",
+            "w1",
+            "n1",
+            "m1",
+            "claude-code",
+            AgentProtocol.JSONL,
+            null,
+            Set.of(),
+            AgentState.RUNNING,
+            outcome,
+            null,
+            0,
+            0,
+            Audience.CURRENT_TIER,
+            NOW,
+            NOW,
+            null,
+            0);
+
+    assertThat(EventSeverity.of(new ExecutionEvent.AgentConversationChanged(conversation, NOW)))
+        .isEqualTo(expected);
   }
 }

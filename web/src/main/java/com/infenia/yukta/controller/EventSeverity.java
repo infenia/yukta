@@ -42,6 +42,8 @@ public enum EventSeverity {
       case ExecutionEvent.InputCancelled _ -> INFO;
       case ExecutionEvent.InputEscalated _ -> WARN;
       case ExecutionEvent.InputExpired _ -> WARN;
+      case ExecutionEvent.AgentConversationChanged changed ->
+          "failure".equals(changed.conversation().outcome()) ? WARN : INFO;
     };
   }
 

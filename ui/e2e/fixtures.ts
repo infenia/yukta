@@ -298,6 +298,10 @@ async function mockWorkflowApi(
       body: sseBody([progress]),
     })
   );
+  // The agent conversations of the run: none, so the stream is open and silent
+  await page.route('**/api/executions/*/conversations/stream*', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' })
+  );
   await page.route('**/api/executions/*', (route) =>
     route.fulfill(envelope('/status', progress))
   );

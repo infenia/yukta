@@ -33,6 +33,7 @@ class NotificationRulesTest {
             null,
             null,
             null,
+            null,
             null));
   }
 

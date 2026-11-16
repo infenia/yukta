@@ -38,7 +38,8 @@ import reactor.core.publisher.Flux;
   ExecutionEvent.InputEscalated.class,
   ExecutionEvent.InputAnswered.class,
   ExecutionEvent.InputExpired.class,
-  ExecutionEvent.InputCancelled.class
+  ExecutionEvent.InputCancelled.class,
+  ExecutionEvent.AgentConversationChanged.class
 })
 public class EventsController {
 
@@ -54,7 +55,8 @@ public class EventsController {
               ExecutionEvent.InputEscalated.class,
               ExecutionEvent.InputAnswered.class,
               ExecutionEvent.InputExpired.class,
-              ExecutionEvent.InputCancelled.class)
+              ExecutionEvent.InputCancelled.class,
+              ExecutionEvent.AgentConversationChanged.class)
           .map(Class::getSimpleName)
           .toList();
 

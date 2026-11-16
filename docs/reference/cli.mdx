@@ -179,7 +179,7 @@ All take `<session-id> <execution-id> <node-id>` except where noted.
 | Flag | Default | Description |
 |---|---|---|
 | `--execution <id>` | none | Only events of this run. |
-| `--type <kinds>` | all | Comma-separated: `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled`. |
+| `--type <kinds>` | all | Comma-separated: `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled`, `AgentConversationChanged`. |
 | `--until-done` | `false` | Exits when the run has ended; needs `--execution`. |
 | `--tree` | `true` | With `--execution`, also watches sub-workflow runs at any depth. |
 | `--follow-restarts` | `false` | With `--until-done`, continues with the run that restarts the execution. |
@@ -198,6 +198,21 @@ All take `<session-id> <execution-id> <node-id>` except where noted.
 | `notifications read [id...]` | Marks notifications read; `--all` marks everything you see. Reading never answers a question. |
 | `notifications dismiss <id>` | Hides an alert, or a question that has ended, for you (a question that still waits: 409). |
 | `notify` | Follows your notification stream and raises one desktop notification per new item. Flags: `--min-severity`, `--kind`, `--session`, `--print`, `--exec '<command>'`. See [Notifications from the terminal](/guides/operate/notifications-from-the-terminal). |
+
+## Conversations with AI agents
+
+| Command | Description |
+|---|---|
+| `conversations list` | Conversations the key reaches, newest first. Flags: `--execution <id>` (and the runs below it), `--session <id>`, `--state <list>` (`STARTING`, `RUNNING`, `WAITING`, `IDLE`, `ENDED`), `--limit N`. |
+| `conversations show <id>` | One conversation and a page of its events; `--after <seq>`, `--limit N`. The last line says where the next page starts. |
+| `conversations send <id> <text>` | Sends a message. It waits for the end of the agent's turn unless the agent takes it during the turn or `--interrupt` stops the turn first. |
+| `conversations interrupt <id>` | Stops the current turn. |
+| `conversations end <id>` | Ends the conversation. Optional `--outcome success\|failure\|incomplete`, `--reason`. |
+| `attach <execution-id>` | Follows all the agents of a run, and of the runs below it, as one timeline, one line per item, prefixed `[node harness]`. Flags: `--agent <id\|node>` (select it first), `--json` (one JSON object per line). |
+
+Reading needs a `VIEWER` key; sending, interrupting and ending need an `OPERATOR` key that the node's `steerAudience` names. What an agent writes is untrusted text and control sequences are not printed.
+
+`attach` ends when the run does and picks up after a dropped connection without losing or repeating a line. With a terminal on standard input and output it also reads: a line of text goes to the selected agent; `/agents` lists them with a number each, `/agent <number|node>` selects one, `/approve [request] [rationale]` and `/reject [request] [rationale]` answer the request the agent waits on, `/interrupt`, `/end`, `/quit`. Piped, or with `--json`, it only prints. In a terminal the prompt is edited in place and agent output is drawn above it. `/term` gives the screen to the terminal of a `pty` agent selected with `/agent`: its output as it is written, your keys sent to the program, the window size followed; **Ctrl-]** goes back to the prompt (what arrives meanwhile is shown then). What you type there is not reviewed, as in the web UI.
 
 ## Supervisors
 

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.control;
 
+import com.infenia.yukta.plugin.agent.AgentConversation;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.Responder;
@@ -472,6 +473,51 @@ public sealed interface ExecutionEvent {
         final String reason,
         final Instant timestamp) {
       this(executionId, sessionId, workflowId, requestId, reason, timestamp, null);
+    }
+  }
+
+  /**
+   * A conversation with an AI agent changed state. It carries the conversation as it is now, not
+   * its text (the feed is best effort): a supervisor that needs the transcript reads it by REST or
+   * MCP. A supervisor may steer the agent with an {@code AgentMessageCommand}, {@code
+   * AgentInterruptCommand} or {@code AgentEndCommand}, if the node's {@code steerAudience} names
+   * it.
+   *
+   * @param conversation the conversation as it is now
+   * @param timestamp when it changed
+   */
+  record AgentConversationChanged(AgentConversation conversation, Instant timestamp)
+      implements ExecutionEvent {
+
+    /**
+     * Checks the parts.
+     *
+     * @param conversation the conversation
+     * @param timestamp when it changed
+     */
+    public AgentConversationChanged {
+      Objects.requireNonNull(conversation, "conversation");
+      Objects.requireNonNull(timestamp, "timestamp");
+    }
+
+    @Override
+    public String executionId() {
+      return conversation.executionId();
+    }
+
+    @Override
+    public String sessionId() {
+      return conversation.sessionId();
+    }
+
+    @Override
+    public String workflowId() {
+      return conversation.workflowId();
+    }
+
+    @Override
+    public String nodeId() {
+      return conversation.nodeId();
     }
   }
 }
