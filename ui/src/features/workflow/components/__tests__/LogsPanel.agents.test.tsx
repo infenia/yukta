@@ -70,4 +70,26 @@ describe('LogsPanel Agents tab', () => {
     render(<LogsPanel entries={[]} isStreaming={false} />);
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
   });
+
+  it('shows the Agents tab when asked to, once per ask', async () => {
+    const dock = (nonce: number) => (
+      <LogsPanel
+        entries={[]}
+        isStreaming={false}
+        agents={{ ...agents(0), focus: nonce ? { id: 'c1', nonce } : null }}
+      />
+    );
+    const { rerender } = render(dock(0));
+    expect(screen.queryByText('agents here')).not.toBeInTheDocument();
+
+    rerender(dock(1));
+    expect(screen.getByText('agents here')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Logs' }));
+    rerender(dock(1));
+    expect(screen.queryByText('agents here')).not.toBeInTheDocument();
+
+    rerender(dock(2));
+    expect(screen.getByText('agents here')).toBeInTheDocument();
+  });
 });

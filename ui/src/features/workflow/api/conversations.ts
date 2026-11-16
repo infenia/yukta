@@ -30,3 +30,25 @@ export const interruptConversation = (conversationId: string) =>
 /** Ends a conversation; the node goes on with the status of the last turn. */
 export const endConversation = (conversationId: string) =>
   post(api`/api/conversations/${conversationId}/end`, {});
+
+/** Types keys into the terminal of an agent; the bytes go base64 encoded. */
+export const sendTerminalInput = (conversationId: string, bytes: Uint8Array) => {
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return post(api`/api/conversations/${conversationId}/terminal/input`, {
+    data: btoa(binary),
+  });
+};
+
+/** Tells the agent's terminal how big the view is. */
+export const resizeTerminal = (
+  conversationId: string,
+  cols: number,
+  rows: number
+) =>
+  post(api`/api/conversations/${conversationId}/terminal/resize`, {
+    cols,
+    rows,
+  });

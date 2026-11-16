@@ -177,7 +177,12 @@ export function LogsPanel({
   /** The run, for the Events tab (its status transitions); no tab without it. */
   progress?: WorkflowProgress | null;
   /** The Agents tab: how many agents wait for someone, and what the tab shows; none, no tab. */
-  agents?: { waiting: number; content: ReactNode } | null;
+  agents?: {
+    waiting: number;
+    content: ReactNode;
+    /** Asks the dock to show the Agents tab; a new nonce asks again. */
+    focus?: { id: string; nonce: number } | null;
+  } | null;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [height, setHeight] = useState(storedHeight);
@@ -229,6 +234,13 @@ export function LogsPanel({
         : [],
     [progress, node]
   );
+  const focusNonce = agents?.focus?.nonce ?? 0;
+  const [seenFocus, setSeenFocus] = useState(focusNonce);
+  // Render-phase: a node click on the canvas brings up the Agents tab once
+  if (seenFocus !== focusNonce) {
+    setSeenFocus(focusNonce);
+    setView('agents');
+  }
   const showEvents = view === 'events' && progress !== null;
   const showAgents = view === 'agents' && agents !== null;
   const [filter, setFilter] = useState('');
