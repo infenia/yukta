@@ -4,7 +4,7 @@
 import type { Conversation, ConversationEvent } from '@/types/conversations';
 
 /** Something an agent said or did, folded from the events that share an item id. */
-export type AgentItem =
+type ItemFields =
   | {
       key: string;
       conversationId: string;
@@ -55,6 +55,9 @@ export type AgentItem =
       level: string;
       text: string;
     };
+
+/** An item, and when its first event happened. */
+export type AgentItem = ItemFields & { at: string };
 
 export interface AgentState {
   /** By conversation id. */
@@ -116,7 +119,11 @@ export function applyEvent(
   const key = `${event.conversationId}/${event.itemId ?? `#${event.seq}`}`;
   const index = state.items.findIndex((item) => item.key === key);
   const held = index >= 0 ? state.items[index] : undefined;
-  const item = foldItem(held, key, event);
+  const folded = foldItem(held, key, event);
+  const item: AgentItem | null = folded && {
+    ...folded,
+    at: held?.at ?? event.timestamp,
+  };
   if (!item) return next;
   next.items =
     index >= 0
@@ -129,7 +136,7 @@ function foldItem(
   held: AgentItem | undefined,
   key: string,
   event: ConversationEvent
-): AgentItem | null {
+): ItemFields | null {
   const d = event.data;
   const conversationId = event.conversationId;
   switch (event.kind) {

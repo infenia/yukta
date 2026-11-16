@@ -8,6 +8,8 @@ import { NodeSupervisors } from '../../hooks/useNodeSupervisors';
 import { NodeOwner } from './NodeOwner';
 import { SubWorkflowLinks } from '../../hooks/useSubWorkflowLinks';
 import type { NodeProps } from '@xyflow/react';
+import { AgentsByNode } from '../../lib/agentsByNode';
+import { stateWords } from '../../lib/agentLabels';
 import { toNodeStatusLabel, toStatusDisplay } from '../../lib/statusMapper';
 import { cn } from '@/lib/utils';
 import {
@@ -80,6 +82,7 @@ export function WorkflowNodeCard({
   selected,
 }: NodeProps<WorkflowFlowNode>) {
   const { node, status, task, hideDescription, hideStatus } = data;
+  const agent = useContext(AgentsByNode)[node.nodeId];
   const subWorkflowHref = useContext(SubWorkflowLinks).get(node.nodeId);
   const owner = useContext(NodeSupervisors).get(node.nodeId);
   const isTrigger = node.category === 'TRIGGER';
@@ -251,6 +254,19 @@ export function WorkflowNodeCard({
         <p className="text-body-sm text-on-surface-variant truncate">
           {pluginLabel(node.type)}
         </p>
+        {agent && agent.state !== 'ENDED' && (
+          <p
+            data-testid="agent-state"
+            className={cn(
+              'text-label-sm mt-0.5 w-fit rounded-full px-2 py-0.5',
+              agent.state === 'WAITING'
+                ? 'bg-warning/15 text-warning'
+                : 'bg-accent text-accent-foreground'
+            )}
+          >
+            {stateWords(agent)}
+          </p>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5 pr-1">
