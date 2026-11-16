@@ -9,6 +9,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
 
@@ -27,6 +29,9 @@ import tools.jackson.databind.JsonNode;
  * @param capabilities the capabilities it declares ({@code stream}, {@code resume}, {@code ask})
  * @param output how to read the output
  * @param interactive how to hold a conversation over stdin (approvals); null if unsupported
+ * @param authMethod the ACP method to {@code authenticate} with, or null when the agent is logged
+ *     in already; only for protocol {@code acp}
+ * @param pty how to drive a program in a terminal; only for protocol {@code pty}
  */
 public record AgentPreset(
     String id,
@@ -38,7 +43,9 @@ public record AgentPreset(
     List<String> resumeArgs,
     Set<String> capabilities,
     Output output,
-    @Nullable Interactive interactive) {
+    @Nullable Interactive interactive,
+    @Nullable String authMethod,
+    @Nullable Pty pty) {
 
   /** Compact constructor to ensure immutability. */
   public AgentPreset {
@@ -48,6 +55,41 @@ public record AgentPreset(
     maxTurnsArgs = List.copyOf(maxTurnsArgs);
     resumeArgs = List.copyOf(resumeArgs);
     capabilities = Set.copyOf(capabilities);
+  }
+
+  /**
+   * Whether a message can be written to the agent while it runs.
+   *
+   * @return true for a protocol that has a conversation of its own, or a preset with an {@code
+   *     interactive} mode
+   */
+  public boolean converses() {
+    return protocol != AgentProtocol.JSONL || interactive != null;
+  }
+
+  /**
+   * How to drive a program in a terminal.
+   *
+   * @param type what is typed once the program is ready, to give it the prompt; {@code {prompt}} is
+   *     the prompt. Not used when the command carries {@code {prompt}} as an argument
+   * @param readyPattern a screen that matches says the program is ready for the prompt, or null
+   * @param readyDelayMs how long to wait for it before typing the prompt anyway
+   * @param submit what is typed after a message to send it
+   * @param interruptKeys what is typed to stop the program's turn
+   * @param attentionPattern a screen that matches says the program waits for a person, or null
+   * @param donePattern a screen that matches says the program is finished, or null
+   */
+  public record Pty(
+      String type,
+      @Nullable Pattern readyPattern,
+      int readyDelayMs,
+      String submit,
+      String interruptKeys,
+      @Nullable Pattern attentionPattern,
+      @Nullable Pattern donePattern) {
+
+    /** How long the terminal gets to start before the prompt is typed. */
+    public static final int DEFAULT_READY_DELAY_MS = 1500;
   }
 
   /**
@@ -207,7 +249,9 @@ public record AgentPreset(
             captures(out.path("captures")),
             strings(out.path("failureWhen")),
             out.path("failureText").asString("")),
-        interactive(root.path("interactive")));
+        interactive(root.path("interactive")),
+        authMethod(root.path("acp").path("authMethod")),
+        pty(root.path("pty")));
   }
 
   private static Live live(final JsonNode node) {
@@ -258,6 +302,38 @@ public record AgentPreset(
     node.forEach(n ->
         found.add(new Capture(strings(n.path("when")), required(n, "path"), required(n, "into"))));
     return found;
+  }
+
+  private static @Nullable Pty pty(final JsonNode node) {
+    if (node.isMissingNode() || node.isNull()) {
+      return null;
+    }
+    return new Pty(
+        node.path("type").asString("{prompt}\r"),
+        pattern(node, "readyPattern"),
+        node.path("readyDelayMs").asInt(Pty.DEFAULT_READY_DELAY_MS),
+        node.path("submit").asString("\r"),
+        node.path("interruptKeys").asString("\u0003"),
+        pattern(node, "attentionPattern"),
+        pattern(node, "donePattern"));
+  }
+
+  private static @Nullable Pattern pattern(final JsonNode node, final String field) {
+    final JsonNode value = node.path(field);
+    if (value.isMissingNode() || value.isNull() || value.asString("").isEmpty()) {
+      return null;
+    }
+    try {
+      return Pattern.compile(value.asString(), Pattern.MULTILINE);
+    } catch (PatternSyntaxException e) {
+      throw new IllegalArgumentException(
+          "agent harness preset: '" + field + "' is not a regular expression: " + e.getMessage(),
+          e);
+    }
+  }
+
+  private static @Nullable String authMethod(final JsonNode node) {
+    return node.isString() && !node.asString().isBlank() ? node.asString() : null;
   }
 
   private static @Nullable Interactive interactive(final JsonNode node) {

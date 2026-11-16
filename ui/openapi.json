@@ -6821,6 +6821,42 @@
         },
         "type" : "object"
       },
+      "TerminalInputRequest" : {
+        "description" : "Keys typed into the terminal of an agent",
+        "properties" : {
+          "data" : {
+            "description" : "The bytes typed, base64 encoded; up to 8192 bytes",
+            "example" : "bHMNCg==",
+            "maxLength" : 12000,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "required" : [ "data" ],
+        "type" : "object"
+      },
+      "TerminalResizeRequest" : {
+        "description" : "The size of the terminal of an agent",
+        "properties" : {
+          "cols" : {
+            "description" : "Columns",
+            "example" : 120,
+            "format" : "int32",
+            "maximum" : 1000,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "rows" : {
+            "description" : "Rows",
+            "example" : 40,
+            "format" : "int32",
+            "maximum" : 1000,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "TerminalScreenResponse" : {
         "description" : "The latest settled screen of a terminal agent",
         "properties" : {
@@ -8492,6 +8528,70 @@
           }
         },
         "summary" : "Send a message to an agent",
+        "tags" : [ "Agent Conversations API" ]
+      }
+    },
+    "/api/conversations/{id}/terminal/input" : {
+      "post" : {
+        "description" : "Writes the keys to the terminal of a pty agent. Not reviewed: what is typed cannot be checked, so the volume is audited once a minute per caller and conversation. 400 when data is not base64, 403 when the caller may not steer this conversation, 404 unknown or not reachable, 409 not_live or unsupported (no terminal), 413 over 8 KB.",
+        "operationId" : "terminalInput",
+        "parameters" : [ {
+          "description" : "Conversation ID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TerminalInputRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "summary" : "Type into the terminal of an agent",
+        "tags" : [ "Agent Conversations API" ]
+      }
+    },
+    "/api/conversations/{id}/terminal/resize" : {
+      "post" : {
+        "description" : "Errors as for typing into the terminal.",
+        "operationId" : "terminalResize",
+        "parameters" : [ {
+          "description" : "Conversation ID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TerminalResizeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "summary" : "Resize the terminal of an agent",
         "tags" : [ "Agent Conversations API" ]
       }
     },

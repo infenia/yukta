@@ -33,13 +33,14 @@
     <Bug pattern="EI_EXPOSE_REP"/>
   </Match>
 
-  <!-- ProcessExecutionSpec.command()/env() return List.copyOf/Map.copyOf results normalized
-       in the compact constructor; the accessors expose already-immutable snapshots. -->
+  <!-- ProcessExecutionSpec.command()/env()/launcher() return List.copyOf/Map.copyOf results
+       normalized in the compact constructor; the accessors expose already-immutable snapshots. -->
   <Match>
     <Class name="com.infenia.yukta.plugin.process.ProcessExecutionSpec"/>
     <Or>
       <Method name="command"/>
       <Method name="env"/>
+      <Method name="launcher"/>
     </Or>
     <Bug pattern="EI_EXPOSE_REP"/>
   </Match>

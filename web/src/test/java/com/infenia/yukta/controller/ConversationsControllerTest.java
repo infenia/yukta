@@ -107,7 +107,8 @@ class ConversationsControllerTest {
             new AgentConversationQueries(store, service, tracker, controlBus),
             new ConversationMapper(),
             new ExecutionAccess(controlBus),
-            mock(com.infenia.yukta.service.control.SupervisedControl.class));
+            mock(com.infenia.yukta.service.control.SupervisedControl.class),
+            mock(com.infenia.yukta.service.agent.AgentSteering.class));
     open =
         WebTestClient.bindToController(controller)
             .controllerAdvice(new GlobalExceptionHandler())
@@ -526,7 +527,8 @@ class ConversationsControllerTest {
                     new AgentConversationQueries(store, service, tracker, controlBus),
                     new ConversationMapper(),
                     new ExecutionAccess(controlBus),
-                    mock(com.infenia.yukta.service.control.SupervisedControl.class)))
+                    mock(com.infenia.yukta.service.control.SupervisedControl.class),
+                    mock(com.infenia.yukta.service.agent.AgentSteering.class)))
             .webFilter((exchange, chain) ->
                 chain
                     .filter(exchange)

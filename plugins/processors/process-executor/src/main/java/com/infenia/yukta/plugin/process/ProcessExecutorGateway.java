@@ -201,8 +201,12 @@ public class ProcessExecutorGateway {
     if (refusal != null) {
       return Mono.error(new IllegalArgumentException(refusal));
     }
+    final List<String> wrapped = spec.useShell() ? wrapInShell(spec.command()) : spec.command();
+    // the allow-list saw command[0] above; the launcher only runs it
     final List<String> actualCommand =
-        spec.useShell() ? wrapInShell(spec.command()) : spec.command();
+        spec.launcher().isEmpty()
+            ? wrapped
+            : Stream.concat(spec.launcher().stream(), wrapped.stream()).toList();
 
     return Mono.fromSupplier(System::nanoTime)
         .flatMap(startNanos ->

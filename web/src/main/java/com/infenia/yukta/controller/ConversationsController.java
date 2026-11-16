@@ -4,6 +4,8 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.dto.request.ConversationEndRequest;
 import com.infenia.yukta.dto.request.ConversationMessageRequest;
+import com.infenia.yukta.dto.request.TerminalInputRequest;
+import com.infenia.yukta.dto.request.TerminalResizeRequest;
 import com.infenia.yukta.dto.response.ConversationEventResponse;
 import com.infenia.yukta.dto.response.ConversationResponse;
 import com.infenia.yukta.dto.response.ConversationSteerResponse;
@@ -93,6 +95,9 @@ public class ConversationsController {
 
   /** Sends the commands to the agents as control commands. */
   private final SupervisedControl control;
+
+  /** Types into terminals: keystrokes are too many for the control pipeline. */
+  private final AgentSteering steering;
 
   /** Lists the conversations the caller reaches. */
   @GetMapping("/conversations")
@@ -335,6 +340,41 @@ public class ConversationsController {
                 given.outcome(),
                 given.reason()))
         .then(Mono.fromSupplier(() -> ApiResponse.<Void>success(202, "End accepted", null)));
+  }
+
+  /** Types into the terminal of an agent. */
+  @PostMapping("/conversations/{id}/terminal/input")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(
+      summary = "Type into the terminal of an agent",
+      description =
+          "Writes the keys to the terminal of a pty agent. Not reviewed: what is typed cannot be"
+              + " checked, so the volume is audited once a minute per caller and conversation."
+              + " 400 when data is not base64, 403 when the caller may not steer this conversation,"
+              + " 404 unknown or not reachable, 409 not_live or unsupported (no terminal), 413 over"
+              + " 8 KB.")
+  public Mono<Void> terminalInput(
+      @Parameter(description = CONVERSATION_ID) @PathVariable final String id,
+      @Valid @RequestBody final TerminalInputRequest body) {
+    final byte[] data;
+    try {
+      data = java.util.Base64.getDecoder().decode(body.data());
+    } catch (IllegalArgumentException e) {
+      return Mono.error(new IllegalArgumentException("data must be base64", e));
+    }
+    return steering.terminalInput(id, data);
+  }
+
+  /** Resizes the terminal of an agent. */
+  @PostMapping("/conversations/{id}/terminal/resize")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(
+      summary = "Resize the terminal of an agent",
+      description = "Errors as for typing into the terminal.")
+  public Mono<Void> terminalResize(
+      @Parameter(description = CONVERSATION_ID) @PathVariable final String id,
+      @Valid @RequestBody final TerminalResizeRequest body) {
+    return steering.terminalResize(id, body.cols(), body.rows());
   }
 
   private ServerSentEvent<Object> toEvent(final AgentChange change) {
