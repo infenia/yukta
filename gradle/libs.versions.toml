@@ -11,7 +11,7 @@ lombok = "9.8.3"
 mapstruct = "1.6.3"
 springAi = "2.0.0"
 # the MCP SDK version Spring AI uses; keep in step with springAi
-mcpSdk = "2.0.0"
+mcpSdk = "2.1.0"
 springdoc = "3.2.0"
 swagger-annotations = "2.2.55"
 lombokMapstructBinding = "0.2.0"
