@@ -12,6 +12,8 @@ import { createConversation } from '@/test/factories/conversationFactory';
 import { useJsdomViewport } from '@/test/jsdomViewport';
 import { renderWithProviders } from '@/test/utils/testUtils';
 
+const AT = '2026-11-16T14:02:00Z';
+
 const review = createConversation({
   id: 'c1',
   nodeId: 'review',
@@ -19,6 +21,7 @@ const review = createConversation({
 });
 const fix = createConversation({
   id: 'c2',
+  protocol: 'ACP',
   nodeId: 'fix',
   harness: 'codex',
   state: 'WAITING',
@@ -27,6 +30,7 @@ const fix = createConversation({
 
 const items: AgentItem[] = [
   {
+    at: AT,
     key: 'x/m',
     conversationId: 'gone',
     kind: 'message',
@@ -36,6 +40,7 @@ const items: AgentItem[] = [
     queued: false,
   },
   {
+    at: AT,
     key: 'c2/r3',
     conversationId: 'c2',
     kind: 'request',
@@ -46,6 +51,7 @@ const items: AgentItem[] = [
     by: '',
   },
   {
+    at: AT,
     key: 'c1/m',
     conversationId: 'c1',
     kind: 'message',
@@ -55,6 +61,7 @@ const items: AgentItem[] = [
     queued: true,
   },
   {
+    at: AT,
     key: 'c1/t',
     conversationId: 'c1',
     kind: 'tool',
@@ -65,12 +72,14 @@ const items: AgentItem[] = [
     truncated: true,
   },
   {
+    at: AT,
     key: 'c2/p',
     conversationId: 'c2',
     kind: 'plan',
     entries: [{ text: 'step', status: 'done' }],
   },
   {
+    at: AT,
     key: 'c2/r',
     conversationId: 'c2',
     kind: 'request',
@@ -81,6 +90,7 @@ const items: AgentItem[] = [
     by: 'key:ann',
   },
   {
+    at: AT,
     key: 'c2/#9',
     conversationId: 'c2',
     kind: 'result',
@@ -89,6 +99,7 @@ const items: AgentItem[] = [
     text: '',
   },
   {
+    at: AT,
     key: 'c2/#10',
     conversationId: 'c2',
     kind: 'notice',
@@ -96,6 +107,7 @@ const items: AgentItem[] = [
     text: '<b>not markup</b>',
   },
   {
+    at: AT,
     key: 'c1/th',
     conversationId: 'c1',
     kind: 'message',
@@ -105,6 +117,7 @@ const items: AgentItem[] = [
     queued: false,
   },
   {
+    at: AT,
     key: 'c1/a',
     conversationId: 'c1',
     kind: 'message',
@@ -114,6 +127,7 @@ const items: AgentItem[] = [
     queued: false,
   },
   {
+    at: AT,
     key: 'c1/u',
     conversationId: 'c1',
     kind: 'message',
@@ -123,6 +137,7 @@ const items: AgentItem[] = [
     queued: false,
   },
   {
+    at: AT,
     key: 'c2/r2',
     conversationId: 'c2',
     kind: 'request',
@@ -133,6 +148,7 @@ const items: AgentItem[] = [
     by: '',
   },
   {
+    at: AT,
     key: 'c2/#11',
     conversationId: 'c2',
     kind: 'result',
@@ -141,6 +157,7 @@ const items: AgentItem[] = [
     text: '',
   },
   {
+    at: AT,
     key: 'c2/t',
     conversationId: 'c2',
     kind: 'tool',
@@ -167,8 +184,11 @@ describe('AgentList', () => {
       'aria-pressed',
       'true'
     );
-    expect(screen.getByText('haiku', { exact: false })).toBeInTheDocument();
-    expect(screen.getByText('waiting')).toBeInTheDocument();
+    expect(screen.getByText(/claude-code · Working/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/codex · acp · Waiting for you/)
+    ).toBeInTheDocument();
+    expect(screen.getByText('2 agents, 1 waiting')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /fix/ }));
     expect(onSelect).toHaveBeenCalledWith('c2');
@@ -265,14 +285,124 @@ describe('AgentTimeline', () => {
   });
 });
 
+describe('the look of an item', () => {
+  useJsdomViewport();
+
+  const only = (item: AgentItem, selected: string | null = 'c1') =>
+    renderWithProviders(
+      <AgentTimeline
+        items={[item]}
+        conversations={[review, fix]}
+        selected={selected}
+      />
+    );
+
+  it('shows the prompt of the workflow, a message you sent and a queued one', () => {
+    const base = {
+      at: AT,
+      key: 'k',
+      conversationId: 'c1',
+      kind: 'message',
+      role: 'user',
+      queued: false,
+    } as const;
+    renderWithProviders(
+      <AgentTimeline
+        items={[
+          { ...base, key: 'a', author: 'prompt', text: 'the prompt' },
+          { ...base, key: 'b', author: 'ann', text: 'a hint' },
+          { ...base, key: 'c', author: '', text: 'a queued one', queued: true },
+        ]}
+        conversations={[review]}
+        selected="c1"
+      />
+    );
+
+    expect(screen.getByText(/Prompt from the workflow/)).toBeInTheDocument();
+    expect(screen.getByText(/you \(ann\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Queued ·/)).toBeInTheDocument();
+    expect(screen.getByText(/a queued one/)).toBeInTheDocument();
+  });
+
+  it('shows what the agent was thinking, quietly', () => {
+    only({
+      at: AT,
+      key: 't',
+      conversationId: 'c1',
+      kind: 'message',
+      role: 'thought',
+      author: '',
+      text: 'hmm',
+      queued: false,
+    });
+    expect(screen.getByText('hmm')).toHaveClass('italic');
+  });
+
+  it('summarises a request that waits when all agents are shown, and answers it in the agent', () => {
+    const open: AgentItem = {
+      at: AT,
+      key: 'r',
+      conversationId: 'c2',
+      kind: 'request',
+      requestId: 'r1',
+      prompt: 'Run rm?',
+      state: 'open',
+      decision: '',
+      by: '',
+    };
+    const { unmount } = only(open, null);
+    expect(screen.getByText('Waiting for you')).toBeInTheDocument();
+    expect(screen.getByText(/Open the agent to answer/)).toBeInTheDocument();
+    unmount();
+
+    only({ ...open, conversationId: 'gone' }, 'gone');
+    expect(screen.getByText('Waiting for you')).toBeInTheDocument();
+  });
+
+  it('colours a tool by how it went', () => {
+    for (const status of ['done', 'failed', 'whatever']) {
+      const { unmount } = only({
+        at: AT,
+        key: status,
+        conversationId: 'c1',
+        kind: 'tool',
+        title: 'ls',
+        status,
+        input: '',
+        output: '',
+        truncated: false,
+      });
+      expect(screen.getByText(status)).toBeInTheDocument();
+      unmount();
+    }
+  });
+});
+
 describe('AgentsPanel', () => {
   useJsdomViewport();
 
   it('explains the empty state', () => {
     renderWithProviders(<AgentsPanel conversations={[]} items={[]} />);
+    expect(screen.getByText('No agents in this run')).toBeInTheDocument();
+  });
+
+  it('titles the timeline with the agent, its kind and what it can do', async () => {
+    renderWithProviders(
+      <AgentsPanel conversations={[review, fix]} items={items} />
+    );
+    expect(screen.getByText('All agents of this run')).toBeInTheDocument();
     expect(
-      screen.getByText(/No agent has run in this workflow yet/)
-    ).toBeInTheDocument();
+      screen.getByRole('textbox', { name: 'Message to the agent' })
+    ).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: /review/ }));
+
+    expect(screen.getByRole('heading', { name: 'review' })).toBeInTheDocument();
+    expect(screen.getByText('jsonl')).toBeInTheDocument();
+    expect(screen.getByText('message')).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: 'Message to review' })
+    ).toBeEnabled();
   });
 
   it('switches the timeline to the agent that is picked', async () => {

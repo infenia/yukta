@@ -28,8 +28,28 @@ function reasonDisabled(c: Conversation, forbidden: boolean): string | null {
 export function AgentComposer({
   conversation,
 }: {
-  conversation: Conversation;
+  /** The agent to talk to; none while the timeline shows all of them. */
+  conversation: Conversation | undefined;
 }) {
+  if (!conversation) {
+    return (
+      <div className="border-border flex items-center gap-2 border-t px-4 py-2">
+        <input
+          disabled
+          aria-label="Message to the agent"
+          placeholder="Select an agent in the list to send it a message."
+          className="border-border bg-surface-variant text-body-sm min-w-0 flex-1 rounded-lg border px-3 py-2"
+        />
+        <Button type="button" disabled>
+          Send
+        </Button>
+      </div>
+    );
+  }
+  return <Composer conversation={conversation} />;
+}
+
+function Composer({ conversation }: { conversation: Conversation }) {
   const [text, setText] = useState('');
   const [forbidden, setForbidden] = useState(false);
   const can = (capability: string) =>
@@ -70,39 +90,59 @@ export function AgentComposer({
   return (
     <form
       aria-label="Message to the agent"
-      className="border-border flex flex-col gap-1.5 border-t px-4 py-2"
+      className="border-border flex flex-col gap-1 border-t px-4 py-2"
       onSubmit={(event) => {
         event.preventDefault();
         submit(false);
       }}
     >
-      <label htmlFor={`composer-${conversation.id}`} className="sr-only">
-        Message to {conversation.nodeId}
-      </label>
-      <textarea
-        id={`composer-${conversation.id}`}
-        rows={2}
-        value={text}
-        disabled={disabled !== null}
-        onChange={(event) => setText(event.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder={
-          disabled ?? 'Message the agent (Enter sends, Shift+Enter adds a line)'
-        }
-        className="border-border bg-surface text-body-sm w-full resize-none rounded-md border px-2 py-1.5 disabled:opacity-60"
-      />
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="submit"
-          size="sm"
-          disabled={disabled !== null || empty || send.isPending}
-        >
-          {working ? 'Queue' : 'Send'}
-        </Button>
+      {working && disabled === null && (
+        <p className="text-body-sm text-muted-foreground">
+          This agent cannot take a message during a turn. The queued message is
+          sent when the turn ends.
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <label htmlFor={`composer-${conversation.id}`} className="sr-only">
+          Message to {conversation.nodeId}
+        </label>
+        <textarea
+          id={`composer-${conversation.id}`}
+          rows={1}
+          value={text}
+          disabled={disabled !== null}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={onKeyDown}
+          placeholder={
+            disabled ??
+            'Message the agent. Enter sends, Shift+Enter adds a line.'
+          }
+          className="border-border bg-surface text-body-sm min-w-0 flex-1 resize-none rounded-lg border px-3 py-2 disabled:opacity-60"
+        />
+        {conversation.state !== 'ENDED' && (
+          <Button
+            type="button"
+            variant="outline"
+            className="text-destructive"
+            disabled={end.isPending}
+            onClick={() => end.mutate()}
+          >
+            End
+          </Button>
+        )}
+        {can('interrupt') && conversation.state !== 'ENDED' && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={interrupt.isPending}
+            onClick={() => interrupt.mutate()}
+          >
+            Interrupt
+          </Button>
+        )}
         {working && can('interrupt') && (
           <Button
             type="button"
-            size="sm"
             variant="outline"
             disabled={disabled !== null || empty || send.isPending}
             onClick={() => submit(true)}
@@ -110,34 +150,18 @@ export function AgentComposer({
             Interrupt and send
           </Button>
         )}
-        {can('interrupt') && conversation.state !== 'ENDED' && (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={interrupt.isPending}
-            onClick={() => interrupt.mutate()}
-          >
-            Interrupt
-          </Button>
-        )}
-        {conversation.state !== 'ENDED' && (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={end.isPending}
-            onClick={() => end.mutate()}
-          >
-            End
-          </Button>
-        )}
-        {error ? (
-          <span role="alert" className="text-body-sm text-destructive">
-            {steerErrorMessage(error)}
-          </span>
-        ) : null}
+        <Button
+          type="submit"
+          disabled={disabled !== null || empty || send.isPending}
+        >
+          {working ? 'Queue' : 'Send'}
+        </Button>
       </div>
+      {error ? (
+        <span role="alert" className="text-body-sm text-destructive">
+          {steerErrorMessage(error)}
+        </span>
+      ) : null}
     </form>
   );
 }

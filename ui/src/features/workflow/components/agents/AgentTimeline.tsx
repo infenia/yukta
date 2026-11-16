@@ -6,45 +6,96 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import type { Conversation } from '@/types/conversations';
 import type { AgentItem } from '../../lib/agentItems';
+import { clock } from '../../lib/agentLabels';
 import { OpenRequest } from './OpenRequest';
 
 const ROW_ESTIMATE = 28;
 const FOLLOW_SLACK = 48;
 
-/** What an item says, as text. Everything an agent wrote is shown as text, never as markup. */
+const STATUS_TONE: Record<string, string> = {
+  completed: 'text-success',
+  done: 'text-success',
+  running: 'text-primary',
+  pending: 'text-primary',
+  failed: 'text-destructive',
+};
+
+const caption = 'text-body-sm text-muted-foreground mb-0.5';
+
+/** What an item says. Everything an agent wrote is shown as text, never as markup. */
 function ItemBody({
   item,
-  executionId,
+  conversation,
+  everyone,
 }: {
   item: AgentItem;
-  executionId: string;
+  conversation: Conversation | undefined;
+  /** The timeline shows all agents: an open request is a summary, answered in the agent's own view. */
+  everyone: boolean;
 }) {
+  const when = clock(item.at);
   switch (item.kind) {
-    case 'message':
+    case 'message': {
+      if (item.role === 'user') {
+        const prompt = item.author === 'prompt';
+        const who = prompt
+          ? 'Prompt from the workflow'
+          : `you${item.author ? ` (${item.author})` : ''}`;
+        return (
+          <div className="flex flex-col items-end">
+            <p className={caption}>
+              {item.queued && (
+                <span className="text-primary font-semibold">Queued · </span>
+              )}
+              {who}
+              {when && `, ${when}`}
+            </p>
+            <p
+              className={cn(
+                'max-w-[85%] rounded-2xl px-3 py-2 break-words whitespace-pre-wrap',
+                item.queued
+                  ? 'border-primary/50 border border-dashed'
+                  : 'bg-accent text-accent-foreground'
+              )}
+            >
+              {item.text}
+              {item.queued && <span className="sr-only"> (queued)</span>}
+            </p>
+          </div>
+        );
+      }
+      if (item.role === 'thought') {
+        return (
+          <p className="text-muted-foreground px-1 break-words whitespace-pre-wrap italic">
+            <span className="sr-only">thinking: </span>
+            {item.text}
+          </p>
+        );
+      }
       return (
-        <p className="wrap-break-word whitespace-pre-wrap">
-          <span className="text-muted-foreground">
-            {item.role === 'user'
-              ? `you${item.author && item.author !== 'prompt' ? ` (${item.author})` : ''}: `
-              : item.role === 'thought'
-                ? 'thinking: '
-                : ''}
-          </span>
-          {item.text}
-          {item.queued && (
-            <span className="text-body-sm text-muted-foreground">
-              {' '}
-              (queued)
-            </span>
-          )}
-        </p>
+        <div>
+          <p className={caption}>
+            {conversation?.harness ?? 'agent'}
+            {when && ` · ${when}`}
+          </p>
+          <p className="bg-surface-variant max-w-[85%] rounded-2xl px-3 py-2 break-words whitespace-pre-wrap">
+            {item.text}
+          </p>
+        </div>
       );
+    }
     case 'tool':
       return (
-        <details>
-          <summary className="cursor-pointer">
-            <span className="font-medium">{item.title}</span>{' '}
-            <span className="text-muted-foreground">[{item.status}]</span>
+        <details className="border-border bg-surface rounded-lg border px-3 py-1.5">
+          <summary className="flex cursor-pointer items-baseline gap-2">
+            <span className="text-primary text-code-sm font-semibold">
+              {item.title}
+            </span>
+            <span
+              className={cn('text-code-sm ml-auto', STATUS_TONE[item.status])}
+            >
+              {item.status}
+            </span>
           </summary>
           {item.input && (
             <pre
@@ -79,17 +130,32 @@ function ItemBody({
         </ul>
       );
     case 'request':
-      if (item.state === 'open' && item.requestId) {
+      if (
+        item.state === 'open' &&
+        item.requestId &&
+        !everyone &&
+        conversation
+      ) {
         return (
           <OpenRequest
-            executionId={executionId}
+            executionId={conversation.executionId}
             requestId={item.requestId}
             prompt={item.prompt}
           />
         );
       }
+      if (item.state === 'open') {
+        return (
+          <div className="border-warning/60 bg-warning/10 rounded-lg border px-3 py-2">
+            <p className="font-semibold">Waiting for you</p>
+            <p className="break-words whitespace-pre-wrap">
+              {item.prompt} Open the agent to answer.
+            </p>
+          </div>
+        );
+      }
       return (
-        <p className="wrap-break-word whitespace-pre-wrap">
+        <p className="break-words whitespace-pre-wrap">
           <span className="font-medium">Request ({item.state})</span>:{' '}
           {item.prompt}
           {item.decision && (
@@ -103,14 +169,14 @@ function ItemBody({
       );
     case 'result':
       return (
-        <p className="wrap-break-word whitespace-pre-wrap">
+        <p className="break-words whitespace-pre-wrap">
           <span className="font-medium">Result: {item.status}</span>
           {item.reason ? ` — ${item.reason}` : ''}
         </p>
       );
     case 'notice':
       return (
-        <p className="text-on-surface-variant wrap-break-word whitespace-pre-wrap">
+        <p className="text-on-surface-variant break-words whitespace-pre-wrap">
           {item.level}: {item.text}
         </p>
       );
@@ -187,17 +253,17 @@ export function AgentTimeline({
                 style={{ top: row.start }}
               >
                 {selected === null && (
-                  <span className="bg-surface-variant text-label-sm text-on-surface-variant h-fit shrink-0 rounded px-1.5 py-0.5">
+                  <span className="bg-accent text-label-sm text-accent-foreground h-fit shrink-0 rounded-full px-2.5 py-0.5">
                     {node(item.conversationId)}
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
                   <ItemBody
                     item={item}
-                    executionId={
-                      conversations.find((c) => c.id === item.conversationId)
-                        ?.executionId ?? ''
-                    }
+                    conversation={conversations.find(
+                      (c) => c.id === item.conversationId
+                    )}
+                    everyone={selected === null}
                   />
                 </div>
               </div>
