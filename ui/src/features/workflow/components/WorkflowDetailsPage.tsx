@@ -20,6 +20,8 @@ import {
 import type { NodeCommand } from './NodeControlsMenu';
 import { RunControls } from './RunControls';
 import { LogsPanel } from './LogsPanel';
+import { AgentsPanel } from './agents/AgentsPanel';
+import { useAgentStream } from '../hooks/useAgentStream';
 import { InputsPanel } from './InputsPanel';
 import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
@@ -107,6 +109,10 @@ export function WorkflowDetailsPage() {
   const { progress, isStreaming } = useExecutionProgress(
     sessionId,
     selectedExecutionId
+  );
+  const agents = useAgentStream(
+    selectedExecutionId,
+    !isTerminalExecStatus(progress?.status)
   );
   const logs = useExecutionLogs(
     sessionId,
@@ -461,6 +467,15 @@ export function WorkflowDetailsPage() {
                   )}
                 </div>
                 <LogsPanel
+                  agents={{
+                    waiting: agents.waiting,
+                    content: (
+                      <AgentsPanel
+                        conversations={agents.conversations}
+                        items={agents.items}
+                      />
+                    ),
+                  }}
                   sessionId={sessionId}
                   executionId={selectedExecutionId}
                   entries={logs.entries}
@@ -475,7 +490,7 @@ export function WorkflowDetailsPage() {
                   className={cn(
                     'relative flex shrink-0 duration-150',
                     panel.closing &&
-                      'animate-out fade-out-0 slide-out-to-right-4 fill-mode-forwards'
+                      'animate-out fade-out-0 fill-mode-forwards slide-out-to-right-4'
                   )}
                 >
                   <ProgressPanel

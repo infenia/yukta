@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Input } from '@/components/ui/input';
 import {
@@ -28,6 +28,19 @@ const ROW_HEIGHT = 20;
 
 /** The dock's height in px, toolbar included; the user's choice is kept across runs and reloads. */
 const HEIGHT_KEY = 'yukta.logsHeight';
+
+/** The dock's tab, kept across runs and reloads. */
+const TAB_KEY = 'yukta.dockTab';
+type DockTab = 'logs' | 'events' | 'agents';
+
+function storedTab(): DockTab {
+  try {
+    const value = localStorage.getItem(TAB_KEY);
+    return value === 'events' || value === 'agents' ? value : 'logs';
+  } catch {
+    return 'logs';
+  }
+}
 const DEFAULT_HEIGHT = 236;
 const MIN_HEIGHT = 120;
 const KEY_STEP = 24;
@@ -149,6 +162,7 @@ export function LogsPanel({
   node = null,
   onClearNode,
   progress = null,
+  agents = null,
 }: {
   entries: LogEntry[];
   isStreaming: boolean;
@@ -162,6 +176,8 @@ export function LogsPanel({
   onClearNode?: () => void;
   /** The run, for the Events tab (its status transitions); no tab without it. */
   progress?: WorkflowProgress | null;
+  /** The Agents tab: how many agents wait for someone, and what the tab shows; none, no tab. */
+  agents?: { waiting: number; content: ReactNode } | null;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [height, setHeight] = useState(storedHeight);
@@ -197,7 +213,15 @@ export function LogsPanel({
       resize(height + (event.key === 'ArrowUp' ? KEY_STEP : -KEY_STEP));
     }
   };
-  const [view, setView] = useState<'logs' | 'events'>('logs');
+  const [view, setViewState] = useState<DockTab>(storedTab);
+  const setView = (next: DockTab) => {
+    setViewState(next);
+    try {
+      localStorage.setItem(TAB_KEY, next);
+    } catch {
+      // the tab is a convenience; without storage it is forgotten on reload
+    }
+  };
   const events = useMemo(
     () =>
       progress
@@ -206,6 +230,7 @@ export function LogsPanel({
     [progress, node]
   );
   const showEvents = view === 'events' && progress !== null;
+  const showAgents = view === 'agents' && agents !== null;
   const [filter, setFilter] = useState('');
   const [minLevel, setMinLevel] = useState<MinLevel>('all');
   const [autoScroll, setAutoScroll] = useState(true);
@@ -319,17 +344,18 @@ export function LogsPanel({
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-1.5 sm:min-h-11">
         {/* The design has no icon or title here; the heading stays for screen readers */}
         <h2 className="sr-only">Execution logs</h2>
-        {progress && (
+        {(progress || agents) && (
           <div
             role="tablist"
-            aria-label="Logs or events"
+            aria-label="Logs, events or agents"
             className="border-outline-variant flex gap-4 self-stretch"
           >
             {(
               [
                 ['logs', 'Logs'],
-                ['events', 'Events'],
-              ] as const
+                ...(progress ? [['events', 'Events']] : []),
+                ...(agents ? [['agents', 'Agents']] : []),
+              ] as [DockTab, string][]
             ).map(([key, label]) => (
               <button
                 key={key}
@@ -345,6 +371,12 @@ export function LogsPanel({
                 )}
               >
                 {label}
+                {key === 'agents' && agents && agents.waiting > 0 && (
+                  <span className="bg-warning text-label-sm text-on-primary ml-1.5 rounded-full px-1.5 tabular-nums">
+                    {agents.waiting}
+                    <span className="sr-only"> waiting</span>
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -387,7 +419,7 @@ export function LogsPanel({
               </button>
             </span>
           )}
-          {!showEvents && (
+          {!showEvents && !showAgents && (
             <>
               <div
                 role="group"
@@ -562,6 +594,7 @@ export function LogsPanel({
           </button>
         </div>
       </div>
+      {!collapsed && showAgents && agents.content}
       {!collapsed && showEvents && (
         <ol
           className="bg-terminal text-code-sm text-terminal-fg min-h-0 flex-1 overflow-y-auto px-4 py-2 leading-5"
@@ -586,7 +619,7 @@ export function LogsPanel({
           )}
         </ol>
       )}
-      {!collapsed && !showEvents && (
+      {!collapsed && !showEvents && !showAgents && (
         <div className="relative min-h-0 flex-1">
           <div
             ref={bodyRef}

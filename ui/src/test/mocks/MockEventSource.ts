@@ -60,6 +60,22 @@ export class MockEventSource {
     this.onmessage?.(new MessageEvent('message', { data: payload }));
   }
 
+  private readonly named = new Map<string, ((event: MessageEvent) => void)[]>();
+
+  addEventListener(
+    type: string,
+    listener: (event: MessageEvent) => void
+  ): void {
+    this.named.set(type, [...(this.named.get(type) ?? []), listener]);
+  }
+
+  /** Emit a named event (`event: <name>`), with the id the server would send. */
+  emitNamed(name: string, data: unknown, id = ''): void {
+    const payload = typeof data === 'string' ? data : JSON.stringify(data);
+    const event = new MessageEvent(name, { data: payload, lastEventId: id });
+    this.named.get(name)?.forEach((listener) => listener(event));
+  }
+
   /** Simulate a fatal connection error: the browser gives up (readyState CLOSED). */
   emitError(): void {
     this.readyState = MockEventSource.CLOSED;
