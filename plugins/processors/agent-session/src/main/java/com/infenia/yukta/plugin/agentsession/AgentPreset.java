@@ -27,6 +27,8 @@ import tools.jackson.databind.JsonNode;
  * @param capabilities the capabilities it declares ({@code stream}, {@code resume}, {@code ask})
  * @param output how to read the output
  * @param interactive how to hold a conversation over stdin (approvals); null if unsupported
+ * @param authMethod the ACP method to {@code authenticate} with, or null when the agent is logged
+ *     in already; only for protocol {@code acp}
  */
 public record AgentPreset(
     String id,
@@ -38,7 +40,8 @@ public record AgentPreset(
     List<String> resumeArgs,
     Set<String> capabilities,
     Output output,
-    @Nullable Interactive interactive) {
+    @Nullable Interactive interactive,
+    @Nullable String authMethod) {
 
   /** Compact constructor to ensure immutability. */
   public AgentPreset {
@@ -48,6 +51,16 @@ public record AgentPreset(
     maxTurnsArgs = List.copyOf(maxTurnsArgs);
     resumeArgs = List.copyOf(resumeArgs);
     capabilities = Set.copyOf(capabilities);
+  }
+
+  /**
+   * Whether a message can be written to the agent while it runs.
+   *
+   * @return true for a protocol that has a conversation of its own, or a preset with an {@code
+   *     interactive} mode
+   */
+  public boolean converses() {
+    return protocol == AgentProtocol.ACP || interactive != null;
   }
 
   /**
@@ -207,7 +220,8 @@ public record AgentPreset(
             captures(out.path("captures")),
             strings(out.path("failureWhen")),
             out.path("failureText").asString("")),
-        interactive(root.path("interactive")));
+        interactive(root.path("interactive")),
+        authMethod(root.path("acp").path("authMethod")));
   }
 
   private static Live live(final JsonNode node) {
@@ -258,6 +272,10 @@ public record AgentPreset(
     node.forEach(n ->
         found.add(new Capture(strings(n.path("when")), required(n, "path"), required(n, "into"))));
     return found;
+  }
+
+  private static @Nullable String authMethod(final JsonNode node) {
+    return node.isString() && !node.asString().isBlank() ? node.asString() : null;
   }
 
   private static @Nullable Interactive interactive(final JsonNode node) {

@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.agent.AgentConversationGateway;
 import com.infenia.yukta.plugin.agent.AgentConversationHandle;
 import com.infenia.yukta.plugin.agent.AgentConversationSpec;
 import com.infenia.yukta.plugin.agent.AgentProtocol;
+import com.infenia.yukta.plugin.agentsession.adapter.AcpAdapter;
 import com.infenia.yukta.plugin.agentsession.adapter.AgentAdapter;
 import com.infenia.yukta.plugin.agentsession.adapter.AgentRequests;
 import com.infenia.yukta.plugin.agentsession.adapter.AgentRun;
@@ -136,6 +137,8 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
     this.conversations = conversations;
     final AgentAdapter jsonl = new JsonlAdapter(gateway, inputs, json, beat);
     adapters.put(jsonl.protocol(), jsonl);
+    final AgentAdapter acp = new AcpAdapter(gateway, inputs, json, beat);
+    adapters.put(acp.protocol(), acp);
   }
 
   @Override
@@ -313,7 +316,8 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
                           who,
                           chat,
                           AgentSessionConfig.idleTimeout(config),
-                          ctx.<Runnable>getOrDefault(WorkflowContext.HEARTBEAT_KEY, NO_BEAT)))
+                          ctx.<Runnable>getOrDefault(WorkflowContext.HEARTBEAT_KEY, NO_BEAT),
+                          token))
                   .map(outcome -> reply(message, outcome, lease, attempt, conversation)));
     });
   }
@@ -376,6 +380,11 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
   private static Set<String> capabilities(
       final AgentPreset preset, final AgentPreset.@Nullable Interactive talk, final boolean ask) {
     final Set<String> found = new LinkedHashSet<>();
+    if (preset.protocol() == AgentProtocol.ACP) {
+      // an ACP agent is always on a conversation: it takes messages and a cancel, never a steer
+      found.add(AgentCapability.MESSAGE);
+      found.add(AgentCapability.INTERRUPT);
+    }
     if (talk != null) {
       found.add(AgentCapability.MESSAGE);
       if (talk.steer()) {
@@ -385,7 +394,7 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
         found.add(AgentCapability.INTERRUPT);
       }
     }
-    if (ask && talk != null) {
+    if (ask && (talk != null || preset.protocol() == AgentProtocol.ACP)) {
       found.add(AgentCapability.ASK);
     }
     if (preset.capabilities().contains("resume")) {

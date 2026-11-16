@@ -29,6 +29,7 @@ import org.jspecify.annotations.Nullable;
  *     when it ends with the first turn
  * @param idleTimeout how long a conversation may wait for a message
  * @param heartbeat tells the engine the node is alive
+ * @param resume the session token the last turn of this key left, or null
  */
 public record AgentRun(
     Message<?> message,
@@ -43,4 +44,5 @@ public record AgentRun(
     @Nullable InputIdentity who,
     boolean chat,
     Duration idleTimeout,
-    Runnable heartbeat) {}
+    Runnable heartbeat,
+    @Nullable String resume) {}

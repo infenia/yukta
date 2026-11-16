@@ -45,11 +45,24 @@ class AgentSessionConfigTest {
   }
 
   @Test
+  void validate_acceptsMessagesApprovalsAndResumeOfAnAcpHarness() {
+    assertThatCode(() ->
+            config.validate(
+                Map.of(
+                    "harness", "antigravity",
+                    "prompt", "p",
+                    "mode", "CONVERSATION",
+                    "approvals", "ASK",
+                    "session", "k")))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
   void validate_namesWhatIsMissing() {
     assertThatThrownBy(() -> config.validate(Map.of("harness", "codex")))
         .hasMessage("prompt is mandatory");
     assertThatThrownBy(() -> config.validate(Map.of("prompt", "p")))
-        .hasMessageStartingWith("harness is mandatory; one of [claude-code, codex");
+        .hasMessageStartingWith("harness is mandatory; one of [antigravity, claude-code, codex");
   }
 
   @Test

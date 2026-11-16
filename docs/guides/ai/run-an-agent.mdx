@@ -57,6 +57,24 @@ import { ReaderState } from "/snippets/reader-state.jsx";
 
 A harness is a JSON file in `agent-harnesses/` on the classpath, or in the directory `yukta.ai.presets-dir` names (a file there replaces a shipped one with the same id). It gives the command (`{prompt}`), how a `model`, `maxTurns` and a session are passed, which lines mean "the result" or "failed", which values to keep from earlier lines, which lines to show live, and optionally the conversation used for approvals. Start from `claude-code.json` or `codex.json` in the `process-executor` module.
 
+## Agents that speak ACP
+
+A preset with `"protocol": "acp"` runs an agent over the [Agent Client Protocol](https://agentclientprotocol.com) (JSON-RPC on standard input and output). The preset needs no `output` block: the adapter reads the protocol. `antigravity` ships (`agy acp`; put the folder of `agy`, usually `~/.gemini/bin`, on `PATH` and log in once). Such an agent takes messages and an interrupt, asks for approval when `approvals` is `ASK` (approve picks the agent's `allow_once` option, refuse its `reject_once`; with `approvals` off every request is refused), and resumes a session by key when the preset declares `resume`. It never steers: a message sent during a turn waits for the turn to end. Yukta declares no file or terminal capability, so the agent uses its own tools. `acp.authMethod` in the preset names a method to `authenticate` with; leave it out when the agent is logged in already.
+
+Adapters for agents with no ACP of their own are not shipped, because they need `npx`. Put one in `yukta.ai.presets-dir` as a file like this (names are from the adapters' documentation and were not run here):
+
+```json
+{
+  "id": "claude-acp",
+  "protocol": "acp",
+  "description": "Claude Code through the claude-agent-acp adapter.",
+  "command": ["npx", "-y", "@zed-industries/claude-code-acp"],
+  "capabilities": { "ask": true, "interrupt": true, "resume": true }
+}
+```
+
+Change `id` and `command` for Codex (`codex-acp`) or pi (`pi-acp`) and allow the executable in `yukta.process.allowed-commands`.
+
 ## Limits
 
 - The agent is a process on the server with the permissions of the server's user. Allow only the executables you mean to, and give it a `workingDir` that holds nothing you mind it reading.

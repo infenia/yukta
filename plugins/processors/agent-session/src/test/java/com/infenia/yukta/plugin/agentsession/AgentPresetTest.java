@@ -153,4 +153,24 @@ class AgentPresetTest {
             AgentPreset.parse(claudeJson().set("interactive", plain)).interactive().canInterrupt())
         .isFalse();
   }
+
+  @Test
+  void anAcpPresetConversesAndNamesItsAuthMethod() throws IOException {
+    final AgentPreset acp =
+        AgentPreset.parse(
+            JSON.readTree(
+                "{\"id\":\"a\",\"protocol\":\"acp\",\"command\":[\"a\"],"
+                    + "\"acp\":{\"authMethod\":\"k\"}}"));
+    final AgentPreset plain =
+        AgentPreset.parse(
+            JSON.readTree("{\"id\":\"a\",\"protocol\":\"acp\",\"acp\":{\"authMethod\":null}}"));
+    final AgentPreset blank =
+        AgentPreset.parse(JSON.readTree("{\"id\":\"b\",\"acp\":{\"authMethod\":\" \"}}"));
+
+    assertThat(acp.authMethod()).isEqualTo("k");
+    assertThat(acp.converses()).isTrue();
+    assertThat(plain.authMethod()).isNull();
+    assertThat(blank.authMethod()).isNull();
+    assertThat(blank.converses()).isFalse();
+  }
 }

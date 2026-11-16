@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.agentsession;
 
+import com.infenia.yukta.plugin.agent.AgentProtocol;
 import com.infenia.yukta.plugin.agentsession.adapter.AgentRequests;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.input.Audience;
@@ -189,17 +190,16 @@ final class AgentSessionConfig {
         "has no turn limit",
         MAX_TURNS);
     refuse(
-        config.get(SESSION) != null && preset.resumeArgs().isEmpty(),
+        config.get(SESSION) != null
+            && preset.resumeArgs().isEmpty()
+            && !(preset.protocol() == AgentProtocol.ACP
+                && preset.capabilities().contains("resume")),
         preset,
         "cannot resume a session",
         SESSION);
+    refuse(asks(config) && !preset.converses(), preset, "cannot ask for approvals", APPROVALS);
     refuse(
-        asks(config) && preset.interactive() == null,
-        preset,
-        "cannot ask for approvals",
-        APPROVALS);
-    refuse(
-        converses(config) && preset.interactive() == null,
+        converses(config) && !preset.converses(),
         preset,
         "takes no messages on stdin (it has no interactive mode), so it cannot hold a"
             + " conversation",
