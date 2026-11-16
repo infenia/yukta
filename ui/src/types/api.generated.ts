@@ -445,6 +445,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations/{id}/terminal/input": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Type into the terminal of an agent
+         * @description Writes the keys to the terminal of a pty agent. Not reviewed: what is typed cannot be checked, so the volume is audited once a minute per caller and conversation. 400 when data is not base64, 403 when the caller may not steer this conversation, 404 unknown or not reachable, 409 not_live or unsupported (no terminal), 413 over 8 KB.
+         */
+        post: operations["terminalInput"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{id}/terminal/resize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resize the terminal of an agent
+         * @description Errors as for typing into the terminal.
+         */
+        post: operations["terminalResize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/conversations/{id}/terminal/screen": {
         parameters: {
             query?: never;
@@ -6623,6 +6663,29 @@ export interface components {
             summary?: string;
             title?: string;
         };
+        /** @description Keys typed into the terminal of an agent */
+        TerminalInputRequest: {
+            /**
+             * @description The bytes typed, base64 encoded; up to 8192 bytes
+             * @example bHMNCg==
+             */
+            data: string;
+        };
+        /** @description The size of the terminal of an agent */
+        TerminalResizeRequest: {
+            /**
+             * Format: int32
+             * @description Columns
+             * @example 120
+             */
+            cols?: number;
+            /**
+             * Format: int32
+             * @description Rows
+             * @example 40
+             */
+            rows?: number;
+        };
         /** @description The latest settled screen of a terminal agent */
         TerminalScreenResponse: {
             /**
@@ -7609,6 +7672,56 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ApiResponseConversationSteerResponse"];
                 };
+            };
+        };
+    };
+    terminalInput: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminalInputRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    terminalResize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminalResizeRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

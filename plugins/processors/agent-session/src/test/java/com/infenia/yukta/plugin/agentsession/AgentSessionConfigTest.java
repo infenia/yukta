@@ -22,6 +22,8 @@ class AgentSessionConfigTest {
 
   private final AgentHarnesses harnesses = shipped();
   private final AgentSessionConfig config = new AgentSessionConfig(harnesses);
+  private final AgentSessionConfig terminals =
+      new AgentSessionConfig(harnesses, new PtySettings(true, "yukta-cli", 120, 40));
 
   private static AgentHarnesses shipped() {
     try {
@@ -191,5 +193,77 @@ class AgentSessionConfigTest {
     assertThat(
             AgentSessionConfig.steerAudience(Map.of("steerAudience", List.of("key:a"))).selectors())
         .containsExactly("key:a");
+  }
+
+  // ---- the terminal tier
+
+  @Test
+  void validate_refusesTheTerminalHarnessWhileTheTierIsOff() {
+    assertThatThrownBy(() ->
+            config.validate(Map.of("harness", "terminal", "prompt", "p", "command", List.of("sh"))))
+        .hasMessageContaining("yukta.agents.pty.enabled=true");
+  }
+
+  @Test
+  void validate_acceptsTheTerminalWithItsCommandAndSize() {
+    assertThatCode(() ->
+            terminals.validate(
+                Map.of(
+                    "harness",
+                    "terminal",
+                    "prompt",
+                    "p",
+                    "command",
+                    List.of("agent", "--task", "{prompt}"),
+                    "terminalSize",
+                    Map.of("cols", 100, "rows", 30))))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void validate_asksTheTerminalForItsProgramAndNeverTakesItFromThePrompt() {
+    assertThatThrownBy(() -> terminals.validate(Map.of("harness", "terminal", "prompt", "p")))
+        .hasMessageContaining("needs command");
+    assertThatThrownBy(() ->
+            terminals.validate(
+                Map.of("harness", "terminal", "prompt", "p", "command", List.of("{prompt}"))))
+        .hasMessageContaining("{prompt} may not be in the program");
+  }
+
+  @Test
+  void validate_keepsCommandAndSizeToTheHarnessesThatHaveOne() {
+    assertThatThrownBy(() ->
+            terminals.validate(
+                Map.of("harness", "claude-code", "prompt", "p", "command", List.of("sh"))))
+        .hasMessageContaining("has its own command");
+    assertThatThrownBy(() ->
+            terminals.validate(
+                Map.of(
+                    "harness", "claude-code", "prompt", "p", "terminalSize", Map.of("cols", 80))))
+        .hasMessageContaining("has no terminal");
+  }
+
+  @Test
+  void validate_refusesApprovalsAndTerminalSizeOutOfRange() {
+    final Map<String, Object> base =
+        Map.of("harness", "terminal", "prompt", "p", "command", List.of("sh"));
+    assertThatThrownBy(() ->
+            terminals.validate(
+                Map.of(
+                    "harness", "terminal",
+                    "prompt", "p",
+                    "command", List.of("sh"),
+                    "approvals", "ASK")))
+        .hasMessageContaining("no way to ask");
+    assertThatThrownBy(() ->
+            terminals.validate(
+                java.util.stream.Stream.concat(
+                        base.entrySet().stream(),
+                        Map.<String, Object>of("terminalSize", Map.of("rows", 1001))
+                            .entrySet()
+                            .stream())
+                    .collect(
+                        java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
+        .hasMessageContaining("terminalSize.rows must be 1 to 1000");
   }
 }

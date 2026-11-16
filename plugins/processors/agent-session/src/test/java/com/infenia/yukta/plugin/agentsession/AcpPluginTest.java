@@ -71,7 +71,8 @@ class AcpPluginTest {
                   return Mono.just(AgentConversationHandle.none());
                 }),
         JSON,
-        Duration.ofSeconds(10));
+        Duration.ofSeconds(10),
+        new PtySettings(true, "yukta-cli", 120, 40));
   }
 
   private static Message<?> run(final AgentSessionPlugin plugin, final Map<String, Object> config) {
@@ -102,5 +103,33 @@ class AcpPluginTest {
     run(plugin(), Map.of("harness", "antigravity", "prompt", "p"));
 
     assertThat(opened.get().capabilities()).doesNotContain(AgentCapability.ASK);
+  }
+
+  @Test
+  void terminalRunsItsProgramThroughTheHostWithTheSizeAndTheTerminalCapabilities()
+      throws java.io.IOException {
+    run(
+        plugin(),
+        Map.of(
+            "harness",
+            "terminal",
+            "prompt",
+            "fix it",
+            "command",
+            List.of("some-agent", "--task", "{prompt}"),
+            "terminalSize",
+            Map.of("cols", 90, "rows", 25)));
+
+    assertThat(opened.get().protocol()).isEqualTo(AgentProtocol.PTY);
+    assertThat(opened.get().capabilities())
+        .containsExactlyInAnyOrder(
+            AgentCapability.MESSAGE,
+            AgentCapability.STEER,
+            AgentCapability.INTERRUPT,
+            AgentCapability.TERMINAL);
+    // the allow-list sees the program; the host only launches it
+    assertThat(started.get().command()).containsExactly("some-agent", "--task", "fix it");
+    assertThat(started.get().launcher())
+        .containsExactly("yukta-cli", "pty-host", "--cols", "90", "--rows", "25", "--");
   }
 }

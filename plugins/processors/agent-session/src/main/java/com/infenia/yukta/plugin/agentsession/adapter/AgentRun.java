@@ -30,6 +30,8 @@ import org.jspecify.annotations.Nullable;
  * @param idleTimeout how long a conversation may wait for a message
  * @param heartbeat tells the engine the node is alive
  * @param resume the session token the last turn of this key left, or null
+ * @param promptInArgs true when the command carries the prompt as an argument, so a terminal does
+ *     not type it
  */
 public record AgentRun(
     Message<?> message,
@@ -45,4 +47,41 @@ public record AgentRun(
     boolean chat,
     Duration idleTimeout,
     Runnable heartbeat,
-    @Nullable String resume) {}
+    @Nullable String resume,
+    boolean promptInArgs) {
+
+  /** Creates a run whose prompt is not an argument of the command. */
+  @SuppressWarnings("PMD.ExcessiveParameterList") // the record's own components, minus one
+  public AgentRun(
+      final Message<?> message,
+      final AgentPreset preset,
+      final ProcessExecutionSpec spec,
+      final String prompt,
+      final AgentPreset.@Nullable Interactive talk,
+      final AgentRequests.@Nullable Settings approvals,
+      final long timeoutSeconds,
+      final AgentConversationHandle handle,
+      final PluginLogSink log,
+      final @Nullable InputIdentity who,
+      final boolean chat,
+      final Duration idleTimeout,
+      final Runnable heartbeat,
+      final @Nullable String resume) {
+    this(
+        message,
+        preset,
+        spec,
+        prompt,
+        talk,
+        approvals,
+        timeoutSeconds,
+        handle,
+        log,
+        who,
+        chat,
+        idleTimeout,
+        heartbeat,
+        resume,
+        false);
+  }
+}

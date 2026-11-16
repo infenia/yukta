@@ -16,6 +16,7 @@ import com.infenia.yukta.plugin.agent.AgentConversation;
 import com.infenia.yukta.plugin.agent.AgentState;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.agent.AgentConversationQueries;
+import com.infenia.yukta.service.agent.AgentSteering;
 import com.infenia.yukta.service.agent.AgentSteeringException;
 import com.infenia.yukta.service.agent.AgentSteeringException.Reason;
 import com.infenia.yukta.service.control.SupervisedControl;
@@ -42,10 +43,15 @@ class ConversationSteeringTest {
 
   private final AgentConversationQueries queries = mock(AgentConversationQueries.class);
   private final SupervisedControl control = mock(SupervisedControl.class);
+  private final AgentSteering steering = mock(AgentSteering.class);
   private final WebTestClient client =
       WebTestClient.bindToController(
               new ConversationsController(
-                  queries, new ConversationMapper(), mock(ExecutionAccess.class), control))
+                  queries,
+                  new ConversationMapper(),
+                  mock(ExecutionAccess.class),
+                  control,
+                  steering))
           .controllerAdvice(new GlobalExceptionHandler())
           .build();
 
@@ -214,5 +220,72 @@ class ConversationSteeringTest {
     if (capability != null) {
       body.jsonPath("$.errors[?(@.field=='capability')].message").isEqualTo(capability);
     }
+  }
+
+  @Test
+  void typedKeysAreDecodedAndGoToTheTerminal() {
+    when(steering.terminalInput(eq("c-1"), any())).thenReturn(Mono.empty());
+
+    client
+        .post()
+        .uri("/api/conversations/c-1/terminal/input")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(Map.of("data", "bHMN"))
+        .exchange()
+        .expectStatus()
+        .isNoContent();
+
+    verify(steering).terminalInput("c-1", new byte[] {'l', 's', '\r'});
+  }
+
+  @Test
+  void keysThatAreNotBase64AreBadRequest() {
+    client
+        .post()
+        .uri("/api/conversations/c-1/terminal/input")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(Map.of("data", "not base64!"))
+        .exchange()
+        .expectStatus()
+        .isBadRequest();
+  }
+
+  @Test
+  void refusedInputKeepsItsStatus() {
+    when(steering.terminalInput(eq("c-1"), any()))
+        .thenReturn(Mono.error(new AgentSteeringException(Reason.TOO_LARGE, "too long", null)));
+
+    client
+        .post()
+        .uri("/api/conversations/c-1/terminal/input")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(Map.of("data", "bHMN"))
+        .exchange()
+        .expectStatus()
+        .isEqualTo(413);
+  }
+
+  @Test
+  void resizeGoesToTheTerminalAndItsSizeIsBounded() {
+    when(steering.terminalResize("c-1", 100, 30)).thenReturn(Mono.empty());
+
+    client
+        .post()
+        .uri("/api/conversations/c-1/terminal/resize")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(Map.of("cols", 100, "rows", 30))
+        .exchange()
+        .expectStatus()
+        .isNoContent();
+    client
+        .post()
+        .uri("/api/conversations/c-1/terminal/resize")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue(Map.of("cols", 0, "rows", 30))
+        .exchange()
+        .expectStatus()
+        .isBadRequest();
+
+    verify(steering).terminalResize("c-1", 100, 30);
   }
 }

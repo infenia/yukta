@@ -18,6 +18,8 @@ Every endpoint here needs only the `VIEWER` role. They exist while `yukta.agents
 | `GET /api/conversations/{id}` | One conversation |
 | `GET /api/conversations/{id}/events` | A page of its events |
 | `GET /api/conversations/{id}/terminal/screen` | The latest screen of a terminal agent |
+| `POST /api/conversations/{id}/terminal/input` | Type into the terminal of an agent |
+| `POST /api/conversations/{id}/terminal/resize` | Resize the terminal of an agent |
 | `GET /api/executions/{executionId}/conversations/stream` | Server-sent events for a run and its child runs |
 
 A key limited to some sessions reaches only `/api/executions/{executionId}/…` of runs in its sessions; a conversation of another session is `404`, as one that does not exist.
@@ -76,6 +78,12 @@ An agent's request is answered on the [input request](/api/executions) endpoints
 ## The terminal screen
 
 `GET /api/conversations/{id}/terminal/screen` returns `{cols, rows, text, cursorRow, cursorCol, seq}` for an agent with a terminal. `404` before the program has drawn a screen, `409` for a conversation without a terminal.
+
+## Typing into a terminal
+
+`POST /api/conversations/{id}/terminal/input` with `{"data": "<base64>"}` writes up to 8 KB of keys to the terminal and answers `204`. `POST /api/conversations/{id}/terminal/resize` with `{"cols": 120, "rows": 40}` (each 1 to 1000) answers `204`. Both need the role `OPERATOR` and a place in the node's `steerAudience`, as a message does. Errors: `400` data that is not base64, `403`, `404`, `409` (`not_live`, or `unsupported` for an agent without a terminal), `413` over 8 KB.
+
+Keystrokes are not control commands: nothing can review what is typed. The server writes one audit record per caller and conversation per minute, "terminal input, N bytes".
 
 ## The stream
 
