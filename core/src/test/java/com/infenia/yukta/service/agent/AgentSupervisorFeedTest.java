@@ -18,7 +18,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -69,7 +68,7 @@ class AgentSupervisorFeedTest {
   void everyChangeOfConversationIsEventOfItsRunAndNode() {
     when(service.changes()).thenReturn(changes.asFlux());
     when(store.list(any())).thenReturn(Flux.empty());
-    final List<ExecutionEvent> seen = new ArrayList<>();
+    final List<ExecutionEvent> seen = new CopyOnWriteArrayList<>();
     feed.events().subscribe(seen::add);
     final AgentSupervisorFeed bridge =
         new AgentSupervisorFeed(
@@ -79,6 +78,8 @@ class AgentSupervisorFeedTest {
     changes.tryEmitNext(new AgentChange.ConversationChanged(conversation(AgentState.RUNNING)));
     bridge.stop();
 
+    // the feed hands events over on another thread
+    Awaitility.await().untilAsserted(() -> assertThat(seen).hasSize(1));
     assertThat(seen)
         .singleElement()
         .isInstanceOfSatisfying(
