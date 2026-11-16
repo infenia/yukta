@@ -915,8 +915,9 @@ class AgentSessionPluginTest {
   @Test
   @SuppressWarnings("unchecked")
   void validateConfig_refusesHarnessWhoseProtocolHasNoAdapter() {
-    ((Map<AgentProtocol, Object>)
-            org.springframework.test.util.ReflectionTestUtils.getField(plugin, "adapters"))
+    java.util.Objects.requireNonNull(
+            (Map<AgentProtocol, Object>)
+                org.springframework.test.util.ReflectionTestUtils.getField(plugin, "adapters"))
         .remove(AgentProtocol.ACP);
 
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "acpfresh", "prompt", "p")))
