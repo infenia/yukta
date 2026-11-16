@@ -1,0 +1,32 @@
+---
+title: "What's new in alpha.5"
+sidebarTitle: "What's new in alpha.5"
+description: "Notifications and an inbox: one stored record for alerts and questions, the bell and Inbox page, desktop notifications, the CLI and MCP, outbound channels, and the breaking changes."
+keywords: ["alpha.5", "release notes", "what's new", "notifications", "inbox"]
+---
+
+<Warning>
+  Yukta is still alpha. The workflow JSON, REST API, MCP tools and plugin contract can change before 1.0.
+</Warning>
+
+Alpha.5 adds notifications: Yukta now tells people what happened and asks them for what it needs, in one place.
+
+- **Inbox**: a bell with a count, toasts, an Inbox page with three tabs, filters and the answer form, and deep links (`/inbox?item=<id>`). A resolved question stays under *Resolved* with who answered. See [How notifications work](/concepts/notifications).
+- **Desktop**: operating system notifications from an open tab, raised only when it is hidden and your level for the category is `DESKTOP`; `yukta notify` does the same without a browser. See [Notifications from the terminal](/guides/operate/notifications-from-the-terminal).
+- **Preferences**: a level per category and muted sessions, kept per named key.
+- **Alerts**: runs that fail or finish, runs held by a supervisor and deliveries that give up raise notifications; a workflow raises its own with `NOTIFY_TERMINAL` and `target: inbox`.
+- **Channels**: one `NotificationChannel` SPI and one outbox replace the input responders. See [Configure notifications](/guides/operate/notifications) and [Write a notification channel](/guides/extend/write-a-notification-channel).
+- **CLI and MCP**: `yukta notifications`, `yukta notify`, `list_notifications` and `mark_notifications_read`.
+- **Plus**: notifications and queued deliveries are kept in PostgreSQL.
+
+## Breaking changes
+
+All in one place; the steps are in [Migrate to alpha.5](/reference/migration-alpha-5).
+
+- `yukta.input.responders.*` is refused at start-up; use `yukta.notifications.channels.webhook.<name>.*`.
+- The `InputResponder` SPI is replaced by `NotificationChannel` (SPI version `1.1`).
+- The metric `yukta.input.delivery` is now `yukta.notifications.delivery`.
+- A webhook body gains a `notification` object; the alpha.4 fields stay.
+- The `KV_STORE` and `SESSION_MEMORY` plugins are removed.
+- Plus: a migration adds the notification tables and drops `input_delivery`.
+- `/api/notifications/**` is open to keys limited to sessions; they see only their sessions' items.

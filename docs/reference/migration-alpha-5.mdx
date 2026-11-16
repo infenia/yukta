@@ -1,0 +1,34 @@
+---
+title: "Migrate to alpha.5"
+sidebarTitle: "Migrate to alpha.5"
+description: "What breaks when you upgrade from alpha.4: input responders became notification channels."
+keywords: ["migration", "upgrade", "breaking changes", "notifications", "webhook", "responders"]
+---
+
+Before you start, take a copy of your configuration and read [Upgrade and roll back](/guides/operate/upgrade-and-roll-back).
+
+## Input responders are now notification channels
+
+One `NotificationChannel` replaces the `InputResponder` SPI and one outbox replaces the input delivery queue. The same channel carries a question with an answer token (a route tier that names `external:webhook:<name>`) and a plain alert (a notification rule that lists `channels`).
+
+| Before | Now |
+|---|---|
+| `yukta.input.responders.<name>.*` | `yukta.notifications.channels.webhook.<name>.*` |
+| Plugin SPI `InputResponder` | `NotificationChannel` (`plugin-api`, package `plugin.notify`) |
+| Metric `yukta.input.delivery{responder,outcome}` | `yukta.notifications.delivery{channel,outcome}` |
+
+The old property prefix is **refused at start-up**, with a message that names the new one. Rename it; the settings (`url`, `headers`, `timeout`, `signing-secret`, `answer-url`) keep their names. The route syntax `external:webhook:<name>` does not change.
+
+### The webhook body only grows
+
+A receiver written for alpha.4 keeps working: an input request still arrives with `requestId`, `prompt`, `context`, `token` and the other top-level fields. The body gains a `notification` object. An alert that is not a question carries only `notification`.
+
+### If you wrote an `InputResponder`
+
+Implement `NotificationChannel` instead: `deliver(Notification, ChannelContext)`. The context has the target name, its merged settings and, for a question delivered by a route tier, the request, the one-time `answerToken` and `answerExpires`. A channel of a notification rule never gets a token. Delivery stays at least once: be idempotent by notification id. The SPI version is now `1.1`.
+
+### What changed in behaviour
+
+- Deliveries are queued when the question reaches a tier that names a channel, even when no person is asked. They are written by the notification producer, so `yukta.notifications.enabled=false` also stops them.
+- A delivery given up after 10 tries raises a `delivery.failed` notification for administrators (change it with a rule for the category `delivery.failed`).
+- Queued deliveries live in the notification store: in memory in Community, so they are lost on a restart.

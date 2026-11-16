@@ -262,7 +262,10 @@ public class ApiKeyFilter implements WebFilter {
     if (!match.role().allows(exchange.getRequest().getMethod(), path)) {
       return Mono.just(false);
     }
-    if (match.sessions().isEmpty() || "/api/me".equals(path)) {
+    // the inbox is filtered per caller and session by Recipients, not by path
+    if (match.sessions().isEmpty()
+        || "/api/me".equals(path)
+        || isUnder(path, "/api/notifications")) {
       return Mono.just(true);
     }
     final Matcher session = SESSION_PATH.matcher(path);

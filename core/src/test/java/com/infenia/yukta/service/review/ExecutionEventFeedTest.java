@@ -5,6 +5,8 @@ package com.infenia.yukta.service.review;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.core.LogLevel;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
@@ -110,5 +112,74 @@ class ExecutionEventFeedTest {
   @Test
   void publish_noSubscriber_isDropped() {
     new ExecutionEventFeed().publish(event("nobody"));
+  }
+
+  private static ExecutionEvent input(final String id) {
+    return new ExecutionEvent.InputExpired(id, "s", "wf", "r-" + id, Instant.now(), "n");
+  }
+
+  @Test
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  void reliable_keepsInputEventsInOrderThroughBurstOfLogLines() {
+    final ExecutionEventFeed feed = new ExecutionEventFeed();
+    final java.util.List<ExecutionEvent> got = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final Disposable reader = feed.reliable().subscribe(got::add);
+
+    feed.publish(input("a"));
+    for (int i = 0; i < 20_000; i++) {
+      feed.publish(
+          new ExecutionEvent.LogLine(
+              "e", "s", "wf", "n", "line " + i, LogLevel.INFO, Instant.now()));
+    }
+    feed.publish(input("b"));
+    feed.publish(event("status"));
+
+    org.awaitility.Awaitility.await().until(() -> got.size() == 3);
+    assertThat(got).extracting(ExecutionEvent::executionId).containsExactly("a", "b", "status");
+    reader.dispose();
+  }
+
+  @Test
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.review.ExecutionEventFeed - ")
+  void reliable_dropsOnlyWhenFullAndCountsIt() {
+    final ExecutionEventFeed feed = new ExecutionEventFeed();
+    final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    Metrics.addRegistry(registry);
+    final var stuck =
+        new reactor.core.publisher.BaseSubscriber<ExecutionEvent>() {
+          @Override
+          protected void hookOnSubscribe(final org.reactivestreams.Subscription subscription) {
+            // never requests: the queue fills
+          }
+        };
+    feed.reliable().subscribe(stuck);
+    try {
+      for (int i = 0; i < 10_000 + 1_500; i++) {
+        feed.publish(input("x" + i));
+      }
+
+      assertThat(registry.counter("yukta.notifications.tap.dropped").count()).isEqualTo(1_500);
+    } finally {
+      stuck.dispose();
+      Metrics.removeRegistry(registry);
+    }
+  }
+
+  @Test
+  void reliable_isNotFedWhileNobodyReadsAndSecondReaderReplacesTheFirst() {
+    final ExecutionEventFeed feed = new ExecutionEventFeed();
+    feed.publish(input("lost"));
+
+    final java.util.List<String> second = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final Disposable first = feed.reliable().subscribe(e -> {});
+    final Disposable reader = feed.reliable().subscribe(e -> second.add(e.executionId()));
+    first.dispose();
+    feed.publish(input("later"));
+
+    org.awaitility.Awaitility.await().until(() -> second.size() == 1);
+    assertThat(second).containsExactly("later");
+    reader.dispose();
+    feed.publish(input("after"));
+    assertThat(second).hasSize(1);
   }
 }

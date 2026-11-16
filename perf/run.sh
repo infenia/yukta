@@ -3,15 +3,15 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
 # Run a k6 test against Yukta in a container with fixed resources and keep a report.
-#   perf/run.sh <perf|load|soak> [extra k6 args]
+#   perf/run.sh <perf|load|soak|inputs|notifications> [extra k6 args]
 # Env: PORT=9858 (the host port; a run on another port has its own compose project) CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 (default: all cores after the server's; unpinned below 3 cores) JAVA_OPTS=... IMAGE=... KEEP=1 (leave server up)
 #      MODE=native builds the native binary (release/build-server.sh; NATIVE_QUICK=1, NATIVE_HEAP=24g) and runs it
 #      BINARY=dist/linux-amd64/yukta runs an existing native binary without building (image debian:12-slim)
 #      plus the k6 -e variables, e.g. RATE=50 WORKFLOWS=mapper DURATION=10m
 set -euo pipefail
 
-type=${1:?usage: run.sh <perf|load|soak|inputs> [k6 args]}; shift
-[[ $type =~ ^(perf|load|soak|inputs)$ ]] || { echo "unknown test '$type'" >&2; exit 2; }
+type=${1:?usage: run.sh <perf|load|soak|inputs|notifications> [k6 args]}; shift
+[[ $type =~ ^(perf|load|soak|inputs|notifications)$ ]] || { echo "unknown test '$type'" >&2; exit 2; }
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
@@ -68,6 +68,23 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# notifications: STREAMS (200) stream clients need STREAMS/8 keys, the server allows 8 streams per key
+if [[ $type == notifications ]]; then
+  SCENARIO=${SCENARIO:-steady}
+  case $SCENARIO in
+    steady) export ANSWER_SECONDS=${ANSWER_SECONDS:-120} ANSWERS=${ANSWERS:-600} ;;   # 5 changes a second
+    burst) export ANSWER_SECONDS=${ANSWER_SECONDS:-10} ANSWERS=${ANSWERS:-500} ;;
+    *) echo "unknown SCENARIO '$SCENARIO' (steady|burst)" >&2; exit 2 ;;
+  esac
+fi
+STREAMS=${STREAMS:-$([[ $CPUS -le 2 ]] && echo 100 || echo 200)}   # people with a tab open; 100 on 2 vCPU, 200 on 4
+if [[ $type == notifications ]]; then
+  KEYS_ENV=$dir/keys.env; : > "$KEYS_ENV"; export KEYS_ENV
+  for i in $(seq 1 $(( (STREAMS + 7) / 8 ))); do
+    printf 'YUKTA_API_KEYS_%d_NAME=stream%d\nYUKTA_API_KEYS_%d_KEY=stream-key-%d-%s\nYUKTA_API_KEYS_%d_ROLE=OPERATOR\nYUKTA_API_KEYS_%d_SESSIONS_0=*\n' \
+      "$i" "$i" "$i" "$i" "$API_KEY" "$i" "$i" >> "$KEYS_ENV"
+  done
+fi
 "${compose[@]}" up -d --wait
 healthy=
 for _ in $(seq 60); do
@@ -91,10 +108,21 @@ jq -n --arg test "$type" --arg mode "$mode" --arg commit "$sha" --argjson dirty 
 stats_pid=$!
 
 envs=()
-for v in RATE RAMP HOLD DURATION WORKFLOWS LENIENT GRACE MAX_REJECTED; do
+for v in RATE RAMP HOLD DURATION WORKFLOWS LENIENT GRACE MAX_REJECTED SCENARIO ANSWERS ANSWER_SECONDS READERS READ_EVERY OPEN_REQUESTS; do
   [[ -n ${!v:-} ]] && envs+=(-e "$v=${!v}")
 done
 
+stream_pids=()
+if [[ $type == notifications ]]; then
+  for n in $(seq 0 $((STREAMS - 1))); do
+    # every line gets the time it arrived ($EPOCHREALTIME, no fork), to measure the delivery lag
+    ( curl -sN -m 3600 -H "Authorization: Bearer stream-key-$((n / 8 + 1))-$API_KEY" \
+        -w '%{http_code}\n' localhost:$PORT/api/notifications/stream 2>/dev/null |
+      while IFS= read -r line; do printf '%s %s\n' "$EPOCHREALTIME" "$line"; done > "$dir/stream-$n.out" ) &
+    stream_pids+=($!)
+  done
+  sleep 2
+fi
 set +e
 K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$dir/dashboard.html" K6_WEB_DASHBOARD_PERIOD=5s \
 "${pin[@]}" k6 run "perf/k6/$type.js" \
@@ -103,5 +131,13 @@ K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$dir/dashboard.html" K6_WEB_DASHB
   --summary-trend-stats 'avg,min,med,p(90),p(95),p(99),max' \
   --out csv="$dir/metrics.csv" "$@" 2>&1 | tee "$dir/k6.log"
 rc=${PIPESTATUS[0]}
+if [[ $type == notifications ]]; then
+  sleep 5
+  # stopping the server ends every stream, so the clients finish and their files are complete
+  "${compose[@]}" stop yukta >/dev/null 2>&1 || true
+  [[ ${#stream_pids[@]} -eq 0 ]] || wait "${stream_pids[@]}" 2>/dev/null || true
+  python3 perf/stream-lag.py "$dir" "$STREAMS" | tee -a "$dir/k6.log" || rc=1
+  rm -f "$dir"/stream-*.out
+fi
 gzip -f "$dir/metrics.csv" 2>/dev/null
 exit "$rc"

@@ -59,6 +59,7 @@ class AppMcpToolsTest {
 
   private com.infenia.yukta.mcp.provider.MetricsProvider metricsProvider;
   private InputProvider inputProvider;
+  private com.infenia.yukta.mcp.provider.NotificationProvider notificationProvider;
 
   @BeforeEach
   void setUp() {
@@ -73,6 +74,7 @@ class AppMcpToolsTest {
     metricsProvider = mock(com.infenia.yukta.mcp.provider.MetricsProvider.class);
     supervisorProvider = mock(com.infenia.yukta.mcp.provider.SupervisorProvider.class);
     inputProvider = mock(InputProvider.class);
+    notificationProvider = mock(com.infenia.yukta.mcp.provider.NotificationProvider.class);
     mcpTools =
         new AppMcpTools(
             sessionInfoProvider,
@@ -85,7 +87,8 @@ class AppMcpToolsTest {
             workflowVersionProvider,
             metricsProvider,
             supervisorProvider,
-            inputProvider);
+            inputProvider,
+            notificationProvider);
   }
 
   @Test
@@ -529,6 +532,26 @@ class AppMcpToolsTest {
         .verifyComplete();
     StepVerifier.create(mcpTools.escalateInput("s1", "e1", "r1", "because", "advice"))
         .expectNext(done)
+        .verifyComplete();
+  }
+
+  @Test
+  void testNotificationToolsDelegateToTheProvider() {
+    var list = new com.infenia.yukta.mcp.dto.NotificationList(java.util.List.of(), false);
+    var marked = new com.infenia.yukta.mcp.dto.MarkedRead(2);
+    when(notificationProvider.list(true, "ACTION")).thenReturn(Mono.just(list));
+    when(notificationProvider.markRead(java.util.List.of("a", "b"), false))
+        .thenReturn(Mono.just(marked));
+    when(notificationProvider.markRead(null, true)).thenReturn(Mono.just(marked));
+
+    StepVerifier.create(mcpTools.listNotifications(true, "ACTION"))
+        .expectNext(list)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.markNotificationsRead(java.util.List.of("a", "b"), null))
+        .expectNext(marked)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.markNotificationsRead(null, true))
+        .expectNext(marked)
         .verifyComplete();
   }
 }

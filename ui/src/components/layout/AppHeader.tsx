@@ -7,6 +7,7 @@ import IdentityChip from './IdentityChip';
 import AccountMenu from './AccountMenu';
 import ThemeToggle from './ThemeToggle';
 import { Tip } from '@/components/ui/tooltip';
+import { NotificationBell } from '@/features/inbox/NotificationBell';
 import { openCommandPalette } from './CommandPalette.helpers';
 
 /* `section` is the path prefix the item owns: Sessions is current on the list and on every
@@ -134,6 +135,7 @@ export default function AppHeader() {
             </span>
           </a>
         </Tip>
+        <NotificationBell />
         <div className="hidden items-center sm:flex">
           <IdentityChip />
           <ThemeToggle />

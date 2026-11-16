@@ -19,6 +19,18 @@ class ApiKeysTest {
       "sha256:2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b";
 
   @Test
+  void read_refusesKeyNamedLocal() {
+    final var env =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "local")
+            .withProperty("yukta.api-keys[0].key", "k")
+            .withProperty("yukta.api-keys[0].sessions", "*");
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApiKeys.read(env))
+        .hasMessageContaining("local");
+  }
+
+  @Test
   void read_collectsNamedKeys() {
     final var env =
         new MockEnvironment()

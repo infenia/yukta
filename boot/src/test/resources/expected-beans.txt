@@ -25,6 +25,7 @@ com.infenia.yukta.controller.LogManagementController
 com.infenia.yukta.controller.MeController
 com.infenia.yukta.controller.MetricsController
 com.infenia.yukta.controller.NodeOutputController
+com.infenia.yukta.controller.NotificationsController
 com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.ProjectPathController
 com.infenia.yukta.controller.SessionConfigController
@@ -67,6 +68,7 @@ com.infenia.yukta.mcp.McpErrorFilter
 com.infenia.yukta.mcp.provider.InputProvider
 com.infenia.yukta.mcp.provider.LogProvider
 com.infenia.yukta.mcp.provider.MetricsProvider
+com.infenia.yukta.mcp.provider.NotificationProvider
 com.infenia.yukta.mcp.provider.PluginInfoProvider
 com.infenia.yukta.mcp.provider.ResultProvider
 com.infenia.yukta.mcp.provider.SessionInfoProvider
@@ -164,8 +166,6 @@ com.infenia.yukta.service.input.InputCommandGuard
 com.infenia.yukta.service.input.InputDeadlineSweeper
 com.infenia.yukta.service.input.InputRequestQueries
 com.infenia.yukta.service.input.InputRetention
-com.infenia.yukta.service.input.delivery.InputDeliveryWorker
-com.infenia.yukta.service.input.delivery.WebhookInputResponder
 com.infenia.yukta.service.input.route.RouteResolver
 com.infenia.yukta.service.input.token.AnswerTokens
 com.infenia.yukta.service.leader.SingleServerLeader
@@ -175,6 +175,15 @@ com.infenia.yukta.service.metrics.MetricsConfiguration$1
 com.infenia.yukta.service.metrics.MetricsProperties
 com.infenia.yukta.service.metrics.MetricsSampler
 com.infenia.yukta.service.metrics.RunAnalytics
+com.infenia.yukta.service.notify.DefaultNotificationGateway
+com.infenia.yukta.service.notify.InMemoryNotificationStore
+com.infenia.yukta.service.notify.NotificationDeliveryWorker
+com.infenia.yukta.service.notify.NotificationOutbox
+com.infenia.yukta.service.notify.NotificationProducer
+com.infenia.yukta.service.notify.NotificationRetention
+com.infenia.yukta.service.notify.NotificationRules
+com.infenia.yukta.service.notify.NotificationService
+com.infenia.yukta.service.notify.WebhookChannel
 com.infenia.yukta.service.orchestrator.ExecutionRecovery
 com.infenia.yukta.service.orchestrator.ExecutionResumer
 com.infenia.yukta.service.orchestrator.LogStoreSubscriber

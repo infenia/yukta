@@ -446,6 +446,15 @@ export const test = base.extend<TestFixtures>({
     await page.route(/\/api\/events\/stream/, (route) =>
       route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' })
     );
+    // The bell and the inbox are on every page: an empty inbox, no live stream.
+    await quiet(/\/api\/notifications(\?|$)/, 200, []);
+    await quiet(/\/api\/notifications\/preferences$/, 200, {
+      levels: {},
+      mutedSessions: [],
+    });
+    await page.route(/\/api\/notifications\/stream/, (route) =>
+      route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' })
+    );
     // Every test gets the happy-path mock by default; individual tests can
     // call `mockSessionsApi(page, { ... })` again before navigating to
     // override it (e.g. empty list or a 500 response).

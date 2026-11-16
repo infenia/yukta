@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from '../App';
 
 vi.mock('@/components/layout/AppHeader', () => ({
@@ -23,9 +24,11 @@ vi.mock('@/components/layout/AppFooter', () => ({
 describe('App', () => {
   const renderApp = (path = '/') => {
     return render(
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={[path]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>
     );
   };
 

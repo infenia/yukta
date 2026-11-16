@@ -194,6 +194,10 @@ All take `<session-id> <execution-id> <node-id>` except where noted.
 | `inputs show <execution-id> <request-id>` | One request and its answer. |
 | `inputs answer <execution-id> <request-id> --decision D` | Answers. `--decision` is required; optional `--text`, `--data <json-or-file>`, `--rationale`, `--expected-version N` (refuse if the request changed). |
 | `inputs escalate <execution-id> <request-id> --reason R` | Hands the request up. `--reason` is required; optional `--advice`. |
+| `notifications list` | Your inbox, newest change first, without what you dismissed. Flags: `--unread`, `--kind INFO\|ACTION`, `--state ACTIVE\|RESOLVED`, `--severity` (a minimum), `--session <id>`. |
+| `notifications read [id...]` | Marks notifications read; `--all` marks everything you see. Reading never answers a question. |
+| `notifications dismiss <id>` | Hides an alert, or a question that has ended, for you (a question that still waits: 409). |
+| `notify` | Follows your notification stream and raises one desktop notification per new item. Flags: `--min-severity`, `--kind`, `--session`, `--print`, `--exec '<command>'`. See [Notifications from the terminal](/guides/operate/notifications-from-the-terminal). |
 
 ## Supervisors
 

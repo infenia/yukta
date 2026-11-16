@@ -495,6 +495,36 @@ class ApiKeyFilterTest {
   }
 
   @Test
+  void testEveryRoleAndSessionLimitedKeyMayUseTheirOwnInbox() {
+    final MockEnvironment env =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "viewer")
+            .withProperty("yukta.api-keys[0].key", "v-key")
+            .withProperty("yukta.api-keys[0].role", "VIEWER")
+            .withProperty("yukta.api-keys[0].sessions", "team-a");
+
+    assertThat(
+            statusOf2(
+                env, MockServerHttpRequest.get("/api/notifications").header("X-API-Key", "v-key")))
+        .isNotEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(
+            statusOf2(
+                env,
+                MockServerHttpRequest.get("/api/notifications/stream")
+                    .header("X-API-Key", "v-key")))
+        .isNotEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(
+            statusOf2(
+                env,
+                MockServerHttpRequest.post("/api/notifications/read").header("X-API-Key", "v-key")))
+        .isNotEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(
+            statusOf2(
+                env, MockServerHttpRequest.post("/api/sessions").header("X-API-Key", "v-key")))
+        .isEqualTo(HttpStatus.FORBIDDEN);
+  }
+
+  @Test
   void testResolvedKeyReachesTheRequestAndSessionLimitedKeyMayAskWhoItIs() {
     final MockEnvironment env =
         new MockEnvironment()

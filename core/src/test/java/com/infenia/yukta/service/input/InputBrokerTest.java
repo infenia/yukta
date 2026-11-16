@@ -581,6 +581,22 @@ class InputBrokerTest {
   }
 
   @Test
+  void deliveryCanBeLoggedUnderTheRunWithoutTheQuestion() {
+    inputBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
+    final InputRequest request = onlyOpen();
+
+    inputBroker.logDelivery(request, "INPUT_DELIVERED", Map.of("channel", "webhook:ops"));
+
+    assertThat(
+            log.readAll().stream()
+                .filter(e -> e.type() == ExecutionLogEvent.Type.INPUT)
+                .map(
+                    e -> Objects.requireNonNull(e.payload()).get(ExecutionLogEvent.INPUT_EVENT_KEY))
+                .toList())
+        .contains("INPUT_DELIVERED");
+  }
+
+  @Test
   void theOpenGaugeCountsOpenRequests() {
     inputBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
     assertThat(meters.get("yukta.input.open").gauge().value()).isEqualTo(1.0);

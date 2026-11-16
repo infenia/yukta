@@ -5,6 +5,7 @@ package com.infenia.yukta.persistence.postgres;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.notify.NotificationStore;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
 import com.infenia.yukta.service.supervisor.agent.AgentCredentialStore;
@@ -151,6 +152,21 @@ public class PostgresPersistenceAutoConfiguration {
   public InputRequestStore inputRequestStore(
       final DatabaseClient client, final ObjectMapper mapper) {
     return new R2dbcInputRequestStore(client, mapper);
+  }
+
+  /**
+   * Notifications, receipts, preferences and the outbox, with the input requests: when {@code
+   * yukta.input.store-type=postgres}; otherwise they stay in memory and are lost on a restart.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes the JSON columns
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnProperty(name = "yukta.input.store-type", havingValue = "postgres")
+  public NotificationStore notificationStore(
+      final DatabaseClient client, final ObjectMapper mapper) {
+    return new R2dbcNotificationStore(client, mapper);
   }
 
   /**

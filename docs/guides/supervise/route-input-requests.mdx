@@ -80,7 +80,7 @@ By default a request has one tier that any supervisor or operator may answer, wi
           timeout: 1h
           type: HUMAN
       on-final-timeout: FAIL
-    yukta.input.responders.slack-ops:
+    yukta.notifications.channels.webhook.slack-ops:
       url: https://hooks.example.com/yukta
       headers:
         Authorization: "Bearer ${SLACK_TOKEN}"
@@ -90,9 +90,9 @@ By default a request has one tier that any supervisor or operator may answer, wi
     yukta.input.token-secret: ${YUKTA_TOKEN_SECRET}
     ```
 
-    The server posts JSON with `requestId`, `executionId`, `sessionId`, `workflowId`, `kind`, `prompt`, `context`, `options`, `risk`, `tier`, `advice`, `deadline`, `answerUrl`, `token` and `tokenExpires`. The prompt and context are the redacted ones; an answer is never in it. With a `signing-secret`, the header `X-Yukta-Signature: sha256=<hex HMAC-SHA256 of the body>` lets the receiver check the sender. The URL must pass the egress rules (`yukta.egress.*`); redirects are not followed.
+    The server posts JSON with `requestId`, `executionId`, `sessionId`, `workflowId`, `kind`, `prompt`, `context`, `options`, `risk`, `tier`, `advice`, `deadline`, `answerUrl`, `token` and `tokenExpires`, plus a `notification` object (`id`, `key`, `kind`, `severity`, `category`, `title`, `body`, `state` and where it came from). The prompt and context are the redacted ones; an answer is never in it. With a `signing-secret`, the header `X-Yukta-Signature: sha256=<hex HMAC-SHA256 of the body>` lets the receiver check the sender. The URL must pass the egress rules (`yukta.egress.*`); redirects are not followed.
 
-    Delivery is **at least once**: a failed post is retried after 1 s, then twice as long each time up to 5 minutes, and given up after 10 tries. The receiver must treat a repeated `requestId` as the same request. Only the leader delivers, and queued deliveries are lost on a restart unless requests are stored in PostgreSQL (Plus).
+    Delivery is **at least once**: a failed post is retried after 1 s, then twice as long each time up to 5 minutes, and given up after 10 tries. The receiver must treat a repeated `requestId` as the same request. Only the leader delivers, and queued deliveries are lost on a restart (they live in the notification store, in memory in Community). A delivery that is given up raises a `delivery.failed` notification for administrators. Notifications must be enabled (`yukta.notifications.enabled`, the default).
   </Step>
 
   <Step title="Answer with the token">

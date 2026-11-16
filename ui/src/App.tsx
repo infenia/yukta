@@ -9,6 +9,9 @@ import ApiKeyPrompt from '@/components/common/ApiKeyPrompt';
 import AppFooter from '@/components/layout/AppFooter';
 import { loadMe } from '@/features/auth/me';
 import { usePageTransition } from '@/lib/usePageTransition';
+import { NotificationsProvider } from '@/features/inbox/NotificationsProvider';
+import { DesktopNotifier } from '@/features/inbox/DesktopNotifier';
+import { Toaster } from '@/features/inbox/Toaster';
 
 export default function App() {
   const mainRef = useRef<HTMLElement>(null);
@@ -23,19 +26,23 @@ export default function App() {
   const showFooter = !/^\/sessions\/[^/]+\/workflow\/[^/]+\/?$/.test(pathname);
 
   return (
-    <div className="bg-background text-on-surface flex min-h-screen flex-col pb-16 sm:pb-0 sm:pl-16">
-      <AppHeader />
-      <Sidebar />
-      <ApiKeyPrompt />
-      <main
-        ref={mainRef}
-        className="mt-header relative isolate flex w-full flex-1 flex-col"
-      >
-        <Outlet />
-      </main>
-      {showFooter && <AppFooter />}
-      <MobileNav />
-      <CommandPalette />
-    </div>
+    <NotificationsProvider>
+      <div className="bg-background text-on-surface flex min-h-screen flex-col pb-16 sm:pb-0 sm:pl-16">
+        <AppHeader />
+        <Sidebar />
+        <ApiKeyPrompt />
+        <main
+          ref={mainRef}
+          className="mt-header relative isolate flex w-full flex-1 flex-col"
+        >
+          <Outlet />
+        </main>
+        {showFooter && <AppFooter />}
+        <MobileNav />
+        <CommandPalette />
+        <Toaster />
+        <DesktopNotifier />
+      </div>
+    </NotificationsProvider>
   );
 }

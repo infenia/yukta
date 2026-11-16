@@ -1,0 +1,108 @@
+---
+title: "Configure notifications"
+sidebarTitle: "Configure notifications"
+description: "Choose what raises a notification, who gets it and which outbound channels carry it: retention, rules, a webhook channel, per-person preferences, and what to watch in production."
+keywords: ["notifications", "rules", "webhook", "channel", "retention", "preferences", "action-grace", "inbox"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to set retention, add a rule, connect a webhook channel and watch the meters"
+  time="15 minutes"
+  need="a running server and access to its configuration"
+  end="alerts for the runs you care about reaching a webhook, and the meters to alert on"
+/>
+
+Notifications work without any setting. This page covers the settings you change when you want alerts for more than questions, a webhook, or a different retention. See [How notifications work](/concepts/notifications) for the model.
+
+## Settings
+
+| Setting | Default | Effect |
+|---|---|---|
+| `yukta.notifications.enabled` | `true` | `false` turns off the producer, the inbox and every delivery (questions are still answerable through the input endpoints). |
+| `yukta.notifications.retention` | `7d` | How long a finished notification is kept; an open question is never purged. |
+| `yukta.notifications.max-items` | `5000` | Most notifications kept. |
+| `yukta.notifications.action-grace` | `2s` | A question is shown to people only if it is still open after this time. |
+| `yukta.notifications.rules.<name>.*` | none | Extra rules, below. |
+| `yukta.notifications.channels.<type>.<name>.*` | none | Outbound channels, below. |
+
+A bad value or rule stops the server at start-up and names the setting.
+
+## Rules
+
+A rule says which events raise a notification, for whom and through which channels:
+
+```yaml
+yukta:
+  notifications:
+    rules:
+      nightly-failed:
+        category: run.failed
+        sessions: ["nightly-*"]
+        audience: ["role:ADMIN", "key:oncall"]
+        severity: ERROR
+        channels: ["webhook:chat"]
+        cooldown: 10m
+```
+
+`category` is one of `input`, `run.failed`, `run.finished`, `run.held`, `delivery.failed` or `workflow`. `sessions` and `workflows` are globs (empty means all). `audience` empty keeps the category's default. `channels` names `<type>:<name>` entries of `yukta.notifications.channels`. A repeat of the same event inside `cooldown` raises the item's count instead of a new item. A resolved item never reactivates.
+
+## A webhook channel
+
+```yaml
+yukta:
+  notifications:
+    channels:
+      webhook:
+        chat:
+          url: https://hooks.example.com/yukta
+          headers:
+            Authorization: "Bearer ${CHAT_TOKEN}"
+          timeout: 5s
+          signing-secret: ${CHAT_SIGNING_SECRET}
+```
+
+The body is JSON with a `notification` object. With a `signing-secret` the header `X-Yukta-Signature: sha256=<hmac of the body>` lets the receiver check the sender. The URL must pass `yukta.egress.*` and redirects are not followed.
+
+Delivery is **at least once**: a failed post is retried after 1 s, then with doubling delay up to 5 minutes, and given up after 10 tries. Make the receiver idempotent by notification id. A delivery that is given up raises a `delivery.failed` notification for administrators. Only the leader delivers, and queued deliveries live in the notification store (lost on a restart in Community). A question that reaches a route tier naming `external:webhook:<name>` also carries a one-time answer token; a rule's channel never does.
+
+## Who raises what
+
+- Input requests always raise a question. With no rule for a category, `run.failed` alerts operators and `delivery.failed` alerts administrators; `run.finished` and `run.held` raise nothing until a rule names them. With rules for a category, only a matching rule raises (the first by name wins).
+- A workflow raises its own with `NOTIFY_TERMINAL` and `target: inbox` (at most 20 a minute and 200 per run), or a plugin through `NotificationGateway`. See example `20-inbox-notification`.
+
+## People's preferences
+
+Each person sets, in the Inbox page, a level per category and muted sessions (`GET`/`PUT /api/notifications/preferences`). A category without a saved level keeps the server default. The desktop level also needs the browser permission, granted from the switch in the preferences sheet.
+
+For the desktop without a browser, run `yukta notify` at login: [Notifications from the terminal](/guides/operate/notifications-from-the-terminal).
+
+## What to watch
+
+| Meter | Alert when |
+|---|---|
+| `yukta.notifications.tap.dropped` | greater than zero: the producer's queue (10 000 events) was full and an event was lost; a question may not have been announced. The error is logged once per 1 000 drops. |
+| `yukta.notifications.delivery{outcome="failed"}` | greater than zero: a channel gave up. |
+| `yukta.notifications.active{kind="ACTION"}` | stays high: questions are waiting for someone. |
+
+The event stream (`/api/notifications/stream`) allows 8 streams per key and replays at most 500 missed changes after a reconnect; beyond that, or after a restart, it sends `reset` and the client reads the list again. If clients reset constantly, look for restarts or for a stream behind a proxy that closes idle connections.
+
+## Size the server for many stream clients
+
+Every open stream receives every change it may see, so CPU grows with streams times changes. `perf/run.sh notifications` measures it with 1,000 open questions and stream clients that record how long each change took to reach them. Two scenarios:
+
+- **Steady** (the default): 5 answers a second for 2 minutes, 10 people reading their inbox every 5 s.
+- **Burst**: 500 answers in 10 s, 50 readers every second.
+
+Steady results, with the jar in a container:
+
+| Server | Streams | Answer p95 | Inbox read p95 | Stream lag p95 | Dropped events |
+|---|---|---|---|---|---|
+| 2 vCPU | 10 | 14 ms | 38 ms | 6 ms | 0 |
+| 2 vCPU | 100 | 42 ms | 62 ms | 57 ms | 0 |
+| 4 vCPU | 200 | 44 ms | 36 ms | 57 ms | 0 |
+
+The stream lag is the time from a change to its arrival at the client. Creating all 1,000 questions at once, before the test starts, takes 3 to 4 s to reach 100 to 200 streams (p95); that is not part of the figures above.
+
+The burst is heavier and does not pass on 2 vCPU with 100 streams: the container uses both CPUs and answer p95 is 4 s, stream lag p95 is 2.7 s, with no dropped events. If you expect bursts of hundreds of answers a second with many streams open, give the server more CPU, or have fewer clients follow the stream (a script that only needs the questions can poll `yukta notifications list`). A dropped event shows in `yukta.notifications.tap.dropped`; the next list read or reconnect repairs the inbox.

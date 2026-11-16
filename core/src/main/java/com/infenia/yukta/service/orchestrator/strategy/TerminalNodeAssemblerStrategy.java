@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.util.VariableResolver;
+import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.assembly.NodeAssembler;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.NodeStreams;
@@ -178,8 +179,15 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
               node.config());
       // A long-running terminal tells the engine it is alive (see WorkflowContext.HEARTBEAT_KEY).
       final Runnable heartbeat = activity::touch;
+      // The run and node are written like for a processor, so a terminal that takes a gateway
+      // (NOTIFY_TERMINAL raising an inbox notification) acts as this node and no other.
       completion =
-          completion.contextWrite(ctx -> ctx.put(WorkflowContext.HEARTBEAT_KEY, heartbeat));
+          completion.contextWrite(ctx ->
+              ctx.put(WorkflowContext.HEARTBEAT_KEY, heartbeat)
+                  .put(ExecutionContextBuilder.CTX_SESSION_ID, context.sessionId())
+                  .put(ExecutionContextBuilder.CTX_WORKFLOW_ID, context.workflowId())
+                  .put(ExecutionContextBuilder.CTX_EXECUTION_ID, context.executionId())
+                  .put(ExecutionContextBuilder.CTX_NODE_ID, node.nodeId()));
       // The input guard above ends with the input; the idle timeout and the deadline must also
       // cover what the terminal does after its last element (a flush, a call that never returns).
       completion =

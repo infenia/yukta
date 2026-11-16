@@ -18,7 +18,7 @@ class R2dbcInputRequestStoreContractTest extends InputRequestStoreContract {
   @Override
   protected InputRequestStore create() {
     final DatabaseClient db = PostgresTestSupport.prepared();
-    for (final String table : new String[] {"input_delivery", "input_response", "input_request"}) {
+    for (final String table : new String[] {"input_response", "input_request"}) {
       db.sql("DELETE FROM " + table).fetch().rowsUpdated().block();
     }
     return new R2dbcInputRequestStore(db, JsonMapper.builder().build());

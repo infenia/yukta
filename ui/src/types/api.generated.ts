@@ -276,7 +276,7 @@ export interface paths {
          * List AI backends
          * @description Lists the model and agent backends a plugin's backend option can select, each with the options it reads (name, type, default, description).
          */
-        get: operations["list_5"];
+        get: operations["list_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -296,7 +296,7 @@ export interface paths {
          * List control commands
          * @description Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them
          */
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -356,7 +356,7 @@ export interface paths {
          * Stream execution events
          * @description Live node and workflow status changes, control command outcomes, log lines and input request changes of all executions, each with a severity (INFO, WARN, ERROR). type takes a comma-separated list of kinds; an unknown kind is a 400 that lists the valid ones.
          */
-        get: operations["stream_1"];
+        get: operations["stream_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1068,9 +1068,130 @@ export interface paths {
             cookie?: never;
         };
         /** Stream metric samples */
+        get: operations["stream_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my notifications
+         * @description The notifications the caller may see, newest change first, without those the caller dismissed. Each has read and dismissed and, for an action, the input request, so it can be answered without a second call. severity is a minimum. The total is in X-Total-Count. 503 on a standby server.
+         */
+        get: operations["list_4"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read my notification preferences */
+        get: operations["preferences"];
+        /**
+         * Set my notification preferences
+         * @description Per category OFF, INBOX or DESKTOP, and muted sessions. The category input cannot be OFF, and a category must be a known one (400).
+         */
+        put: operations["savePreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark notifications read
+         * @description Marks the listed ids, or with all=true everything the caller sees (up to upToSeq when given), as read for the caller. An id the caller cannot see is ignored. Returns how many were marked.
+         */
+        post: operations["read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream my notifications
+         * @description created, updated, resolved and receipt events for the caller (the type is in the data; the events have no SSE name, so a browser EventSource delivers them to onmessage), with ids <epoch>-<seq>. A reconnect with Last-Event-ID replays the changes after it (at most 500); a position of another epoch (the server restarted) or too far back gets one reset event, and the client loads the list again. At most 8 streams per key; 503 on a standby server.
+         */
         get: operations["stream"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Summarize my notifications
+         * @description Active actions for the caller, unread info notifications and the highest severity of those. 503 on a standby server.
+         */
+        get: operations["summary_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss a notification
+         * @description Hides an info notification or a resolved action for the caller. An action that is still open cannot be dismissed (409); it goes when its request ends. 404 for an id the caller cannot see.
+         */
+        post: operations["dismiss"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2974,6 +3095,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListNotificationView: {
+            /** @description The response data */
+            data?: components["schemas"]["NotificationView"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListReplayDecision: {
             /** @description The response data */
             data?: components["schemas"]["ReplayDecision"][];
@@ -3744,6 +3898,72 @@ export interface components {
         ApiResponseNodeOutputSlice: {
             /** @description The response data */
             data?: components["schemas"]["NodeOutputSlice"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseNotificationPreferencesRequest: {
+            /** @description The response data */
+            data?: components["schemas"]["NotificationPreferencesRequest"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseNotificationSummary: {
+            /** @description The response data */
+            data?: components["schemas"]["NotificationSummary"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -5368,6 +5588,60 @@ export interface components {
             note?: string;
             version?: string;
         };
+        /** @description Notification preferences of the caller */
+        NotificationPreferencesRequest: {
+            levels?: {
+                [key: string]: "OFF" | "INBOX" | "DESKTOP";
+            };
+            mutedSessions?: string[];
+        };
+        /** @description Mark notifications read: by ids, or all up to a sequence */
+        NotificationReadRequest: {
+            all?: boolean;
+            ids?: string[];
+            /** Format: int64 */
+            upToSeq?: number;
+        };
+        /** @description What the notification bell shows */
+        NotificationSummary: {
+            /** Format: int64 */
+            actions?: number;
+            /** @enum {string} */
+            highestSeverity?: "INFO" | "WARN" | "ERROR";
+            /** Format: int64 */
+            unread?: number;
+        };
+        /** @description A notification as one person sees it */
+        NotificationView: {
+            body?: string;
+            category?: string;
+            /** Format: int32 */
+            count?: number;
+            /** Format: date-time */
+            createdAt?: string;
+            dismissed?: boolean;
+            executionId?: string;
+            id?: string;
+            input?: components["schemas"]["InputRequestView"];
+            inputRequestId?: string;
+            key?: string;
+            /** @enum {string} */
+            kind?: "INFO" | "ACTION";
+            nodeId?: string;
+            read?: boolean;
+            resolution?: string;
+            /** Format: int64 */
+            seq?: number;
+            sessionId?: string;
+            /** @enum {string} */
+            severity?: "INFO" | "WARN" | "ERROR";
+            /** @enum {string} */
+            state?: "ACTIVE" | "RESOLVED";
+            title?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+            workflowId?: string;
+        };
         Ownership: {
             defaultSupervisor?: boolean;
             nodes?: {
@@ -5525,6 +5799,7 @@ export interface components {
         ServerSentEventEnvelope: unknown;
         ServerSentEventLogEntryResponse: unknown;
         ServerSentEventMetricSample: unknown;
+        ServerSentEventNotificationEvent: unknown;
         ServerSentEventResultEvent: unknown;
         ServerSentEventSignalEnvelope: unknown;
         ServerSentEventString: unknown;
@@ -6586,7 +6861,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -6606,7 +6881,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: {
                 limit?: number;
@@ -6681,7 +6956,7 @@ export interface operations {
             };
         };
     };
-    stream_1: {
+    stream_2: {
         parameters: {
             query?: {
                 /** @description Only events of this execution */
@@ -7619,7 +7894,7 @@ export interface operations {
             };
         };
     };
-    stream: {
+    stream_1: {
         parameters: {
             query?: never;
             header?: {
@@ -7637,6 +7912,174 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": components["schemas"]["ServerSentEventMetricSample"][];
+                };
+            };
+        };
+    };
+    list_4: {
+        parameters: {
+            query?: {
+                /** @description ACTIVE or RESOLVED */
+                state?: "ACTIVE" | "RESOLVED";
+                /** @description INFO or ACTION */
+                kind?: "INFO" | "ACTION";
+                /** @description This severity or above: INFO, WARN or ERROR */
+                severity?: "INFO" | "WARN" | "ERROR";
+                /** @description Only notifications the caller has not read */
+                unread?: boolean;
+                /** @description Only this session */
+                sessionId?: string;
+                /** @description Page, from 0 */
+                page?: number;
+                /** @description Page size (default 50, at most 200) */
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListNotificationView"];
+                };
+            };
+        };
+    };
+    preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseNotificationPreferencesRequest"];
+                };
+            };
+        };
+    };
+    savePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferencesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseNotificationPreferencesRequest"];
+                };
+            };
+        };
+    };
+    read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationReadRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMapStringInteger"];
+                };
+            };
+        };
+    };
+    stream: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Last-Event-ID"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["ServerSentEventNotificationEvent"][];
+                };
+            };
+        };
+    };
+    summary_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseNotificationSummary"];
+                };
+            };
+        };
+    };
+    dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Notification id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
                 };
             };
         };

@@ -840,6 +840,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListNotificationView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/NotificationView"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListReplayDecision" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -1890,6 +1936,92 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/NodeOutputSlice",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseNotificationPreferencesRequest" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NotificationPreferencesRequest",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseNotificationSummary" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/NotificationSummary",
             "description" : "The response data"
           },
           "error" : {
@@ -4857,6 +4989,139 @@
         },
         "type" : "object"
       },
+      "NotificationPreferencesRequest" : {
+        "description" : "Notification preferences of the caller",
+        "properties" : {
+          "levels" : {
+            "additionalProperties" : {
+              "enum" : [ "OFF", "INBOX", "DESKTOP" ],
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "mutedSessions" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array",
+            "uniqueItems" : true
+          }
+        },
+        "type" : "object"
+      },
+      "NotificationReadRequest" : {
+        "description" : "Mark notifications read: by ids, or all up to a sequence",
+        "properties" : {
+          "all" : {
+            "type" : "boolean"
+          },
+          "ids" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "upToSeq" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "NotificationSummary" : {
+        "description" : "What the notification bell shows",
+        "properties" : {
+          "actions" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "highestSeverity" : {
+            "enum" : [ "INFO", "WARN", "ERROR" ],
+            "type" : "string"
+          },
+          "unread" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "NotificationView" : {
+        "description" : "A notification as one person sees it",
+        "properties" : {
+          "body" : {
+            "type" : "string"
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "count" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "dismissed" : {
+            "type" : "boolean"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "input" : {
+            "$ref" : "#/components/schemas/InputRequestView"
+          },
+          "inputRequestId" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "enum" : [ "INFO", "ACTION" ],
+            "type" : "string"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "read" : {
+            "type" : "boolean"
+          },
+          "resolution" : {
+            "type" : "string"
+          },
+          "seq" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "enum" : [ "INFO", "WARN", "ERROR" ],
+            "type" : "string"
+          },
+          "state" : {
+            "enum" : [ "ACTIVE", "RESOLVED" ],
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Ownership" : {
         "properties" : {
           "defaultSupervisor" : {
@@ -5263,6 +5528,7 @@
       "ServerSentEventEnvelope" : { },
       "ServerSentEventLogEntryResponse" : { },
       "ServerSentEventMetricSample" : { },
+      "ServerSentEventNotificationEvent" : { },
       "ServerSentEventResultEvent" : { },
       "ServerSentEventSignalEnvelope" : { },
       "ServerSentEventString" : { },
@@ -7340,7 +7606,7 @@
     "/api/ai/backends" : {
       "get" : {
         "description" : "Lists the model and agent backends a plugin's backend option can select, each with the options it reads (name, type, default, description).",
-        "operationId" : "list_5",
+        "operationId" : "list_6",
         "responses" : {
           "200" : {
             "content" : {
@@ -7360,7 +7626,7 @@
     "/api/control/audit" : {
       "get" : {
         "description" : "Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them",
-        "operationId" : "list_4",
+        "operationId" : "list_5",
         "parameters" : [ {
           "in" : "query",
           "name" : "limit",
@@ -7486,7 +7752,7 @@
     "/api/events/stream" : {
       "get" : {
         "description" : "Live node and workflow status changes, control command outcomes, log lines and input request changes of all executions, each with a severity (INFO, WARN, ERROR). type takes a comma-separated list of kinds; an unknown kind is a 400 that lists the valid ones.",
-        "operationId" : "stream_1",
+        "operationId" : "stream_2",
         "parameters" : [ {
           "description" : "Only events of this execution",
           "in" : "query",
@@ -8939,7 +9205,7 @@
     },
     "/api/metrics/stream" : {
       "get" : {
-        "operationId" : "stream",
+        "operationId" : "stream_1",
         "parameters" : [ {
           "in" : "header",
           "name" : "Last-Event-ID",
@@ -8965,6 +9231,247 @@
         },
         "summary" : "Stream metric samples",
         "tags" : [ "Metrics API" ]
+      }
+    },
+    "/api/notifications" : {
+      "get" : {
+        "description" : "The notifications the caller may see, newest change first, without those the caller dismissed. Each has read and dismissed and, for an action, the input request, so it can be answered without a second call. severity is a minimum. The total is in X-Total-Count. 503 on a standby server.",
+        "operationId" : "list_4",
+        "parameters" : [ {
+          "description" : "ACTIVE or RESOLVED",
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "ACTIVE", "RESOLVED" ],
+            "type" : "string"
+          }
+        }, {
+          "description" : "INFO or ACTION",
+          "in" : "query",
+          "name" : "kind",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "INFO", "ACTION" ],
+            "type" : "string"
+          }
+        }, {
+          "description" : "This severity or above: INFO, WARN or ERROR",
+          "in" : "query",
+          "name" : "severity",
+          "required" : false,
+          "schema" : {
+            "enum" : [ "INFO", "WARN", "ERROR" ],
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only notifications the caller has not read",
+          "in" : "query",
+          "name" : "unread",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Only this session",
+          "in" : "query",
+          "name" : "sessionId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Page, from 0",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Page size (default 50, at most 200)",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListNotificationView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List my notifications",
+        "tags" : [ "Notifications API" ]
+      }
+    },
+    "/api/notifications/preferences" : {
+      "get" : {
+        "operationId" : "preferences",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationPreferencesRequest"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Read my notification preferences",
+        "tags" : [ "Notifications API" ]
+      },
+      "put" : {
+        "description" : "Per category OFF, INBOX or DESKTOP, and muted sessions. The category input cannot be OFF, and a category must be a known one (400).",
+        "operationId" : "savePreferences",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NotificationPreferencesRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationPreferencesRequest"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Set my notification preferences",
+        "tags" : [ "Notifications API" ]
+      }
+    },
+    "/api/notifications/read" : {
+      "post" : {
+        "description" : "Marks the listed ids, or with all=true everything the caller sees (up to upToSeq when given), as read for the caller. An id the caller cannot see is ignored. Returns how many were marked.",
+        "operationId" : "read",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NotificationReadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMapStringInteger"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Mark notifications read",
+        "tags" : [ "Notifications API" ]
+      }
+    },
+    "/api/notifications/stream" : {
+      "get" : {
+        "description" : "created, updated, resolved and receipt events for the caller (the type is in the data; the events have no SSE name, so a browser EventSource delivers them to onmessage), with ids <epoch>-<seq>. A reconnect with Last-Event-ID replays the changes after it (at most 500); a position of another epoch (the server restarted) or too far back gets one reset event, and the client loads the list again. At most 8 streams per key; 503 on a standby server.",
+        "operationId" : "stream",
+        "parameters" : [ {
+          "in" : "header",
+          "name" : "Last-Event-ID",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/event-stream" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ServerSentEventNotificationEvent"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Stream my notifications",
+        "tags" : [ "Notifications API" ]
+      }
+    },
+    "/api/notifications/summary" : {
+      "get" : {
+        "description" : "Active actions for the caller, unread info notifications and the highest severity of those. 503 on a standby server.",
+        "operationId" : "summary_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseNotificationSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Summarize my notifications",
+        "tags" : [ "Notifications API" ]
+      }
+    },
+    "/api/notifications/{id}/dismiss" : {
+      "post" : {
+        "description" : "Hides an info notification or a resolved action for the caller. An action that is still open cannot be dismissed (409); it goes when its request ends. 404 for an id the caller cannot see.",
+        "operationId" : "dismiss",
+        "parameters" : [ {
+          "description" : "Notification id",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Dismiss a notification",
+        "tags" : [ "Notifications API" ]
       }
     },
     "/api/plugins" : {
@@ -11940,6 +12447,9 @@
   }, {
     "description" : "Follow the result of an execution",
     "name" : "Execution Results API"
+  }, {
+    "description" : "The caller's inbox of alerts and questions",
+    "name" : "Notifications API"
   }, {
     "description" : "Supervisors, what they own and their decisions",
     "name" : "Supervisors API"

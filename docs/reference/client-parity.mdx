@@ -75,6 +75,10 @@ Roles apply to every client: a key without the needed role gets `403` from REST,
 | Read one request | `GET /api/executions/{id}/inputs/{request}` | – | `inputs show` | Inputs panel |
 | Answer | `POST /api/executions/{id}/inputs/{request}/answer` | `answer_input` | `inputs answer` | Inputs panel |
 | Escalate | `POST /api/executions/{id}/inputs/{request}/escalate` | `escalate_input` | `inputs escalate` | Inputs panel |
+| List notifications | `GET /api/notifications`, `GET /api/notifications/summary` | `list_notifications` | `notifications list` | Bell, popover and Inbox |
+| Mark read, dismiss | `POST /api/notifications/read`, `POST /api/notifications/{id}/dismiss` | `mark_notifications_read` | `notifications read`, `notifications dismiss` | Inbox |
+| Follow the inbox | `GET /api/notifications/stream` | – | `notify` | Bell and toasts |
+| Preferences | `GET`, `PUT /api/notifications/preferences` | – | – | Inbox preferences |
 | Answer by token | `POST /api/inputs/token-answer` | – | – | – |
 | Watch input events | `GET /api/events/stream` | – | `controlbus watch --type InputRequested,...` | Control activity |
 

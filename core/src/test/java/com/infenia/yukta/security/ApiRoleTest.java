@@ -45,4 +45,14 @@ class ApiRoleTest {
       assertThat(ApiRole.ADMIN.allows(HttpMethod.DELETE, path)).isTrue();
     }
   }
+
+  @Test
+  void everyRoleChangesItsOwnInboxButNotOtherPaths() {
+    for (final ApiRole role : ApiRole.values()) {
+      assertThat(role.allows(HttpMethod.POST, "/api/notifications/read")).isTrue();
+      assertThat(role.allows(HttpMethod.PUT, "/api/notifications/preferences")).isTrue();
+    }
+    assertThat(ApiRole.VIEWER.allows(HttpMethod.POST, "/api/notifications/../sessions")).isFalse();
+    assertThat(ApiRole.VIEWER.allows(HttpMethod.POST, "/api/notificationsx")).isFalse();
+  }
 }

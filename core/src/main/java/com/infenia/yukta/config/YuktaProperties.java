@@ -4,6 +4,7 @@ package com.infenia.yukta.config;
 
 import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.input.RouteSettings;
+import com.infenia.yukta.model.notify.NotificationRuleSettings;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -28,6 +29,7 @@ import org.springframework.validation.annotation.Validated;
  * @param streaming the status history of live streams
  * @param supervisor supervisor hosting
  * @param input input requests: limits, deadlines and the in-memory store
+ * @param notifications the inbox: retention, rules and outbound channels
  * @param stop draining stop
  * @param start start idempotency
  * @param results results kept for retrieval
@@ -45,6 +47,7 @@ public record YuktaProperties(
     @Valid @DefaultValue Streaming streaming,
     @Valid @DefaultValue Supervisor supervisor,
     @Valid @DefaultValue Input input,
+    @Valid @DefaultValue Notifications notifications,
     @Valid @DefaultValue Stop stop,
     @Valid @DefaultValue Start start,
     @Valid @DefaultValue Results results,
@@ -252,6 +255,41 @@ public record YuktaProperties(
       if (value.isZero() || value.isNegative()) {
         throw new IllegalArgumentException(name + " must be positive");
       }
+    }
+  }
+
+  /**
+   * Notifications: the inbox, what raises one and where else it goes.
+   *
+   * @param enabled whether notifications are raised at all
+   * @param retention how long a resolved action and an info notification are kept
+   * @param maxItems most notifications the in-memory store keeps, resolved and info ones evicted
+   *     first
+   * @param actionGrace how long a question that a supervisor may also answer waits before a person
+   *     is told
+   * @param rules the named rules; each may override audience and severity and add channels
+   * @param channels the outbound channels: type, then name, then that channel's settings
+   */
+  public record Notifications(
+      @DefaultValue("true") boolean enabled,
+      @NotNull @DefaultValue("7d") Duration retention,
+      @Min(1) @DefaultValue("5000") int maxItems,
+      @NotNull @DefaultValue("2s") Duration actionGrace,
+      @NotNull @DefaultValue Map<String, NotificationRuleSettings> rules,
+      @NotNull @DefaultValue Map<String, Map<String, Map<String, Object>>> channels) {
+
+    /** Checks the durations and every rule: a bad rule stops the application, naming the rule. */
+    public Notifications {
+      if (retention.isZero() || retention.isNegative()) {
+        throw new IllegalArgumentException("yukta.notifications.retention must be positive");
+      }
+      if (actionGrace.isNegative()) {
+        throw new IllegalArgumentException("yukta.notifications.action-grace must not be negative");
+      }
+      final Map<String, Map<String, Map<String, Object>>> configured = Map.copyOf(channels);
+      rules = Map.copyOf(rules);
+      channels = configured;
+      rules.forEach((name, rule) -> rule.check(name, configured));
     }
   }
 

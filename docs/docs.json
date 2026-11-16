@@ -132,7 +132,9 @@
               "guides/operate/tune-capacity-and-limits",
               "guides/operate/troubleshoot",
               "guides/operate/use-the-web-ui",
-              "guides/operate/use-the-cli"
+              "guides/operate/use-the-cli",
+              "guides/operate/notifications",
+              "guides/operate/notifications-from-the-terminal"
             ]
           },
           {
@@ -140,6 +142,7 @@
             "public": true,
             "pages": [
               "guides/extend/write-a-plugin",
+              "guides/extend/write-a-notification-channel",
               "guides/extend/write-a-community-plugin"
             ]
           }
@@ -155,6 +158,7 @@
               "concepts/how-it-works",
               "concepts/ai-and-deterministic-work",
               "concepts/supervisors",
+              "concepts/notifications",
               "concepts/who-decides",
               "concepts/ai-assisted-configuration"
             ]
@@ -281,8 +285,10 @@
             "public": true,
             "pages": [
               "reference/releases",
+              "reference/whats-new-alpha-5",
               "reference/whats-new-alpha-4",
-              "reference/migration-alpha-4"
+              "reference/migration-alpha-4",
+              "reference/migration-alpha-5"
             ]
           }
         ]

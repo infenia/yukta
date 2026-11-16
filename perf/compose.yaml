@@ -17,6 +17,8 @@ services:
       YUKTA_API_KEYS_0_NAME: admin
       YUKTA_API_KEYS_0_KEY: ${API_KEY:?set by run.sh}
       YUKTA_API_KEYS_0_ROLE: ADMIN
+    env_file:
+      - ${KEYS_ENV:-/dev/null}   # more keys for the notifications test (run.sh writes it)
     volumes:
       - ${JAR:?set by run.sh}:/app/yukta.jar:ro   # the jar, or the native binary (BINARY=)
     ports:

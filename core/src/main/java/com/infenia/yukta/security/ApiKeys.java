@@ -32,6 +32,9 @@ import org.springframework.http.HttpHeaders;
 @Slf4j
 public final class ApiKeys {
 
+  /** The name of the shared inbox, which no key may take. */
+  private static final String LOCAL_INBOX = "local";
+
   /** The Authorization scheme prefix. */
   private static final String BEARER = "Bearer ";
 
@@ -138,6 +141,10 @@ public final class ApiKeys {
             .orElseGet(List::of);
     final List<Key> all = new ArrayList<>();
     for (final KeyEntry entry : entries) {
+      if (LOCAL_INBOX.equals(entry.name())) {
+        throw new IllegalStateException(
+            "An API key cannot be named 'local': it is the name of the shared inbox");
+      }
       add(
           all,
           Objects.requireNonNullElse(entry.name(), "unnamed"),

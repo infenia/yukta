@@ -8,6 +8,7 @@ import com.infenia.yukta.plus.testkit.ExecutionLogStoreContract;
 import com.infenia.yukta.plus.testkit.InputRequestStoreContract;
 import com.infenia.yukta.plus.testkit.LeaderElectionContract;
 import com.infenia.yukta.plus.testkit.NodeCheckpointStoreContract;
+import com.infenia.yukta.plus.testkit.NotificationStoreContract;
 import com.infenia.yukta.plus.testkit.SessionConfigStoreContract;
 import com.infenia.yukta.plus.testkit.WorkflowDefinitionStoreContract;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
@@ -17,6 +18,8 @@ import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.log.JsonlExecutionLogStore;
+import com.infenia.yukta.service.notify.InMemoryNotificationStore;
+import com.infenia.yukta.service.notify.NotificationStore;
 import com.infenia.yukta.service.sessionstore.FileSessionConfigStore;
 import com.infenia.yukta.service.sessionstore.InMemorySessionConfigStore;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
@@ -84,6 +87,15 @@ class ContractsTest {
     @Override
     protected InputRequestStore create() {
       return new InMemoryInputRequestStore(100);
+    }
+  }
+
+  @Nested
+  @NoArgsConstructor
+  public class InMemoryNotifications extends NotificationStoreContract {
+    @Override
+    protected NotificationStore create() {
+      return new InMemoryNotificationStore(1000);
     }
   }
 

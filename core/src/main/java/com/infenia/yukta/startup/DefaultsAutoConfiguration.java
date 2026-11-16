@@ -17,6 +17,8 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.notify.InMemoryNotificationStore;
+import com.infenia.yukta.service.notify.NotificationStore;
 import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import com.infenia.yukta.service.runtime.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
@@ -107,6 +109,18 @@ public class DefaultsAutoConfiguration {
     log.atInfo().log(
         "Input requests are kept in memory: open requests are lost when the server restarts");
     return new InMemoryInputRequestStore(properties.input().memoryMax());
+  }
+
+  /**
+   * Notifications kept in memory: they are gone after a restart. A durable store replaces it.
+   *
+   * @param properties the {@code yukta.notifications} settings
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnMissingBean(NotificationStore.class)
+  public InMemoryNotificationStore inMemoryNotificationStore(final YuktaProperties properties) {
+    return new InMemoryNotificationStore(properties.notifications().maxItems());
   }
 
   /**
