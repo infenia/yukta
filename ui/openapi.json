@@ -1,6 +1,72 @@
 {
   "components" : {
     "schemas" : {
+      "AgentEndCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "conversationId" : {
+              "type" : "string"
+            },
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            },
+            "outcome" : {
+              "type" : [ "string", "null" ]
+            },
+            "reason" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "AgentInterruptCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "conversationId" : {
+              "type" : "string"
+            },
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "AgentMessageCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "conversationId" : {
+              "type" : "string"
+            },
+            "executionId" : {
+              "type" : "string"
+            },
+            "interrupt" : {
+              "type" : "boolean"
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            },
+            "text" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "Annotation" : {
         "properties" : {
           "actor" : {
@@ -167,6 +233,49 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/ConversationResponse",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseConversationSteerResponse" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ConversationSteerResponse",
             "description" : "The response data"
           },
           "error" : {
@@ -3761,6 +3870,12 @@
           },
           "command" : {
             "oneOf" : [ {
+              "$ref" : "#/components/schemas/AgentEndCommand"
+            }, {
+              "$ref" : "#/components/schemas/AgentInterruptCommand"
+            }, {
+              "$ref" : "#/components/schemas/AgentMessageCommand"
+            }, {
               "$ref" : "#/components/schemas/AnswerInputCommand"
             }, {
               "$ref" : "#/components/schemas/DisableStepModeCommand"
@@ -3814,6 +3929,23 @@
         },
         "type" : "object"
       },
+      "ConversationEndRequest" : {
+        "description" : "Ends a conversation",
+        "properties" : {
+          "outcome" : {
+            "description" : "success, failure or incomplete; default the last turn's status",
+            "pattern" : "success|failure|incomplete",
+            "type" : "string"
+          },
+          "reason" : {
+            "description" : "Why it ends",
+            "maxLength" : 8192,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ConversationEventResponse" : {
         "description" : "One thing that happened in a conversation",
         "properties" : {
@@ -3846,6 +3978,23 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "ConversationMessageRequest" : {
+        "description" : "A message to an agent",
+        "properties" : {
+          "interrupt" : {
+            "description" : "Stop the agent's current turn first, default false",
+            "type" : "boolean"
+          },
+          "text" : {
+            "description" : "The message",
+            "example" : "Also update the README",
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "text" ],
         "type" : "object"
       },
       "ConversationResponse" : {
@@ -3949,6 +4098,16 @@
           "workflowId" : {
             "description" : "The workflow of the run",
             "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ConversationSteerResponse" : {
+        "description" : "The answer to a message sent to an agent",
+        "properties" : {
+          "queued" : {
+            "description" : "Whether the message waits for the end of the turn",
+            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -8174,6 +8333,44 @@
         "tags" : [ "Agent Conversations API" ]
       }
     },
+    "/api/conversations/{id}/end" : {
+      "post" : {
+        "description" : "Closes the agent; the node goes on with the outcome given, else the last turn's status. Errors as for sending a message.",
+        "operationId" : "end",
+        "parameters" : [ {
+          "description" : "Conversation ID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConversationEndRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "Accepted"
+          }
+        },
+        "summary" : "End a conversation",
+        "tags" : [ "Agent Conversations API" ]
+      }
+    },
     "/api/conversations/{id}/events" : {
       "get" : {
         "description" : "A page of events in the order of their sequence numbers, after the event whose number is given in after (default: from the start). limit defaults to 100, at most 500. When more events follow, the X-Next-Cursor header holds the number to pass as after. Terminal output is kept in a ring of bytes, so an old chunk may be gone.",
@@ -8227,6 +8424,74 @@
           }
         },
         "summary" : "Read the events of an agent conversation",
+        "tags" : [ "Agent Conversations API" ]
+      }
+    },
+    "/api/conversations/{id}/interrupt" : {
+      "post" : {
+        "description" : "Stops the agent's current turn; the conversation stays open. Errors as for sending a message.",
+        "operationId" : "interrupt",
+        "parameters" : [ {
+          "description" : "Conversation ID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "Accepted"
+          }
+        },
+        "summary" : "Interrupt an agent",
+        "tags" : [ "Agent Conversations API" ]
+      }
+    },
+    "/api/conversations/{id}/messages" : {
+      "post" : {
+        "description" : "A control command: ordered, reviewed and audited. The message waits for the end of the agent's turn (queued) unless the agent takes it during the turn or interrupt is true. 403 when the caller may not steer this conversation (role OPERATOR and the steerAudience), 404 when it is unknown or not reachable, 409 not_live or unsupported (with the capability), 413 over max-message-bytes, 429 over messages-per-minute.",
+        "operationId" : "sendMessage",
+        "parameters" : [ {
+          "description" : "Conversation ID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConversationMessageRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseConversationSteerResponse"
+                }
+              }
+            },
+            "description" : "Accepted"
+          }
+        },
+        "summary" : "Send a message to an agent",
         "tags" : [ "Agent Conversations API" ]
       }
     },
