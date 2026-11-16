@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
-# `yk check` (src/plan.ts of the yukta-dogfood checkout that .dogfood-ref pins) and CI (ci-tasks.sh) each decide which Gradle modules a
+# `yk check` (src/plan.ts of the yukta-dogfood checkout that .dogfood-ref names: main) and CI (ci-tasks.sh) each decide which Gradle modules a
 # change affects. This test makes them agree: for the same changed file, in a copy of the real module graph,
 # both must name the same JVM modules (cli and ui are other ecosystems, which plan.ts plans separately), and
 # both must rebuild every module for a build-logic change (ci-tasks.sh does the same for a test-support change,

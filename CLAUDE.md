@@ -29,7 +29,7 @@ This is a multi-module Gradle monorepo. Launch Claude from the specific package 
 ## Global Commands
 
 Builds, tests and lint (Gradle, Go, pnpm/npx) run **through Yukta**, never `./gradlew` directly (the `yukta-dogfood` mod blocks it and names the command to
-use). `yk` is the one of the sibling [yukta-dogfood](https://github.com/infenia/yukta-dogfood) checkout: run `scripts/dogfood-setup.sh` once (it clones the ref pinned in `.dogfood-ref`; on PATH in Claude Code sessions after that); `yk gradle` and `yk tool` run every call as
+use). `yk` is the one of the sibling [yukta-dogfood](https://github.com/infenia/yukta-dogfood) checkout: run `scripts/dogfood-setup.sh` once (it clones the ref in `.dogfood-ref`, `main` (the latest dogfood), and moves an old checkout to it; on PATH in Claude Code sessions after that); `yk gradle` and `yk tool` run every call as
 the `tool` Yukta workflow on the **dev server: built from `origin/main`, on `http://127.0.0.1:9858`**, started
 on demand. See the `yukta` skill.
 
