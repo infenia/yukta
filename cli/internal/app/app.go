@@ -4,6 +4,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -15,6 +16,7 @@ import (
 	"com.infenia.yukta/go-cli/internal/commands/logs"
 	"com.infenia.yukta/go-cli/internal/commands/notifications"
 	"com.infenia.yukta/go-cli/internal/commands/plugin"
+	"com.infenia.yukta/go-cli/internal/commands/ptyhost"
 	"com.infenia.yukta/go-cli/internal/commands/result"
 	"com.infenia.yukta/go-cli/internal/commands/scheduler"
 	"com.infenia.yukta/go-cli/internal/commands/server"
@@ -54,6 +56,7 @@ func run() (int, error) {
 	// Add the controlbus command group with all its subcommands
 	rootCmd.AddCommand(controlbus.ControlBusCmd(c))
 	rootCmd.AddCommand(whoami.WhoamiCmd(c))
+	rootCmd.AddCommand(ptyhost.PtyHostCmd())
 	rootCmd.AddCommand(agents.AgentsCmd(c))
 	rootCmd.AddCommand(server.ServerCmd(c))
 	rootCmd.AddCommand(scheduler.SchedulerCmd(c))
@@ -79,5 +82,10 @@ func run() (int, error) {
 
 	// Execute the command and return any error
 	err := rootCmd.Execute()
+	var ran *ptyhost.ExitError
+	if errors.As(err, &ran) {
+		// the program the host ran ended with this code; standard output holds frames, not text
+		return ran.Code, nil
+	}
 	return commands.ExitCode(err, !rootCmd.SilenceUsage), err
 }

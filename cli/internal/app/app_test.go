@@ -6,6 +6,7 @@ package app
 import (
 	"io"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -117,5 +118,39 @@ func TestMain_printsErrorOnceAndReturnsCode(t *testing.T) {
 	os.Args = []string{"yukta-cli", "version"}
 	if code := Main(); code != 0 {
 		t.Errorf("exit code %d, want 0", code)
+	}
+}
+
+// TestRun_ptyHostExitsWithTheCodeOfTheProgramAndIsNotInTheHelp runs the hidden command through the
+// whole application.
+func TestRun_ptyHostExitsWithTheCodeOfTheProgramAndIsNotInTheHelp(t *testing.T) {
+	oldArgs, oldIn := os.Args, os.Stdin
+	inR, inW, _ := os.Pipe()
+	os.Stdin = inR
+	defer func() {
+		os.Args, os.Stdin = oldArgs, oldIn
+		inW.Close()
+		inR.Close()
+	}()
+
+	os.Args = []string{"yukta-cli", "pty-host", "--", "sh", "-c", "exit 4"}
+	code, err := run()
+	if code != 4 || err != nil {
+		t.Fatalf("code %d, err %v", code, err)
+	}
+
+	r, w, _ := os.Pipe()
+	oldOut := os.Stdout
+	os.Stdout = w
+	os.Args = []string{"yukta-cli", "--help"}
+	_, _ = run()
+	os.Stdout = oldOut
+	w.Close()
+	help, _ := io.ReadAll(r)
+	if strings.Contains(string(help), "pty-host") {
+		t.Fatalf("the help shows pty-host:\n%s", help)
+	}
+	if !strings.Contains(string(help), "workflow") {
+		t.Fatalf("no help was printed:\n%s", help)
 	}
 }
