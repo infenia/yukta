@@ -282,7 +282,8 @@ func TestACommandWithoutAnAgentOrWithAnUnknownNameIsExplained(t *testing.T) {
 	if got := a.handle("/bogus"); !strings.Contains(got, "unknown command") {
 		t.Errorf("%q", got)
 	}
-	if got := a.handle("/term"); !strings.Contains(got, "not available") {
+	_ = a.handle("/agent 1")
+	if got := a.handle("/term"); !strings.Contains(got, "needs a terminal") {
 		t.Errorf("%q", got)
 	}
 }

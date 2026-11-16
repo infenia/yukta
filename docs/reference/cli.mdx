@@ -212,7 +212,7 @@ All take `<session-id> <execution-id> <node-id>` except where noted.
 
 Reading needs a `VIEWER` key; sending, interrupting and ending need an `OPERATOR` key that the node's `steerAudience` names. What an agent writes is untrusted text and control sequences are not printed.
 
-`attach` ends when the run does and picks up after a dropped connection without losing or repeating a line. With a terminal on standard input and output it also reads: a line of text goes to the selected agent; `/agents` lists them with a number each, `/agent <number|node>` selects one, `/approve [request] [rationale]` and `/reject [request] [rationale]` answer the request the agent waits on, `/interrupt`, `/end`, `/quit`. Piped, or with `--json`, it only prints. The raw terminal view of a `pty` agent (`/term`) is not in the CLI yet; use the web UI.
+`attach` ends when the run does and picks up after a dropped connection without losing or repeating a line. With a terminal on standard input and output it also reads: a line of text goes to the selected agent; `/agents` lists them with a number each, `/agent <number|node>` selects one, `/approve [request] [rationale]` and `/reject [request] [rationale]` answer the request the agent waits on, `/interrupt`, `/end`, `/quit`. Piped, or with `--json`, it only prints. In a terminal the prompt is edited in place and agent output is drawn above it. `/term` gives the screen to the terminal of a `pty` agent selected with `/agent`: its output as it is written, your keys sent to the program, the window size followed; **Ctrl-]** goes back to the prompt (what arrives meanwhile is shown then). What you type there is not reviewed, as in the web UI.
 
 ## Supervisors
 

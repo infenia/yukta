@@ -34,7 +34,12 @@ type attacher struct {
 	interactive bool
 	filter      string
 
+	// term shows the raw terminal of an agent until the person leaves it; nil without a terminal
+	term func(client.Conversation) error
+
 	mu       sync.Mutex
+	hold     bool
+	held     []string
 	agents   []*agentView
 	byID     map[string]*agentView
 	selected string
@@ -76,7 +81,9 @@ What an agent writes is untrusted text; control characters are not printed.`,
 				filter:      agent,
 				byID:        map[string]*agentView{},
 			}
-			return a.run(cmd.Context(), args[0], cmd.InOrStdin())
+			lines, restore := a.lineSource(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout())
+			defer restore()
+			return a.run(cmd.Context(), args[0], lines)
 		},
 	}
 	cmd.Flags().StringVar(&agent, "agent", "", "Start with this agent selected (conversation id or node id)")
@@ -93,11 +100,11 @@ func isTerminal(v any) bool {
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
-func (a *attacher) run(ctx context.Context, executionID string, in io.Reader) error {
+func (a *attacher) run(ctx context.Context, executionID string, lines lineSource) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	if a.interactive {
-		go a.readInput(cancel, in)
+		go a.readInput(cancel, lines)
 	}
 	follow := &client.ConversationFollow{ExecutionID: executionID}
 	err := a.c.StreamConversations(ctx, follow, a.onConversation, a.onEvent)
@@ -161,7 +168,13 @@ func (a *attacher) onEvent(event client.ConversationEvent) error {
 
 func (a *attacher) print(agent *agentView, line string) {
 	c := agent.conversation
-	_, _ = fmt.Fprintf(a.out, "[%s %s] %s\n", clean(c.NodeID), clean(c.Harness), line)
+	text := fmt.Sprintf("[%s %s] %s\n", clean(c.NodeID), clean(c.Harness), line)
+	if a.hold {
+		// the raw terminal owns the screen: what comes meanwhile is shown after it
+		a.held = append(a.held, text)
+		return
+	}
+	_, _ = io.WriteString(a.out, text)
 }
 
 func (a *attacher) printJSON(kind string, v any) error {
@@ -175,10 +188,34 @@ func (a *attacher) printJSON(kind string, v any) error {
 
 // ---- what the person types
 
-func (a *attacher) readInput(quit context.CancelFunc, in io.Reader) {
-	scanner := bufio.NewScanner(in)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+// lineSource gives the lines the person types, one at a time: a terminal prompt or a plain reader.
+type lineSource interface {
+	ReadLine() (string, error)
+}
+
+type scannerLines struct{ scanner *bufio.Scanner }
+
+func newLines(in io.Reader) lineSource {
+	return &scannerLines{scanner: bufio.NewScanner(in)}
+}
+
+func (l *scannerLines) ReadLine() (string, error) {
+	if l.scanner.Scan() {
+		return l.scanner.Text(), nil
+	}
+	if err := l.scanner.Err(); err != nil {
+		return "", err
+	}
+	return "", io.EOF
+}
+
+func (a *attacher) readInput(quit context.CancelFunc, lines lineSource) {
+	for {
+		text, err := lines.ReadLine()
+		if err != nil {
+			return
+		}
+		line := strings.TrimSpace(text)
 		if line == "" {
 			continue
 		}
@@ -242,7 +279,7 @@ func (a *attacher) handle(line string) string {
 			return "end sent"
 		})
 	case "/term":
-		return "/term is not available in this version: use the web UI for a terminal agent"
+		return a.rawTerminal()
 	default:
 		return "unknown command " + clean(fields[0]) + "; try /agents, /agent, /approve, /reject, /interrupt, /end, /quit"
 	}
@@ -339,5 +376,33 @@ func (a *attacher) answer(args []string, decision string) string {
 			return "not answered: " + clean(err.Error())
 		}
 		return strings.TrimSuffix(decision, "e") + "ed request " + clean(request)
+	})
+}
+
+// rawTerminal hands the screen to the terminal of the selected agent until the person presses Ctrl-].
+func (a *attacher) rawTerminal() string {
+	return a.withSelected(func(c client.Conversation, _ *agentView) string {
+		switch {
+		case a.term == nil:
+			return "/term needs a terminal on standard input and output"
+		case !c.Can("terminal"):
+			return "this agent has no terminal"
+		}
+		a.mu.Lock()
+		a.hold = true
+		a.mu.Unlock()
+		err := a.term(c)
+		a.mu.Lock()
+		a.hold = false
+		held := a.held
+		a.held = nil
+		for _, text := range held {
+			_, _ = io.WriteString(a.out, text)
+		}
+		a.mu.Unlock()
+		if err != nil {
+			return "left the terminal: " + clean(err.Error())
+		}
+		return "back from the terminal"
 	})
 }
