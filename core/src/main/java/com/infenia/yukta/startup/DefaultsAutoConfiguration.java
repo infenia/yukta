@@ -48,7 +48,7 @@ import tools.jackson.databind.ObjectMapper;
  * property conditions are kept, so the file and PostgreSQL stores behave as before.
  */
 @Slf4j
-@SuppressWarnings("PMD.ExcessiveImports")
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyMethods"})
 @AutoConfiguration
 @EnableConfigurationProperties(YuktaProperties.class)
 @NoArgsConstructor
