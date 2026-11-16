@@ -108,6 +108,7 @@ Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execu
 | `yukta.session.store-type` | enum | `in-memory` | `in-memory`, `file` or `postgres` (not re-checked). |
 | `yukta.session.base-dir` (`YUKTA_SESSION_BASE_DIR`) | path | `<user.home>/.yukta` | Root of the file store. |
 | `yukta.input.store-type` | enum | `memory` | `postgres` keeps input requests; needs `yukta.session.store-type=postgres` (not re-checked). |
+| `yukta.agents.store-type` | enum | `memory` | `postgres` keeps the conversations with AI agents across a restart (Plus; the `postgres` profile sets it). A conversation a restart left open is ended as `failure`, reason "server restarted"; terminal output is not stored, only the last screen (not re-checked). |
 | `yukta.bootstrap.dir`, `.watch`, `.watch-interval` | path, boolean, duration | unset, `false`, `5s` | Session files applied at start-up and optionally watched (not re-checked). |
 | `yukta.cache.ttl` | duration | `10m` | How long an unused prepared workflow stays cached. |
 | `yukta.cache.max-size` | long | `1000` | Prepared workflows cached. |

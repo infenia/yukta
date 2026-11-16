@@ -71,7 +71,7 @@ class MigrationUpgradeTest extends PostgresTestSupport {
       assertThat(scalar(statement, "SELECT to_regclass('half_done')::text")).isNull();
       assertThat(scalar(statement, "SELECT count(*) FROM workflow_definition")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("3");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("4");
   }
 
   /**
@@ -126,6 +126,39 @@ class MigrationUpgradeTest extends PostgresTestSupport {
           .isEqualTo("t");
       assertThat(scalar(statement, "SELECT nextval('notification_seq')")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("3");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("4");
+  }
+
+  /** A database on the V3 schema takes V4 (agent conversations) and keeps its notifications. */
+  @Test
+  void agentConversationsMigrationAddsItsTablesAndKeepsTheNotifications() throws SQLException {
+    final String schema = "upgrade_v4_test";
+    try (Connection connection = jdbc();
+        Statement statement = connection.createStatement()) {
+      statement.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+    }
+    flywayFor(schema).target("3").load().migrate();
+    try (Connection connection = jdbc();
+        Statement statement = connection.createStatement()) {
+      statement.execute(SET_PATH + schema);
+      statement.execute(
+          "INSERT INTO notifications (id, notif_key, kind, severity, category, title, audience,"
+              + " state, count, seq, created_at, updated_at) VALUES ('n1', 'k', 'INFO', 'INFO',"
+              + " 'workflow', 'T', '[]', 'OPEN', 1, 1, now(), now())");
+    }
+
+    flywayFor(schema).load().migrate();
+
+    try (Connection connection = jdbc();
+        Statement statement = connection.createStatement()) {
+      statement.execute(SET_PATH + schema);
+      assertThat(scalar(statement, "SELECT count(*) FROM notifications")).isEqualTo("1");
+      for (final String table : new String[] {"agent_conversation", "agent_event", "agent_epoch"}) {
+        assertThat(regclass(connection, table)).isEqualTo(table);
+      }
+      assertThat(scalar(statement, "SELECT length(epoch) > 0 FROM agent_epoch")).isEqualTo("t");
+      assertThat(scalar(statement, "SELECT nextval('agent_seq')")).isEqualTo("1");
+    }
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("4");
   }
 }

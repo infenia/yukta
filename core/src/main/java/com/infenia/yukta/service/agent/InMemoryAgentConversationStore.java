@@ -35,10 +35,6 @@ import reactor.core.publisher.Mono;
 public final class InMemoryAgentConversationStore implements AgentConversationStore {
 
   /** The text of the notice that says events were dropped. */
-  /* default */ static final String DROPPED_NOTICE =
-      "The oldest events of this conversation were dropped to stay within"
-          + " yukta.agents.max-events-per-conversation; its history is incomplete.";
-
   /** Guards every field: every access runs under it. */
   private final ReentrantLock lock = new ReentrantLock();
 

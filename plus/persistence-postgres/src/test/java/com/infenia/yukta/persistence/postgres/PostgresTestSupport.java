@@ -105,6 +105,8 @@ abstract class PostgresTestSupport {
   void emptyTables() {
     for (final String table :
         new String[] {
+          "agent_event",
+          "agent_conversation",
           "notification_deliveries",
           "notification_receipts",
           "notification_preferences",

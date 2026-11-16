@@ -41,6 +41,9 @@ dependencies {
     testFixturesImplementation(libs.spring.boot.starter.webflux)
     testFixturesImplementation(libs.spring.boot.starter.actuator)
     testFixturesImplementation(libs.caffeine)
+    // The shared store contract of the agent conversations (AgentConversationStoreContract)
+    testFixturesApi(libs.spring.boot.starter.test)
+    testFixturesApi(libs.reactor.test)
 }
 
 
