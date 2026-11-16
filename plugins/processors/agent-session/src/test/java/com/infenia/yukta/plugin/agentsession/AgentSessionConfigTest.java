@@ -266,4 +266,101 @@ class AgentSessionConfigTest {
                         java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
         .hasMessageContaining("terminalSize.rows must be 1 to 1000");
   }
+
+  @Test
+  void validate_refusesProgramNotListAndTerminalSizeNotMap() {
+    assertThatThrownBy(
+            () -> terminals.validate(Map.of("harness", "terminal", "prompt", "p", "command", "sh")))
+        .hasMessageContaining("needs command");
+    assertThatThrownBy(() ->
+            terminals.validate(
+                Map.of(
+                    "harness", "terminal",
+                    "prompt", "p",
+                    "command", List.of("sh"),
+                    "terminalSize", "big")))
+        .hasMessageContaining("terminalSize must be {cols, rows}");
+    assertThatThrownBy(() ->
+            terminals.validate(
+                Map.of(
+                    "harness",
+                    "terminal",
+                    "prompt",
+                    "p",
+                    "command",
+                    List.of("sh"),
+                    "terminalSize",
+                    Map.of("cols", "wide"))))
+        .hasMessageContaining("terminalSize.cols must be 1 to 1000");
+  }
+
+  @Test
+  void promptIsInArgumentsOnlyWhenTheTerminalProgramSaysSo() {
+    final AgentPreset terminal = harnesses.get("terminal");
+    final AgentPreset claude = harnesses.get("claude-code");
+
+    assertThat(AgentSessionConfig.promptInArgs(claude, Map.of())).isFalse();
+    assertThat(AgentSessionConfig.promptInArgs(terminal, Map.of("command", "sh"))).isFalse();
+    assertThat(
+            AgentSessionConfig.promptInArgs(terminal, Map.of("command", List.of("a", "{prompt}"))))
+        .isTrue();
+    assertThat(AgentSessionConfig.takesCommand(claude)).isFalse();
+  }
+
+  @Test
+  void terminalPresetWithItsOwnProgramTakesNoCommand() {
+    final AgentPreset own = ptyPreset("[\"agent\",\"{prompt}\"]");
+    final AgentPreset takes = ptyPreset("[]");
+
+    assertThat(AgentSessionConfig.takesCommand(own)).isFalse();
+    assertThat(AgentSessionConfig.takesCommand(takes)).isTrue();
+    assertThat(AgentSessionConfig.promptInArgs(own, Map.of("command", List.of("x")))).isTrue();
+    assertThat(AgentSessionConfig.promptInArgs(takes, Map.of("command", List.of("x")))).isFalse();
+  }
+
+  private static AgentPreset ptyPreset(final String command) {
+    return AgentPreset.parse(
+        new ObjectMapper()
+            .readTree(
+                "{\"id\":\"t\",\"protocol\":\"pty\",\"command\":" + command + ",\"pty\":{}}"));
+  }
+
+  @Test
+  void validate_refusesEmptyProgramAndSizeOutOfRange() {
+    for (final Object size : List.of(0, 1001)) {
+      assertThatThrownBy(() ->
+              terminals.validate(
+                  Map.of(
+                      "harness",
+                      "terminal",
+                      "prompt",
+                      "p",
+                      "command",
+                      List.of("sh"),
+                      "terminalSize",
+                      Map.of("cols", size))))
+          .hasMessageContaining("terminalSize.cols must be 1 to 1000");
+    }
+    assertThatThrownBy(() ->
+            terminals.validate(Map.of("harness", "terminal", "prompt", "p", "command", List.of())))
+        .hasMessageContaining("needs command");
+  }
+
+  @Test
+  void commandIsTheGivenOneOnlyForTerminalThatTakesIt() {
+    final AgentPreset takes = ptyPreset("[]");
+    final var turn = new AgentSessionPlugin.Turn("go", "", "", Map.of());
+
+    assertThat(
+            AgentSessionConfig.command(List.of("base"), takes, Map.of("command", "sh"), turn, null))
+        .containsExactly("base");
+    assertThat(
+            AgentSessionConfig.command(
+                List.of("base"), takes, Map.of("command", List.of("run", "{prompt}")), turn, null))
+        .containsExactly("run", "go");
+    assertThat(
+            AgentSessionConfig.command(
+                List.of("base"), harnesses.get("claude-code"), Map.of(), turn, null))
+        .containsExactly("base");
+  }
 }

@@ -51,7 +51,7 @@ final class PtyFrames {
     } catch (JacksonException e) {
       return null;
     }
-    if (node == null || !node.isObject() || !node.path(T).isString()) {
+    if (!node.isObject() || !node.path(T).isString()) {
       return null;
     }
     final String kind = node.path(T).asString();

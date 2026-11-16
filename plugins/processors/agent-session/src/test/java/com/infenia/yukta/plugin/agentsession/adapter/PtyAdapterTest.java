@@ -62,6 +62,10 @@ class PtyAdapterTest {
       new java.util.concurrent.atomic.AtomicBoolean(true);
 
   private PtyAdapter adapter() {
+    return adapter(Duration.ofSeconds(30));
+  }
+
+  private PtyAdapter adapter(final Duration beat) {
     when(gateway.executeInteractive(any(), any(), any()))
         .thenAnswer(call -> {
           sink.set(call.getArgument(1));
@@ -90,7 +94,7 @@ class PtyAdapterTest {
             return exit.asMono();
           });
         });
-    return new PtyAdapter(gateway, JSON, Duration.ofSeconds(30), Duration.ofMillis(150));
+    return new PtyAdapter(gateway, JSON, beat, Duration.ofMillis(150));
   }
 
   private static AgentPreset preset(final String pty) {
@@ -347,5 +351,148 @@ class PtyAdapterTest {
     assertThat(done(result))
         .containsEntry(STATUS, "failure")
         .containsEntry("reason", "timed out after 60s");
+  }
+
+  @Test
+  void readyScreenAndTheDelayTypeThePromptOnlyOnce() throws Exception {
+    final CompletableFuture<Map<String, Object>> result =
+        start(
+            run(
+                preset("{\"readyPattern\":\"ready>\",\"readyDelayMs\":300,\"type\":\"{prompt}\"}"),
+                "go",
+                false));
+
+    screen("ready> ");
+    await().atMost(2, TimeUnit.SECONDS).until(() -> "go".equals(typed()));
+    Thread.sleep(500);
+    exit.tryEmitValue(new ProcessExecutionResult(0, List.of(), List.of(), 1, false, false));
+    done(result);
+
+    assertThat(typed()).isEqualTo("go");
+  }
+
+  @Test
+  void promptlessRunTypesNothing() throws Exception {
+    final CompletableFuture<Map<String, Object>> result =
+        start(run(preset("{\"readyDelayMs\":10}"), "", false));
+
+    Thread.sleep(200);
+    exit.tryEmitValue(new ProcessExecutionResult(0, List.of(), List.of(), 1, false, false));
+    done(result);
+
+    assertThat(typed()).isEmpty();
+  }
+
+  @Test
+  void doneScreenShownTwiceClosesTheHostOnce() throws Exception {
+    leavesOnClose.set(false);
+    final CompletableFuture<Map<String, Object>> result =
+        start(run(preset("{\"readyDelayMs\":60000,\"donePattern\":\"DONE\"}"), "p", false));
+
+    screen("DONE");
+    screen("DONE again");
+    exit.tryEmitValue(new ProcessExecutionResult(0, List.of(), List.of(), 1, false, false));
+    done(result);
+
+    assertThat(frames().stream().filter("close"::equals)).hasSize(1);
+  }
+
+  @Test
+  void errorsOnStandardErrorAreNoticedAsErrorsAndSizelessScreensKeepTheSize() throws Exception {
+    final CompletableFuture<Map<String, Object>> result =
+        start(run(preset("{\"readyDelayMs\":60000}"), "p", false));
+
+    sink.get().line("stderr", "boom", com.infenia.yukta.plugin.core.LogLevel.ERROR);
+    send(Map.of("t", "screen", "text", "no size"));
+    exit.tryEmitValue(new ProcessExecutionResult(0, List.of(), List.of(), 1, false, false));
+    done(result);
+
+    assertThat(conversation.calls()).anyMatch(c -> c.contains("ERROR"));
+  }
+
+  @Test
+  void hugeLastScreenIsCutAndBadLauncherSizeFallsBack() throws Exception {
+    final AgentRun badLauncher =
+        new AgentRun(
+            DefaultMessage.create(UUID.randomUUID(), "in"),
+            preset("{\"readyDelayMs\":60000}"),
+            ProcessExecutionSpec.builder()
+                .launcher(List.of("yukta-cli", "--cols", "wide", "--rows"))
+                .command(List.of("some-agent"))
+                .build(),
+            "p",
+            null,
+            null,
+            60,
+            conversation,
+            (stream, line, level) -> logged.add(stream + " " + line),
+            new InputIdentity("s", "w", "e", "n"),
+            false,
+            Duration.ofSeconds(30),
+            () -> {},
+            null,
+            false);
+    final CompletableFuture<Map<String, Object>> result = start(badLauncher);
+
+    screen("x".repeat(70_000));
+    exit.tryEmitValue(new ProcessExecutionResult(0, List.of(), List.of(), 1, false, false));
+
+    assertThat(done(result).get("text").toString()).hasSize(64 * 1024);
+  }
+
+  @Test
+  void launcherWithoutSizeFlagsUsesDefaults_andHostIsToldItIsAlive() throws Exception {
+    final Runnable beat = mock(Runnable.class);
+    final AgentRun run =
+        new AgentRun(
+            DefaultMessage.create(UUID.randomUUID(), "in"),
+            preset("{\"readyDelayMs\":60000}"),
+            ProcessExecutionSpec.builder()
+                .launcher(List.of("yukta-cli"))
+                .command(List.of("some-agent"))
+                .build(),
+            "p",
+            null,
+            null,
+            60,
+            conversation,
+            (stream, line, level) -> logged.add(stream + " " + line),
+            new InputIdentity("s", "w", "e", "n"),
+            false,
+            Duration.ofSeconds(30),
+            beat,
+            null,
+            false);
+    final var subscription = adapter(Duration.ofMillis(20)).run(run).subscribe();
+    org.mockito.Mockito.verify(beat, org.mockito.Mockito.timeout(2000).atLeastOnce()).run();
+    subscription.dispose();
+
+    assertThat(conversation.calls()).anyMatch(c -> c.contains("end"));
+  }
+
+  @Test
+  void cancellingTheRunEndsTheConversationIncomplete() {
+    final CompletableFuture<Map<String, Object>> result =
+        start(run(preset("{\"readyDelayMs\":60000}"), "p", false));
+
+    result.cancel(true);
+
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .until(() -> conversation.calls().toString().contains("cancelled"));
+    assertThat(result).isCancelled();
+  }
+
+  @Test
+  void hostThatFailsEndsTheConversationAsFailed() {
+    final CompletableFuture<Map<String, Object>> result =
+        start(run(preset("{\"readyDelayMs\":60000}"), "p", false));
+
+    exit.tryEmitError(new IllegalStateException("host died"));
+
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .until(() -> conversation.calls().toString().contains("host died"));
+    assertThat(result).isCompletedExceptionally();
   }
 }

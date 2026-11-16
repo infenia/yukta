@@ -214,10 +214,8 @@ final class PtySession implements PluginLogSink {
   }
 
   private void write(final String frame) {
-    final ProcessExecutorGateway.StdinWriter stdin = target.get();
-    if (stdin != null) {
-      stdin.write(frame);
-    }
+    // set by start() before anything can type or close
+    target.get().write(frame);
   }
 
   // ---- commands of clients

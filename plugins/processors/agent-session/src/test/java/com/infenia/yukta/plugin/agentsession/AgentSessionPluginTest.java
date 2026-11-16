@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.agent.AgentProtocol;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.process.ProcessExecutorGateway;
@@ -649,7 +650,7 @@ class AgentSessionPluginTest {
         .containsEntry("status", "success");
     final var spec = recording.specs.getFirst();
     assertThat(spec.harness()).isEqualTo("ok");
-    assertThat(spec.protocol()).isEqualTo(com.infenia.yukta.plugin.agent.AgentProtocol.JSONL);
+    assertThat(spec.protocol()).isEqualTo(AgentProtocol.JSONL);
     assertThat(spec.who().executionId()).isEqualTo("e-1");
     assertThat(spec.who().nodeId()).isEqualTo("n-1");
     assertThat(spec.model()).isNull();
@@ -909,5 +910,17 @@ class AgentSessionPluginTest {
     public void end(final String outcome, final String reason) {
       calls.add("end " + outcome + " " + reason);
     }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void validateConfig_refusesHarnessWhoseProtocolHasNoAdapter() {
+    ((Map<AgentProtocol, Object>)
+            org.springframework.test.util.ReflectionTestUtils.getField(plugin, "adapters"))
+        .remove(AgentProtocol.ACP);
+
+    StepVerifier.create(plugin.validateConfig(Map.of("harness", "acpfresh", "prompt", "p")))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("does not support yet"))
+        .verify();
   }
 }

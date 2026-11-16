@@ -173,4 +173,20 @@ class AgentPresetTest {
     assertThat(blank.authMethod()).isNull();
     assertThat(blank.converses()).isFalse();
   }
+
+  @Test
+  void terminalBlockReadsItsPatternsAndRefusesBadOne() throws IOException {
+    final ObjectNode root = claudeJson();
+    root.set("pty", JSON.readTree("{\"readyPattern\":\"\",\"donePattern\":null}"));
+    assertThat(AgentPreset.parse(root).pty().readyPattern()).isNull();
+    assertThat(AgentPreset.parse(root).pty().donePattern()).isNull();
+
+    root.set("pty", JSON.readTree("{\"attentionPattern\":\"(\"}"));
+    assertThatThrownBy(() -> AgentPreset.parse(root))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("'attentionPattern' is not a regular expression");
+
+    root.set("pty", JSON.nullNode());
+    assertThat(AgentPreset.parse(root).pty()).isNull();
+  }
 }
