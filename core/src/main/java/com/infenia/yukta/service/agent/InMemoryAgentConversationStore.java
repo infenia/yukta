@@ -34,7 +34,6 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap", "PMD.CouplingBetweenObjects"})
 public final class InMemoryAgentConversationStore implements AgentConversationStore {
 
-  /** The text of the notice that says events were dropped. */
   /** Guards every field: every access runs under it. */
   private final ReentrantLock lock = new ReentrantLock();
 

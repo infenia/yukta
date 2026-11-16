@@ -1,6 +1,105 @@
 {
   "components" : {
     "schemas" : {
+      "AgentConversation" : {
+        "properties" : {
+          "capabilities" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array",
+            "uniqueItems" : true
+          },
+          "ended" : {
+            "type" : "boolean"
+          },
+          "endedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "harness" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "messageId" : {
+            "type" : "string"
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "protocol" : {
+            "enum" : [ "JSONL", "ACP", "PTY" ],
+            "type" : "string"
+          },
+          "queued" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "rootExecutionId" : {
+            "type" : "string"
+          },
+          "seq" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "state" : {
+            "enum" : [ "STARTING", "RUNNING", "WAITING", "IDLE", "ENDED" ],
+            "type" : "string"
+          },
+          "steerAudience" : {
+            "$ref" : "#/components/schemas/Audience"
+          },
+          "turn" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "AgentConversationChanged" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "conversation" : {
+              "$ref" : "#/components/schemas/AgentConversation"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "AgentEndCommand" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/ExecutionControlCommand"
@@ -4359,6 +4458,8 @@
             },
             "event" : {
               "oneOf" : [ {
+                "$ref" : "#/components/schemas/AgentConversationChanged"
+              }, {
                 "$ref" : "#/components/schemas/ControlOutcome"
               }, {
                 "$ref" : "#/components/schemas/EventsMissed"

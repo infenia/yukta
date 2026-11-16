@@ -63,10 +63,12 @@ com.infenia.yukta.mapper.WorkflowMapperImpl
 com.infenia.yukta.mcp.AppMcpPrompts
 com.infenia.yukta.mcp.AppMcpResources
 com.infenia.yukta.mcp.AppMcpTools
+com.infenia.yukta.mcp.ConversationTools
 com.infenia.yukta.mcp.McpDtoReflectionHints
 com.infenia.yukta.mcp.McpEndpointFilter
 com.infenia.yukta.mcp.McpErrorAdvice
 com.infenia.yukta.mcp.McpErrorFilter
+com.infenia.yukta.mcp.provider.ConversationProvider
 com.infenia.yukta.mcp.provider.InputProvider
 com.infenia.yukta.mcp.provider.LogProvider
 com.infenia.yukta.mcp.provider.MetricsProvider
@@ -85,6 +87,7 @@ com.infenia.yukta.plugin.agentsession.AgentHarnesses
 com.infenia.yukta.plugin.agentsession.AgentSessionAutoConfiguration
 com.infenia.yukta.plugin.agentsession.AgentSessionPlugin
 com.infenia.yukta.plugin.agentsession.InMemoryAgentSessionStore
+com.infenia.yukta.plugin.agentsession.PtySettings
 com.infenia.yukta.plugin.control.engine.EngineSupervisorFactory
 com.infenia.yukta.plugin.core.filter.FilterProcessor
 com.infenia.yukta.plugin.core.filter.ValidateProcessor
@@ -141,6 +144,7 @@ com.infenia.yukta.service.agent.AgentConversationQueries
 com.infenia.yukta.service.agent.AgentConversationService
 com.infenia.yukta.service.agent.AgentRetention
 com.infenia.yukta.service.agent.AgentSteering
+com.infenia.yukta.service.agent.AgentSupervisorFeed
 com.infenia.yukta.service.agent.DefaultAgentConversationGateway
 com.infenia.yukta.service.agent.InMemoryAgentConversationStore
 com.infenia.yukta.service.archive.ExecutionArchive

@@ -32,6 +32,7 @@ import reactor.util.retry.Retry;
     name = "enabled",
     havingValue = "true",
     matchIfMissing = true)
+@SuppressWarnings({"PMD.AvoidSynchronizedAtMethodLevel", "PMD.NullAssignment"})
 public class AgentSupervisorFeed implements SmartLifecycle {
 
   /** How often the conversations that are still open are announced again. */

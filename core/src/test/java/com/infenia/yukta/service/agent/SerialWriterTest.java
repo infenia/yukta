@@ -13,7 +13,7 @@ import reactor.test.StepVerifier;
 class SerialWriterTest {
 
   @Test
-  void disposeFailsAWriteThatIsStillPending() {
+  void disposeFailsWriteStillPending() {
     final SerialWriter writer = new SerialWriter();
 
     StepVerifier.create(writer.submit(Mono::never))
@@ -23,7 +23,7 @@ class SerialWriterTest {
   }
 
   @Test
-  void aWriteSubmittedAfterDisposeFails() {
+  void writeSubmittedAfterDisposeFails() {
     final SerialWriter writer = new SerialWriter();
     writer.dispose();
 

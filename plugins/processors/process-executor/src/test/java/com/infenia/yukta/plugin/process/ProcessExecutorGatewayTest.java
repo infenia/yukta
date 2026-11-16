@@ -878,7 +878,7 @@ class ProcessExecutorGatewayTest {
   }
 
   @Test
-  void launcher_runsTheCommandThroughAPrefix_andTheAllowListChecksTheCommandOnly() {
+  void launcher_runsTheCommandThroughPrefix_andTheAllowListChecksTheCommandOnly() {
     gateway.setAllowedCommands(List.of("echo"));
     // "env" is not allowed, but it only launches the allowed "echo"
     final ProcessExecutionSpec wrapped =

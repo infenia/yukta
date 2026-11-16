@@ -31,6 +31,9 @@ public final class EventRule {
   /** Window used when a counting rule gives none. */
   private static final int DEFAULT_WINDOW_SECONDS = 60;
 
+  /** Start of every message about a rule. */
+  private static final String RULE = "Rule '";
+
   /** Prefix of a {@code from} that reads the event's metadata. */
   private static final String METADATA_PREFIX = "metadata.";
 
@@ -81,7 +84,7 @@ public final class EventRule {
       commandFor(then, PROBE, "node", "new", Map.of());
       if (steersAgent() && when.event() != null && !AGENT_EVENT.equals(when.event())) {
         throw new IllegalArgumentException(
-            "Rule '" + identifier + "' steers an agent, so it must react to " + AGENT_EVENT);
+            RULE + identifier + "' steers an agent, so it must react to " + AGENT_EVENT);
       }
     }
   }
@@ -103,7 +106,7 @@ public final class EventRule {
   private void requireOneAction() {
     if (then.command() != null || (then.answer() != null && then.escalate() != null)) {
       throw new IllegalArgumentException(
-          "Rule '" + identifier + "' must have exactly one of command, answer and escalate");
+          RULE + identifier + "' must have exactly one of command, answer and escalate");
     }
   }
 
@@ -112,7 +115,7 @@ public final class EventRule {
     requireOneAction();
     if (when.event() != null && !INPUT_EVENTS.contains(when.event())) {
       throw new IllegalArgumentException(
-          "Rule '"
+          RULE
               + identifier
               + "' answers or escalates, so it must react to InputRequested or InputEscalated");
     }
@@ -120,7 +123,7 @@ public final class EventRule {
       inputCommand(PROBE, PROBE, 0);
     } catch (final IllegalArgumentException e) {
       throw new IllegalArgumentException(
-          "Rule '" + identifier + "' has an invalid answer or escalation: " + e.getMessage(), e);
+          RULE + identifier + "' has an invalid answer or escalation: " + e.getMessage(), e);
     }
   }
 

@@ -45,7 +45,7 @@ class EventSanitizerTest {
   }
 
   @Test
-  void planEntriesAreRedactedAndACutEntryIsFlagged() {
+  void planEntriesAreRedactedAndCutEntryIsFlagged() {
     final EventSanitizer sanitizer =
         new EventSanitizer(new InputRedactor(List.of()), JsonMapper.builder().build(), 1000, 100);
 
