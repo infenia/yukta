@@ -43,10 +43,10 @@ dependencies {
 
     // Build-time transitives of the plugins above with published CVEs (Dependabot); same minor line
     constraints {
-        implementation("com.fasterxml.jackson.core:jackson-core:2.22.4")
-        implementation("com.fasterxml.jackson.core:jackson-databind:2.22.4")
-        implementation("tools.jackson.core:jackson-core:3.2.4")
-        implementation("tools.jackson.core:jackson-databind:3.2.4")
+        implementation("com.fasterxml.jackson.core:jackson-core:2.23.0")
+        implementation("com.fasterxml.jackson.core:jackson-databind:2.23.0")
+        implementation("tools.jackson.core:jackson-core:3.3.0")
+        implementation("tools.jackson.core:jackson-databind:3.3.0")
         implementation("org.codehaus.plexus:plexus-utils:4.1.0")
         // GHSA-xxph-c9ww-hj94: Guava <= 33.7.1 deserialization allocates without bound
         implementation("com.google.guava:guava:33.8.0-jre")
