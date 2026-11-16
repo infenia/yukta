@@ -133,6 +133,9 @@ class SupervisedControlTest {
             Map.entry(
                 "answerInput", c -> c.answerInput("e", "r", null, "yes", null, null, null, null)),
             Map.entry("escalateInput", c -> c.escalateInput("e", "r", "why", null)),
+            Map.entry("agentMessage", c -> c.agentMessage("e", "n", "c", "hi", false)),
+            Map.entry("agentInterrupt", c -> c.agentInterrupt("e", "n", "c")),
+            Map.entry("agentEnd", c -> c.agentEnd("e", "n", "c", null, null)),
             Map.entry("recordAdminAction", c -> c.recordAdminAction("X", "t", true, null)));
 
     entries.values().forEach(call -> StepVerifier.create(call.apply(control)).verifyComplete());

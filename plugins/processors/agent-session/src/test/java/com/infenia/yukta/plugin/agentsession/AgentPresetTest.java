@@ -133,4 +133,44 @@ class AgentPresetTest {
         .hasMessage(
             "agent harness preset: 'live.kind' must be message, thought or tool, not 'banner'");
   }
+
+  @Test
+  void interactiveBlockSaysWhetherTheHarnessSteersAndHowItIsInterrupted() throws IOException {
+    final var root = claudeJson();
+    final var talk = AgentPreset.parse(root).interactive();
+    assertThat(talk.steer()).isTrue();
+    assertThat(talk.canInterrupt()).isTrue();
+
+    final var plain = (ObjectNode) claudeJson().get("interactive");
+    plain.remove("steer");
+    plain.remove("interrupt");
+    final var without = AgentPreset.parse(claudeJson().set("interactive", plain)).interactive();
+    assertThat(without.steer()).isFalse();
+    assertThat(without.canInterrupt()).isFalse();
+
+    plain.set("interrupt", JSON.nullNode());
+    assertThat(
+            AgentPreset.parse(claudeJson().set("interactive", plain)).interactive().canInterrupt())
+        .isFalse();
+  }
+
+  @Test
+  void anAcpPresetConversesAndNamesItsAuthMethod() throws IOException {
+    final AgentPreset acp =
+        AgentPreset.parse(
+            JSON.readTree(
+                "{\"id\":\"a\",\"protocol\":\"acp\",\"command\":[\"a\"],"
+                    + "\"acp\":{\"authMethod\":\"k\"}}"));
+    final AgentPreset plain =
+        AgentPreset.parse(
+            JSON.readTree("{\"id\":\"a\",\"protocol\":\"acp\",\"acp\":{\"authMethod\":null}}"));
+    final AgentPreset blank =
+        AgentPreset.parse(JSON.readTree("{\"id\":\"b\",\"acp\":{\"authMethod\":\" \"}}"));
+
+    assertThat(acp.authMethod()).isEqualTo("k");
+    assertThat(acp.converses()).isTrue();
+    assertThat(plain.authMethod()).isNull();
+    assertThat(blank.authMethod()).isNull();
+    assertThat(blank.converses()).isFalse();
+  }
 }

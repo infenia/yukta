@@ -75,11 +75,54 @@ An agent needs its login and settings in its environment, which a process does n
 
 A harness is a JSON file in `agent-harnesses/` on the classpath, or in the directory `yukta.ai.presets-dir` names (a file there replaces a shipped one with the same id). It gives the command (`{prompt}`), how a `model`, `maxTurns` and a session are passed, which lines mean "the result" or "failed", which values to keep from earlier lines, which lines to show live, and optionally the conversation used for approvals. Start from `claude-code.json` or `codex.json` in the `process-executor` module.
 
+## Agents that speak ACP
+
+A preset with `"protocol": "acp"` runs an agent over the [Agent Client Protocol](https://agentclientprotocol.com) (JSON-RPC on standard input and output). The preset needs no `output` block: the adapter reads the protocol. `antigravity` ships (`agy acp`; put the folder of `agy`, usually `~/.gemini/bin`, on `PATH` and log in once). Such an agent takes messages and an interrupt, asks for approval when `approvals` is `ASK` (approve picks the agent's `allow_once` option, refuse its `reject_once`; with `approvals` off every request is refused), and resumes a session by key when the preset declares `resume`. It never steers: a message sent during a turn waits for the turn to end. Yukta declares no file or terminal capability, so the agent uses its own tools. `acp.authMethod` in the preset names a method to `authenticate` with; leave it out when the agent is logged in already.
+
+Adapters for agents with no ACP of their own are not shipped, because they need `npx`. Put one in `yukta.ai.presets-dir` as a file like this (names are from the adapters' documentation and were not run here):
+
+```json
+{
+  "id": "claude-acp",
+  "protocol": "acp",
+  "description": "Claude Code through the claude-agent-acp adapter.",
+  "command": ["npx", "-y", "@zed-industries/claude-code-acp"],
+  "capabilities": { "ask": true, "interrupt": true, "resume": true }
+}
+```
+
+Change `id` and `command` for Codex (`codex-acp`) or pi (`pi-acp`) and allow the executable in `yukta.process.allowed-commands`.
+
+## Any program in a terminal
+
+The harness `terminal` runs a program of your choice in a pseudo-terminal, for an agent with no JSON or ACP mode. It is **off** until you set `yukta.agents.pty.enabled=true`, because a terminal takes any keystroke and nothing can review what is typed. It also needs the `yukta-cli` binary on the server's `PATH` (`yukta.agents.pty.host` names another), which hosts the terminal.
+
+```json
+{
+  "type": "AGENT_SESSION",
+  "config": {
+    "harness": "terminal",
+    "command": ["some-agent", "--task", "{prompt}"],
+    "prompt": "Fix the failing test",
+    "terminalSize": { "cols": 120, "rows": 40 }
+  }
+}
+```
+
+- `command` is the program and its arguments. Allow the **program** (`some-agent`) in `yukta.process.allowed-commands`, not `yukta-cli`. `{prompt}` may be an argument but not the program itself.
+- A `{prompt}` in the arguments passes the prompt on the command line. Without one, the prompt is typed into the terminal once it is ready (the harness waits 1.5 s; a custom preset can name a `readyPattern`).
+- A message sent to the conversation is typed followed by Enter; an interrupt types Ctrl-C. A person with the role `OPERATOR` can also type into the terminal with the [terminal endpoints](/api/conversations).
+- The node ends when the program exits (exit code 0 is `success`, anything else `failure`), when a screen matches the preset's `donePattern`, or when the conversation is ended. `text` is the last screen.
+- The run log gets two lines (start and end), not the bytes; the conversation keeps the output and the screen.
+
+A custom preset (`yukta.ai.presets-dir`) with `"protocol": "pty"` sets `pty.type`, `readyPattern`, `readyDelayMs`, `submit`, `interruptKeys`, `attentionPattern` (a matching screen sets the conversation `WAITING`) and `donePattern`, and may give its own `command`.
+
 ## Limits
 
 - The agent is a process on the server with the permissions of the server's user. Allow only the executables you mean to, and give it a `workingDir` that holds nothing you mind it reading.
 - No sandbox, secret handling or output redaction yet; they are planned as a separate hardening step.
-- Claude Code supports sessions and approvals. The Codex preset follows the documented `codex exec --json` events and has not been run against the real CLI; it has neither.
+- Claude Code supports sessions and approvals. The Codex preset reads `codex exec --json`; against codex-cli 0.169.0 its **failure** path was checked (an expired API key ends the node with the CLI's own message), the success path has not been run. It has neither sessions nor approvals.
+- The `pi` preset runs `pi --mode rpc` (pi 1.5.2): messages and interrupt, no approvals, no resume. Only its failure path was recorded (a provider that refuses the request); the rest is written from pi's event names and has not been run on a funded account.
 
 ## Related
 

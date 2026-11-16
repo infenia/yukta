@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
@@ -57,11 +58,16 @@ public final class AgentRequests {
   /** Longest part of the request details kept in the context. */
   private static final int CONTEXT_VALUE_MAX_BYTES = 1000;
 
-  private final AgentPreset.Interactive talk;
-  private final Settings settings;
+  /** The harness' stdin conversation; null for a protocol that has its own replies. */
+  private final AgentPreset.@Nullable Interactive talk;
+
+  /** How the agent is told yes or no. */
+  private final Replies replies;
+
+  private final @Nullable Settings settings;
   private final ObjectMapper json;
   private final Supplier<@Nullable InputGateway> gateway;
-  private final InputIdentity who;
+  private final @Nullable InputIdentity who;
   private final Message<?> message;
   private final String harness;
   private final ProcessExecutorGateway.StdinWriter stdin;
@@ -71,6 +77,27 @@ public final class AgentRequests {
   private final AtomicInteger open = new AtomicInteger();
 
   private final List<Disposable> pending = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+  /** What the agent is written when a request is approved or refused. */
+  /* default */ interface Replies {
+
+    /**
+     * The line that approves.
+     *
+     * @param request what was asked
+     * @return the line
+     */
+    String allow(AgentOutput.Request request);
+
+    /**
+     * The line that refuses.
+     *
+     * @param request what was asked
+     * @param reason why
+     * @return the line
+     */
+    String deny(AgentOutput.Request request, String reason);
+  }
 
   /** What a node configures about approvals. */
   public record Settings(InputRisk risk, Duration ttl, Audience audience) {}
@@ -89,7 +116,7 @@ public final class AgentRequests {
    */
   /* default */ AgentRequests(
       final AgentPreset.Interactive talk,
-      final Settings settings,
+      final @Nullable Settings settings,
       final ObjectMapper json,
       final Supplier<@Nullable InputGateway> gateway,
       final InputIdentity who,
@@ -123,7 +150,7 @@ public final class AgentRequests {
    */
   /* default */ AgentRequests(
       final AgentPreset.Interactive talk,
-      final Settings settings,
+      final @Nullable Settings settings,
       final ObjectMapper json,
       final Supplier<@Nullable InputGateway> gateway,
       final InputIdentity who,
@@ -133,6 +160,43 @@ public final class AgentRequests {
       final AgentConversationHandle conversation) {
     this.conversation = conversation;
     this.talk = talk;
+    this.replies = new Templates(talk);
+    this.settings = settings;
+    this.json = json;
+    this.gateway = gateway;
+    this.who = who;
+    this.message = message;
+    this.harness = harness;
+    this.stdin = stdin;
+  }
+
+  /**
+   * Creates the approvals of a run whose protocol writes its own replies.
+   *
+   * @param replies how the agent is told yes or no
+   * @param settings risk, time to answer and who may answer; null when approvals are off
+   * @param json the JSON mapper
+   * @param gateway the input request system, found at use time
+   * @param who the run and node asking; null when the run has none, which only suits a run with
+   *     approvals off
+   * @param message the message being worked on
+   * @param harness the harness id, shown to the answerer
+   * @param stdin where the answers go
+   * @param conversation where the {@code REQUEST} events and the waiting state go
+   */
+  /* default */ AgentRequests(
+      final Replies replies,
+      final @Nullable Settings settings,
+      final ObjectMapper json,
+      final Supplier<@Nullable InputGateway> gateway,
+      final @Nullable InputIdentity who,
+      final Message<?> message,
+      final String harness,
+      final ProcessExecutorGateway.StdinWriter stdin,
+      final AgentConversationHandle conversation) {
+    this.conversation = conversation;
+    this.talk = null;
+    this.replies = replies;
     this.settings = settings;
     this.json = json;
     this.gateway = gateway;
@@ -174,24 +238,30 @@ public final class AgentRequests {
    * @param request what the harness wants
    */
   /* default */ void handle(final AgentOutput.Request request) {
+    final Settings asked = settings;
+    if (asked == null) {
+      // approvals are off for this node: the agent asks, the answer is no
+      stdin.write(replies.deny(request, "approvals are off for this node"));
+      return;
+    }
     final String prompt = prompt(request);
     conversation.emit(AgentEventKind.REQUEST, request.id(), opened(request, prompt));
     if (open.incrementAndGet() == FIRST_OPEN) {
       conversation.state(AgentState.WAITING, "approval");
     }
     pending.add(
-        Mono.defer(() -> InputAsk.ask(gateway, spec(request, prompt)))
+        Mono.defer(() -> InputAsk.ask(gateway, spec(request, prompt, asked)))
             .doOnNext(answer -> answered(request, answer))
             .map(answer ->
                 "approve".equalsIgnoreCase(answer.decision())
-                    ? allow(request)
-                    : deny(
+                    ? replies.allow(request)
+                    : replies.deny(
                         request,
                         "Rejected" + (answer.rationale() == null ? "" : ": " + answer.rationale())))
             .onErrorResume(e -> {
               log.atWarn().setCause(e).log("Approval of {} not given", request.tool());
               conversation.emit(AgentEventKind.REQUEST, request.id(), ended(e));
-              return Mono.just(deny(request, "Not approved: " + e.getMessage()));
+              return Mono.just(replies.deny(request, "Not approved: " + e.getMessage()));
             })
             .doFinally(signal -> {
               if (open.decrementAndGet() == 0) {
@@ -199,6 +269,32 @@ public final class AgentRequests {
               }
             })
             .subscribe(stdin::write));
+  }
+
+  /**
+   * Writes the line that stops the turn.
+   *
+   * @return false when the harness has no interrupt line
+   */
+  /* default */ boolean interrupt() {
+    final AgentPreset.Interactive talk = stdinTalk();
+    if (!talk.canInterrupt()) {
+      return false;
+    }
+    final AgentOutput.Request id =
+        new AgentOutput.Request(
+            java.util.UUID.randomUUID().toString(), "", json.getNodeFactory().nullNode(), "");
+    stdin.write(render(talk.interrupt(), id, ""));
+    return true;
+  }
+
+  /**
+   * Writes a message of a user to the agent.
+   *
+   * @param text the message
+   */
+  /* default */ void say(final String text) {
+    stdin.write(userMessage(stdinTalk().userMessage(), text, json));
   }
 
   /** The {@code REQUEST} event of a request that was just raised. */
@@ -249,33 +345,56 @@ public final class AgentRequests {
         InputLimits.PROMPT_MAX_BYTES);
   }
 
-  private InputRequestSpec spec(final AgentOutput.Request request, final String text) {
+  private InputRequestSpec spec(
+      final AgentOutput.Request request, final String text, final Settings asked) {
+    final InputIdentity identity = Objects.requireNonNull(who, "a request needs a node to ask for");
     final Map<String, Object> context = new LinkedHashMap<>();
     context.put("tool", request.tool());
     context.put("input", InputAsk.clean(request.input().toString(), CONTEXT_VALUE_MAX_BYTES));
     context.put("harness", harness);
     return new InputRequestSpec(
-        InputKeys.of(who.sessionId(), who.workflowId(), who.nodeId(), message.id(), request.id()),
+        InputKeys.of(
+            identity.sessionId(),
+            identity.workflowId(),
+            identity.nodeId(),
+            message.id(),
+            request.id()),
         InputKind.APPROVAL,
         text,
         context,
         List.of(),
         null,
-        settings.risk(),
-        settings.audience(),
-        settings.ttl(),
+        asked.risk(),
+        asked.audience(),
+        asked.ttl(),
         TimeoutAction.FAIL,
         null,
         null,
         REQUESTER);
   }
 
-  private String allow(final AgentOutput.Request request) {
-    return render(talk.allow(), request, "");
+  private AgentPreset.Interactive stdinTalk() {
+    return Objects.requireNonNull(talk, "this harness has no stdin conversation of its own");
   }
 
-  private String deny(final AgentOutput.Request request, final String reason) {
-    return render(talk.deny(), request, reason);
+  /** Replies written from the templates of a JSON-lines preset. */
+  private final class Templates implements Replies {
+
+    private final AgentPreset.Interactive preset;
+
+    /* default */ Templates(final AgentPreset.Interactive preset) {
+      this.preset = preset;
+    }
+
+    @Override
+    public String allow(final AgentOutput.Request request) {
+      return render(preset.allow(), request, "");
+    }
+
+    @Override
+    public String deny(final AgentOutput.Request request, final String reason) {
+      return render(preset.deny(), request, reason);
+    }
   }
 
   private String render(

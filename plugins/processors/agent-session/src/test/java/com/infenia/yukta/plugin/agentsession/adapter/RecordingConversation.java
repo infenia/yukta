@@ -16,6 +16,22 @@ public final class RecordingConversation implements AgentConversationHandle {
 
   private final List<String> lines = new CopyOnWriteArrayList<>();
 
+  private final Flux<AgentCommand> incoming;
+
+  /** A conversation that is sent no commands. */
+  public RecordingConversation() {
+    this(Flux.never());
+  }
+
+  /**
+   * A conversation that is sent commands.
+   *
+   * @param commands what clients send
+   */
+  public RecordingConversation(final Flux<AgentCommand> commands) {
+    this.incoming = commands;
+  }
+
   /**
    * Returns what was written so far.
    *
@@ -48,7 +64,7 @@ public final class RecordingConversation implements AgentConversationHandle {
 
   @Override
   public Flux<AgentCommand> commands() {
-    return Flux.never();
+    return incoming;
   }
 
   @Override

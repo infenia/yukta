@@ -208,8 +208,11 @@ class AgentSessionPluginTest {
                         + "\"result\":\"ok\",\"session_id\":\"s8\"}"))
             .replace("\"stream\":true", "\"stream\":true,\"ask\":true"));
     Files.writeString(
-        dir.resolve("acp.json"),
-        preset("acp", "x").replace("\"id\":\"acp\"", "\"id\":\"acp\",\"protocol\":\"acp\""));
+        dir.resolve("acpfresh.json"),
+        "{\"id\":\"acpfresh\",\"protocol\":\"acp\",\"command\":[\"x\"]}");
+    Files.writeString(
+        dir.resolve("pty.json"),
+        preset("pty", "x").replace("\"id\":\"pty\"", "\"id\":\"pty\",\"protocol\":\"pty\""));
     Files.writeString(
         dir.resolve("thinker.json"),
         preset(
@@ -309,9 +312,9 @@ class AgentSessionPluginTest {
   void validateConfig_namesTheKnownHarnessesAndRefusesWhatItCannotDo() {
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "nope", "prompt", "p")))
         .expectErrorMessage(
-            "unknown harness 'nope'; one of [acp, asker, capable, claude-code, codex, crash,"
-                + " failed, max, modeled, mute, noisy, ok, rcrash, resumable, rmissing, slow,"
-                + " thinker]")
+            "unknown harness 'nope'; one of [acpfresh, antigravity, asker, capable, claude-code,"
+                + " codex, crash, failed, max, modeled, mute, noisy, ok, pi, pty, rcrash, resumable,"
+                + " rmissing, slow, terminal, thinker]")
         .verify();
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "model", "m")))
         .expectErrorMessage("harness 'ok' does not take a model; remove model")
@@ -324,7 +327,8 @@ class AgentSessionPluginTest {
   void theConfigSchemaListsTheHarnessesAsOptions() {
     assertThat(plugin.getConfigSchema().getFirst().options())
         .containsExactly(
-            "acp",
+            "acpfresh",
+            "antigravity",
             "asker",
             "capable",
             "claude-code",
@@ -336,10 +340,13 @@ class AgentSessionPluginTest {
             "mute",
             "noisy",
             "ok",
+            "pi",
+            "pty",
             "rcrash",
             "resumable",
             "rmissing",
             "slow",
+            "terminal",
             "thinker");
     assertThat(plugin.describe().usagePattern()).contains("ok: fixture");
   }
@@ -814,10 +821,17 @@ class AgentSessionPluginTest {
   }
 
   @Test
-  void harnessOfTheProtocolThisServerDoesNotSpeakIsRefusedWhenTheNodeIsChecked() {
-    StepVerifier.create(plugin.validateConfig(Map.of("harness", "acp", "prompt", "p")))
-        .expectErrorMessage(
-            "harness 'acp' speaks the protocol ACP, which this server does not support yet")
+  void anAcpHarnessThatDoesNotDeclareResumeRefusesSessionKey() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "acpfresh", "prompt", "p", "session", "k")))
+        .expectErrorMessage("harness 'acpfresh' cannot resume a session; remove session")
+        .verify();
+  }
+
+  @Test
+  void terminalHarnessWithoutItsPtyBlockIsRefusedWhenTheNodeIsChecked() {
+    StepVerifier.create(plugin.validateConfig(Map.of("harness", "pty", "prompt", "p")))
+        .expectErrorMessage("harness 'pty' has no 'pty' block; remove harness")
         .verify();
   }
 
@@ -826,6 +840,14 @@ class AgentSessionPluginTest {
     runRecorded("mute", Map.of("approvals", "ASK"), new CopyOnWriteArrayList<>());
 
     assertThat(recording.specs.getFirst().capabilities()).isEmpty();
+  }
+
+  @Test
+  void nodeWithoutApprovalsOrConversationGatewayRunsTheOneShotCommand() {
+    final Message<?> out = runInNode("asker", Map.of(), new CopyOnWriteArrayList<>());
+
+    assertThat(out.sourcePort()).isEqualTo("failure");
+    assertThat(payload(out)).containsEntry("exitCode", 9);
   }
 
   /** Records what the plugin writes to a conversation, as readable lines. */

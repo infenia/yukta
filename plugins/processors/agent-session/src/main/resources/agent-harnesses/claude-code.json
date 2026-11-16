@@ -15,7 +15,9 @@
     "input": "request.input",
     "description": "request.description",
     "allow": { "type": "control_response", "response": { "subtype": "success", "request_id": "{id}", "response": { "behavior": "allow", "updatedInput": "{input}" } } },
-    "deny": { "type": "control_response", "response": { "subtype": "success", "request_id": "{id}", "response": { "behavior": "deny", "message": "{message}" } } }
+    "deny": { "type": "control_response", "response": { "subtype": "success", "request_id": "{id}", "response": { "behavior": "deny", "message": "{message}" } } },
+    "steer": true,
+    "interrupt": { "type": "control_request", "request_id": "{id}", "request": { "subtype": "interrupt" } }
   },
   "output": {
     "resultWhen": { "type": "result" },

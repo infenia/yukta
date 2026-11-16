@@ -9,16 +9,17 @@ import com.infenia.yukta.plugin.agent.AgentConversationGateway;
 import com.infenia.yukta.plugin.agent.AgentConversationHandle;
 import com.infenia.yukta.plugin.agent.AgentConversationSpec;
 import com.infenia.yukta.plugin.agent.AgentProtocol;
+import com.infenia.yukta.plugin.agentsession.adapter.AcpAdapter;
 import com.infenia.yukta.plugin.agentsession.adapter.AgentAdapter;
 import com.infenia.yukta.plugin.agentsession.adapter.AgentRequests;
 import com.infenia.yukta.plugin.agentsession.adapter.AgentRun;
 import com.infenia.yukta.plugin.agentsession.adapter.JsonlAdapter;
+import com.infenia.yukta.plugin.agentsession.adapter.PtyAdapter;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.WorkflowContext;
-import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputGateway;
 import com.infenia.yukta.plugin.input.InputIdentity;
 import com.infenia.yukta.plugin.process.ProcessExecutionSpec;
@@ -54,15 +55,15 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.CouplingBetweenObjects",
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
-  "PMD.UseConcurrentHashMap"
+  "PMD.UseConcurrentHashMap",
+  "PMD.GodClass"
 })
 public final class AgentSessionPlugin implements ProcessorPlugin {
 
   private static final String TYPE = "AGENT_SESSION";
 
-  /** Who may steer a conversation until the node can say (Q1 of ADR 0004: operators only). */
-  private static final Audience STEER_AUDIENCE = new Audience(List.of("role:OPERATOR"));
-
+  private static final long DEFAULT_BEAT_SECONDS = 10;
+  private static final Runnable NO_BEAT = () -> {};
   private static final String FAILURE = "failure";
   private static final String STATUS = "status";
   private static final Duration BUSY_POLL = Duration.ofMillis(250);
@@ -73,6 +74,7 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
   private final AgentSessionConfig settings;
   private final AgentSessionStore sessions;
   private final ObjectProvider<AgentConversationGateway> conversations;
+  private final PtySettings pty;
 
   /** The adapters by protocol; a preset of another protocol is refused when the node is checked. */
   private final Map<AgentProtocol, AgentAdapter> adapters = new EnumMap<>(AgentProtocol.class);
@@ -100,12 +102,96 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
       final ObjectProvider<InputGateway> inputs,
       final ObjectProvider<AgentConversationGateway> conversations,
       final ObjectMapper json) {
+    this(
+        gateway,
+        resolver,
+        harnesses,
+        sessions,
+        inputs,
+        conversations,
+        json,
+        Duration.ofSeconds(DEFAULT_BEAT_SECONDS));
+  }
+
+  /**
+   * Creates the plugin with its own heartbeat interval, for tests.
+   *
+   * @param gateway starts the process
+   * @param resolver resolves config expressions
+   * @param harnesses the presets
+   * @param sessions remembers sessions between turns
+   * @param inputs the input request system, for approvals
+   * @param conversations records the conversations
+   * @param json the JSON mapper
+   * @param beat how often an open conversation tells the engine that its node is alive
+   */
+  /* default */ AgentSessionPlugin(
+      final ProcessExecutorGateway gateway,
+      final VariableResolver resolver,
+      final AgentHarnesses harnesses,
+      final AgentSessionStore sessions,
+      final ObjectProvider<InputGateway> inputs,
+      final ObjectProvider<AgentConversationGateway> conversations,
+      final ObjectMapper json,
+      final Duration beat) {
+    this(
+        gateway, resolver, harnesses, sessions, inputs, conversations, json, beat, PtySettings.OFF);
+  }
+
+  /**
+   * Creates the plugin with the terminal tier of the server.
+   *
+   * @param gateway starts the process
+   * @param resolver resolves config expressions
+   * @param harnesses the presets
+   * @param sessions remembers sessions between turns
+   * @param inputs the input request system, for approvals
+   * @param conversations records the conversations
+   * @param json the JSON mapper
+   * @param pty the terminal tier ({@code yukta.agents.pty.*})
+   */
+  public AgentSessionPlugin(
+      final ProcessExecutorGateway gateway,
+      final VariableResolver resolver,
+      final AgentHarnesses harnesses,
+      final AgentSessionStore sessions,
+      final ObjectProvider<InputGateway> inputs,
+      final ObjectProvider<AgentConversationGateway> conversations,
+      final ObjectMapper json,
+      final PtySettings pty) {
+    this(
+        gateway,
+        resolver,
+        harnesses,
+        sessions,
+        inputs,
+        conversations,
+        json,
+        Duration.ofSeconds(DEFAULT_BEAT_SECONDS),
+        pty);
+  }
+
+  /* default */ AgentSessionPlugin(
+      final ProcessExecutorGateway gateway,
+      final VariableResolver resolver,
+      final AgentHarnesses harnesses,
+      final AgentSessionStore sessions,
+      final ObjectProvider<InputGateway> inputs,
+      final ObjectProvider<AgentConversationGateway> conversations,
+      final ObjectMapper json,
+      final Duration beat,
+      final PtySettings pty) {
     this.resolver = resolver;
-    this.settings = new AgentSessionConfig(harnesses);
+    this.pty = pty;
+    this.settings = new AgentSessionConfig(harnesses, pty);
     this.sessions = sessions;
     this.conversations = conversations;
-    final AgentAdapter jsonl = new JsonlAdapter(gateway, inputs, json);
+    final AgentAdapter jsonl = new JsonlAdapter(gateway, inputs, json, beat);
     adapters.put(jsonl.protocol(), jsonl);
+    final AgentAdapter acp = new AcpAdapter(gateway, inputs, json, beat);
+    adapters.put(acp.protocol(), acp);
+    final AgentAdapter terminal = new PtyAdapter(gateway, json, beat);
+    adapters.put(terminal.protocol(), terminal);
   }
 
   @Override
@@ -139,6 +225,11 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
             + "- approvals: ASK to have each tool use approved through the input request system"
             + " (approvalRisk, approvalTimeout seconds, approvalAudience); needs a harness with the"
             + " ask capability.\n"
+            + "- mode: TASK (default; the node ends with the agent's turn) or CONVERSATION (the"
+            + " node stays open for messages sent to its conversation until it is ended, idle for"
+            + " idleTimeout (default 900 s) or running for conversationTimeout (default 14400 s);"
+            + " needs a harness with an interactive mode). steerAudience: who may send a message,"
+            + " interrupt or end (default role:OPERATOR).\n"
             + "- workingDir, env, timeout (seconds, default 600).\n"
             + "Emits {status, reason, text, sessionId, turn, exitCode, conversationId} on port"
             + " success, failure (the agent or harness failed, or timed out) or incomplete (stopped"
@@ -246,27 +337,21 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
       final AgentSessionStore.Lease lease) {
     final long timeout = AgentSessionConfig.timeoutSeconds(config);
     final boolean ask = AgentSessionConfig.asks(config);
-    final AgentPreset.Interactive talk = ask ? preset.interactive() : null;
     final String token = lease == null ? null : lease.token();
     final int attempt = lease == null ? 1 : lease.turns() + 1;
-    final ProcessExecutionSpec spec =
-        ProcessExecutionSpec.builder()
-            .command(
-                AgentSessionConfig.command(
-                    talk == null ? preset.command() : talk.command(), preset, config, turn, token))
-            .workingDir(turn.workingDir().isEmpty() ? null : turn.workingDir())
-            .timeoutSeconds(timeout)
-            .env(turn.env())
-            .maxOutputLines(KEPT_LINES)
-            .maxOutputBytes(KEPT_BYTES)
-            // standard error is kept apart so the conversation can show it as notices; the run log
-            // still gets its lines as it always did (LogMirror)
-            .captureStderr(true)
-            .build();
+    final boolean chat = AgentSessionConfig.converses(config);
     final AgentRequests.Settings approvals = ask ? AgentSessionConfig.settings(config) : null;
     return Mono.deferContextual(ctx -> {
-      final InputIdentity who = talk == null ? identity(ctx) : InputIdentity.from(ctx);
-      return open(who, message, preset, turn, ask)
+      final InputIdentity who = ask ? InputIdentity.from(ctx) : identity(ctx);
+      // a preset with an interactive mode always starts in it when the run is recorded, so a
+      // message can be sent; without a node identity there is no one to ask or to steer
+      final AgentPreset.Interactive talk =
+          who != null && (ask || conversations.getIfAvailable() != null)
+              ? preset.interactive()
+              : null;
+      final ProcessExecutionSpec spec = spec(config, preset, turn, talk, token, timeout);
+      final boolean inArgs = AgentSessionConfig.promptInArgs(preset, config);
+      return open(who, message, preset, turn, capabilities(preset, talk, ask), config)
           .flatMap(conversation ->
               adapters
                   .get(preset.protocol())
@@ -282,9 +367,39 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
                           conversation,
                           ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
                               .orElse(PluginLogSink.NOOP),
-                          who))
+                          who,
+                          chat,
+                          AgentSessionConfig.idleTimeout(config),
+                          ctx.<Runnable>getOrDefault(WorkflowContext.HEARTBEAT_KEY, NO_BEAT),
+                          token,
+                          inArgs))
                   .map(outcome -> reply(message, outcome, lease, attempt, conversation)));
     });
+  }
+
+  private ProcessExecutionSpec spec(
+      final Map<String, Object> config,
+      final AgentPreset preset,
+      final Turn turn,
+      final AgentPreset.@Nullable Interactive talk,
+      final @Nullable String token,
+      final long timeout) {
+    final int[] size = AgentSessionConfig.terminalSize(config, pty);
+    return ProcessExecutionSpec.builder()
+        .command(
+            AgentSessionConfig.command(
+                talk == null ? preset.command() : talk.command(), preset, config, turn, token))
+        .launcher(
+            preset.protocol() == AgentProtocol.PTY ? pty.launcher(size[0], size[1]) : List.of())
+        .workingDir(turn.workingDir().isEmpty() ? null : turn.workingDir())
+        .timeoutSeconds(timeout)
+        .env(turn.env())
+        .maxOutputLines(KEPT_LINES)
+        .maxOutputBytes(KEPT_BYTES)
+        // standard error is kept apart so the conversation can show it as notices; the run log
+        // still gets its lines as it always did (LogMirror)
+        .captureStderr(true)
+        .build();
   }
 
   /**
@@ -297,7 +412,8 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
       final Message<?> message,
       final AgentPreset preset,
       final Turn turn,
-      final boolean ask) {
+      final Set<String> capabilities,
+      final Map<String, Object> config) {
     final AgentConversationGateway gateway = conversations.getIfAvailable();
     if (gateway == null || who == null) {
       return Mono.just(AgentConversationHandle.none());
@@ -310,24 +426,50 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
                 preset.id(),
                 preset.protocol(),
                 turn.model().isEmpty() ? null : turn.model(),
-                capabilities(preset, ask),
-                STEER_AUDIENCE))
+                capabilities,
+                AgentSessionConfig.steerAudience(config)))
         .onErrorResume(e -> {
           log.atWarn().setCause(e).log("Could not open an agent conversation; running without");
           return Mono.just(AgentConversationHandle.none());
         });
   }
 
-  /** What this conversation can do: the preset's capabilities that exist before steering does. */
-  private static Set<String> capabilities(final AgentPreset preset, final boolean ask) {
+  /** What this conversation can do, from the preset and how the agent runs. */
+  private static Set<String> capabilities(
+      final AgentPreset preset, final AgentPreset.@Nullable Interactive talk, final boolean ask) {
     final Set<String> found = new LinkedHashSet<>();
-    if (ask && preset.interactive() != null) {
+    found.addAll(protocolCapabilities(preset.protocol()));
+    if (talk != null) {
+      found.add(AgentCapability.MESSAGE);
+      if (talk.steer()) {
+        found.add(AgentCapability.STEER);
+      }
+      if (talk.canInterrupt()) {
+        found.add(AgentCapability.INTERRUPT);
+      }
+    }
+    if (ask && (talk != null || preset.protocol() == AgentProtocol.ACP)) {
       found.add(AgentCapability.ASK);
     }
     if (preset.capabilities().contains("resume")) {
       found.add(AgentCapability.RESUME);
     }
     return found;
+  }
+
+  private static Set<String> protocolCapabilities(final AgentProtocol protocol) {
+    return switch (protocol) {
+      // a terminal takes typed messages at any time and a key to stop the program
+      case PTY ->
+          Set.of(
+              AgentCapability.MESSAGE,
+              AgentCapability.STEER,
+              AgentCapability.INTERRUPT,
+              AgentCapability.TERMINAL);
+      // an ACP agent is always on a conversation: it takes messages and a cancel, never a steer
+      case ACP -> Set.of(AgentCapability.MESSAGE, AgentCapability.INTERRUPT);
+      case JSONL -> Set.of();
+    };
   }
 
   private static @Nullable InputIdentity identity(final ContextView ctx) {

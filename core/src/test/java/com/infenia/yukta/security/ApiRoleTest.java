@@ -55,4 +55,11 @@ class ApiRoleTest {
     assertThat(ApiRole.VIEWER.allows(HttpMethod.POST, "/api/notifications/../sessions")).isFalse();
     assertThat(ApiRole.VIEWER.allows(HttpMethod.POST, "/api/notificationsx")).isFalse();
   }
+
+  @Test
+  void operatorMayCommandConversationsAndViewerMayNot() {
+    assertThat(ApiRole.OPERATOR.allows(HttpMethod.POST, "/api/conversations/c/messages")).isTrue();
+    assertThat(ApiRole.OPERATOR.allows(HttpMethod.POST, "/api/conversations/c/end")).isTrue();
+    assertThat(ApiRole.VIEWER.allows(HttpMethod.POST, "/api/conversations/c/messages")).isFalse();
+  }
 }

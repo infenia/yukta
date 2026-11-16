@@ -2,8 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import com.infenia.yukta.dto.request.ConversationEndRequest;
+import com.infenia.yukta.dto.request.ConversationMessageRequest;
+import com.infenia.yukta.dto.request.TerminalInputRequest;
+import com.infenia.yukta.dto.request.TerminalResizeRequest;
 import com.infenia.yukta.dto.response.ConversationEventResponse;
 import com.infenia.yukta.dto.response.ConversationResponse;
+import com.infenia.yukta.dto.response.ConversationSteerResponse;
 import com.infenia.yukta.dto.response.TerminalScreenResponse;
 import com.infenia.yukta.mapper.ConversationMapper;
 import com.infenia.yukta.model.api.ApiResponse;
@@ -13,30 +18,39 @@ import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.agent.AgentChange;
 import com.infenia.yukta.service.agent.AgentConversationQueries;
+import com.infenia.yukta.service.agent.AgentSteering;
+import com.infenia.yukta.service.control.SupervisedControl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Reads the conversations with AI agents: lists, one conversation, its events, the terminal screen
- * and one live stream for a run and the runs below it. Everything here needs only VIEWER; a
- * conversation of a session the caller does not reach is 404, as one that does not exist.
+ * Reads the conversations with AI agents (lists, one conversation, its events, the terminal screen
+ * and one live stream for a run and the runs below it) and steers them (a message, an interrupt, an
+ * end). Reading needs only VIEWER; steering needs OPERATOR and the steerAudience of the
+ * conversation. A conversation of a session the caller does not reach is 404, as one that does not
+ * exist.
  *
  * <p>The text of a conversation is written by an AI agent: show it as untrusted plain text.
  */
@@ -48,7 +62,7 @@ import reactor.core.publisher.Mono;
     name = "enabled",
     havingValue = "true",
     matchIfMissing = true)
-@SuppressWarnings({"PMD.ExcessiveImports"})
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.CouplingBetweenObjects", "PMD.TooManyMethods"})
 @Tag(name = "Agent Conversations API", description = "Read the conversations with AI agents")
 public class ConversationsController {
 
@@ -78,6 +92,12 @@ public class ConversationsController {
 
   /** Resolves a run for a request. */
   private final ExecutionAccess access;
+
+  /** Sends the commands to the agents as control commands. */
+  private final SupervisedControl control;
+
+  /** Types into terminals: keystrokes are too many for the control pipeline. */
+  private final AgentSteering steering;
 
   /** Lists the conversations the caller reaches. */
   @GetMapping("/conversations")
@@ -247,6 +267,114 @@ public class ConversationsController {
                     .map(this::toEvent),
                 SseStreams.HEARTBEAT,
                 MAX_STREAMS_PER_KEY));
+  }
+
+  /** Sends a message to the agent. */
+  @PostMapping("/conversations/{id}/messages")
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  @Operation(
+      summary = "Send a message to an agent",
+      description =
+          "A control command: ordered, reviewed and audited. The message waits for the end of the"
+              + " agent's turn (queued) unless the agent takes it during the turn or interrupt is"
+              + " true. 403 when the caller may not steer this conversation (role OPERATOR and the"
+              + " steerAudience), 404 when it is unknown or not reachable, 409 not_live or"
+              + " unsupported (with the capability), 413 over max-message-bytes, 429 over"
+              + " messages-per-minute.")
+  public Mono<ApiResponse<ConversationSteerResponse>> sendMessage(
+      @Parameter(description = CONVERSATION_ID) @PathVariable final String id,
+      @Valid @RequestBody final ConversationMessageRequest body) {
+    return reach()
+        .flatMap(reaches -> queries.require(id, reaches))
+        .flatMap(conversation ->
+            control
+                .agentMessage(
+                    conversation.executionId(),
+                    conversation.nodeId(),
+                    id,
+                    body.text(),
+                    body.interrupts())
+                .thenReturn(
+                    new ConversationSteerResponse(
+                        AgentSteering.willQueue(conversation, body.interrupts()))))
+        .map(answer -> ApiResponse.success(202, "Message accepted", answer));
+  }
+
+  /** Stops the agent's current turn. */
+  @PostMapping("/conversations/{id}/interrupt")
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  @Operation(
+      summary = "Interrupt an agent",
+      description =
+          "Stops the agent's current turn; the conversation stays open. Errors as for sending a"
+              + " message.")
+  public Mono<ApiResponse<Void>> interrupt(
+      @Parameter(description = CONVERSATION_ID) @PathVariable final String id) {
+    return reach()
+        .flatMap(reaches -> queries.require(id, reaches))
+        .flatMap(conversation ->
+            control.agentInterrupt(conversation.executionId(), conversation.nodeId(), id))
+        .then(Mono.fromSupplier(() -> ApiResponse.<Void>success(202, "Interrupt accepted", null)));
+  }
+
+  /** Ends a conversation. */
+  @PostMapping("/conversations/{id}/end")
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  @Operation(
+      summary = "End a conversation",
+      description =
+          "Closes the agent; the node goes on with the outcome given, else the last turn's status."
+              + " Errors as for sending a message.")
+  public Mono<ApiResponse<Void>> end(
+      @Parameter(description = CONVERSATION_ID) @PathVariable final String id,
+      @Valid @RequestBody(required = false) final ConversationEndRequest body) {
+    final ConversationEndRequest given =
+        body == null ? new ConversationEndRequest(null, null) : body;
+    return reach()
+        .flatMap(reaches -> queries.require(id, reaches))
+        .flatMap(conversation ->
+            control.agentEnd(
+                conversation.executionId(),
+                conversation.nodeId(),
+                id,
+                given.outcome(),
+                given.reason()))
+        .then(Mono.fromSupplier(() -> ApiResponse.<Void>success(202, "End accepted", null)));
+  }
+
+  /** Types into the terminal of an agent. */
+  @PostMapping("/conversations/{id}/terminal/input")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(
+      summary = "Type into the terminal of an agent",
+      description =
+          "Writes the keys to the terminal of a pty agent. Not reviewed: what is typed cannot be"
+              + " checked, so the volume is audited once a minute per caller and conversation."
+              + " 400 when data is not base64, 403 when the caller may not steer this conversation,"
+              + " 404 unknown or not reachable, 409 not_live or unsupported (no terminal), 413 over"
+              + " 8 KB.")
+  public Mono<Void> terminalInput(
+      @Parameter(description = CONVERSATION_ID) @PathVariable final String id,
+      @Valid @RequestBody final TerminalInputRequest body) {
+    final byte[] data;
+    try {
+      data = java.util.Base64.getDecoder().decode(body.data());
+    } catch (IllegalArgumentException e) {
+      return Mono.error(new IllegalArgumentException("data must be base64", e));
+    }
+    return steering.terminalInput(id, data);
+  }
+
+  /** Resizes the terminal of an agent. */
+  @PostMapping("/conversations/{id}/terminal/resize")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  @Operation(
+      summary = "Resize the terminal of an agent",
+      description = "Errors as for typing into the terminal.")
+  public Mono<Void> terminalResize(
+      @Parameter(description = CONVERSATION_ID) @PathVariable final String id,
+      @Valid @RequestBody final TerminalResizeRequest body) {
+    return steering.terminalResize(id, body.cols(), body.rows());
   }
 
   private ServerSentEvent<Object> toEvent(final AgentChange change) {

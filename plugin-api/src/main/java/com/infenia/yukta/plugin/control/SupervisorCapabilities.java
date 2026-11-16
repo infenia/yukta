@@ -83,6 +83,9 @@ public record SupervisorCapabilities(
           "SetPriorityCommand",
           "AnswerInputCommand",
           "EscalateInputCommand",
+          "AgentMessageCommand",
+          "AgentInterruptCommand",
+          "AgentEndCommand",
           "StartWorkflowCommand",
           "RecoverCommand",
           "DrainCommand");
