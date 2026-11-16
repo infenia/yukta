@@ -70,6 +70,19 @@ class AgentOutputTest {
   }
 
   @Test
+  void extrasTheResultHoldsAsNull_areLeftOut() {
+    final AgentOutput output = new AgentOutput(preset("claude-code").output(), log, JSON);
+
+    output.line(
+        "stdout",
+        "{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"ok\","
+            + "\"total_cost_usd\":null,\"num_turns\":null,\"structured_output\":null}");
+
+    assertThat(output.outcome(0, false, 60))
+        .doesNotContainKeys("costUsd", "numTurns", "structured");
+  }
+
+  @Test
   void extrasTheResultLacks_areLeftOut() {
     final AgentOutput output = new AgentOutput(preset("claude-code").output(), log, JSON);
 
