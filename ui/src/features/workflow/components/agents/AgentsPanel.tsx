@@ -58,11 +58,20 @@ function Heading({ chosen }: { chosen: Conversation | undefined }) {
 export function AgentsPanel({
   conversations,
   items,
+  focus = null,
 }: {
   conversations: Conversation[];
   items: AgentItem[];
+  /** Selects this conversation; a new nonce selects it again. */
+  focus?: { id: string; nonce: number } | null;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [seenFocus, setSeenFocus] = useState(focus?.nonce ?? 0);
+  // Render-phase: a click on its node on the canvas selects the conversation once
+  if (focus && focus.nonce !== seenFocus) {
+    setSeenFocus(focus.nonce);
+    setSelected(focus.id);
+  }
   if (conversations.length === 0) {
     return (
       <div className="text-body-sm text-on-surface-variant flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-4 py-6 text-center">

@@ -22,6 +22,7 @@ import { RunControls } from './RunControls';
 import { LogsPanel } from './LogsPanel';
 import { AgentsPanel } from './agents/AgentsPanel';
 import { useAgentStream } from '../hooks/useAgentStream';
+import { AgentsByNode, byNode } from '../lib/agentsByNode';
 import { InputsPanel } from './InputsPanel';
 import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
@@ -110,9 +111,17 @@ export function WorkflowDetailsPage() {
     sessionId,
     selectedExecutionId
   );
+  const [agentFocus, setAgentFocus] = useState<{
+    id: string;
+    nonce: number;
+  } | null>(null);
   const agents = useAgentStream(
     selectedExecutionId,
     !isTerminalExecStatus(progress?.status)
+  );
+  const agentNodes = useMemo(
+    () => byNode(agents.conversations),
+    [agents.conversations]
   );
   const logs = useExecutionLogs(
     sessionId,
@@ -416,14 +425,26 @@ export function WorkflowDetailsPage() {
                     />
                   )}
                   {view === 'graph' && (
-                    <WorkflowCanvas
-                      graph={graph}
-                      tasksByNode={tasksByNode}
-                      stageView={stages.stageView}
-                      onNodeClick={setOpenNode}
-                      follow={follow && followable}
-                      find={findQuery}
-                    />
+                    <AgentsByNode.Provider value={agentNodes}>
+                      <WorkflowCanvas
+                        graph={graph}
+                        tasksByNode={tasksByNode}
+                        stageView={stages.stageView}
+                        onNodeClick={(nodeId) => {
+                          setOpenNode(nodeId);
+                          // a node that runs an agent also brings up its conversation
+                          const agent = agentNodes[nodeId];
+                          if (agent) {
+                            setAgentFocus((held) => ({
+                              id: agent.id,
+                              nonce: (held?.nonce ?? 0) + 1,
+                            }));
+                          }
+                        }}
+                        follow={follow && followable}
+                        find={findQuery}
+                      />
+                    </AgentsByNode.Provider>
                   )}
                   {/* The canvas toolbar; its gaps pass the pointer through to the canvas */}
                   {view === 'graph' && (
@@ -469,8 +490,10 @@ export function WorkflowDetailsPage() {
                 <LogsPanel
                   agents={{
                     waiting: agents.waiting,
+                    focus: agentFocus,
                     content: (
                       <AgentsPanel
+                        focus={agentFocus}
                         conversations={agents.conversations}
                         items={agents.items}
                       />

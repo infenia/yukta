@@ -10,7 +10,7 @@ import { AgentTimeline } from '../AgentTimeline';
 import type { AgentItem } from '../../../lib/agentItems';
 import { createConversation } from '@/test/factories/conversationFactory';
 import { useJsdomViewport } from '@/test/jsdomViewport';
-import { renderWithProviders } from '@/test/utils/testUtils';
+import { createTestWrapper, renderWithProviders } from '@/test/utils/testUtils';
 
 const AT = '2026-11-16T14:02:00Z';
 
@@ -375,6 +375,29 @@ describe('the look of an item', () => {
       expect(screen.getByText(status)).toBeInTheDocument();
       unmount();
     }
+  });
+});
+
+describe('AgentsPanel focus', () => {
+  useJsdomViewport();
+
+  const panel = (focus: { id: string; nonce: number } | null) => (
+    <AgentsPanel conversations={[review, fix]} items={items} focus={focus} />
+  );
+
+  it('selects the conversation a click on its node asked for, once', async () => {
+    const { rerender } = render(panel(null), { wrapper: createTestWrapper() });
+    expect(screen.getByText('All agents of this run')).toBeInTheDocument();
+
+    rerender(panel({ id: 'c2', nonce: 1 }));
+    expect(screen.getByRole('heading', { name: 'fix' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /^All/ }));
+    rerender(panel({ id: 'c2', nonce: 1 }));
+    expect(screen.getByText('All agents of this run')).toBeInTheDocument();
+
+    rerender(panel({ id: 'c1', nonce: 2 }));
+    expect(screen.getByRole('heading', { name: 'review' })).toBeInTheDocument();
   });
 });
 
