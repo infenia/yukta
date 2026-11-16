@@ -105,6 +105,8 @@ public record AgentPreset(
    * @param captures values taken from earlier lines when the result line lacks them
    * @param failureWhen field values that mark a failure line (a harness that reports one)
    * @param failureText dotted path of the reason in the failure line
+   * @param extras payload fields taken from the result line: name to dotted path (a number or an
+   *     object keeps its type), for example the cost or a structured answer
    */
   public record Output(
       Map<String, String> resultWhen,
@@ -116,7 +118,8 @@ public record AgentPreset(
       List<Live> live,
       List<Capture> captures,
       Map<String, String> failureWhen,
-      String failureText) {
+      String failureText,
+      Map<String, String> extras) {
     /** Copies the collections so the record stays immutable. */
     public Output {
       resultWhen = Map.copyOf(resultWhen);
@@ -124,6 +127,7 @@ public record AgentPreset(
       live = List.copyOf(live);
       captures = List.copyOf(captures);
       failureWhen = Map.copyOf(failureWhen);
+      extras = Map.copyOf(extras);
     }
   }
 
@@ -248,7 +252,8 @@ public record AgentPreset(
             live,
             captures(out.path("captures")),
             strings(out.path("failureWhen")),
-            out.path("failureText").asString("")),
+            out.path("failureText").asString(""),
+            strings(out.path("extras"))),
         interactive(root.path("interactive")),
         authMethod(root.path("acp").path("authMethod")),
         pty(root.path("pty")));
