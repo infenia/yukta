@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import type { Conversation } from '@/types/conversations';
 import { stateWords } from '../../lib/agentLabels';
 import type { AgentItem } from '../../lib/agentItems';
 import { AgentComposer } from './AgentComposer';
 import { AgentList } from './AgentList';
 import { AgentTimeline } from './AgentTimeline';
+
+// the terminal view and xterm come in a chunk of their own, when a terminal agent is shown
+const AgentTerminal = lazy(() =>
+  import('./AgentTerminal').then((module) => ({
+    default: module.AgentTerminal,
+  }))
+);
 
 const chip =
   'bg-surface-variant text-label-sm text-on-surface-variant rounded-full px-2.5 py-0.5';
@@ -98,12 +105,30 @@ export function AgentsPanel({
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Heading chosen={chosen} />
-        <AgentTimeline
-          items={items}
-          conversations={conversations}
-          selected={active}
-        />
-        <AgentComposer key={chosen?.id ?? 'none'} conversation={chosen} />
+        {chosen?.protocol === 'PTY' ? (
+          <Suspense
+            fallback={
+              <p className="text-body-sm text-muted-foreground px-4 py-3">
+                Opening the terminal…
+              </p>
+            }
+          >
+            <AgentTerminal
+              key={chosen.id}
+              conversation={chosen}
+              canType={chosen.capabilities.includes('terminal')}
+            />
+          </Suspense>
+        ) : (
+          <>
+            <AgentTimeline
+              items={items}
+              conversations={conversations}
+              selected={active}
+            />
+            <AgentComposer key={chosen?.id ?? 'none'} conversation={chosen} />
+          </>
+        )}
       </div>
     </div>
   );

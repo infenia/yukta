@@ -10,6 +10,7 @@ import { renderWithProviders } from '@/test/utils/testUtils';
 import { ApiError } from '@/lib/apiClient';
 import { createConversation } from '@/test/factories/conversationFactory';
 import { isForbidden, steerErrorMessage } from '../../../lib/steerErrors';
+import { resizeTerminal, sendTerminalInput } from '../../../api/conversations';
 import { AgentComposer } from '../AgentComposer';
 import { OpenRequest } from '../OpenRequest';
 import { AgentList } from '../AgentList';
@@ -22,6 +23,16 @@ const ok = (data: unknown) =>
   HttpResponse.json({ status: 200, message: 'ok', data });
 
 const server = setupServer(
+  http.post(
+    '/api/conversations/:id/terminal/:action',
+    async ({ request, params }) => {
+      posts.push({
+        url: `${String(params.id)}/${String(params.action)}`,
+        body: await request.json(),
+      });
+      return new HttpResponse(null, { status: 204 });
+    }
+  ),
   http.post('/api/conversations/:id/:action', async ({ request, params }) => {
     const text = await request.text();
     posts.push({
@@ -231,6 +242,18 @@ describe('AgentComposer', () => {
     await userEvent.click(screen.getByRole('button', { name: 'End' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('down');
+  });
+});
+
+describe('terminal calls', () => {
+  it('post the keys as base64 and the size', async () => {
+    await sendTerminalInput('c1', new TextEncoder().encode('ls\r'));
+    await resizeTerminal('c1', 100, 30);
+
+    expect(posts).toEqual([
+      { url: 'c1/input', body: { data: 'bHMN' } },
+      { url: 'c1/resize', body: { cols: 100, rows: 30 } },
+    ]);
   });
 });
 
