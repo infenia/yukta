@@ -2723,6 +2723,43 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AgentConversation: {
+            capabilities?: string[];
+            ended?: boolean;
+            /** Format: date-time */
+            endedAt?: string;
+            executionId?: string;
+            harness?: string;
+            id?: string;
+            messageId?: string;
+            model?: string;
+            nodeId?: string;
+            outcome?: string;
+            /** @enum {string} */
+            protocol?: "JSONL" | "ACP" | "PTY";
+            /** Format: int32 */
+            queued?: number;
+            reason?: string;
+            rootExecutionId?: string;
+            /** Format: int64 */
+            seq?: number;
+            sessionId?: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** @enum {string} */
+            state?: "STARTING" | "RUNNING" | "WAITING" | "IDLE" | "ENDED";
+            steerAudience?: components["schemas"]["Audience"];
+            /** Format: int32 */
+            turn?: number;
+            /** Format: date-time */
+            updatedAt?: string;
+            workflowId?: string;
+        };
+        AgentConversationChanged: components["schemas"]["ExecutionEvent"] & {
+            conversation?: components["schemas"]["AgentConversation"];
+            /** Format: date-time */
+            timestamp?: string;
+        };
         AgentEndCommand: components["schemas"]["ExecutionControlCommand"] & {
             conversationId?: string;
             executionId?: string;
@@ -5674,7 +5711,7 @@ export interface components {
         };
         Event: components["schemas"]["Signal"] & {
             cursor?: string;
-            event?: components["schemas"]["ControlOutcome"] | components["schemas"]["EventsMissed"] | components["schemas"]["InputAnswered"] | components["schemas"]["InputCancelled"] | components["schemas"]["InputEscalated"] | components["schemas"]["InputExpired"] | components["schemas"]["InputRequested"] | components["schemas"]["LogLine"] | components["schemas"]["NodeStatusChanged"] | components["schemas"]["WorkflowStatusChanged"];
+            event?: components["schemas"]["AgentConversationChanged"] | components["schemas"]["ControlOutcome"] | components["schemas"]["EventsMissed"] | components["schemas"]["InputAnswered"] | components["schemas"]["InputCancelled"] | components["schemas"]["InputEscalated"] | components["schemas"]["InputExpired"] | components["schemas"]["InputRequested"] | components["schemas"]["LogLine"] | components["schemas"]["NodeStatusChanged"] | components["schemas"]["WorkflowStatusChanged"];
             id?: string;
         };
         EventsMissed: components["schemas"]["ExecutionEvent"] & {
