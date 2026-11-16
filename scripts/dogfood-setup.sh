@@ -16,6 +16,7 @@ url=${YUKTA_DOGFOOD_URL:-https://github.com/infenia/yukta-dogfood.git}
 [ -n "$ref" ] || { echo "dogfood-setup: .dogfood-ref is empty" >&2; exit 1; }
 [ -d "$dir/.git" ] || git clone -q "$url" "$dir"
 git -C "$dir" fetch -q --tags origin "$ref" 2>/dev/null || git -C "$dir" fetch -q --tags origin
-git -C "$dir" checkout -q --detach "$ref"
+# a branch name (the default: main) means the tip of origin/<branch>, not a stale local branch; a tag or a commit is used as it is
+git -C "$dir" checkout -q --detach "$(git -C "$dir" rev-parse -q --verify "origin/$ref^{commit}" || echo "$ref")"
 (cd "$dir" && bun install --frozen-lockfile >/dev/null)
 echo "dogfood: $dir at $(git -C "$dir" rev-parse --short HEAD) ($ref); put it on PATH: export PATH=\"$dir:\$PATH\""
