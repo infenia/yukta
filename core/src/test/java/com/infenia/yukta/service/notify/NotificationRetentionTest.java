@@ -79,6 +79,7 @@ class NotificationRetentionTest {
             null,
             null,
             null,
+            null,
             null);
 
     final NotificationRetention retention =

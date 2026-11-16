@@ -144,6 +144,7 @@ class NotificationDeliveryWorkerTest {
             null,
             null,
             null,
+            null,
             null);
     return new NotificationDeliveryWorker(
         store,
@@ -606,6 +607,7 @@ class NotificationDeliveryWorkerTest {
                 Map.of()),
             new YuktaProperties.Notifications(
                 true, Duration.ofDays(1), 10, Duration.ZERO, Map.of(), Map.of()),
+            null,
             null,
             null,
             null,
