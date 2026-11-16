@@ -267,6 +267,7 @@
               "api/executions",
               "api/control",
               "api/streams",
+              "api/conversations",
               "api/catalogue"
             ]
           },

@@ -25,6 +25,7 @@ import java.util.Map;
  *   <li>No race conditions from multiple access paths
  * </ul>
  */
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 public sealed interface ExecutionControlCommand
     permits ExecutionControlCommand.PauseWorkflowCommand,
         ExecutionControlCommand.ResumeWorkflowCommand,
@@ -43,6 +44,9 @@ public sealed interface ExecutionControlCommand
         ExecutionControlCommand.SetPriorityCommand,
         ExecutionControlCommand.AnswerInputCommand,
         ExecutionControlCommand.EscalateInputCommand,
+        ExecutionControlCommand.AgentMessageCommand,
+        ExecutionControlCommand.AgentInterruptCommand,
+        ExecutionControlCommand.AgentEndCommand,
         ExecutionControlCommand.StartWorkflowCommand,
         ExecutionControlCommand.RecoverCommand,
         ExecutionControlCommand.DrainCommand {
@@ -374,6 +378,76 @@ public sealed interface ExecutionControlCommand
       InputLimits.requireId("requestId", requestId);
       InputLimits.requireText("reason", reason, InputLimits.TEXT_MAX_BYTES);
       InputLimits.optionalText("advice", advice, InputLimits.TEXT_MAX_BYTES);
+    }
+  }
+
+  /**
+   * Sends a message to the agent of a conversation. It passes review and audit like any command;
+   * the text is not validated here beyond being present, the size limit is a server setting.
+   *
+   * @param executionId the run of the node
+   * @param nodeId the node that runs the agent
+   * @param conversationId the conversation to send to
+   * @param text the message
+   * @param interrupt true to stop the agent's turn first
+   */
+  record AgentMessageCommand(
+      String executionId, String nodeId, String conversationId, String text, boolean interrupt)
+      implements ExecutionControlCommand {
+
+    /** Checks the parts. */
+    public AgentMessageCommand {
+      InputLimits.requireId("executionId", executionId);
+      InputLimits.requireId("nodeId", nodeId);
+      InputLimits.requireId("conversationId", conversationId);
+      if (text == null || text.isBlank()) {
+        throw new IllegalArgumentException("text must not be blank");
+      }
+    }
+  }
+
+  /**
+   * Stops the current turn of the agent of a conversation; the conversation stays open.
+   *
+   * @param executionId the run of the node
+   * @param nodeId the node that runs the agent
+   * @param conversationId the conversation
+   */
+  record AgentInterruptCommand(String executionId, String nodeId, String conversationId)
+      implements ExecutionControlCommand {
+
+    /** Checks the parts. */
+    public AgentInterruptCommand {
+      InputLimits.requireId("executionId", executionId);
+      InputLimits.requireId("nodeId", nodeId);
+      InputLimits.requireId("conversationId", conversationId);
+    }
+  }
+
+  /**
+   * Ends a conversation: the agent is closed and the node goes on.
+   *
+   * @param executionId the run of the node
+   * @param nodeId the node that runs the agent
+   * @param conversationId the conversation
+   * @param outcome {@code success}, {@code failure} or {@code incomplete}; {@code null} for the
+   *     last turn's status
+   * @param reason why it ends, or {@code null}
+   */
+  record AgentEndCommand(
+      String executionId,
+      String nodeId,
+      String conversationId,
+      @Nullable String outcome,
+      @Nullable String reason)
+      implements ExecutionControlCommand {
+
+    /** Checks the parts. */
+    public AgentEndCommand {
+      InputLimits.requireId("executionId", executionId);
+      InputLimits.requireId("nodeId", nodeId);
+      InputLimits.requireId("conversationId", conversationId);
+      InputLimits.optionalText("reason", reason, InputLimits.TEXT_MAX_BYTES);
     }
   }
 

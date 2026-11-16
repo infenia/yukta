@@ -61,7 +61,14 @@ class McpToolAccess {
           Map.entry("list_notifications", ApiRole.VIEWER),
           Map.entry("mark_notifications_read", ApiRole.VIEWER),
           Map.entry("answer_input", ApiRole.OPERATOR),
-          Map.entry("escalate_input", ApiRole.OPERATOR));
+          Map.entry("escalate_input", ApiRole.OPERATOR),
+          Map.entry("list_agent_conversations", ApiRole.VIEWER),
+          Map.entry("get_agent_conversation", ApiRole.VIEWER),
+          Map.entry("read_agent_screen", ApiRole.VIEWER),
+          Map.entry("send_agent_message", ApiRole.OPERATOR),
+          Map.entry("interrupt_agent", ApiRole.OPERATOR),
+          Map.entry("end_agent_conversation", ApiRole.OPERATOR),
+          Map.entry("send_agent_keys", ApiRole.OPERATOR));
 
   /** Tools that name no session and show nothing of one, so a session key may call them. */
   private static final Set<String> SESSIONLESS =

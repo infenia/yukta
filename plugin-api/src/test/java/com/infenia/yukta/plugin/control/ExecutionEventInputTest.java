@@ -71,6 +71,7 @@ class ExecutionEventInputTest {
             case ExecutionEvent.InputAnswered _ -> "answered ";
             case ExecutionEvent.InputExpired _ -> "expired ";
             case ExecutionEvent.InputCancelled _ -> "cancelled";
+            case ExecutionEvent.AgentConversationChanged _ -> "agent";
           });
     }
     assertThat(seen.toString()).isEqualTo("requested escalated answered expired cancelled");

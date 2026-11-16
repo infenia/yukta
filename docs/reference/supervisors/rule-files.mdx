@@ -54,7 +54,7 @@ Every field that is set must match; an omitted field matches any value.
 - **Type:** string
 - **Default:** none
 - **Required:** no, except that a rule with `every` must not have it
-- **Description:** `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `EventsMissed`, `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired` or `InputCancelled`.
+- **Description:** `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `EventsMissed`, `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled` or `AgentConversationChanged`.
 
 ### `status`
 - **Type:** string
@@ -147,6 +147,12 @@ Exactly one of `command`, `answer` and `escalate`.
 
 A restart starts a new run; in that run's events `attempt` counts the restarts the rules made (0 for a run nobody restarted), so `"if": "attempt < 2"` bounds a retry loop. The count is kept in memory for the newest 1000 restarted runs.
 
+### `text`, `interrupt`, `outcome`
+- **Type:** string, boolean, string
+- **Default:** none
+- **Required:** `text` for `AgentMessage`
+- **Description:** What the commands that steer an agent take: `command: "AgentMessage"` sends `text` (with `interrupt: true` it stops the turn first), `AgentInterrupt` stops the turn, `AgentEnd` ends the conversation with `outcome` (`success`, `failure` or `incomplete`; none keeps the last turn's) and `reason`. Such a rule reacts only to `AgentConversationChanged`, and the node's `steerAudience` must name the supervisor (`supervisor:<id>` or `supervisor:*`); otherwise the command is refused and the refusal is in the audit.
+
 ### `answer`
 - **Type:** object
 - **Default:** none
@@ -218,6 +224,7 @@ A condition is a read-only SpEL expression over one map of fields: no method cal
 | `InputRequested`, `InputEscalated` | `sessionId`, `workflowId`, `nodeId`, `requestId`, `status` (`INPUT_REQUESTED` or `INPUT_ESCALATED`), `kind`, `risk`, `state`, `tier`, `requester`, `requesterType`, `prompt`, `context`, `options` (option ids), `advice`; `reason` for `InputEscalated` |
 | `InputAnswered` | `workflowId`, `requestId`, `decision`, `responder`, `responderType` |
 | `InputExpired`, `InputCancelled` | `workflowId`, `requestId`; `reason` for `InputCancelled` |
+| `AgentConversationChanged` | `workflowId`, `nodeId`, `status` (`AGENT_` and the state), `conversationId`, `harness`, `protocol`, `model`, `state` (`STARTING`, `RUNNING`, `WAITING`, `IDLE`, `ENDED`), `outcome`, `turn`, `queued`, `runningSeconds` (since the conversation began) |
 | A command under review (`deny`, `requireApproval`) | `executionId`, `actor`, `sessionId`, `workflowId`, `nodeId`, `mode`, `reason`, `immediate` |
 | A timed rule | `read.<STATUS>` |
 | A restarted run | `attempt` |

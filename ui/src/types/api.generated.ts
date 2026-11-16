@@ -325,6 +325,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agent conversations
+         * @description The conversations of all sessions the caller reaches, newest first. Narrow them with state, sessionId and executionId; with executionId, tree=true (the default) also lists those of the runs below it. limit defaults to 100, at most 500. An unknown state is a 400.
+         */
+        get: operations["listConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an agent conversation
+         * @description The conversation record. 404 when it is unknown or of an unreachable session.
+         */
+        get: operations["getConversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a conversation
+         * @description Closes the agent; the node goes on with the outcome given, else the last turn's status. Errors as for sending a message.
+         */
+        post: operations["end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the events of an agent conversation
+         * @description A page of events in the order of their sequence numbers, after the event whose number is given in after (default: from the start). limit defaults to 100, at most 500. When more events follow, the X-Next-Cursor header holds the number to pass as after. Terminal output is kept in a ring of bytes, so an old chunk may be gone.
+         */
+        get: operations["getEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{id}/interrupt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Interrupt an agent
+         * @description Stops the agent's current turn; the conversation stays open. Errors as for sending a message.
+         */
+        post: operations["interrupt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a message to an agent
+         * @description A control command: ordered, reviewed and audited. The message waits for the end of the agent's turn (queued) unless the agent takes it during the turn or interrupt is true. 403 when the caller may not steer this conversation (role OPERATOR and the steerAudience), 404 when it is unknown or not reachable, 409 not_live or unsupported (with the capability), 413 over max-message-bytes, 429 over messages-per-minute.
+         */
+        post: operations["sendMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{id}/terminal/input": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Type into the terminal of an agent
+         * @description Writes the keys to the terminal of a pty agent. Not reviewed: what is typed cannot be checked, so the volume is audited once a minute per caller and conversation. 400 when data is not base64, 403 when the caller may not steer this conversation, 404 unknown or not reachable, 409 not_live or unsupported (no terminal), 413 over 8 KB.
+         */
+        post: operations["terminalInput"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{id}/terminal/resize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resize the terminal of an agent
+         * @description Errors as for typing into the terminal.
+         */
+        post: operations["terminalResize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/conversations/{id}/terminal/screen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the screen of a terminal agent
+         * @description The latest settled screen as text with the size and the cursor. 404 when the conversation is unknown or has not drawn a screen yet, 409 when it has no terminal.
+         */
+        get: operations["getScreen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/edition": {
         parameters: {
             query?: never;
@@ -417,6 +597,46 @@ export interface paths {
          * @description Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)
          */
         get: operations["getWorkflowStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the agent conversations of a run
+         * @description The conversations of the run and, with tree=true (the default), of its child runs, newest first. 404 for an unknown run or one of a session the caller does not reach.
+         */
+        get: operations["listRunConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/conversations/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream the agent conversations of a run
+         * @description Server-sent events for the run and, with tree=true (the default), the runs below it. The event named conversation carries a conversation record (on connect one for each conversation, then on every change); the event named event carries a conversation event. The SSE id is the change sequence number, and Last-Event-ID resumes after it: a client gets exactly what it missed, no gap and no duplicate. For a terminal agent a new client gets the latest screen before the live output; terminal=false leaves out the output and sends screens only. The stream ends when the run does, and ends early for a client that falls too far behind, which resumes with Last-Event-ID.
+         */
+        get: operations["streamConversations"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2503,6 +2723,25 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AgentEndCommand: components["schemas"]["ExecutionControlCommand"] & {
+            conversationId?: string;
+            executionId?: string;
+            nodeId?: string | null;
+            outcome?: string | null;
+            reason?: string | null;
+        };
+        AgentInterruptCommand: components["schemas"]["ExecutionControlCommand"] & {
+            conversationId?: string;
+            executionId?: string;
+            nodeId?: string | null;
+        };
+        AgentMessageCommand: components["schemas"]["ExecutionControlCommand"] & {
+            conversationId?: string;
+            executionId?: string;
+            interrupt?: boolean;
+            nodeId?: string | null;
+            text?: string;
+        };
         Annotation: {
             actor?: string;
             applied?: boolean;
@@ -2570,6 +2809,72 @@ export interface components {
         ApiResponseContractView: {
             /** @description The response data */
             data?: components["schemas"]["ContractView"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseConversationResponse: {
+            /** @description The response data */
+            data?: components["schemas"]["ConversationResponse"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseConversationSteerResponse: {
+            /** @description The response data */
+            data?: components["schemas"]["ConversationSteerResponse"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -2801,6 +3106,72 @@ export interface components {
         ApiResponseListControlAuditEntry: {
             /** @description The response data */
             data?: components["schemas"]["ControlAuditEntry"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListConversationEventResponse: {
+            /** @description The response data */
+            data?: components["schemas"]["ConversationEventResponse"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListConversationResponse: {
+            /** @description The response data */
+            data?: components["schemas"]["ConversationResponse"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -4588,6 +4959,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseTerminalScreenResponse: {
+            /** @description The response data */
+            data?: components["schemas"]["TerminalScreenResponse"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseValidationView: {
             /** @description The response data */
             data?: components["schemas"]["ValidationView"];
@@ -5055,10 +5459,130 @@ export interface components {
         };
         ControlRequest: {
             actor?: string;
-            command?: components["schemas"]["AnswerInputCommand"] | components["schemas"]["DisableStepModeCommand"] | components["schemas"]["DrainCommand"] | components["schemas"]["EnableStepModeCommand"] | components["schemas"]["EscalateInputCommand"] | components["schemas"]["PauseNodeCommand"] | components["schemas"]["PauseWorkflowCommand"] | components["schemas"]["RecoverCommand"] | components["schemas"]["RestartCommand"] | components["schemas"]["RestartFromNodeCommand"] | components["schemas"]["ResumeNodeCommand"] | components["schemas"]["ResumeWorkflowCommand"] | components["schemas"]["SetBreakpointCommand"] | components["schemas"]["SetLimitsCommand"] | components["schemas"]["SetPriorityCommand"] | components["schemas"]["SkipNodeCommand"] | components["schemas"]["StartWorkflowCommand"] | components["schemas"]["StepNodeCommand"] | components["schemas"]["StopNodeCommand"] | components["schemas"]["StopWorkflowCommand"];
+            command?: components["schemas"]["AgentEndCommand"] | components["schemas"]["AgentInterruptCommand"] | components["schemas"]["AgentMessageCommand"] | components["schemas"]["AnswerInputCommand"] | components["schemas"]["DisableStepModeCommand"] | components["schemas"]["DrainCommand"] | components["schemas"]["EnableStepModeCommand"] | components["schemas"]["EscalateInputCommand"] | components["schemas"]["PauseNodeCommand"] | components["schemas"]["PauseWorkflowCommand"] | components["schemas"]["RecoverCommand"] | components["schemas"]["RestartCommand"] | components["schemas"]["RestartFromNodeCommand"] | components["schemas"]["ResumeNodeCommand"] | components["schemas"]["ResumeWorkflowCommand"] | components["schemas"]["SetBreakpointCommand"] | components["schemas"]["SetLimitsCommand"] | components["schemas"]["SetPriorityCommand"] | components["schemas"]["SkipNodeCommand"] | components["schemas"]["StartWorkflowCommand"] | components["schemas"]["StepNodeCommand"] | components["schemas"]["StopNodeCommand"] | components["schemas"]["StopWorkflowCommand"];
             nodeId?: string;
             sessionId?: string;
             workflowId?: string;
+        };
+        /** @description Ends a conversation */
+        ConversationEndRequest: {
+            /** @description success, failure or incomplete; default the last turn's status */
+            outcome?: string;
+            /** @description Why it ends */
+            reason?: string;
+        };
+        /** @description One thing that happened in a conversation */
+        ConversationEventResponse: {
+            /** @description The conversation */
+            conversationId?: string;
+            /** @description The details; the keys depend on the kind */
+            data?: {
+                [key: string]: unknown;
+            };
+            /** @description The item it belongs to */
+            itemId?: string | null;
+            /**
+             * @description What it describes
+             * @enum {string}
+             */
+            kind?: "STATE" | "MESSAGE" | "TOOL" | "PLAN" | "REQUEST" | "TERMINAL" | "RESULT" | "NOTICE";
+            /**
+             * Format: int64
+             * @description The change sequence; the id of the event on the stream
+             */
+            seq?: number;
+            /**
+             * Format: date-time
+             * @description When it happened
+             */
+            timestamp?: string;
+        };
+        /** @description A message to an agent */
+        ConversationMessageRequest: {
+            /** @description Stop the agent's current turn first, default false */
+            interrupt?: boolean;
+            /**
+             * @description The message
+             * @example Also update the README
+             */
+            text: string;
+        };
+        /** @description A conversation with an AI agent */
+        ConversationResponse: {
+            /** @description What the conversation can do */
+            capabilities?: string[];
+            /**
+             * Format: date-time
+             * @description When it ended
+             */
+            endedAt?: string | null;
+            /** @description The run of the node */
+            executionId?: string;
+            /** @description The preset that describes the agent */
+            harness?: string;
+            /** @description The conversation id */
+            id?: string;
+            /** @description The message the node works on */
+            messageId?: string;
+            /** @description The model, when known */
+            model?: string | null;
+            /** @description The node */
+            nodeId?: string;
+            /**
+             * @description How it ended; null until it ended
+             * @enum {string|null}
+             */
+            outcome?: "success" | "failure" | "incomplete" | null;
+            /**
+             * @description How Yukta talks to the agent
+             * @enum {string}
+             */
+            protocol?: "JSONL" | "ACP" | "PTY";
+            /**
+             * Format: int32
+             * @description How many messages wait for the turn to end
+             */
+            queued?: number;
+            /** @description Why it is in this state or ended; untrusted text */
+            reason?: string | null;
+            /** @description The top of the run's tree of runs */
+            rootExecutionId?: string;
+            /**
+             * Format: int64
+             * @description The change sequence of the last change of this record
+             */
+            seq?: number;
+            /** @description The session of the run */
+            sessionId?: string;
+            /**
+             * Format: date-time
+             * @description When it was opened
+             */
+            startedAt?: string;
+            /**
+             * @description Where the conversation is
+             * @enum {string}
+             */
+            state?: "STARTING" | "RUNNING" | "WAITING" | "IDLE" | "ENDED";
+            /** @description Who may steer it: audience selectors */
+            steerAudience?: string[];
+            /**
+             * Format: int32
+             * @description How many turns have finished
+             */
+            turn?: number;
+            /**
+             * Format: date-time
+             * @description When this record last changed
+             */
+            updatedAt?: string;
+            /** @description The workflow of the run */
+            workflowId?: string;
+        };
+        /** @description The answer to a message sent to an agent */
+        ConversationSteerResponse: {
+            /** @description Whether the message waits for the end of the turn */
+            queued?: boolean;
         };
         Counts: {
             /** Format: int32 */
@@ -5800,6 +6324,7 @@ export interface components {
         ServerSentEventLogEntryResponse: unknown;
         ServerSentEventMetricSample: unknown;
         ServerSentEventNotificationEvent: unknown;
+        ServerSentEventObject: unknown;
         ServerSentEventResultEvent: unknown;
         ServerSentEventSignalEnvelope: unknown;
         ServerSentEventString: unknown;
@@ -6137,6 +6662,59 @@ export interface components {
             pluginTypes?: string[];
             summary?: string;
             title?: string;
+        };
+        /** @description Keys typed into the terminal of an agent */
+        TerminalInputRequest: {
+            /**
+             * @description The bytes typed, base64 encoded; up to 8192 bytes
+             * @example bHMNCg==
+             */
+            data: string;
+        };
+        /** @description The size of the terminal of an agent */
+        TerminalResizeRequest: {
+            /**
+             * Format: int32
+             * @description Columns
+             * @example 120
+             */
+            cols?: number;
+            /**
+             * Format: int32
+             * @description Rows
+             * @example 40
+             */
+            rows?: number;
+        };
+        /** @description The latest settled screen of a terminal agent */
+        TerminalScreenResponse: {
+            /**
+             * Format: int32
+             * @description The width in characters
+             */
+            cols?: number;
+            /**
+             * Format: int32
+             * @description The column of the cursor, from 0
+             */
+            cursorCol?: number;
+            /**
+             * Format: int32
+             * @description The row of the cursor, from 0
+             */
+            cursorRow?: number;
+            /**
+             * Format: int32
+             * @description The height in lines
+             */
+            rows?: number;
+            /**
+             * Format: int64
+             * @description The sequence number of the screen
+             */
+            seq?: number;
+            /** @description The screen as text, one line per row */
+            text?: string;
         };
         Tick: components["schemas"]["Signal"] & {
             /** Format: date-time */
@@ -6936,6 +7514,240 @@ export interface operations {
             };
         };
     };
+    listConversations: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated states: STARTING, RUNNING, WAITING, IDLE, ENDED; none means all */
+                state?: string;
+                /** @description Only this session */
+                sessionId?: string;
+                /** @description Only this run */
+                executionId?: string;
+                /** @description With executionId: also the runs below it (default true) */
+                tree?: boolean;
+                /** @description Most conversations returned (default 100, at most 500) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListConversationResponse"];
+                };
+            };
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseConversationResponse"];
+                };
+            };
+        };
+    };
+    end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ConversationEndRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    getEvents: {
+        parameters: {
+            query?: {
+                /** @description Sequence number of the last event the caller has */
+                after?: number;
+                /** @description Most events returned (default 100, at most 500) */
+                limit?: number;
+                /** @description Comma-separated event kinds: STATE, MESSAGE, TOOL, PLAN, REQUEST, TERMINAL, RESULT, NOTICE; none means all */
+                kinds?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Conversation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListConversationEventResponse"];
+                };
+            };
+        };
+    };
+    interrupt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    sendMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseConversationSteerResponse"];
+                };
+            };
+        };
+    };
+    terminalInput: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminalInputRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    terminalResize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminalResizeRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getScreen: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Conversation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTerminalScreenResponse"];
+                };
+            };
+        };
+    };
     show_1: {
         parameters: {
             query?: never;
@@ -7054,6 +7866,70 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseWorkflowProgress"];
+                };
+            };
+        };
+    };
+    listRunConversations: {
+        parameters: {
+            query?: {
+                /** @description Also the runs below it (default true) */
+                tree?: boolean;
+                /** @description Comma-separated states: STARTING, RUNNING, WAITING, IDLE, ENDED; none means all */
+                state?: string;
+                /** @description Most conversations returned (default 100, at most 500) */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListConversationResponse"];
+                };
+            };
+        };
+    };
+    streamConversations: {
+        parameters: {
+            query?: {
+                /** @description Also the runs below it (default true) */
+                tree?: boolean;
+                /** @description Only this conversation */
+                conversationId?: string;
+                /** @description Comma-separated event kinds: STATE, MESSAGE, TOOL, PLAN, REQUEST, TERMINAL, RESULT, NOTICE; none means all */
+                kinds?: string;
+                /** @description false: no terminal output, screens only */
+                terminal?: boolean;
+            };
+            header?: {
+                "Last-Event-ID"?: string;
+            };
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["ServerSentEventObject"][];
                 };
             };
         };

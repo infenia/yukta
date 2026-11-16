@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.agentsession;
 
+import com.infenia.yukta.plugin.agent.AgentProtocol;
 import com.infenia.yukta.plugin.agentsession.adapter.AgentRequests;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputAsk;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.util.ConfigValidation;
@@ -16,7 +18,7 @@ import java.util.Map;
 /**
  * What an {@code AGENT_SESSION} node's configuration says: its schema, checks and parsed options.
  */
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.GodClass"})
 final class AgentSessionConfig {
 
   /* default */ static final String HARNESS = "harness";
@@ -34,6 +36,14 @@ final class AgentSessionConfig {
   private static final String APPROVAL_TIMEOUT = "approvalTimeout";
   private static final String APPROVAL_AUDIENCE = "approvalAudience";
   private static final String TIMEOUT = "timeout";
+  private static final String MODE = "mode";
+  private static final String IDLE_TIMEOUT = "idleTimeout";
+  private static final String CONVERSATION_TIMEOUT = "conversationTimeout";
+  /* default */ static final String STEER_AUDIENCE = "steerAudience";
+  private static final String CONVERSATION = "CONVERSATION";
+  private static final String TASK = "TASK";
+  private static final long DEFAULT_IDLE_SECONDS = 900;
+  private static final long DEFAULT_CONVERSATION_SECONDS = 14_400;
   private static final String WAIT = "WAIT";
   private static final String FAIL = "FAIL";
   private static final String NONE = "NONE";
@@ -42,10 +52,19 @@ final class AgentSessionConfig {
   private static final long DEFAULT_TIMEOUT_SECONDS = 600;
   private static final long MARGIN_SECONDS = 30;
 
+  /* default */ static final String COMMAND_OPTION = "command";
+  /* default */ static final String TERMINAL_SIZE = "terminalSize";
+
   private final AgentHarnesses harnesses;
+  private final PtySettings pty;
 
   /* default */ AgentSessionConfig(final AgentHarnesses harnesses) {
+    this(harnesses, PtySettings.OFF);
+  }
+
+  /* default */ AgentSessionConfig(final AgentHarnesses harnesses, final PtySettings pty) {
     this.harnesses = harnesses;
+    this.pty = pty;
   }
 
   /* default */ List<ConfigField> schema() {
@@ -106,6 +125,45 @@ final class AgentSessionConfig {
             null,
             "Who may answer: supervisor:<id>, role:OPERATOR, key:<name>, ... (default: the current"
                 + " tier)"),
+        ConfigField.choice(
+            MODE,
+            false,
+            TASK,
+            "TASK: the node ends when the agent finishes its turn. CONVERSATION: the node stays"
+                + " open for more messages (sent to the conversation) until it is ended, idle for"
+                + " idleTimeout or running for conversationTimeout. Needs a harness that takes"
+                + " messages on stdin (interactive) or can resume.",
+            TASK,
+            CONVERSATION),
+        ConfigField.optional(
+            IDLE_TIMEOUT,
+            ConfigField.Type.NUMBER,
+            DEFAULT_IDLE_SECONDS,
+            "CONVERSATION: seconds the agent may wait for a message before the node ends"),
+        ConfigField.optional(
+            CONVERSATION_TIMEOUT,
+            ConfigField.Type.NUMBER,
+            DEFAULT_CONVERSATION_SECONDS,
+            "CONVERSATION: seconds the whole node may run"),
+        ConfigField.optional(
+            STEER_AUDIENCE,
+            ConfigField.Type.LIST,
+            null,
+            "Who may send a message, interrupt or end the conversation: role:OPERATOR (default),"
+                + " key:<name>, supervisor:<id>, supervisor:*"),
+        ConfigField.optional(
+            COMMAND_OPTION,
+            ConfigField.Type.LIST,
+            null,
+            "Only with the harness terminal: the program to run in the terminal and its arguments"
+                + " ({prompt} in an argument gives it the prompt; not in the first one). Needs"
+                + " yukta.agents.pty.enabled=true."),
+        ConfigField.optional(
+            TERMINAL_SIZE,
+            ConfigField.Type.MAP,
+            null,
+            "Only for a terminal harness: {cols, rows} (1 to 1000), default from"
+                + " yukta.agents.pty.cols and rows"),
         ConfigField.optional(WORKING_DIR, ConfigField.Type.STRING, null, "Working directory"),
         ConfigField.optional(ENV, ConfigField.Type.MAP, null, "Extra environment variables"),
         ConfigField.optional(
@@ -154,16 +212,107 @@ final class AgentSessionConfig {
         "has no turn limit",
         MAX_TURNS);
     refuse(
-        config.get(SESSION) != null && preset.resumeArgs().isEmpty(),
+        config.get(SESSION) != null
+            && preset.resumeArgs().isEmpty()
+            && !(preset.protocol() == AgentProtocol.ACP
+                && preset.capabilities().contains("resume")),
         preset,
         "cannot resume a session",
         SESSION);
+    refuse(asks(config) && !preset.converses(), preset, "cannot ask for approvals", APPROVALS);
     refuse(
-        asks(config) && preset.interactive() == null,
+        converses(config) && !preset.converses(),
         preset,
-        "cannot ask for approvals",
-        APPROVALS);
+        "takes no messages on stdin (it has no interactive mode), so it cannot hold a"
+            + " conversation",
+        MODE);
+    validateTerminal(config, preset);
     validateValues(config);
+  }
+
+  private void validateTerminal(final Map<String, Object> config, final AgentPreset preset) {
+    final boolean terminal = preset.protocol() == AgentProtocol.PTY;
+    refuse(terminal && preset.pty() == null, preset, "has no 'pty' block", HARNESS);
+    refuse(
+        terminal && !pty.enabled(),
+        preset,
+        "runs a program in a terminal, which is off: set yukta.agents.pty.enabled=true",
+        HARNESS);
+    refuse(
+        !takesCommand(preset) && config.get(COMMAND_OPTION) != null,
+        preset,
+        "has its own command",
+        COMMAND_OPTION);
+    refuse(
+        !terminal && config.get(TERMINAL_SIZE) != null, preset, "has no terminal", TERMINAL_SIZE);
+    refuse(terminal && asks(config), preset, "has no way to ask for approvals", APPROVALS);
+    if (takesCommand(preset)) {
+      terminalCommand(config, preset);
+    }
+    terminalSize(config, pty);
+  }
+
+  private static void terminalCommand(final Map<String, Object> config, final AgentPreset preset) {
+    if (!(config.get(COMMAND_OPTION) instanceof final List<?> list) || list.isEmpty()) {
+      throw new IllegalArgumentException(
+          "harness '" + preset.id() + "' needs command: the program to run, as a list");
+    }
+    // the prompt comes from a message, so it must never choose the program
+    if (String.valueOf(list.get(0)).contains("{prompt}")) {
+      throw new IllegalArgumentException(
+          "command: {prompt} may not be in the program (the first element), only in arguments");
+    }
+  }
+
+  /* default */ static boolean promptInArgs(
+      final AgentPreset preset, final Map<String, Object> config) {
+    if (preset.protocol() != AgentProtocol.PTY) {
+      return false;
+    }
+    final List<String> program =
+        takesCommand(preset) && config.get(COMMAND_OPTION) instanceof final List<?> given
+            ? given.stream().map(String::valueOf).toList()
+            : preset.command();
+    return program.stream().anyMatch(a -> a.contains("{prompt}"));
+  }
+
+  /* default */ static boolean takesCommand(final AgentPreset preset) {
+    return preset.protocol() == AgentProtocol.PTY && preset.command().isEmpty();
+  }
+
+  /**
+   * The size of the terminal of a node.
+   *
+   * @param config the node's config
+   * @param settings the server's terminal settings, for what the node leaves out
+   * @return columns and rows
+   */
+  /* default */ static int[] terminalSize(
+      final Map<String, Object> config, final PtySettings settings) {
+    final Object size = config.get(TERMINAL_SIZE);
+    if (size == null) {
+      return new int[] {settings.cols(), settings.rows()};
+    }
+    if (!(size instanceof final Map<?, ?> map)) {
+      throw new IllegalArgumentException("terminalSize must be {cols, rows}");
+    }
+    return new int[] {
+      dimension(map.get("cols"), settings.cols(), "cols"),
+      dimension(map.get("rows"), settings.rows(), "rows")
+    };
+  }
+
+  private static int dimension(final Object value, final int fallback, final String name) {
+    if (value == null) {
+      return fallback;
+    }
+    if (value instanceof final Number n
+        && n.intValue() >= 1
+        && n.intValue() <= PtySettings.MAX_SIZE) {
+      return n.intValue();
+    }
+    throw new IllegalArgumentException(
+        "terminalSize." + name + " must be 1 to " + PtySettings.MAX_SIZE + ", got: " + value);
   }
 
   private void validateValues(final Map<String, Object> config) {
@@ -173,6 +322,10 @@ final class AgentSessionConfig {
       throw new IllegalArgumentException("args must be a list of strings");
     }
     timeoutSeconds(config);
+    positive(config, IDLE_TIMEOUT, DEFAULT_IDLE_SECONDS);
+    positive(config, CONVERSATION_TIMEOUT, DEFAULT_CONVERSATION_SECONDS);
+    steerAudience(config);
+    converses(config);
     ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
   }
 
@@ -232,7 +385,36 @@ final class AgentSessionConfig {
         InputAsk.audience(config.get(APPROVAL_AUDIENCE)));
   }
 
+  /* default */ static Audience steerAudience(final Map<String, Object> config) {
+    return config.get(STEER_AUDIENCE) == null
+        ? new Audience(List.of("role:OPERATOR"))
+        : InputAsk.audience(config.get(STEER_AUDIENCE));
+  }
+
+  /* default */ static boolean converses(final Map<String, Object> config) {
+    return CONVERSATION.equals(choice(config, MODE, TASK, CONVERSATION));
+  }
+
+  /* default */ static Duration idleTimeout(final Map<String, Object> config) {
+    return Duration.ofSeconds(positive(config, IDLE_TIMEOUT, DEFAULT_IDLE_SECONDS));
+  }
+
+  private static long positive(
+      final Map<String, Object> config, final String key, final long fallback) {
+    final Object value = config.get(key);
+    if (value == null) {
+      return fallback;
+    }
+    if (value instanceof final Number n && n.longValue() > 0) {
+      return n.longValue();
+    }
+    throw new IllegalArgumentException(key + " must be positive, got: " + value);
+  }
+
   /* default */ static long timeoutSeconds(final Map<String, Object> config) {
+    if (converses(config)) {
+      return positive(config, CONVERSATION_TIMEOUT, DEFAULT_CONVERSATION_SECONDS);
+    }
     final Object value = config.get(TIMEOUT);
     if (value == null) {
       return DEFAULT_TIMEOUT_SECONDS;
@@ -256,7 +438,11 @@ final class AgentSessionConfig {
       final AgentSessionPlugin.Turn turn,
       final String token) {
     final List<String> command = new ArrayList<>();
-    base.forEach(a -> command.add(a.replace("{prompt}", turn.prompt())));
+    final List<String> program =
+        takesCommand(preset) && config.get(COMMAND_OPTION) instanceof final List<?> given
+            ? given.stream().map(String::valueOf).toList()
+            : base;
+    program.forEach(a -> command.add(a.replace("{prompt}", turn.prompt())));
     if (token != null && !token.isBlank()) {
       preset.resumeArgs().forEach(a -> command.add(a.replace("{session}", token)));
     }

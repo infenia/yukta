@@ -99,6 +99,25 @@ class CommandHandlerTest {
   }
 
   @Test
+  void handle_agentCommands_routeToTheAgentProcessor() {
+    final var message =
+        new ExecutionControlCommand.AgentMessageCommand(EXECUTION_ID, "n", "c", "hi", false);
+    final var interrupt = new ExecutionControlCommand.AgentInterruptCommand(EXECUTION_ID, "n", "c");
+    final var end = new ExecutionControlCommand.AgentEndCommand(EXECUTION_ID, "n", "c", null, null);
+    when(fixture.agent.process(message)).thenReturn(Mono.empty());
+    when(fixture.agent.process(interrupt)).thenReturn(Mono.empty());
+    when(fixture.agent.process(end)).thenReturn(Mono.empty());
+
+    StepVerifier.create(fixture.handler.handle(message)).verifyComplete();
+    StepVerifier.create(fixture.handler.handle(interrupt)).verifyComplete();
+    StepVerifier.create(fixture.handler.handle(end)).verifyComplete();
+
+    verify(fixture.agent).process(message);
+    verify(fixture.agent).process(interrupt);
+    verify(fixture.agent).process(end);
+  }
+
+  @Test
   void handle_escalateInputCommand_routesToEscalateInputProcessor() {
     final EscalateInputCommand command =
         new EscalateInputCommand(EXECUTION_ID, "request-1", "needs a manager", null);

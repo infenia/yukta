@@ -50,6 +50,25 @@ public class AgentSessionAutoConfiguration {
   }
 
   /**
+   * The terminal tier: off unless {@code yukta.agents.pty.enabled} says so.
+   *
+   * @param enabled whether a terminal agent may run
+   * @param host the executable that provides {@code pty-host}
+   * @param cols the width of a new terminal
+   * @param rows the height of a new terminal
+   * @return the settings
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public PtySettings ptySettings(
+      @Value("${yukta.agents.pty.enabled:false}") final boolean enabled,
+      @Value("${yukta.agents.pty.host:yukta-cli}") final String host,
+      @Value("${yukta.agents.pty.cols:120}") final int cols,
+      @Value("${yukta.agents.pty.rows:40}") final int rows) {
+    return new PtySettings(enabled, host, cols, rows);
+  }
+
+  /**
    * Create AgentSessionPlugin bean if not already defined.
    *
    * @param gateway the process executor gateway
@@ -60,6 +79,7 @@ public class AgentSessionAutoConfiguration {
    * @param conversations records the conversations; absent when {@code yukta.agents.enabled} is
    *     false
    * @param json the JSON mapper
+   * @param pty the terminal tier
    * @return the agent session plugin
    */
   @Bean
@@ -71,8 +91,9 @@ public class AgentSessionAutoConfiguration {
       final AgentSessionStore sessions,
       final ObjectProvider<InputGateway> inputs,
       final ObjectProvider<AgentConversationGateway> conversations,
-      final ObjectMapper json) {
+      final ObjectMapper json,
+      final PtySettings pty) {
     return new AgentSessionPlugin(
-        gateway, resolver, harnesses, sessions, inputs, conversations, json);
+        gateway, resolver, harnesses, sessions, inputs, conversations, json, pty);
   }
 }

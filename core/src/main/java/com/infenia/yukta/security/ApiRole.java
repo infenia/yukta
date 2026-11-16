@@ -19,7 +19,8 @@ public enum ApiRole {
   ADMIN;
 
   /** Mutating paths an operator may call. */
-  private static final List<String> OPERATOR_PATHS = List.of("/api/executions/", "/api/workflow/");
+  private static final List<String> OPERATOR_PATHS =
+      List.of("/api/executions/", "/api/workflow/", "/api/conversations/");
 
   /** What a person does with their own inbox: any role may, nobody else's state is touched. */
   private static final String INBOX_PATH = "/api/notifications/";

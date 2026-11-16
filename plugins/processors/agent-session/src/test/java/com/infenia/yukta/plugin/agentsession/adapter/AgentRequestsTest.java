@@ -122,7 +122,9 @@ class AgentRequestsTest {
             "input",
             "",
             JSON.readTree("{\"n\":1,\"k\":\"{id}\"}"),
-            JSON.readTree("{\"n\":2}"));
+            JSON.readTree("{\"n\":2}"),
+            false,
+            JSON.readTree("null"));
 
     approvals(talk, answering("approve", null)).handle(request("list"));
     approvals(talk, answering("reject", null)).handle(request("list"));
