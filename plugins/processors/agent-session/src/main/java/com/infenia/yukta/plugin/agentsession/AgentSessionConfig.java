@@ -81,7 +81,10 @@ final class AgentSessionConfig {
         ConfigField.optional(
             MAX_TURNS, ConfigField.Type.NUMBER, null, "Most turns, if the harness takes a limit"),
         ConfigField.optional(
-            ARGS, ConfigField.Type.LIST, null, "Extra command-line arguments for the harness"),
+            ARGS,
+            ConfigField.Type.LIST,
+            null,
+            "Extra command-line arguments for the harness; each may be an expression"),
         ConfigField.optional(
             SESSION,
             ConfigField.Type.EXPRESSION,
@@ -453,9 +456,7 @@ final class AgentSessionConfig {
       final String max = String.valueOf(config.get(MAX_TURNS));
       preset.maxTurnsArgs().forEach(a -> command.add(a.replace("{maxTurns}", max)));
     }
-    if (config.get(ARGS) instanceof final List<?> extra) {
-      extra.forEach(a -> command.add(String.valueOf(a)));
-    }
+    command.addAll(turn.args());
     return command;
   }
 }

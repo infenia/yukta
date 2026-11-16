@@ -49,6 +49,11 @@ class AcpPluginTest {
   }
 
   private AgentSessionPlugin plugin() throws java.io.IOException {
+    return plugin(value -> value);
+  }
+
+  private AgentSessionPlugin plugin(final java.util.function.UnaryOperator<Object> resolved)
+      throws java.io.IOException {
     final ProcessExecutorGateway gateway = mock(ProcessExecutorGateway.class);
     // an agent that exits at once: the run fails, which is all this test needs of it
     when(gateway.executeInteractive(any(), any(), any()))
@@ -57,7 +62,8 @@ class AcpPluginTest {
           return Mono.just(new ProcessExecutionResult(2, List.of(), List.of(), 1, false, false));
         });
     final VariableResolver resolver = mock(VariableResolver.class);
-    when(resolver.resolve(any(), any())).thenAnswer(i -> Mono.just(i.getArgument(0)));
+    when(resolver.resolve(any(), any()))
+        .thenAnswer(i -> Mono.just(resolved.apply(i.getArgument(0))));
     return new AgentSessionPlugin(
         gateway,
         resolver,
@@ -131,5 +137,21 @@ class AcpPluginTest {
     assertThat(started.get().command()).containsExactly("some-agent", "--task", "fix it");
     assertThat(started.get().launcher())
         .containsExactly("yukta-cli", "pty-host", "--cols", "90", "--rows", "25", "--");
+  }
+
+  @Test
+  void anArgumentMayBeAnExpressionAndAPlainOneStaysAsItIs() throws java.io.IOException {
+    run(
+        plugin(v -> "${start.budget}".equals(v) ? "3" : v),
+        Map.of(
+            "harness",
+            "claude-code",
+            "prompt",
+            "p",
+            "args",
+            List.of("--max-budget-usd", "${start.budget}", "--permission-mode", "auto")));
+
+    assertThat(started.get().command())
+        .endsWith("--max-budget-usd", "3", "--permission-mode", "auto");
   }
 }
