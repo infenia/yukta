@@ -10,6 +10,7 @@ import { AgentTimeline } from '../AgentTimeline';
 import type { AgentItem } from '../../../lib/agentItems';
 import { createConversation } from '@/test/factories/conversationFactory';
 import { useJsdomViewport } from '@/test/jsdomViewport';
+import { renderWithProviders } from '@/test/utils/testUtils';
 
 const review = createConversation({
   id: 'c1',
@@ -180,7 +181,7 @@ describe('AgentTimeline', () => {
   useJsdomViewport();
 
   it('is a polite log with a node chip on each item of All', () => {
-    render(
+    renderWithProviders(
       <AgentTimeline
         items={items}
         conversations={[review, fix]}
@@ -198,7 +199,7 @@ describe('AgentTimeline', () => {
   });
 
   it('shows one agent without chips, and an agent text as text', () => {
-    render(
+    renderWithProviders(
       <AgentTimeline
         items={items}
         conversations={[review, fix]}
@@ -215,7 +216,7 @@ describe('AgentTimeline', () => {
   });
 
   it('stops following when scrolled up and follows again at the end', () => {
-    render(
+    renderWithProviders(
       <AgentTimeline
         items={items}
         conversations={[review, fix]}
@@ -241,14 +242,14 @@ describe('AgentTimeline', () => {
   });
 
   it('says so when there is nothing yet', () => {
-    render(
+    renderWithProviders(
       <AgentTimeline items={[]} conversations={[review]} selected={null} />
     );
     expect(screen.getByText('Nothing yet.')).toBeInTheDocument();
   });
 
   it('shows the input and output of a tool that is opened', async () => {
-    render(
+    renderWithProviders(
       <AgentTimeline
         items={items}
         conversations={[review, fix]}
@@ -268,14 +269,16 @@ describe('AgentsPanel', () => {
   useJsdomViewport();
 
   it('explains the empty state', () => {
-    render(<AgentsPanel conversations={[]} items={[]} />);
+    renderWithProviders(<AgentsPanel conversations={[]} items={[]} />);
     expect(
       screen.getByText(/No agent has run in this workflow yet/)
     ).toBeInTheDocument();
   });
 
   it('switches the timeline to the agent that is picked', async () => {
-    render(<AgentsPanel conversations={[review, fix]} items={items} />);
+    renderWithProviders(
+      <AgentsPanel conversations={[review, fix]} items={items} />
+    );
     expect(screen.getByText(/Please review/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /fix/ }));

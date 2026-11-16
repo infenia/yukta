@@ -6,12 +6,19 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import type { Conversation } from '@/types/conversations';
 import type { AgentItem } from '../../lib/agentItems';
+import { OpenRequest } from './OpenRequest';
 
 const ROW_ESTIMATE = 28;
 const FOLLOW_SLACK = 48;
 
 /** What an item says, as text. Everything an agent wrote is shown as text, never as markup. */
-function ItemBody({ item }: { item: AgentItem }) {
+function ItemBody({
+  item,
+  executionId,
+}: {
+  item: AgentItem;
+  executionId: string;
+}) {
   switch (item.kind) {
     case 'message':
       return (
@@ -72,6 +79,15 @@ function ItemBody({ item }: { item: AgentItem }) {
         </ul>
       );
     case 'request':
+      if (item.state === 'open' && item.requestId) {
+        return (
+          <OpenRequest
+            executionId={executionId}
+            requestId={item.requestId}
+            prompt={item.prompt}
+          />
+        );
+      }
       return (
         <p className="wrap-break-word whitespace-pre-wrap">
           <span className="font-medium">Request ({item.state})</span>:{' '}
@@ -176,7 +192,13 @@ export function AgentTimeline({
                   </span>
                 )}
                 <div className="min-w-0 flex-1">
-                  <ItemBody item={item} />
+                  <ItemBody
+                    item={item}
+                    executionId={
+                      conversations.find((c) => c.id === item.conversationId)
+                        ?.executionId ?? ''
+                    }
+                  />
                 </div>
               </div>
             );

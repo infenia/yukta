@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import type { Conversation } from '@/types/conversations';
 import type { AgentItem } from '../../lib/agentItems';
+import { AgentComposer } from './AgentComposer';
 import { AgentList } from './AgentList';
 import { AgentTimeline } from './AgentTimeline';
 
@@ -26,6 +27,7 @@ export function AgentsPanel({
   }
   // a conversation that is not in the list any more cannot stay selected
   const active = conversations.some((c) => c.id === selected) ? selected : null;
+  const chosen = conversations.find((c) => c.id === active);
   return (
     <div className="flex min-h-0 flex-1">
       <AgentList
@@ -33,11 +35,20 @@ export function AgentsPanel({
         selected={active}
         onSelect={setSelected}
       />
-      <AgentTimeline
-        items={items}
-        conversations={conversations}
-        selected={active}
-      />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <AgentTimeline
+          items={items}
+          conversations={conversations}
+          selected={active}
+        />
+        {chosen ? (
+          <AgentComposer key={chosen.id} conversation={chosen} />
+        ) : (
+          <p className="border-border text-body-sm text-muted-foreground border-t px-4 py-2">
+            Pick an agent to send it a message.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

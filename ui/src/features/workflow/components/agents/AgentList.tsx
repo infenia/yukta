@@ -67,6 +67,11 @@ export function AgentList({
                 {c.model ? ` · ${c.model}` : ''}
               </span>
             </span>
+            {c.queued > 0 && (
+              <span className="text-body-sm text-muted-foreground shrink-0">
+                {c.queued} queued
+              </span>
+            )}
             <span className="sr-only">{c.state.toLowerCase()}</span>
           </button>
         </li>
