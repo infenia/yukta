@@ -7,13 +7,22 @@ import com.infenia.yukta.plugin.agent.AgentCapability;
 import com.infenia.yukta.plugin.agent.AgentCommand;
 import com.infenia.yukta.plugin.agent.AgentConversation;
 import com.infenia.yukta.security.ApiRole;
+import com.infenia.yukta.security.AuditRecord;
+import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.agent.AgentSteeringException.Reason;
 import com.infenia.yukta.service.input.ActorInfo;
 import com.infenia.yukta.service.input.ActorResolver;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -37,6 +46,9 @@ public class AgentSteering {
 
   private static final String ANONYMOUS = "anonymous";
 
+  /** The most bytes one input to a terminal may have. */
+  public static final int MAX_TERMINAL_INPUT_BYTES = 8 * 1024;
+
   private static final Set<String> MESSAGE_ONLY = Set.of(AgentCapability.MESSAGE);
 
   /** Looks up conversations and the live handle of the running ones. */
@@ -50,6 +62,15 @@ public class AgentSteering {
 
   /** Caps the messages of one caller to one conversation. */
   private final CallRateLimiter limiter;
+
+  /** The bytes typed to a terminal in the current window, for each caller and conversation. */
+  private final Map<String, AtomicLong> typed = new ConcurrentHashMap<>();
+
+  /** What is typed to a terminal is audited by volume, once in this time. */
+  private Duration auditWindow = Duration.ofMinutes(1);
+
+  /** Where the volume of terminal input is recorded, if the application has a sink. */
+  @Nullable private AuditSink auditSink;
 
   /**
    * Creates the steering.
@@ -111,6 +132,95 @@ public class AgentSteering {
   }
 
   /**
+   * Types into the terminal of an agent. The input is not reviewed, since keystrokes are too many
+   * and too small; one audit record per caller and conversation per minute says how much was typed.
+   *
+   * @param conversationId the conversation
+   * @param data the bytes, up to {@link #MAX_TERMINAL_INPUT_BYTES}
+   * @return completes when the plugin has been handed the input
+   */
+  public Mono<Void> terminalInput(final String conversationId, final byte[] data) {
+    if (data.length > MAX_TERMINAL_INPUT_BYTES) {
+      return Mono.error(
+          new AgentSteeringException(
+              Reason.TOO_LARGE,
+              "The input is longer than " + MAX_TERMINAL_INPUT_BYTES + " bytes",
+              null));
+    }
+    return send(
+            conversationId,
+            Set.of(AgentCapability.TERMINAL),
+            0,
+            false,
+            (actor, conversation) -> new AgentCommand.TerminalInput(data, name(actor)))
+        .doOnNext(sent -> audit(sent.actor(), sent.conversation(), data.length))
+        .then();
+  }
+
+  /**
+   * Resizes the terminal of an agent.
+   *
+   * @param conversationId the conversation
+   * @param cols the width
+   * @param rows the height
+   * @return completes when the plugin has been handed the new size
+   */
+  public Mono<Void> terminalResize(final String conversationId, final int cols, final int rows) {
+    return send(
+            conversationId,
+            Set.of(AgentCapability.TERMINAL),
+            0,
+            false,
+            (actor, conversation) -> new AgentCommand.TerminalResize(cols, rows))
+        .then();
+  }
+
+  /**
+   * Passes the volume of terminal input on to a sink.
+   *
+   * @param sink the sink, if the application has one
+   */
+  @Autowired(required = false)
+  public void setAuditSink(final AuditSink sink) {
+    this.auditSink = sink;
+  }
+
+  /* default */ void auditEvery(final Duration window) {
+    this.auditWindow = window;
+  }
+
+  private void audit(final ActorInfo actor, final AgentConversation conversation, final int bytes) {
+    final AuditSink sink = auditSink;
+    if (sink == null) {
+      return;
+    }
+    final String key = actor.id() + "/" + conversation.id();
+    typed
+        .computeIfAbsent(
+            key,
+            k -> {
+              final AtomicLong total = new AtomicLong();
+              // ponytail: one timer per caller and conversation, a minute each; a rolling window
+              // only matters when many people type into one agent
+              Mono.delay(auditWindow)
+                  .subscribe(_ -> {
+                    typed.remove(k);
+                    sink.record(
+                        new AuditRecord(
+                            true,
+                            conversation.executionId(),
+                            "terminal input, " + total.get() + " bytes",
+                            name(actor),
+                            null,
+                            Instant.now(),
+                            "REST"));
+                  });
+              return total;
+            })
+        .addAndGet(bytes);
+  }
+
+  /**
    * Whether a message sent now waits for the end of the turn.
    *
    * @param conversation the conversation
@@ -122,12 +232,30 @@ public class AgentSteering {
     return busy && !interrupt && !conversation.capabilities().contains(AgentCapability.STEER);
   }
 
+  /** The caller and the conversation a command was sent to. */
+  private record Sent(ActorInfo actor, AgentConversation conversation) {}
+
   private Mono<Void> send(
       final String conversationId,
       final Set<String> needed,
       final int textBytes,
       final boolean limited,
       final java.util.function.Function<String, AgentCommand> command) {
+    return send(
+            conversationId,
+            needed,
+            textBytes,
+            limited,
+            (actor, conversation) -> command.apply(name(actor)))
+        .then();
+  }
+
+  private Mono<Sent> send(
+      final String conversationId,
+      final Set<String> needed,
+      final int textBytes,
+      final boolean limited,
+      final java.util.function.BiFunction<ActorInfo, AgentConversation, AgentCommand> command) {
     return actors
         .resolve()
         .flatMap(actor ->
@@ -154,12 +282,11 @@ public class AgentSteering {
                     throw new AgentSteeringException(
                         Reason.RATE_LIMITED, "Too many messages to this conversation", null);
                   }
-                  if (!live.send(command.apply(name(actor)))) {
+                  if (!live.send(command.apply(actor, conversation))) {
                     throw notLive(conversationId);
                   }
-                  return conversation;
-                }))
-        .then();
+                  return new Sent(actor, conversation);
+                }));
   }
 
   private Mono<AgentConversation> require(final String conversationId, final ActorInfo actor) {

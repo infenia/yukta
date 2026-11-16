@@ -314,7 +314,7 @@ class AgentSessionPluginTest {
         .expectErrorMessage(
             "unknown harness 'nope'; one of [acpfresh, antigravity, asker, capable, claude-code,"
                 + " codex, crash, failed, max, modeled, mute, noisy, ok, pty, rcrash, resumable,"
-                + " rmissing, slow, thinker]")
+                + " rmissing, slow, terminal, thinker]")
         .verify();
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "model", "m")))
         .expectErrorMessage("harness 'ok' does not take a model; remove model")
@@ -345,6 +345,7 @@ class AgentSessionPluginTest {
             "resumable",
             "rmissing",
             "slow",
+            "terminal",
             "thinker");
     assertThat(plugin.describe().usagePattern()).contains("ok: fixture");
   }
@@ -827,10 +828,9 @@ class AgentSessionPluginTest {
   }
 
   @Test
-  void harnessOfTheProtocolThisServerDoesNotSpeakIsRefusedWhenTheNodeIsChecked() {
+  void terminalHarnessWithoutItsPtyBlockIsRefusedWhenTheNodeIsChecked() {
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "pty", "prompt", "p")))
-        .expectErrorMessage(
-            "harness 'pty' speaks the protocol PTY, which this server does not support yet")
+        .expectErrorMessage("harness 'pty' has no 'pty' block; remove harness")
         .verify();
   }
 

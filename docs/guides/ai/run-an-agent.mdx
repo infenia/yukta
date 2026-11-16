@@ -75,6 +75,30 @@ Adapters for agents with no ACP of their own are not shipped, because they need 
 
 Change `id` and `command` for Codex (`codex-acp`) or pi (`pi-acp`) and allow the executable in `yukta.process.allowed-commands`.
 
+## Any program in a terminal
+
+The harness `terminal` runs a program of your choice in a pseudo-terminal, for an agent with no JSON or ACP mode. It is **off** until you set `yukta.agents.pty.enabled=true`, because a terminal takes any keystroke and nothing can review what is typed. It also needs the `yukta-cli` binary on the server's `PATH` (`yukta.agents.pty.host` names another), which hosts the terminal.
+
+```json
+{
+  "type": "AGENT_SESSION",
+  "config": {
+    "harness": "terminal",
+    "command": ["some-agent", "--task", "{prompt}"],
+    "prompt": "Fix the failing test",
+    "terminalSize": { "cols": 120, "rows": 40 }
+  }
+}
+```
+
+- `command` is the program and its arguments. Allow the **program** (`some-agent`) in `yukta.process.allowed-commands`, not `yukta-cli`. `{prompt}` may be an argument but not the program itself.
+- A `{prompt}` in the arguments passes the prompt on the command line. Without one, the prompt is typed into the terminal once it is ready (the harness waits 1.5 s; a custom preset can name a `readyPattern`).
+- A message sent to the conversation is typed followed by Enter; an interrupt types Ctrl-C. A person with the role `OPERATOR` can also type into the terminal with the [terminal endpoints](/api/conversations).
+- The node ends when the program exits (exit code 0 is `success`, anything else `failure`), when a screen matches the preset's `donePattern`, or when the conversation is ended. `text` is the last screen.
+- The run log gets two lines (start and end), not the bytes; the conversation keeps the output and the screen.
+
+A custom preset (`yukta.ai.presets-dir`) with `"protocol": "pty"` sets `pty.type`, `readyPattern`, `readyDelayMs`, `submit`, `interruptKeys`, `attentionPattern` (a matching screen sets the conversation `WAITING`) and `donePattern`, and may give its own `command`.
+
 ## Limits
 
 - The agent is a process on the server with the permissions of the server's user. Allow only the executables you mean to, and give it a `workingDir` that holds nothing you mind it reading.

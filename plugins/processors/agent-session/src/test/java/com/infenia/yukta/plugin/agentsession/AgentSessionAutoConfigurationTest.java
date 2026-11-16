@@ -38,7 +38,8 @@ class AgentSessionAutoConfigurationTest {
             sessions,
             mock(ObjectProvider.class),
             mock(ObjectProvider.class),
-            json);
+            json,
+            config.ptySettings(false, "yukta-cli", 120, 40));
 
     assertThat(harnesses.get("codex")).isNotNull();
     assertThat(sessions).isInstanceOf(InMemoryAgentSessionStore.class);

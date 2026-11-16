@@ -6,6 +6,8 @@ A lightweight, cross-platform command-line interface (CLI) for Yukta, built in G
 
 The Yukta Go CLI is a thin client that communicates with the Yukta server via REST APIs. It enables developers and CI/CD systems to interact with sessions, workflows, and other Yukta resources without requiring a full Java runtime.
 
+**Agents:** `yukta-cli attach <execution-id>` follows and talks to all the AI agents of a run in one place; `yukta-cli conversations list|show|send|interrupt|end` does the same for scripts. See the CLI reference in the docs.
+
 **Key Features:**
 - Lightweight binary (single executable, no external dependencies)
 - Cross-platform support (Linux, macOS, Windows)

@@ -23,6 +23,7 @@ import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputIdentity;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.security.ApiRole;
+import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.agent.AgentSteeringException.Reason;
 import com.infenia.yukta.service.input.ActorInfo;
@@ -350,5 +351,52 @@ class AgentSteeringTest {
   private static AgentConversation conversation(
       final AgentState state, final Set<String> capabilities) {
     return AgentTestSupport.conversation("c-1").withState(state).withCapabilities(capabilities);
+  }
+
+  @Test
+  void theTerminalIsTypedAndResized_andTheVolumeIsAuditedOncePerWindow() {
+    final String id = open(List.of("role:OPERATOR"), AgentCapability.TERMINAL);
+    final List<AuditRecord> audited = new java.util.concurrent.CopyOnWriteArrayList<>();
+    steering.setAuditSink(audited::add);
+    steering.auditEvery(java.time.Duration.ofMillis(100));
+    actingAs(operator("ann"));
+
+    steering.terminalInput(id, new byte[] {'l', 's'}).block();
+    steering.terminalInput(id, new byte[] {'\r'}).block();
+    steering.terminalResize(id, 100, 30).block();
+
+    assertThat(received)
+        .hasSize(3)
+        .element(0)
+        .isInstanceOfSatisfying(
+            AgentCommand.TerminalInput.class,
+            input -> assertThat(input.data()).containsExactly('l', 's'));
+    assertThat(received.get(2)).isEqualTo(new AgentCommand.TerminalResize(100, 30));
+    org.awaitility.Awaitility.await().until(() -> !audited.isEmpty());
+    assertThat(audited).hasSize(1);
+    assertThat(audited.getFirst().command()).isEqualTo("terminal input, 3 bytes");
+    assertThat(audited.getFirst().actor()).isEqualTo("key:ann");
+    assertThat(audited.getFirst().executionId()).isEqualTo("exec-1");
+  }
+
+  @Test
+  void terminalInputIsBoundedAndNeedsTheTerminalCapability() {
+    final String withTerminal = open(List.of("role:OPERATOR"), AgentCapability.TERMINAL);
+    actingAs(operator("ann"));
+    refused(
+        steering.terminalInput(withTerminal, new byte[AgentSteering.MAX_TERMINAL_INPUT_BYTES + 1]),
+        Reason.TOO_LARGE);
+    final String without = open(List.of("role:OPERATOR"), AgentCapability.MESSAGE);
+    refused(steering.terminalInput(without, new byte[] {'x'}), Reason.UNSUPPORTED);
+    refused(steering.terminalResize(without, 80, 24), Reason.UNSUPPORTED);
+  }
+
+  @Test
+  void callerOutsideTheSteerAudienceMayNotType() {
+    final String id = open(List.of("key:ann"), AgentCapability.TERMINAL);
+    actingAs(operator("bob"));
+
+    refused(steering.terminalInput(id, new byte[] {'x'}), Reason.FORBIDDEN);
+    assertThat(received).isEmpty();
   }
 }
