@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.agentsession.AgentPreset;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -16,7 +17,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /** How a harness' output lines are read: what is shown, kept and reported. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class AgentOutputTest {
 
   private static final ObjectMapper JSON = new ObjectMapper();
@@ -65,8 +66,7 @@ class AgentOutputTest {
         .containsEntry("status", "success")
         .containsEntry("costUsd", 0.25)
         .containsEntry("numTurns", 3)
-        .containsEntry(
-            "structured", java.util.Map.of("claimed", true, "n", java.util.List.of(1, 2)));
+        .containsEntry("structured", Map.of("claimed", true, "n", List.of(1, 2)));
   }
 
   @Test
