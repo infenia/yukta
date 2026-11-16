@@ -22,7 +22,9 @@ lags = []  # changes made by the test itself
 setup_lags = []  # the open questions being created before it
 for path in glob.glob(os.path.join(directory, "stream-*.out")):
     events = 0
-    for line in open(path, errors="replace"):
+    with open(path, errors="replace") as f:
+        lines = f.readlines()
+    for line in lines:
         arrived, _, rest = line.partition(" ")
         if not rest.startswith("data:"):
             continue

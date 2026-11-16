@@ -81,7 +81,6 @@ class NotificationDeliveryWorkerTest {
   private final AnswerTokens tokens =
       new AnswerTokens("worker-secret-worker-secret-worker-secret", clock);
   private final List<ChannelContext> contexts = new CopyOnWriteArrayList<>();
-  private final List<Notification> delivered = new CopyOnWriteArrayList<>();
   private final AtomicBoolean fail = new AtomicBoolean();
   private final AtomicBoolean leading = new AtomicBoolean(true);
   private final VirtualTimeScheduler scheduler = VirtualTimeScheduler.create();
@@ -106,7 +105,6 @@ class NotificationDeliveryWorkerTest {
           @Override
           public Mono<Void> deliver(final Notification n, final ChannelContext context) {
             contexts.add(context);
-            delivered.add(n);
             return fail.get() ? Mono.error(new IllegalStateException("down")) : Mono.empty();
           }
         });

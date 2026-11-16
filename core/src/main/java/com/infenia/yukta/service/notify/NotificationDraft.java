@@ -13,20 +13,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * What a source asks the service to raise.
  *
- * @param key dedupe key
- * @param kind info or action
- * @param severity how serious it is
- * @param category the category
- * @param title one line
- * @param body plain text, or {@code null}
- * @param sessionId the session, or {@code null}
- * @param workflowId the workflow, or {@code null}
- * @param executionId the run, or {@code null}
- * @param nodeId the node, or {@code null}
- * @param inputRequestId the input request of an action, or {@code null}
- * @param audience who sees it
- * @param cooldown a repeat of the key inside this time raises the count instead of changing the
- *     item; zero for none
+ * <p>Components: key (dedupe), kind, severity, category, title, body, session, workflow, execution,
+ * node, input request, audience, and a cooldown (a repeat of the key inside it raises the count
+ * instead of changing the item; zero for none).
  */
 @Builder
 @SuppressFBWarnings(
