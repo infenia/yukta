@@ -14,28 +14,34 @@ import org.jspecify.annotations.Nullable;
  * One conversation with an agent: what a client sees as a row in a list. The text of the
  * conversation is in its {@link AgentEvent}s.
  *
- * @param id the conversation id (a UUID)
- * @param executionId the run of the node
- * @param rootExecutionId the top of the run's tree of runs; the run itself when it has no parent
- * @param sessionId the session of the run
- * @param workflowId the workflow of the run
- * @param nodeId the node
- * @param messageId the message the node works on
- * @param harness the preset that describes the agent
- * @param protocol how Yukta talks to the agent
- * @param model the model, when the agent or the node names one
- * @param capabilities what the conversation can do, see {@link AgentCapability}
- * @param state where the conversation is; {@link AgentState#ENDED} needs an outcome and an end
- *     time, so set those first when using the with-ers
- * @param outcome how it ended; null until {@link AgentState#ENDED}
- * @param reason why it is in this state or ended; null when there is nothing to say
- * @param turn how many turns have finished
- * @param queued how many messages wait for the turn to end
- * @param steerAudience who may send a message, interrupt or end it
- * @param startedAt when it was opened
- * @param updatedAt when this record last changed (an event does not change it)
- * @param endedAt when it ended; null until then
- * @param seq the change sequence of the last change of this record
+ * <p>Components:
+ *
+ * <ul>
+ *   <li>{@code id}: the conversation id (a UUID)
+ *   <li>{@code executionId}: the run of the node
+ *   <li>{@code rootExecutionId}: the top of the run's tree of runs; the run itself when it has no
+ *       parent
+ *   <li>{@code sessionId}: the session of the run
+ *   <li>{@code workflowId}: the workflow of the run
+ *   <li>{@code nodeId}: the node
+ *   <li>{@code messageId}: the message the node works on
+ *   <li>{@code harness}: the preset that describes the agent
+ *   <li>{@code protocol}: how Yukta talks to the agent
+ *   <li>{@code model}: the model, when the agent or the node names one
+ *   <li>{@code capabilities}: what the conversation can do, see {@link AgentCapability}
+ *   <li>{@code state}: where the conversation is; {@link AgentState#ENDED} needs an outcome and an
+ *       end time, so set those first when using the with-ers
+ *   <li>{@code outcome}: how it ended; null until {@link AgentState#ENDED}
+ *   <li>{@code reason}: why it is in this state or ended; null when there is nothing to say
+ *   <li>{@code turn}: how many turns have finished
+ *   <li>{@code queued}: how many messages wait for the turn to end
+ *   <li>{@code steerAudience}: who may send a message, interrupt or end it
+ *   <li>{@code startedAt}: when it was opened
+ *   <li>{@code updatedAt}: when this record last changed (an event does not change it)
+ *   <li>{@code endedAt}: when it ended; null until then
+ *   <li>{@code seq}: the change sequence of the last change of this record
+ * </ul>
+ *
  * @since 0.1.0-alpha.4
  */
 @With

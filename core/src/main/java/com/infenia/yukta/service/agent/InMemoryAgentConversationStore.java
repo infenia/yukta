@@ -59,6 +59,9 @@ public final class InMemoryAgentConversationStore implements AgentConversationSt
   /** Most bytes of terminal output kept per conversation. */
   private final long ringBytes;
 
+  /** Most pieces of terminal output kept per conversation, so that empty pieces cannot grow it. */
+  private static final int MAX_OUTPUT_PIECES = 10_000;
+
   /**
    * Creates the store.
    *
@@ -252,7 +255,10 @@ public final class InMemoryAgentConversationStore implements AgentConversationSt
         seq, event.conversationId(), event.timestamp(), event.kind(), event.itemId(), event.data());
   }
 
-  /** The bytes a base64 text decodes to, without decoding it. */
+  /**
+   * The bytes a base64 text decodes to, without decoding it. The decoder accepts input without
+   * padding, so a last group of two characters is one byte and one of three is two.
+   */
   private static long decodedLength(final Object data) {
     if (!(data instanceof final String text) || text.isEmpty()) {
       return 0;
@@ -261,7 +267,10 @@ public final class InMemoryAgentConversationStore implements AgentConversationSt
     for (int i = text.length() - 1; i >= 0 && text.charAt(i) == '='; i--) {
       padding++;
     }
-    return Math.max(0, text.length() / 4L * 3 - padding);
+    final long groups = text.length() / 4L;
+    final int rest = text.length() % 4;
+    final long tail = rest == 2 ? 1 : rest == 3 ? 2 : 0;
+    return Math.max(0, groups * 3 + tail - padding);
   }
 
   /** Everything the store keeps of one conversation. */
@@ -289,11 +298,14 @@ public final class InMemoryAgentConversationStore implements AgentConversationSt
       this.conversation = conversation;
     }
 
-    /** Adds a piece of terminal output; the oldest pieces go first, but the newest always stays. */
+    /**
+     * Adds a piece of terminal output; the oldest pieces go first, but the newest always stays.
+     * Pieces with no bytes count nothing, so the piece count is capped as well.
+     */
     private void addOutput(final AgentEvent piece, final long ringBytes) {
       output.addLast(piece);
       outputBytes += decodedLength(piece.data().get("data"));
-      while (outputBytes > ringBytes && output.size() > 1) {
+      while ((outputBytes > ringBytes || output.size() > MAX_OUTPUT_PIECES) && output.size() > 1) {
         outputBytes -= decodedLength(output.removeFirst().data().get("data"));
       }
     }

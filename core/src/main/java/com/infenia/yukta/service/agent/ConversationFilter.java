@@ -40,10 +40,17 @@ public record ConversationFilter(
    * @param limit the most conversations to return
    */
   public ConversationFilter {
+    sessionId = unsetIfEmpty(sessionId);
+    executionId = unsetIfEmpty(executionId);
+    rootExecutionId = unsetIfEmpty(rootExecutionId);
     states = states == null ? Set.of() : Set.copyOf(states);
     if (limit < MIN_LIMIT) {
       throw new IllegalArgumentException("limit must be at least 1");
     }
+  }
+
+  private static @Nullable String unsetIfEmpty(final @Nullable String value) {
+    return value == null || value.isEmpty() ? null : value;
   }
 
   /**

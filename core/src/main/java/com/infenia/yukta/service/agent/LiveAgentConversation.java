@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.agent.AgentConversationHandle;
 import com.infenia.yukta.plugin.agent.AgentEventKind;
 import com.infenia.yukta.plugin.agent.AgentOutcome;
 import com.infenia.yukta.plugin.agent.AgentState;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -68,7 +69,8 @@ public final class LiveAgentConversation implements AgentConversationHandle {
   public void emit(
       final AgentEventKind kind, final @Nullable String itemId, final Map<String, Object> data) {
     if (!ending.get()) {
-      service.appendEvent(this, kind, itemId, data);
+      // the append runs later on the writer: the caller may reuse its map once emit returns
+      service.appendEvent(this, kind, itemId, new LinkedHashMap<>(data));
     }
   }
 

@@ -98,7 +98,7 @@ final class EventSanitizer {
       return tool(value);
     }
     if (kind == AgentEventKind.PLAN && "entries".equals(key)) {
-      return new Limited(plan(value), false);
+      return plan(value);
     }
     if (value instanceof final String text) {
       return limit(redactor.text(text), maxMessageBytes);
@@ -132,26 +132,36 @@ final class EventSanitizer {
     return chunks;
   }
 
-  private List<Object> plan(final Object entries) {
+  /** Cleans the entries of a plan: every text, a string entry or a field, is redacted and cut. */
+  private Limited plan(final Object entries) {
     if (!(entries instanceof final List<?> list)) {
-      return List.of();
+      return new Limited(List.of(), false);
     }
     final List<Object> clean = new ArrayList<>();
+    boolean cut = false;
     for (final Object item : list) {
       if (item instanceof final Map<?, ?> map) {
         final Map<String, Object> copy = new LinkedHashMap<>();
-        map.forEach((key, value) ->
-            copy.put(
-                String.valueOf(key),
-                value instanceof final String text
-                    ? limit(redactor.text(text), maxToolBytes).value
-                    : value));
+        for (final Map.Entry<?, ?> field : map.entrySet()) {
+          final Object value = field.getValue();
+          if (value instanceof final String text) {
+            final Limited limited = limit(redactor.text(text), maxToolBytes);
+            copy.put(String.valueOf(field.getKey()), limited.value());
+            cut |= limited.cut();
+          } else {
+            copy.put(String.valueOf(field.getKey()), value);
+          }
+        }
         clean.add(copy);
+      } else if (item instanceof final String text) {
+        final Limited limited = limit(redactor.text(text), maxToolBytes);
+        clean.add(limited.value());
+        cut |= limited.cut();
       } else {
         clean.add(item);
       }
     }
-    return clean;
+    return new Limited(clean, cut);
   }
 
   /** Cleans tool input or output: a map that fits stays a map, anything else becomes text. */

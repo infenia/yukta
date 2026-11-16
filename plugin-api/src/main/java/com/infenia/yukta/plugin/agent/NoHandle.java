@@ -38,7 +38,8 @@ final class NoHandle implements AgentConversationHandle {
 
   @Override
   public Flux<AgentCommand> commands() {
-    return Flux.never();
+    // no gateway, so no commands; the stream completes like one of a conversation that ended
+    return Flux.empty();
   }
 
   @Override

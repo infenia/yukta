@@ -36,7 +36,15 @@ public record EventFilter(
    * @param kinds the kinds to keep
    */
   public EventFilter {
+    conversationId = unsetIfEmpty(conversationId);
+    sessionId = unsetIfEmpty(sessionId);
+    executionId = unsetIfEmpty(executionId);
+    rootExecutionId = unsetIfEmpty(rootExecutionId);
     kinds = kinds == null ? Set.of() : Set.copyOf(kinds);
+  }
+
+  private static @Nullable String unsetIfEmpty(final @Nullable String value) {
+    return value == null || value.isEmpty() ? null : value;
   }
 
   /**
