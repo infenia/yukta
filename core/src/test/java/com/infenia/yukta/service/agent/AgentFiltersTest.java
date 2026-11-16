@@ -72,4 +72,11 @@ class AgentFiltersTest {
     assertThat(tools.matches(event("c1", AgentEventKind.TOOL))).isTrue();
     assertThat(tools.matches(event("c1", AgentEventKind.MESSAGE))).isFalse();
   }
+
+  @Test
+  void anEmptyIdentifierDoesNotFilter() {
+    assertThat(new ConversationFilter("", "", "", null, 5).matches(conversation)).isTrue();
+    assertThat(new EventFilter("", "", "", "", null).matches(conversation)).isTrue();
+    assertThat(EventFilter.forConversation("").matches(conversation)).isTrue();
+  }
 }

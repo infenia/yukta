@@ -248,4 +248,9 @@ class AgentValuesTest {
     assertThatThrownBy(() -> new AgentCommand.TerminalResize(-1, 10))
         .isInstanceOf(IllegalArgumentException.class);
   }
+
+  @Test
+  void theFallbackHandleCompletesItsCommandStream() {
+    StepVerifier.create(AgentConversationHandle.none().commands()).verifyComplete();
+  }
 }

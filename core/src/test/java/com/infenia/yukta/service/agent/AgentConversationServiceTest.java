@@ -98,6 +98,9 @@ class AgentConversationServiceTest {
   }
 
   private static Map<String, Object> data(final Object... keyValues) {
+    if (keyValues.length % 2 != 0) {
+      throw new IllegalArgumentException("data needs key and value pairs");
+    }
     final Map<String, Object> map = new LinkedHashMap<>();
     for (int i = 0; i < keyValues.length; i += 2) {
       map.put((String) keyValues[i], keyValues[i + 1]);
