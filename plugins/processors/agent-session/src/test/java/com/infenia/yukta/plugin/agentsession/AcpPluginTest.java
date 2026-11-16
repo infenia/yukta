@@ -34,6 +34,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /** The plugin runs a harness of protocol {@code acp} through the ACP adapter. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class AcpPluginTest {
 
   private static final ObjectMapper JSON = new ObjectMapper();
@@ -140,7 +141,7 @@ class AcpPluginTest {
   }
 
   @Test
-  void anArgumentMayBeAnExpressionAndAPlainOneStaysAsItIs() throws java.io.IOException {
+  void argumentsMayBeExpressionsWhilePlainOnesStayAsTheyAre() throws java.io.IOException {
     run(
         plugin(v -> "${start.budget}".equals(v) ? "3" : v),
         Map.of(
@@ -153,5 +154,12 @@ class AcpPluginTest {
 
     assertThat(started.get().command())
         .endsWith("--max-budget-usd", "3", "--permission-mode", "auto");
+  }
+
+  @Test
+  void anEmptyListOfArgumentsAddsNothing() throws java.io.IOException {
+    run(plugin(), Map.of("harness", "claude-code", "prompt", "p", "args", List.of()));
+
+    assertThat(started.get().command()).doesNotContain("");
   }
 }
