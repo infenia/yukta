@@ -55,10 +55,10 @@ public class ConversationsController {
   /** The default of the options that are on unless a client turns them off. */
   private static final String ON_BY_DEFAULT = "true";
 
-  /** Conversation ID parameter description. */
   /** Most streams of the conversation changes one key may hold open. */
   private static final int MAX_STREAMS_PER_KEY = 50;
 
+  /** Conversation ID parameter description. */
   private static final String CONVERSATION_ID = "Conversation ID";
 
   /** The states parameter description. */
