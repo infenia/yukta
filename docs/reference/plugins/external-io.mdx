@@ -167,7 +167,7 @@ Module `agent-session` (it starts the process through `process-executor`, which 
 | `timeout` | number | `600` | no | Seconds. |
 
 - **Output ports:** `success`, `failure` (the agent or harness failed, or timed out), `incomplete` (stopped early, for example out of turns).
-- **Payload:** `{status, reason, text, sessionId, turn, exitCode}`, plus `conversationId` when the run was recorded as a conversation (`yukta.agents.enabled`, the default; see the core reference, CTL-10). A run with no conversation has the payload it always had.
+- **Payload:** `{status, reason, text, sessionId, turn, exitCode}` (with Claude Code also `costUsd`, `numTurns`, `structured` and `usage`, the token counts), plus `conversationId` when the run was recorded as a conversation (`yukta.agents.enabled`, the default; see the core reference, CTL-10). A run with no conversation has the payload it always had.
 - **Run log:** the agent's text and the tools it uses appear as `agent` lines while it works.
 
 ```json

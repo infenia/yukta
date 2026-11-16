@@ -60,13 +60,22 @@ class AgentOutputTest {
         "stdout",
         "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"ok\","
             + "\"session_id\":\"s1\",\"total_cost_usd\":0.25,\"num_turns\":3,"
-            + "\"structured_output\":{\"claimed\":true,\"n\":[1,2]}}");
+            + "\"structured_output\":{\"claimed\":true,\"n\":[1,2]},"
+            + "\"usage\":{\"input_tokens\":10,\"cache_creation_input_tokens\":20,"
+            + "\"cache_read_input_tokens\":30,\"output_tokens\":40}}");
 
     assertThat(output.outcome(0, false, 60))
         .containsEntry("status", "success")
         .containsEntry("costUsd", 0.25)
         .containsEntry("numTurns", 3)
-        .containsEntry("structured", Map.of("claimed", true, "n", List.of(1, 2)));
+        .containsEntry("structured", Map.of("claimed", true, "n", List.of(1, 2)))
+        .containsEntry(
+            "usage",
+            Map.of(
+                "input_tokens", 10,
+                "cache_creation_input_tokens", 20,
+                "cache_read_input_tokens", 30,
+                "output_tokens", 40));
   }
 
   @Test
@@ -76,10 +85,11 @@ class AgentOutputTest {
     output.line(
         "stdout",
         "{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"ok\","
-            + "\"total_cost_usd\":null,\"num_turns\":null,\"structured_output\":null}");
+            + "\"total_cost_usd\":null,\"num_turns\":null,\"structured_output\":null,"
+            + "\"usage\":null}");
 
     assertThat(output.outcome(0, false, 60))
-        .doesNotContainKeys("costUsd", "numTurns", "structured");
+        .doesNotContainKeys("costUsd", "numTurns", "structured", "usage");
   }
 
   @Test
@@ -89,7 +99,7 @@ class AgentOutputTest {
     output.line("stdout", "{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"ok\"}");
 
     assertThat(output.outcome(0, false, 60))
-        .doesNotContainKeys("costUsd", "numTurns", "structured");
+        .doesNotContainKeys("costUsd", "numTurns", "structured", "usage");
   }
 
   @Test
