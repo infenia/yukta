@@ -82,6 +82,13 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `rollback_workflow` | `OPERATOR` | `sessionId`, `workflowId`, `version` |
 | `note_workflow_version` | `OPERATOR` | `sessionId`, `workflowId`, `version`, `note` |
 | `get_control_bus_status` | `VIEWER` | optional `filterType` |
+| `list_agent_conversations` | `VIEWER` | optional `sessionId`, `executionId`, `state` |
+| `get_agent_conversation` | `VIEWER` | `sessionId`, `conversationId`, optional `afterSeq`, `limit` |
+| `read_agent_screen` | `VIEWER` | `sessionId`, `conversationId` |
+| `send_agent_message` | `OPERATOR` | `sessionId`, `conversationId`, `text`, optional `interrupt` |
+| `interrupt_agent` | `OPERATOR` | `sessionId`, `conversationId` |
+| `end_agent_conversation` | `OPERATOR` | `sessionId`, `conversationId`, optional `outcome`, `reason` |
+| `send_agent_keys` | `OPERATOR` | `sessionId`, `conversationId`, optional `text`, `keys` |
 
 ## Ask the user first
 
