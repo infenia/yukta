@@ -160,7 +160,7 @@ func TestAttachFollowsTheAgentNamedByTheFlagAndKeepsEventsOfUnknownConversations
 	}
 	a := &attacher{c: s.client(), out: &bytes.Buffer{}, filter: "review", byID: map[string]*agentView{}}
 
-	if err := a.run(context.Background(), "e1", strings.NewReader("")); err != nil {
+	if err := a.run(context.Background(), "e1", newLines(strings.NewReader(""))); err != nil {
 		t.Fatal(err)
 	}
 
@@ -198,7 +198,7 @@ func TestAttachReadsTheTypedLinesOfAPersonAndLeavesOnQuit(t *testing.T) {
 	a := &attacher{c: client.NewClient(srv.URL), out: &out, interactive: true, byID: map[string]*agentView{}}
 	reader, writer := io.Pipe()
 	done := make(chan error, 1)
-	go func() { done <- a.run(context.Background(), "e1", reader) }()
+	go func() { done <- a.run(context.Background(), "e1", newLines(reader)) }()
 	// the person types once the agent is on the screen
 	for i := 0; i < 500 && !strings.Contains(out.String(), "state RUNNING"); i++ {
 		time.Sleep(10 * time.Millisecond)
