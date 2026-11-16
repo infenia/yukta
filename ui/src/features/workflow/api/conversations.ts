@@ -32,7 +32,10 @@ export const endConversation = (conversationId: string) =>
   post(api`/api/conversations/${conversationId}/end`, {});
 
 /** Types keys into the terminal of an agent; the bytes go base64 encoded. */
-export const sendTerminalInput = (conversationId: string, bytes: Uint8Array) => {
+export const sendTerminalInput = (
+  conversationId: string,
+  bytes: Uint8Array
+) => {
   let binary = '';
   bytes.forEach((byte) => {
     binary += String.fromCharCode(byte);
