@@ -128,7 +128,7 @@ public class SseStreams {
                       ended.get())) // a tick racing the end is skipped, not dropped
               .map(_ -> ServerSentEvent.<T>builder().comment("ping").build())
               .takeUntilOther(finished.asMono());
-      final Flux<ServerSentEvent<T>> merged = Flux.merge(watched, keepAlive);
+      final Flux<ServerSentEvent<T>> merged = Flux.merge(events, keepAlive);
       return (lifetime().isZero() ? merged : merged.take(lifetime())).doFinally(_ -> release(mine));
     });
   }

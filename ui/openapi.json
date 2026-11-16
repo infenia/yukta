@@ -162,6 +162,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseConversationResponse" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ConversationResponse",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseCounts" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -433,6 +476,98 @@
             "description" : "The response data",
             "items" : {
               "$ref" : "#/components/schemas/ControlAuditEntry"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListConversationEventResponse" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/ConversationEventResponse"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListConversationResponse" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/ConversationResponse"
             },
             "type" : "array"
           },
@@ -2833,6 +2968,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseTerminalScreenResponse" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/TerminalScreenResponse",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseValidationView" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -3631,6 +3809,145 @@
             "type" : "string"
           },
           "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ConversationEventResponse" : {
+        "description" : "One thing that happened in a conversation",
+        "properties" : {
+          "conversationId" : {
+            "description" : "The conversation",
+            "type" : "string"
+          },
+          "data" : {
+            "additionalProperties" : { },
+            "description" : "The details; the keys depend on the kind",
+            "type" : "object"
+          },
+          "itemId" : {
+            "description" : "The item it belongs to",
+            "type" : [ "string", "null" ]
+          },
+          "kind" : {
+            "description" : "What it describes",
+            "enum" : [ "STATE", "MESSAGE", "TOOL", "PLAN", "REQUEST", "TERMINAL", "RESULT", "NOTICE" ],
+            "type" : "string"
+          },
+          "seq" : {
+            "description" : "The change sequence; the id of the event on the stream",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "When it happened",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ConversationResponse" : {
+        "description" : "A conversation with an AI agent",
+        "properties" : {
+          "capabilities" : {
+            "description" : "What the conversation can do",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "endedAt" : {
+            "description" : "When it ended",
+            "format" : "date-time",
+            "type" : [ "string", "null" ]
+          },
+          "executionId" : {
+            "description" : "The run of the node",
+            "type" : "string"
+          },
+          "harness" : {
+            "description" : "The preset that describes the agent",
+            "type" : "string"
+          },
+          "id" : {
+            "description" : "The conversation id",
+            "type" : "string"
+          },
+          "messageId" : {
+            "description" : "The message the node works on",
+            "type" : "string"
+          },
+          "model" : {
+            "description" : "The model, when known",
+            "type" : [ "string", "null" ]
+          },
+          "nodeId" : {
+            "description" : "The node",
+            "type" : "string"
+          },
+          "outcome" : {
+            "description" : "How it ended; null until it ended",
+            "enum" : [ "success", "failure", "incomplete" ],
+            "type" : [ "string", "null" ]
+          },
+          "protocol" : {
+            "description" : "How Yukta talks to the agent",
+            "enum" : [ "JSONL", "ACP", "PTY" ],
+            "type" : "string"
+          },
+          "queued" : {
+            "description" : "How many messages wait for the turn to end",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "reason" : {
+            "description" : "Why it is in this state or ended; untrusted text",
+            "type" : [ "string", "null" ]
+          },
+          "rootExecutionId" : {
+            "description" : "The top of the run's tree of runs",
+            "type" : "string"
+          },
+          "seq" : {
+            "description" : "The change sequence of the last change of this record",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "sessionId" : {
+            "description" : "The session of the run",
+            "type" : "string"
+          },
+          "startedAt" : {
+            "description" : "When it was opened",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "state" : {
+            "description" : "Where the conversation is",
+            "enum" : [ "STARTING", "RUNNING", "WAITING", "IDLE", "ENDED" ],
+            "type" : "string"
+          },
+          "steerAudience" : {
+            "description" : "Who may steer it: audience selectors",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "turn" : {
+            "description" : "How many turns have finished",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "updatedAt" : {
+            "description" : "When this record last changed",
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "workflowId" : {
+            "description" : "The workflow of the run",
             "type" : "string"
           }
         },
@@ -5529,6 +5846,7 @@
       "ServerSentEventLogEntryResponse" : { },
       "ServerSentEventMetricSample" : { },
       "ServerSentEventNotificationEvent" : { },
+      "ServerSentEventObject" : { },
       "ServerSentEventResultEvent" : { },
       "ServerSentEventSignalEnvelope" : { },
       "ServerSentEventString" : { },
@@ -6339,6 +6657,41 @@
             "type" : "string"
           },
           "title" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TerminalScreenResponse" : {
+        "description" : "The latest settled screen of a terminal agent",
+        "properties" : {
+          "cols" : {
+            "description" : "The width in characters",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "cursorCol" : {
+            "description" : "The column of the cursor, from 0",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "cursorRow" : {
+            "description" : "The row of the cursor, from 0",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "rows" : {
+            "description" : "The height in lines",
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "seq" : {
+            "description" : "The sequence number of the screen",
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "text" : {
+            "description" : "The screen as text, one line per row",
             "type" : "string"
           }
         },
@@ -7729,6 +8082,183 @@
         "tags" : [ "Control Bus & Observability API" ]
       }
     },
+    "/api/conversations" : {
+      "get" : {
+        "description" : "The conversations of all sessions the caller reaches, newest first. Narrow them with state, sessionId and executionId; with executionId, tree=true (the default) also lists those of the runs below it. limit defaults to 100, at most 500. An unknown state is a 400.",
+        "operationId" : "listConversations",
+        "parameters" : [ {
+          "description" : "Comma-separated states: STARTING, RUNNING, WAITING, IDLE, ENDED; none means all",
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only this session",
+          "in" : "query",
+          "name" : "sessionId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only this run",
+          "in" : "query",
+          "name" : "executionId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "With executionId: also the runs below it (default true)",
+          "in" : "query",
+          "name" : "tree",
+          "required" : false,
+          "schema" : {
+            "default" : true,
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Most conversations returned (default 100, at most 500)",
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListConversationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List agent conversations",
+        "tags" : [ "Agent Conversations API" ]
+      }
+    },
+    "/api/conversations/{id}" : {
+      "get" : {
+        "description" : "The conversation record. 404 when it is unknown or of an unreachable session.",
+        "operationId" : "getConversation",
+        "parameters" : [ {
+          "description" : "Conversation ID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseConversationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Read an agent conversation",
+        "tags" : [ "Agent Conversations API" ]
+      }
+    },
+    "/api/conversations/{id}/events" : {
+      "get" : {
+        "description" : "A page of events in the order of their sequence numbers, after the event whose number is given in after (default: from the start). limit defaults to 100, at most 500. When more events follow, the X-Next-Cursor header holds the number to pass as after. Terminal output is kept in a ring of bytes, so an old chunk may be gone.",
+        "operationId" : "getEvents",
+        "parameters" : [ {
+          "description" : "Conversation ID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Sequence number of the last event the caller has",
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Most events returned (default 100, at most 500)",
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Comma-separated event kinds: STATE, MESSAGE, TOOL, PLAN, REQUEST, TERMINAL, RESULT, NOTICE; none means all",
+          "in" : "query",
+          "name" : "kinds",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListConversationEventResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Read the events of an agent conversation",
+        "tags" : [ "Agent Conversations API" ]
+      }
+    },
+    "/api/conversations/{id}/terminal/screen" : {
+      "get" : {
+        "description" : "The latest settled screen as text with the size and the cursor. 404 when the conversation is unknown or has not drawn a screen yet, 409 when it has no terminal.",
+        "operationId" : "getScreen",
+        "parameters" : [ {
+          "description" : "Conversation ID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTerminalScreenResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Read the screen of a terminal agent",
+        "tags" : [ "Agent Conversations API" ]
+      }
+    },
     "/api/edition" : {
       "get" : {
         "description" : "Returns the edition of this build (COMMUNITY, PLUS or ENTERPRISE), its licence, the optional features it has and, where the licence asks for it, where the source is",
@@ -7922,6 +8452,134 @@
         },
         "summary" : "Get workflow execution status",
         "tags" : [ "Execution API" ]
+      }
+    },
+    "/api/executions/{executionId}/conversations" : {
+      "get" : {
+        "description" : "The conversations of the run and, with tree=true (the default), of its child runs, newest first. 404 for an unknown run or one of a session the caller does not reach.",
+        "operationId" : "listRunConversations",
+        "parameters" : [ {
+          "description" : "Execution ID",
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Also the runs below it (default true)",
+          "in" : "query",
+          "name" : "tree",
+          "required" : false,
+          "schema" : {
+            "default" : true,
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Comma-separated states: STARTING, RUNNING, WAITING, IDLE, ENDED; none means all",
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Most conversations returned (default 100, at most 500)",
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListConversationResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List the agent conversations of a run",
+        "tags" : [ "Agent Conversations API" ]
+      }
+    },
+    "/api/executions/{executionId}/conversations/stream" : {
+      "get" : {
+        "description" : "Server-sent events for the run and, with tree=true (the default), the runs below it. The event named conversation carries a conversation record (on connect one for each conversation, then on every change); the event named event carries a conversation event. The SSE id is the change sequence number, and Last-Event-ID resumes after it: a client gets exactly what it missed, no gap and no duplicate. For a terminal agent a new client gets the latest screen before the live output; terminal=false leaves out the output and sends screens only. The stream ends when the run does, and ends early for a client that falls too far behind, which resumes with Last-Event-ID.",
+        "operationId" : "streamConversations",
+        "parameters" : [ {
+          "description" : "Execution ID",
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Also the runs below it (default true)",
+          "in" : "query",
+          "name" : "tree",
+          "required" : false,
+          "schema" : {
+            "default" : true,
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Only this conversation",
+          "in" : "query",
+          "name" : "conversationId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Comma-separated event kinds: STATE, MESSAGE, TOOL, PLAN, REQUEST, TERMINAL, RESULT, NOTICE; none means all",
+          "in" : "query",
+          "name" : "kinds",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "false: no terminal output, screens only",
+          "in" : "query",
+          "name" : "terminal",
+          "required" : false,
+          "schema" : {
+            "default" : true,
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "header",
+          "name" : "Last-Event-ID",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/event-stream" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ServerSentEventObject"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Stream the agent conversations of a run",
+        "tags" : [ "Agent Conversations API" ]
       }
     },
     "/api/executions/{executionId}/inputs/{requestId}" : {
@@ -12426,6 +13084,9 @@
   }, {
     "description" : "Stop, restart and observe workflow executions",
     "name" : "Execution API"
+  }, {
+    "description" : "Read the conversations with AI agents",
+    "name" : "Agent Conversations API"
   }, {
     "description" : "Who is calling and what the key may do",
     "name" : "Session API"
