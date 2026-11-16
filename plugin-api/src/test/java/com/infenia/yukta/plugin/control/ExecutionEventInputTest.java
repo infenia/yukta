@@ -7,7 +7,12 @@ import static com.infenia.yukta.plugin.input.InputFixtures.request;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.plugin.agent.AgentConversation;
+import com.infenia.yukta.plugin.agent.AgentProtocol;
+import com.infenia.yukta.plugin.agent.AgentState;
+import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.Responder;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class ExecutionEventInputTest {
@@ -75,5 +80,43 @@ class ExecutionEventInputTest {
           });
     }
     assertThat(seen.toString()).isEqualTo("requested escalated answered expired cancelled");
+  }
+
+  @Test
+  void agentConversationChangeIsEventOfItsRunAndNode() {
+    final AgentConversation conversation =
+        new AgentConversation(
+            "c1",
+            "e1",
+            "e0",
+            "s1",
+            "w1",
+            "n1",
+            "m1",
+            "claude-code",
+            AgentProtocol.JSONL,
+            null,
+            Set.of(),
+            AgentState.RUNNING,
+            null,
+            null,
+            0,
+            0,
+            Audience.CURRENT_TIER,
+            NOW,
+            NOW,
+            null,
+            0);
+
+    final ExecutionEvent event = new ExecutionEvent.AgentConversationChanged(conversation, NOW);
+
+    assertThat(event.executionId()).isEqualTo("e1");
+    assertThat(event.sessionId()).isEqualTo("s1");
+    assertThat(event.workflowId()).isEqualTo("w1");
+    assertThat(event.nodeId()).isEqualTo("n1");
+    assertThatThrownBy(() -> new ExecutionEvent.AgentConversationChanged(null, NOW))
+        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> new ExecutionEvent.AgentConversationChanged(conversation, null))
+        .isInstanceOf(NullPointerException.class);
   }
 }

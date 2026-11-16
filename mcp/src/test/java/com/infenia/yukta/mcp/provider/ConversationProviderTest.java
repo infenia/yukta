@@ -206,4 +206,118 @@ class ConversationProviderTest {
     assertThatThrownBy(() -> provider.keys("s-1", "c-1", null, null).block())
         .isInstanceOf(IllegalArgumentException.class);
   }
+
+  @Test
+  void listIsCutAtTheMostAndSaysSo() {
+    when(queries.list(any(), anyInt()))
+        .thenReturn(
+            Flux.range(0, ConversationProvider.MAX_CONVERSATIONS + 1)
+                .map(i -> conversation(Set.of(AgentCapability.MESSAGE))));
+
+    final var list = provider.list(null, null, null).block();
+
+    assertThat(list.truncated()).isTrue();
+    assertThat(list.conversations()).hasSize(ConversationProvider.MAX_CONVERSATIONS);
+  }
+
+  @Test
+  void readsAfterSequenceNumberWithLimitKeptInRange() {
+    found();
+    when(queries.events(eq("c-1"), anyLong(), anyInt(), any(), any()))
+        .thenReturn(Mono.just(new AgentConversationQueries.EventPage(List.of(), null)));
+
+    provider.get(null, "c-1", 5L, 10).block();
+    provider.get(null, "c-1", null, 0).block();
+    provider.get(null, "c-1", null, 500).block();
+
+    verify(queries).events(eq("c-1"), eq(5L), eq(10), any(), any());
+    verify(queries, org.mockito.Mockito.times(2))
+        .events(eq("c-1"), eq(0L), eq(ConversationProvider.MAX_ITEMS), any(), any());
+  }
+
+  @Test
+  void itemsWithoutRoleOrTextAreStillShown() {
+    found();
+    final AgentEvent tool =
+        new AgentEvent(
+            2, "c-1", NOW, AgentEventKind.TOOL, null, Map.of("title", " ", "status", "done"));
+    when(queries.events(eq("c-1"), anyLong(), anyInt(), any(), any()))
+        .thenReturn(Mono.just(new AgentConversationQueries.EventPage(List.of(tool), null)));
+
+    final var view = provider.get("s-1", "c-1", null, null).block();
+
+    assertThat(view.items())
+        .singleElement()
+        .satisfies(item -> {
+          assertThat(item.role()).isNull();
+          assertThat(item.text()).isEqualTo("done");
+        });
+  }
+
+  @Test
+  void namedSessionReachesOnlyItsOwnConversations() {
+    final java.util.concurrent.atomic.AtomicReference<java.util.function.Predicate<String>> seen =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    when(queries.require(eq("c-1"), any()))
+        .thenAnswer(call -> {
+          seen.set(call.getArgument(1));
+          return Mono.just(conversation(Set.of(AgentCapability.MESSAGE)));
+        });
+    when(queries.events(eq("c-1"), anyLong(), anyInt(), any(), any()))
+        .thenReturn(
+            Mono.just(
+                new AgentConversationQueries.EventPage(
+                    List.of(
+                        new AgentEvent(
+                            1, "c-1", NOW, AgentEventKind.RESULT, null, Map.of("text", "ok"))),
+                    null)));
+
+    provider.get("s-1", "c-1", null, null).block();
+
+    assertThat(seen.get().test("s-1")).isTrue();
+    assertThat(seen.get().test("other")).isFalse();
+    provider.get(null, "c-1", null, null).block();
+    assertThat(seen.get().test("any")).isTrue();
+  }
+
+  @Test
+  void messageNeedsText() {
+    assertThatThrownBy(() -> provider.message("s-1", "c-1", " ", false).block())
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("text is required");
+    assertThatThrownBy(() -> provider.message("s-1", "c-1", null, false).block())
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void keysAreBoundedAndBlankKeysAreIgnored() {
+    found();
+    when(steering.terminalInput(eq("c-1"), any())).thenReturn(Mono.empty());
+
+    provider.keys("s-1", "c-1", "ls", "  ").block();
+
+    verify(steering).terminalInput("c-1", "ls".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    final String tooMuch = "x".repeat(AgentSteering.MAX_TERMINAL_INPUT_BYTES + 1);
+    assertThatThrownBy(() -> provider.keys("s-1", "c-1", tooMuch, null).block())
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void screenWithoutSizeIsZeroByZero() {
+    when(queries.screen(eq("c-1"), any()))
+        .thenReturn(
+            Mono.just(
+                new AgentEvent(
+                    3,
+                    "c-1",
+                    NOW,
+                    AgentEventKind.TERMINAL,
+                    null,
+                    Map.of("screen", "x", "cols", "?"))));
+
+    final var screen = provider.screen("s-1", "c-1").block();
+
+    assertThat(screen.cols()).isZero();
+    assertThat(screen.rows()).isZero();
+  }
 }
