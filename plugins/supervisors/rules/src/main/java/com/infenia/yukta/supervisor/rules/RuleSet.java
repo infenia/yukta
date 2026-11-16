@@ -155,7 +155,23 @@ public record RuleSet(@Nullable Integer schemaVersion, List<Rule> rules) {
       @Nullable Boolean immediate,
       @Nullable String from,
       @Nullable Answer answer,
-      @Nullable Escalate escalate) {}
+      @Nullable Escalate escalate,
+      @Nullable String text,
+      @Nullable Boolean interrupt,
+      @Nullable String outcome) {
+
+    /** A rule that does not steer an agent. */
+    public Then(
+        final @Nullable String command,
+        final @Nullable String mode,
+        final @Nullable String reason,
+        final @Nullable Boolean immediate,
+        final @Nullable String from,
+        final @Nullable Answer answer,
+        final @Nullable Escalate escalate) {
+      this(command, mode, reason, immediate, from, answer, escalate, null, null, null);
+    }
+  }
 
   /**
    * The answer a rule gives to an input request. Whether it is accepted is decided by the server:

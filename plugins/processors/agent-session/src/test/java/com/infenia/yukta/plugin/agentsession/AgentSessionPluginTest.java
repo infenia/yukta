@@ -313,7 +313,7 @@ class AgentSessionPluginTest {
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "nope", "prompt", "p")))
         .expectErrorMessage(
             "unknown harness 'nope'; one of [acpfresh, antigravity, asker, capable, claude-code,"
-                + " codex, crash, failed, max, modeled, mute, noisy, ok, pty, rcrash, resumable,"
+                + " codex, crash, failed, max, modeled, mute, noisy, ok, pi, pty, rcrash, resumable,"
                 + " rmissing, slow, terminal, thinker]")
         .verify();
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "model", "m")))
@@ -340,6 +340,7 @@ class AgentSessionPluginTest {
             "mute",
             "noisy",
             "ok",
+            "pi",
             "pty",
             "rcrash",
             "resumable",

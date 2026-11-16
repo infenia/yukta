@@ -179,7 +179,7 @@ All take `<session-id> <execution-id> <node-id>` except where noted.
 | Flag | Default | Description |
 |---|---|---|
 | `--execution <id>` | none | Only events of this run. |
-| `--type <kinds>` | all | Comma-separated: `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled`. |
+| `--type <kinds>` | all | Comma-separated: `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled`, `AgentConversationChanged`. |
 | `--until-done` | `false` | Exits when the run has ended; needs `--execution`. |
 | `--tree` | `true` | With `--execution`, also watches sub-workflow runs at any depth. |
 | `--follow-restarts` | `false` | With `--until-done`, continues with the run that restarts the execution. |

@@ -103,7 +103,8 @@ A custom preset (`yukta.ai.presets-dir`) with `"protocol": "pty"` sets `pty.type
 
 - The agent is a process on the server with the permissions of the server's user. Allow only the executables you mean to, and give it a `workingDir` that holds nothing you mind it reading.
 - No sandbox, secret handling or output redaction yet; they are planned as a separate hardening step.
-- Claude Code supports sessions and approvals. The Codex preset follows the documented `codex exec --json` events and has not been run against the real CLI; it has neither.
+- Claude Code supports sessions and approvals. The Codex preset reads `codex exec --json`; against codex-cli 0.169.0 its **failure** path was checked (an expired API key ends the node with the CLI's own message), the success path has not been run. It has neither sessions nor approvals.
+- The `pi` preset runs `pi --mode rpc` (pi 1.5.2): messages and interrupt, no approvals, no resume. Only its failure path was recorded (a provider that refuses the request); the rest is written from pi's event names and has not been run on a funded account.
 
 ## Related
 
