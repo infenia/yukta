@@ -399,4 +399,14 @@ class AgentSteeringTest {
     refused(steering.terminalInput(id, new byte[] {'x'}), Reason.FORBIDDEN);
     assertThat(received).isEmpty();
   }
+
+  @Test
+  void terminalInputNeedsNoAuditSink() {
+    final String id = open(List.of("role:OPERATOR"), AgentCapability.TERMINAL);
+    actingAs(operator("ann"));
+
+    steering.terminalInput(id, new byte[] {'x'}).block();
+
+    assertThat(received).hasSize(1);
+  }
 }

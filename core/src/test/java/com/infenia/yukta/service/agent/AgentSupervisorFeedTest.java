@@ -13,13 +13,18 @@ import com.infenia.yukta.plugin.agent.AgentState;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -67,7 +72,8 @@ class AgentSupervisorFeedTest {
     final List<ExecutionEvent> seen = new ArrayList<>();
     feed.events().subscribe(seen::add);
     final AgentSupervisorFeed bridge =
-        new AgentSupervisorFeed(service, store, feed, Clock.fixed(NOW, ZoneOffset.UTC));
+        new AgentSupervisorFeed(
+            service, store, feed, Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofHours(1));
 
     bridge.start();
     changes.tryEmitNext(new AgentChange.ConversationChanged(conversation(AgentState.RUNNING)));
@@ -85,5 +91,61 @@ class AgentSupervisorFeedTest {
               assertThat(event.timestamp()).isEqualTo(NOW);
             });
     assertThat(bridge.isRunning()).isFalse();
+  }
+
+  private AgentSupervisorFeed bridge() {
+    return new AgentSupervisorFeed(
+        service, store, feed, Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofMillis(40));
+  }
+
+  @Test
+  void startingTwiceAndStoppingAnUnstartedBridgeChangeNothing() {
+    when(service.changes()).thenReturn(changes.asFlux());
+    when(store.list(any())).thenReturn(Flux.empty());
+    final AgentSupervisorFeed bridge = bridge();
+
+    bridge.stop();
+    bridge.start();
+    bridge.start();
+
+    assertThat(bridge.isRunning()).isTrue();
+    bridge.stop();
+  }
+
+  @Test
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.agent.AgentSupervisorFeed - ")
+  void lagIsRetriedAndOtherErrorsEndTheFeed() {
+    when(store.list(any())).thenReturn(Flux.empty());
+    final AtomicInteger subscriptions = new AtomicInteger();
+    when(service.changes())
+        .thenReturn(
+            Flux.defer(() ->
+                subscriptions.incrementAndGet() == 1
+                    ? Flux.error(new AgentStreamLaggedException(8))
+                    : Flux.error(new IllegalStateException("gone"))));
+    final AgentSupervisorFeed bridge = bridge();
+
+    bridge.start();
+
+    assertThat(subscriptions).hasValue(2);
+    assertThat(bridge.isRunning()).isFalse();
+    bridge.stop();
+  }
+
+  @Test
+  void openConversationsAreAnnouncedEveryTick_andListFailureIsSurvived() {
+    when(service.changes()).thenReturn(Flux.never());
+    when(store.list(any()))
+        .thenReturn(Flux.error(new IllegalStateException("store down")))
+        .thenReturn(Flux.just(conversation(AgentState.WAITING)));
+    final List<ExecutionEvent> seen = new CopyOnWriteArrayList<>();
+    feed.events().subscribe(seen::add);
+    final AgentSupervisorFeed bridge = bridge();
+
+    bridge.start();
+    Awaitility.await().until(() -> !seen.isEmpty());
+    bridge.stop();
+
+    assertThat(seen.getFirst()).isInstanceOf(ExecutionEvent.AgentConversationChanged.class);
   }
 }

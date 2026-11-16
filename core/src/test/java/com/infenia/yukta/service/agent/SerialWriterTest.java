@@ -31,4 +31,17 @@ class SerialWriterTest {
         .expectError(IllegalStateException.class)
         .verify(Duration.ofSeconds(5));
   }
+
+  @Test
+  void writerDisposedByItsOwnJobFailsThatWrite() {
+    final SerialWriter writer = new SerialWriter();
+
+    StepVerifier.create(
+            writer.submit(() -> {
+              writer.dispose();
+              return Mono.just("never seen");
+            }))
+        .expectError(IllegalStateException.class)
+        .verify(Duration.ofSeconds(5));
+  }
 }

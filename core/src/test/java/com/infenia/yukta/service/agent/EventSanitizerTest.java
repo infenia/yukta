@@ -16,6 +16,8 @@ import tools.jackson.databind.json.JsonMapper;
 @NoArgsConstructor
 class EventSanitizerTest {
 
+  private static final String ENTRIES = "entries";
+
   @Test
   void textThatFitsIsReturnedAsIs() {
     final EventSanitizer.Limited limited = EventSanitizer.limit("hello", 5);
@@ -44,19 +46,36 @@ class EventSanitizerTest {
     assertThat(EventSanitizer.limit("éé", 4).cut()).isFalse();
   }
 
+  private static EventSanitizer sanitizer() {
+    return new EventSanitizer(
+        new InputRedactor(List.of()), JsonMapper.builder().build(), 1000, 100);
+  }
+
   @Test
   void planEntriesAreRedactedAndCutEntryIsFlagged() {
+    final EventSanitizer sanitizer = sanitizer();
+
+    final Map<String, Object> plan =
+        sanitizer
+            .sanitize(
+                AgentEventKind.PLAN, Map.of(ENTRIES, List.of("${env.TOP_SECRET}", "a".repeat(200))))
+            .getFirst();
+
+    assertThat(plan.get(EventSanitizer.TRUNCATED)).isEqualTo(true);
+    assertThat(plan.get(ENTRIES).toString()).doesNotContain("TOP_SECRET");
+  }
+
+  @Test
+  void planEntriesOfOtherTypesPassThrough() {
     final EventSanitizer sanitizer =
         new EventSanitizer(new InputRedactor(List.of()), JsonMapper.builder().build(), 1000, 100);
 
     final Map<String, Object> plan =
         sanitizer
-            .sanitize(
-                AgentEventKind.PLAN,
-                Map.of("entries", List.of("${env.TOP_SECRET}", "a".repeat(200))))
+            .sanitize(AgentEventKind.PLAN, Map.of(ENTRIES, List.of(Map.of("done", true), 7)))
             .getFirst();
 
-    assertThat(plan.get(EventSanitizer.TRUNCATED)).isEqualTo(true);
-    assertThat(plan.get("entries").toString()).doesNotContain("TOP_SECRET");
+    assertThat(plan.get(ENTRIES)).isEqualTo(List.of(Map.of("done", true), 7));
+    assertThat(plan).doesNotContainKey(EventSanitizer.TRUNCATED);
   }
 }

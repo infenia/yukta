@@ -36,12 +36,13 @@ import reactor.util.retry.Retry;
 public class AgentSupervisorFeed implements SmartLifecycle {
 
   /** How often the conversations that are still open are announced again. */
-  private static final Duration TICK = Duration.ofSeconds(30);
+  private static final Duration DEFAULT_TICK = Duration.ofSeconds(30);
 
   private final AgentConversationService service;
   private final AgentConversationStore store;
   private final ExecutionEventFeed feed;
   private final Clock clock;
+  private final Duration tick;
   private Disposable subscription;
   private Disposable ticking;
 
@@ -57,14 +58,16 @@ public class AgentSupervisorFeed implements SmartLifecycle {
       final AgentConversationService service,
       final AgentConversationStore store,
       final ExecutionEventFeed feed) {
-    this(service, store, feed, Clock.systemUTC());
+    this(service, store, feed, Clock.systemUTC(), DEFAULT_TICK);
   }
 
   /* default */ AgentSupervisorFeed(
       final AgentConversationService service,
       final AgentConversationStore store,
       final ExecutionEventFeed feed,
-      final Clock clock) {
+      final Clock clock,
+      final Duration tick) {
+    this.tick = tick;
     this.service = service;
     this.store = store;
     this.feed = feed;
@@ -90,7 +93,7 @@ public class AgentSupervisorFeed implements SmartLifecycle {
                 error -> log.atError().setCause(error).log("The supervisor feed of agents ended"));
     // a rule such as "running for more than ten minutes" needs an event while nothing changes
     ticking =
-        Flux.interval(TICK)
+        Flux.interval(tick)
             .concatMap(_ ->
                 store
                     .list(
