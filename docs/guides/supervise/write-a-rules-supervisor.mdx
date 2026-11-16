@@ -160,6 +160,20 @@ Each entry has an outcome: `applied`, `rejected`, `dry-run`, `forbidden`, `not-o
 - **Do not lose events.** Event delivery is best effort, but a gap is never silent: a rule on `EventsMissed` (`missed` holds the count) can pause or fail safe.
 - **A rules file for the whole server.** `yukta.supervisor.rules.file` starts a rule supervisor from a file, but it owns nothing, so it reviews nothing and can never answer. Use a saved supervisor with assignments instead.
 
+## Steer an agent
+
+An `AGENT_SESSION` node announces every change of its conversation as `AgentConversationChanged` (and, every 30 seconds, again while it is open). A rule can interrupt, message or end the agent:
+
+```json
+{
+  "id": "interrupt-slow-agent",
+  "when": {"event": "AgentConversationChanged", "if": "state == 'RUNNING' and runningSeconds > 600"},
+  "then": {"command": "AgentInterrupt", "reason": "running for more than ten minutes"}
+}
+```
+
+Two things must hold. The supervisor must be allowed the command (`AgentInterruptCommand`, `AgentMessageCommand` or `AgentEndCommand` in `allowedCommands`), and the node's `steerAudience` must name it (`supervisor:<id>` or `supervisor:*`; the default is `role:OPERATOR` only). A supervisor that is not named is refused, and the refusal shows in `GET /api/control/audit`. The event carries the state, not the text; read the transcript with `GET /api/conversations/{id}/events` if a rule needs it.
+
 ## Related
 
 - [Rule files reference](/reference/supervisors/rule-files) for every field, event and command.
