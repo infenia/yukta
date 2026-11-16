@@ -216,6 +216,7 @@ func (c *Client) StreamNotifications(ctx context.Context, onEvent func(Notificat
 		pause := min(c.StreamWait*time.Duration(failures), maxNotificationWait)
 		select {
 		case <-time.After(pause):
+			continue
 		case <-ctx.Done():
 			return ctx.Err()
 		}

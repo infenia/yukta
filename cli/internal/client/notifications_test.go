@@ -257,3 +257,24 @@ func TestStreamNotifications_cancelledWhileWaitingToReconnect(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestStreamNotifications_waitsAndTriesAgainAfterAFailure(t *testing.T) {
+	var connections atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if connections.Add(1) == 1 {
+			w.WriteHeader(503)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, "id: e-1\ndata: {\"type\":\"created\"}\n\n")
+	}))
+	defer server.Close()
+	boom := errors.New("seen")
+
+	err := fast(NewClient(server.URL)).StreamNotifications(context.Background(),
+		func(NotificationEvent) error { return boom })
+
+	if !errors.Is(err, boom) || connections.Load() != 2 {
+		t.Errorf("err = %v after %d connections, want the handler error after 2", err, connections.Load())
+	}
+}
