@@ -186,6 +186,7 @@ final class AgentOutput implements PluginLogSink {
         JsonPaths.firstOr(JsonPaths.first(r, rules.sessionId()), captured.get(SESSION_ID)));
     final String kind = JsonPaths.first(r, rules.subtype());
     out.put(TEXT, text);
+    extras(out, r);
     if (rules.incompleteSubtypes().contains(kind)) {
       out.put(STATUS, "incomplete");
       out.put("reason", kind);
@@ -196,6 +197,18 @@ final class AgentOutput implements PluginLogSink {
       out.put(STATUS, "success");
     }
     return out;
+  }
+
+  /** Adds the payload fields the preset takes from the result line, with their JSON types. */
+  private void extras(final Map<String, Object> out, final JsonNode r) {
+    rules
+        .extras()
+        .forEach((name, path) -> {
+          final JsonNode value = JsonPaths.pathNode(r, path);
+          if (!value.isMissingNode() && !value.isNull()) {
+            out.put(name, json.convertValue(value, Object.class));
+          }
+        });
   }
 
   private static Map<String, Object> fail(

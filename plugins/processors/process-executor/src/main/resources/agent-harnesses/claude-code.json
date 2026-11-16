@@ -24,6 +24,7 @@
     "isError": "is_error",
     "subtype": "subtype",
     "incompleteSubtypes": ["error_max_turns"],
+    "extras": { "costUsd": "total_cost_usd", "numTurns": "num_turns", "structured": "structured_output" },
     "live": [
       { "when": { "type": "assistant" }, "text": "message.content[*].text" },
       { "when": { "type": "assistant" }, "text": "message.content[*].name", "prefix": "tool: " }

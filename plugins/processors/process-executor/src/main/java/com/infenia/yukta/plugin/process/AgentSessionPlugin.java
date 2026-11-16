@@ -102,9 +102,11 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
             + " (approvalRisk, approvalTimeout seconds, approvalAudience); needs a harness with the"
             + " ask capability.\n"
             + "- workingDir, env, timeout (seconds, default 600).\n"
-            + "Emits {status, reason, text, sessionId, turn, exitCode} on port success, failure"
-            + " (the agent or harness failed, or timed out) or incomplete (stopped early, e.g. out"
-            + " of turns). Enable with yukta.plugins.enabled=AGENT_SESSION.\n"
+            + "Emits {status, reason, text, sessionId, turn, exitCode} (and what the harness"
+            + " preset's output.extras take from the result: Claude Code adds costUsd, numTurns and"
+            + " structured) on port success, failure (the agent or harness failed, or timed out) or"
+            + " incomplete (stopped early, e.g. out of turns). Enable with"
+            + " yukta.plugins.enabled=AGENT_SESSION.\n"
             + "Harnesses:\n"
             + settings.describeHarnesses(),
         Optional.empty());

@@ -167,7 +167,7 @@ Module `process-executor`. Runs an AI agent harness, such as Claude Code, on a p
 | `timeout` | number | `600` | no | Seconds. |
 
 - **Output ports:** `success`, `failure` (the agent or harness failed, or timed out), `incomplete` (stopped early, for example out of turns).
-- **Payload:** `{status, reason, text, sessionId, turn, exitCode}`.
+- **Payload:** `{status, reason, text, sessionId, turn, exitCode}`; with Claude Code also `costUsd`, `numTurns` and `structured` (the `--json-schema` answer), as the preset's `output.extras` say.
 - **Run log:** the agent's text and the tools it uses appear as `agent` lines while it works.
 
 ```json

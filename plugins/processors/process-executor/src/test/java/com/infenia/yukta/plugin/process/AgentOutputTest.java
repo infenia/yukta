@@ -50,6 +50,34 @@ class AgentOutputTest {
   }
 
   @Test
+  void extras_carryCostTurnsAndTheStructuredAnswerWithTheirTypes() {
+    final AgentOutput output = new AgentOutput(preset("claude-code").output(), log, JSON);
+
+    output.line(
+        "stdout",
+        "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"ok\","
+            + "\"session_id\":\"s1\",\"total_cost_usd\":0.25,\"num_turns\":3,"
+            + "\"structured_output\":{\"claimed\":true,\"n\":[1,2]}}");
+
+    assertThat(output.outcome(0, false, 60))
+        .containsEntry("status", "success")
+        .containsEntry("costUsd", 0.25)
+        .containsEntry("numTurns", 3)
+        .containsEntry(
+            "structured", java.util.Map.of("claimed", true, "n", java.util.List.of(1, 2)));
+  }
+
+  @Test
+  void extrasTheResultLacks_areLeftOut() {
+    final AgentOutput output = new AgentOutput(preset("claude-code").output(), log, JSON);
+
+    output.line("stdout", "{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"ok\"}");
+
+    assertThat(output.outcome(0, false, 60))
+        .doesNotContainKeys("costUsd", "numTurns", "structured");
+  }
+
+  @Test
   void errorResultWithoutText_givesTheResultKindAsTheReason() {
     final AgentOutput output = new AgentOutput(preset("claude-code").output(), log, JSON);
 
