@@ -107,4 +107,56 @@ class R2dbcAgentConversationStoreTest extends AgentConversationStoreContract {
     assertThat(store.endOpenConversationsNow()).isZero();
     assertThat(store.list(ConversationFilter.all()).count().block()).isEqualTo(3);
   }
+
+  @Test
+  void ringPiecesAreFilteredBySequenceAndKind_andNoScreenIsEmpty() {
+    final AgentConversationStore store = create(10, 10, 1000);
+    store.save(conversation("a")).block();
+    store.append(event("a", AgentEventKind.MESSAGE)).block();
+    final long piece =
+        java.util.Objects.requireNonNull(
+                store
+                    .append(
+                        new AgentEvent(
+                            0,
+                            "a",
+                            NOW,
+                            AgentEventKind.TERMINAL,
+                            null,
+                            java.util.Map.of("data", "AAAA", "cols", 80, "rows", 24)))
+                    .block())
+            .event()
+            .seq();
+
+    assertThat(
+            store
+                .events(
+                    new EventFilter(
+                        "a", null, null, null, java.util.Set.of(AgentEventKind.MESSAGE)),
+                    0,
+                    10)
+                .collectList()
+                .block())
+        .extracting(AgentEvent::kind)
+        .containsExactly(AgentEventKind.MESSAGE);
+    assertThat(store.events(EventFilter.forConversation("a"), piece, 10).collectList().block())
+        .isEmpty();
+    assertThat(store.latestScreen("a").block()).isNull();
+  }
+
+  @Test
+  void everyBoundMustBeAtLeastOne() {
+    final DatabaseClient client = org.mockito.Mockito.mock(DatabaseClient.class);
+    final JsonMapper mapper = JsonMapper.builder().build();
+    final java.time.Clock clock = java.time.Clock.systemUTC();
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new R2dbcAgentConversationStore(client, mapper, 0, 1, 1, clock))
+        .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new R2dbcAgentConversationStore(client, mapper, 1, 0, 1, clock))
+        .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new R2dbcAgentConversationStore(client, mapper, 1, 1, 0, clock))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }

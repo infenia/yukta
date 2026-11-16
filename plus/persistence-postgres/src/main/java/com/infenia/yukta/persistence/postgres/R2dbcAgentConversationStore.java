@@ -163,8 +163,7 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
    * @return how many conversations were ended
    */
   public long endOpenConversationsNow() {
-    final Long ended = endOpenConversations().toFuture().join();
-    return ended == null ? 0 : ended;
+    return endOpenConversations().defaultIfEmpty(0L).toFuture().join();
   }
 
   @Override

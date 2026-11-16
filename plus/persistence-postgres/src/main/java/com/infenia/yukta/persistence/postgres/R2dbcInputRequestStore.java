@@ -73,7 +73,7 @@ public class R2dbcInputRequestStore implements InputRequestStore {
   @Override
   public Mono<InputRequest> createIfAbsent(final InputRequest request) {
     // a second try covers the live request with this key ending between the insert and the read
-    return insert(request).switchIfEmpty(Mono.defer(() -> insert(request))).single();
+    return Mono.defer(() -> insert(request)).repeatWhenEmpty(1, again -> again).single();
   }
 
   /** Inserts, or finds the live request with the same key; empty when that one ended meanwhile. */

@@ -110,4 +110,17 @@ class PostgresPersistenceAutoConfigurationTest {
         .run(context -> assertThat(context).doesNotHaveBean(WorkflowDefinitionStore.class));
     runner.run(context -> assertThat(context).doesNotHaveBean(ExecutionLogStore.class));
   }
+
+  @Test
+  void theAgentStoreTakesItsBoundsFromTheSettings() {
+    final com.infenia.yukta.config.YuktaProperties properties =
+        mock(com.infenia.yukta.config.YuktaProperties.class);
+    org.mockito.Mockito.when(properties.agents())
+        .thenReturn(com.infenia.yukta.service.agent.AgentTestSupport.settings(64, 32, 100));
+
+    assertThat(
+            new PostgresPersistenceAutoConfiguration()
+                .agentConversationStore(mock(DatabaseClient.class), new ObjectMapper(), properties))
+        .isInstanceOf(R2dbcAgentConversationStore.class);
+  }
 }
