@@ -877,6 +877,31 @@ class ProcessExecutorGatewayTest {
     assertThat(wrapped).startsWith("/bin/sh", "-c");
   }
 
+  @Test
+  void launcher_runsTheCommandThroughAPrefix_andTheAllowListChecksTheCommandOnly() {
+    gateway.setAllowedCommands(List.of("echo"));
+    // "env" is not allowed, but it only launches the allowed "echo"
+    final ProcessExecutionSpec wrapped =
+        ProcessExecutionSpec.builder()
+            .launcher(List.of("env"))
+            .command(List.of("echo", "hi"))
+            .timeoutSeconds(10L)
+            .build();
+    final ProcessExecutionSpec refused =
+        ProcessExecutionSpec.builder()
+            .launcher(List.of("env"))
+            .command(List.of("ls"))
+            .timeoutSeconds(10L)
+            .build();
+
+    StepVerifier.create(gateway.executeForResult(wrapped))
+        .assertNext(result -> assertThat(result.stdout()).isEqualTo("hi"))
+        .verifyComplete();
+    StepVerifier.create(gateway.executeForResult(refused))
+        .expectErrorMessage("Command 'ls' is not in yukta.process.allowed-commands")
+        .verify();
+  }
+
   // --- executeForResult: non-throwing result-based API ---
 
   @Test

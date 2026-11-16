@@ -21,9 +21,11 @@ tasks.processResources {
 }
 
 // Optional plugins are chosen with -Pyukta.plugins=default (all except script-js), all, none, or a comma-separated list
-// of: process-executor, http-request, file-io, sql-query, llm-call, mcp-tool-call, decision, script-js.
+// of: process-executor, agent-session, http-request, file-io, sql-query, llm-call, mcp-tool-call, decision, script-js.
 val optionalPlugins = mapOf(
     "process-executor" to ":plugins:processors:process-executor",
+    // AGENT_SESSION; it starts the agent through the process executor, which it pulls in
+    "agent-session" to ":plugins:processors:agent-session",
     // community plugins from yukta.plugins.dir (needs process-executor and mcp-tool-call, which it pulls in)
     "external" to ":plugins:external",
     "http-request" to ":plugins:processors:http-request",

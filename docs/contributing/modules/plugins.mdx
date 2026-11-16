@@ -309,7 +309,7 @@ Watches the run-event stream from outside the graph and can pause or stop runs o
 
 Decides which plugin modules are compiled in and holds each module to code-quality checks.
 
-- Always included: internal-core (the 12 routing, transform and flow types), the three triggers, both terminals, the rule supervisor and the three control planes. Optional, eight modules: process-executor, http-request, file-io, sql-query, llm-call, decision, mcp-tool-call and script-js.
+- Always included: internal-core (the 12 routing, transform and flow types), the three triggers, both terminals, the rule supervisor and the three control planes. Optional, nine modules: process-executor, agent-session, http-request, file-io, sql-query, llm-call, decision, mcp-tool-call and script-js.
 - Selection is a build property: -Pyukta.plugins=all (default), none, or a comma-separated list such as http-request,llm-call. An unknown name fails the build with a list of valid names. Choosing fewer modules shrinks the application and, more importantly, removes whole capabilities (for example, no PROCESS_EXECUTOR means a workflow cannot run programs at all).
 - The three control-plane modules are always compiled in, the model plane exposes the decision module, and the decision module depends on llm-call. So, reading the build files, CLASSIFY, GATE, SCORE, ASK, ANOMALY, DEDUPE and LLM_CALL are on the runtime classpath even with -Pyukta.plugins=none (not confirmed by running a build). Optional means optional to name, not necessarily absent (risk: optionalNotOptional).
 - Each module is checked by the normal gates (formatting, Checkstyle, PMD, SpotBugs, coverage). internal-core and constant-source switch off PMD main and test, and internal-core also switches off Checkstyle on tests, with a note to re-enable. The riskiest code (the script mapper) therefore has the lightest checks.
@@ -659,6 +659,7 @@ Always-on modules are compiled into every build. Optional modules are picked wit
 | console-terminal, notify-terminal, outcome-terminal | Always | CONSOLE_TERMINAL, NOTIFY_TERMINAL, OUTCOME_TERMINAL |
 | rule-supervisor, rule-control-plane, model-control-plane, rules-first-control-plane | Always | RuleSupervisor, RuleControlPlane, ModelControlPlane, RulesFirstControlPlane (each active only if its property is set) |
 | process-executor | Optional | PROCESS_EXECUTOR |
+| agent-session | Optional | AGENT_SESSION |
 | http-request | Optional | HTTP_REQUEST |
 | file-io | Optional | FILE_READ, FILE_WRITE |
 | sql-query | Optional | SQL_QUERY (JDBC driver supplied by the deployer) |

@@ -31,6 +31,9 @@ import java.util.Map;
  *       #UNLIMITED} for no cap); excess output is drained but discarded
  *   <li><code>maxOutputBytes</code> — maximum number of output bytes to retain per stream ({@link
  *       #UNLIMITED} for no cap); excess output is drained but discarded
+ *   <li><code>launcher</code> — a prefix that runs {@code command}, such as a pseudo-terminal host;
+ *       only code sets it, never a workflow. The allow-list checks {@code command}, not the
+ *       launcher, so an operator allows the program and not its host
  * </ul>
  */
 public record ProcessExecutionSpec(
@@ -42,7 +45,8 @@ public record ProcessExecutionSpec(
     String stdin,
     boolean captureStderr,
     int maxOutputLines,
-    long maxOutputBytes) {
+    long maxOutputBytes,
+    List<String> launcher) {
 
   /** Timeout applied when no positive timeout is specified. */
   public static final long DEFAULT_TIMEOUT_SECONDS = 300L;
@@ -70,6 +74,7 @@ public record ProcessExecutionSpec(
   /** Normalizes nulls and non-positive numeric fields to their documented defaults. */
   public ProcessExecutionSpec {
     command = copyCommand(command);
+    launcher = copyCommand(launcher);
     env = copyEnv(env);
     if (timeoutSeconds <= 0) {
       timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
@@ -79,6 +84,7 @@ public record ProcessExecutionSpec(
   }
 
   /** Builder for {@link ProcessExecutionSpec}. */
+  @SuppressWarnings("PMD.TooManyMethods") // one setter for each component
   public static final class Builder {
     /** The command and its arguments to execute. */
     private List<String> commandValue = List.of();
@@ -106,6 +112,9 @@ public record ProcessExecutionSpec(
 
     /** Maximum number of output bytes to retain per stream. */
     private long maxOutputBytesValue;
+
+    /** The prefix that runs the command. */
+    private List<String> launcherValue = List.of();
 
     private Builder() {}
 
@@ -209,6 +218,17 @@ public record ProcessExecutionSpec(
     }
 
     /**
+     * Sets the prefix that runs the command: the process started is {@code launcher + command}.
+     *
+     * @param launcher the prefix, or empty for none
+     * @return this builder
+     */
+    public Builder launcher(final List<String> launcher) {
+      this.launcherValue = copyCommand(launcher);
+      return this;
+    }
+
+    /**
      * Builds the {@link ProcessExecutionSpec} from the configured values.
      *
      * @return the constructed spec
@@ -223,7 +243,8 @@ public record ProcessExecutionSpec(
           stdinValue,
           captureStderrValue,
           maxOutputLinesValue,
-          maxOutputBytesValue);
+          maxOutputBytesValue,
+          launcherValue);
     }
   }
 }

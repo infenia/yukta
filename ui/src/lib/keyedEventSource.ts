@@ -12,9 +12,21 @@ export class KeyedEventSource {
   onmessage: ((event: MessageEvent) => void) | null = null;
   onerror: (() => void) | null = null;
   private readonly abort = new AbortController();
+  private readonly listeners = new Map<
+    string,
+    ((event: MessageEvent) => void)[]
+  >();
 
   constructor(url: string, lastEventId?: string) {
     void this.run(url, lastEventId);
+  }
+
+  /** Listen to the events a server names with `event:`; unnamed ones go to `onmessage`. */
+  addEventListener(
+    type: string,
+    listener: (event: MessageEvent) => void
+  ): void {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
   }
 
   close(): void {
@@ -72,10 +84,22 @@ export class KeyedEventSource {
       .find((line) => line.startsWith('id:'))
       ?.slice(3)
       .trim();
-    if (data) {
-      this.onmessage?.(
-        new MessageEvent('message', { data, lastEventId: id ?? '' })
-      );
+    const name = frame
+      .split(/\r?\n/)
+      .find((line) => line.startsWith('event:'))
+      ?.slice(6)
+      .trim();
+    if (!data) {
+      return;
+    }
+    const event = new MessageEvent(name || 'message', {
+      data,
+      lastEventId: id ?? '',
+    });
+    if (name) {
+      this.listeners.get(name)?.forEach((listener) => listener(event));
+    } else {
+      this.onmessage?.(event);
     }
   }
 }

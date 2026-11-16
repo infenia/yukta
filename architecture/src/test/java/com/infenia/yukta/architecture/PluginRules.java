@@ -30,6 +30,7 @@ class PluginRules {
           "guards>rule-supervisor",
           "script-js>internal-core",
           "decision>llm-call",
+          "agent-session>process-executor",
           "external>process-executor",
           "external>mcp-tool-call",
           "model-control-plane>decision",

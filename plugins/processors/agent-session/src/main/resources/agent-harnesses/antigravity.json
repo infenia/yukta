@@ -1,0 +1,7 @@
+{
+  "id": "antigravity",
+  "protocol": "acp",
+  "description": "Google Antigravity (agy acp) over the Agent Client Protocol. It is installed by Antigravity, usually at ~/.gemini/bin/agy, so put that folder on PATH or give the full path through yukta.ai.presets-dir. Log in once with agy; the node never logs in for you. It takes messages and an interrupt, asks before commands outside its workspace when approvals is ASK, and resumes a session by key.",
+  "command": ["agy", "acp"],
+  "capabilities": { "ask": true, "interrupt": true, "resume": true }
+}

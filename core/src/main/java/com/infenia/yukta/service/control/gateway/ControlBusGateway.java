@@ -194,6 +194,49 @@ public interface ControlBusGateway {
       @Nullable Double confidence);
 
   /**
+   * Sends a message to the agent of a conversation.
+   *
+   * @param executionId the run of the node that runs the agent
+   * @param nodeId the node
+   * @param conversationId the conversation
+   * @param text the message
+   * @param interrupt true to stop the agent's turn first
+   * @return completes when the message is handed to the agent's plugin; errors with {@code
+   *     AgentSteeringException} when the caller may not, the conversation is not live or lacks the
+   *     capability
+   */
+  Mono<Void> agentMessage(
+      String executionId, String nodeId, String conversationId, String text, boolean interrupt);
+
+  /**
+   * Stops the current turn of the agent of a conversation.
+   *
+   * @param executionId the run of the node that runs the agent
+   * @param nodeId the node
+   * @param conversationId the conversation
+   * @return completes when the command is handed over; errors as {@link #agentMessage} does
+   */
+  Mono<Void> agentInterrupt(String executionId, String nodeId, String conversationId);
+
+  /**
+   * Ends a conversation, which lets the node go on.
+   *
+   * @param executionId the run of the node that runs the agent
+   * @param nodeId the node
+   * @param conversationId the conversation
+   * @param outcome the outcome that overrides the last turn's, or {@code null}
+   * @param reason why, or {@code null}
+   * @return completes when the command is handed over; errors as {@link #agentMessage} does
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  Mono<Void> agentEnd(
+      String executionId,
+      String nodeId,
+      String conversationId,
+      @Nullable String outcome,
+      @Nullable String reason);
+
+  /**
    * Hands an input request up to the next tier of its route.
    *
    * @param executionId the run that asked

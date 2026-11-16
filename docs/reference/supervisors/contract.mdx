@@ -147,6 +147,7 @@ Each is checked against ownership, `allowedCommands`, rate, risk and dry run.
 | Run level | `run.start`, `run.pause`, `run.resume`, `run.resumeHeld`, `run.stop` (drain or immediate), `run.restart`, `run.restartFromNode`, `run.priority` |
 | Node level | `node.pause`, `node.resume`, `node.stop`, `node.skip`, `node.retry`, `node.stepMode`, `node.breakpoint` |
 | Inputs | `input.answer`, `input.escalate` |
+| Agents | `agent.message`, `agent.interrupt`, `agent.end` (the node's `steerAudience` must name the supervisor) |
 | Server | `server.setLimits`, `server.drain` (server owner only) |
 | Other | `notify`, `delegate` |
 
