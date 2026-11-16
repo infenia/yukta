@@ -12,7 +12,7 @@ import (
 	"golang.org/x/term"
 )
 
-// The glue to a real terminal; it cannot run without one, so the Makefile waives its coverage.
+// The glue to a real terminal. The tests run it on a pseudo-terminal (tty_test.go).
 
 // stdio joins a terminal's input and output into the one value term.NewTerminal reads and writes.
 type stdio struct {
