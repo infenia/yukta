@@ -1,0 +1,31 @@
+{
+  "id": "pi",
+  "description": "pi coding agent (pi --mode rpc), a conversation over JSON lines on standard input and output: a prompt starts a turn, 'agent_end' ends it, and an abort stops it. It takes messages in 'CONVERSATION' mode (a message sent during a turn waits for its end) and can be interrupted. No approvals (pi asks for none) and no resume through this preset. The provider and model are pi's own settings (pi auth login, --provider and --model in args). Recorded against pi 1.5.2: the failure path (a provider that refuses the request) was recorded; the success path is written from pi's event names and has not been run against a funded account.",
+  "command": ["pi", "--mode", "rpc", "--no-session"],
+  "modelArgs": ["--model", "{model}"],
+  "capabilities": { "stream": true, "interrupt": true },
+  "interactive": {
+    "command": ["pi", "--mode", "rpc", "--no-session"],
+    "userMessage": { "type": "prompt", "message": "{prompt}" },
+    "requestWhen": { "type": "pi-never-asks-for-approval" },
+    "requestId": "id",
+    "tool": "tool",
+    "input": "input",
+    "allow": { "type": "unused" },
+    "deny": { "type": "unused" },
+    "steer": false,
+    "interrupt": { "type": "abort" }
+  },
+  "output": {
+    "resultWhen": { "type": "agent_end" },
+    "failureWhen": { "type": "message_end", "message.role": "assistant", "message.stopReason": "error" },
+    "failureText": "message.errorMessage",
+    "captures": [
+      { "when": { "type": "message_end", "message.role": "assistant" }, "path": "message.content[*].text", "into": "text" }
+    ],
+    "live": [
+      { "when": { "type": "message_end", "message.role": "assistant" }, "text": "message.content[*].text" },
+      { "when": { "type": "tool_execution_start" }, "text": "toolName", "prefix": "tool: " }
+    ]
+  }
+}
