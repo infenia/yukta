@@ -99,6 +99,26 @@ class FileSessionConfigStoreTest {
   }
 
   @Test
+  void applyStampsTheInitiatedTimeWhenTheStoredOneIsBlank() throws IOException {
+    final Path sessionsDir = tempDir.resolve(SESSIONS_DIR);
+    Files.createDirectories(sessionsDir);
+    Files.writeString(
+        sessionsDir.resolve("blank-time" + JSON_EXT),
+        "{\"projectPath\":\"/p\",\"initiator\":\"i\",\"initiatedTime\":\"\","
+            + "\"tags\":{},\"description\":\"d\",\"name\":\"n\"}");
+
+    StepVerifier.create(
+            configStore.applySessionConfig(
+                new SessionConfigData(
+                    "blank-time", "n", TEST_DESC, "i", Map.of(), TEST_PATH, Map.of())))
+        .verifyComplete();
+
+    StepVerifier.create(configStore.getInitiatedTime("blank-time"))
+        .expectNextMatches(time -> !time.isBlank())
+        .verifyComplete();
+  }
+
+  @Test
   void testLoadSessionConfigIoException() throws IOException {
     final String sessionId = "sess-io-error-load";
     final Path sessionsDir = tempDir.resolve(SESSIONS_DIR);

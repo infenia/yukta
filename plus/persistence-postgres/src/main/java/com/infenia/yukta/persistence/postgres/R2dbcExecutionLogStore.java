@@ -5,6 +5,7 @@ package com.infenia.yukta.persistence.postgres;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.PreDestroy;
@@ -254,6 +255,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
             .tag("reason", "write_failed")
             .register(meters);
     this.pending = pending;
+    Gauge.builder("yukta.execution.log.queue", this, R2dbcExecutionLogStore::queued)
+        .description("Execution log events waiting for the writer; a steady rise means it is stuck")
+        .register(meters);
     this.client = client;
     this.mapper = mapper;
     this.retainedRuns = Math.max(1, retainedRuns);
@@ -393,6 +397,11 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
       log.atError().setCause(e).log("Could not access the execution log");
       return fallback;
     }
+  }
+
+  /** Events waiting for the writer, in both queues. */
+  private int queued() {
+    return pending.size() + urgent.size();
   }
 
   /** A run start or end: losing it stops the run from being resumed or recovered. */
@@ -574,20 +583,22 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     return events;
   }
 
-  /** Keeps the newest runs (by last event) and every run without an end. */
+  /**
+   * Keeps the newest {@code retained-runs} ended runs (by their last end) and every run without an
+   * end. Only the run starts and ends are read (index {@code execution_log_run_edge}, about two
+   * rows per run), not the whole log. ponytail: events of a run that has no start or end in the log
+   * are not trimmed here; recovery drops them at the next start.
+   */
   private void compact() {
     try {
       client
           .sql(
               """
-              DELETE FROM execution_log WHERE execution_id <> :scheduler
-              AND execution_id NOT IN (
-                SELECT execution_id FROM execution_log WHERE execution_id <> :scheduler
-                GROUP BY execution_id ORDER BY max(seq) DESC LIMIT :runs)
-              AND execution_id NOT IN (
-                SELECT execution_id FROM execution_log GROUP BY execution_id
-                HAVING bool_or(event ->> 'type' = 'RUN_STARTED')
-                   AND NOT bool_or(event ->> 'type' IN ('RUN_FINISHED', 'RUN_ABORTED')))
+              DELETE FROM execution_log WHERE execution_id IN (
+                SELECT execution_id FROM execution_log
+                WHERE event ->> 'type' IN ('RUN_FINISHED', 'RUN_ABORTED')
+                  AND execution_id <> :scheduler
+                GROUP BY execution_id ORDER BY max(seq) DESC OFFSET :runs)
               """)
           .bind("scheduler", SCHEDULER)
           .bind("runs", retainedRuns)

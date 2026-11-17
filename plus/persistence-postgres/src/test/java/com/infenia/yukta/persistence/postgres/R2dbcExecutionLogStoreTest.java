@@ -174,6 +174,27 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void resumedRun_continuesUnderItsOwnId_andIsKeptWhileItRuns() {
+    final R2dbcExecutionLogStore trimming =
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 10, 5_000);
+    final ExecutionLogEvent first = started("first");
+    trimming.append(first);
+    trimming.append(ExecutionLogEvent.aborted(first));
+    trimming.append(ExecutionLogEvent.resumed(first, "again"));
+    trimming.append(started("again"));
+    for (final String run : List.of("r2", "r3", "r4")) {
+      trimming.append(started(run));
+      trimming.append(finished(run));
+    }
+
+    assertThat(trimming.readAll())
+        .extracting(ExecutionLogEvent::executionId)
+        .contains("again", "r3", "r4")
+        .doesNotContain("first", "r2");
+    trimming.close();
+  }
+
+  @Test
   void schedulerChangesAreTrimmedToTheNewestFew() {
     final R2dbcExecutionLogStore trimming =
         new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 4, 5_000);
@@ -303,6 +324,21 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     assertThat(full).hasSize(1);
     assertThat(meters.get(LOST).tag(REASON, "queue_full").counter().count()).isEqualTo(1.0);
     saturated.close();
+  }
+
+  @Test
+  void queueGauge_countsTheEventsWaitingForTheWriter() {
+    final java.util.concurrent.BlockingQueue<ExecutionLogEvent> waiting =
+        new java.util.concurrent.ArrayBlockingQueue<>(4);
+    waiting.add(started("waiting"));
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final R2dbcExecutionLogStore gauged =
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 5_000, waiting, meters, 1);
+
+    assertThat(waiting).hasSize(1);
+    assertThat(meters.get("yukta.execution.log.queue").gauge().value()).isEqualTo(1.0);
+    gauged.close();
   }
 
   @Test

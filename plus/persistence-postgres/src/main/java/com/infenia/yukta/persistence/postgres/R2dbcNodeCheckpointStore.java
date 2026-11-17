@@ -6,12 +6,14 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.store.ByteCounted;
 import com.infenia.yukta.service.store.CheckpointJson;
+import com.infenia.yukta.service.store.RunOutputSweep;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -31,7 +33,7 @@ import tools.jackson.databind.ObjectMapper;
  * finished", so a resume runs the node again.
  */
 @Slf4j
-public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
+public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounted, RunOutputSweep {
 
   /** Longest a blocking question may wait for the database. */
   private static final Duration QUESTION_TIMEOUT = Duration.ofSeconds(30);
@@ -48,6 +50,9 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
   /** Node id parameter. */
   private static final String NODE = "n";
 
+  /** The table of messages. */
+  private static final String MESSAGES = "node_checkpoint";
+
   /** Runs the statements. */
   private final DatabaseClient client;
 
@@ -57,8 +62,8 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
   /** Refuses saves once another server has taken over the lease. */
   private final Fencing fencing;
 
-  /** Bytes saved and not yet cleared by this process. */
-  private final AtomicLong held = new AtomicLong();
+  /** The size of the message table, the same on every server sharing the database. */
+  private final TableSizes size;
 
   /**
    * Creates the store.
@@ -88,6 +93,7 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
     this.client = client;
     this.mapper = mapper;
     this.fencing = new Fencing(fencingToken, meters, "node_checkpoint");
+    this.size = new TableSizes(client, List.of(MESSAGES));
   }
 
   @Override
@@ -98,8 +104,6 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
                 .doOnNext(written -> {
                   if (written == 0) {
                     fencing.refused(1);
-                  } else {
-                    held.addAndGet(json.length());
                   }
                 }))
         .onErrorResume(error -> {
@@ -131,7 +135,15 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
 
   @Override
   public Mono<Message<?>> get(final String executionId, final String nodeId) {
-    return getAll(executionId, nodeId).takeLast(1).next();
+    return client
+        .sql(
+            "SELECT CAST(message AS text) AS message FROM node_checkpoint"
+                + " WHERE execution_id = :e AND node_id = :n ORDER BY seq DESC LIMIT 1")
+        .bind(EXECUTION, executionId)
+        .bind(NODE, nodeId)
+        .map(row -> row.get("message", String.class))
+        .one()
+        .map(json -> CheckpointJson.read(mapper, json));
   }
 
   @Override
@@ -151,14 +163,10 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
   public void clear(final String executionId) {
     try {
       client
-          .sql(
-              "DELETE FROM node_checkpoint WHERE execution_id = :e"
-                  + " RETURNING octet_length(CAST(message AS text)) AS size")
+          .sql("DELETE FROM node_checkpoint WHERE execution_id = :e")
           .bind(EXECUTION, executionId)
-          .map(row -> row.get("size", Integer.class))
-          .all()
-          .reduce(0L, Long::sum)
-          .doOnNext(size -> held.addAndGet(-Math.min(held.get(), size)))
+          .fetch()
+          .rowsUpdated()
           .then(
               client
                   .sql("DELETE FROM node_checkpoint_state WHERE execution_id = :e")
@@ -201,9 +209,44 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
     return flag(executionId, nodeId, DONE) && !flag(executionId, nodeId, INCOMPLETE);
   }
 
+  /**
+   * The size on disk of the message table (rows, out-of-line values and indexes), read at most once
+   * a minute and never waited for: 0 until the first read answers. Cleared rows count until
+   * PostgreSQL vacuums them.
+   */
   @Override
   public long bytesHeld() {
-    return held.get();
+    return size.bytes(MESSAGES);
+  }
+
+  /** Deletes the output of every run not in {@code kept}, in one transaction. */
+  @Override
+  public void removeNotIn(final Set<String> kept) {
+    final String[] ids = kept.toArray(String[]::new);
+    try {
+      Transactions.inTransaction(
+              client,
+              client
+                  .sql("DELETE FROM node_checkpoint WHERE NOT (execution_id = ANY(:k))")
+                  .bind("k", ids)
+                  .fetch()
+                  .rowsUpdated()
+                  .then(
+                      client
+                          .sql(
+                              "DELETE FROM node_checkpoint_state WHERE NOT (execution_id ="
+                                  + " ANY(:k))")
+                          .bind("k", ids)
+                          .fetch()
+                          .rowsUpdated()
+                          .then()))
+          .toFuture()
+          .get(QUESTION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+    } catch (final InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (final ExecutionException | TimeoutException e) {
+      log.atWarn().setCause(e).log("Could not remove the output of runs that are gone");
+    }
   }
 
   /** Sets one flag of the node's state row, creating the row if needed. */

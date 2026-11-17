@@ -4,6 +4,9 @@ package com.infenia.yukta.config;
 
 import com.infenia.yukta.edition.Edition;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import lombok.NoArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -20,13 +23,18 @@ import org.springframework.util.StringUtils;
  * the user expected to keep would be lost on restart. A setting is refused only when the class that
  * provides it is absent, so a build that has the module is never affected.
  *
- * <p>To gate another setting, add a row to {@link #GATES}.
+ * <p>To gate another setting, add a row to {@link #GATES}. It also refuses a value of a store
+ * switch that no store answers to ({@link #STORE_VALUES}): a typo would otherwise select the
+ * default silently.
  */
 @NoArgsConstructor
 public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProcessor {
 
   /** The store type value that selects PostgreSQL. */
   private static final String POSTGRES_TYPE = "postgres";
+
+  /** The in-memory store type. */
+  private static final String IN_MEMORY_TYPE = "in-memory";
 
   /** Provider of the on-disk stores. */
   private static final String FILES =
@@ -48,14 +56,38 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   /** Build hint for workers. */
   private static final String WORKERS_HINT = "-Pyukta.workers=true";
 
+  /** The switch that turns the PostgreSQL module on. */
+  private static final String SESSION_TYPE = "yukta.session.store-type";
+
+  /** The values each store switch accepts (case and blanks do not matter; unset is the default). */
+  /* default */ static final Map<String, Set<String>> STORE_VALUES =
+      Map.of(
+          SESSION_TYPE,
+          Set.of(IN_MEMORY_TYPE, "file", POSTGRES_TYPE),
+          "yukta.restart.store-type",
+          Set.of("memory", IN_MEMORY_TYPE, "file", POSTGRES_TYPE),
+          "yukta.input.store-type",
+          Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
+          "yukta.agents.store-type",
+          Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
+          "yukta.ha.mode",
+          Set.of("single", POSTGRES_TYPE));
+
+  /** Switches whose {@code postgres} value only works with PostgreSQL sessions. */
+  /* default */ static final List<String> POSTGRES_ONLY =
+      List.of(
+          "yukta.restart.store-type",
+          "yukta.input.store-type",
+          "yukta.agents.store-type",
+          "yukta.ha.mode");
+
   /** The gated settings. */
   /* default */ static final List<Gate> GATES =
       List.of(
-          new Gate("yukta.session.store-type", "file", FILES, Edition.PLUS, FILES_HINT),
+          new Gate(SESSION_TYPE, "file", FILES, Edition.PLUS, FILES_HINT),
           new Gate("yukta.execution-log.dir", null, FILES, Edition.PLUS, FILES_HINT),
           new Gate("yukta.restart.dir", null, FILES, Edition.PLUS, FILES_HINT),
-          new Gate(
-              "yukta.session.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
+          new Gate(SESSION_TYPE, POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
           new Gate(
               "yukta.restart.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
           new Gate("yukta.input.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
@@ -112,6 +144,17 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   }
 
   /* default */ static void check(final Environment environment, final Predicate<String> present) {
+    STORE_VALUES.forEach((key, allowed) -> {
+      final String value = environment.getProperty(key);
+      if (StringUtils.hasText(value) && !allowed.contains(value.strip().toLowerCase(Locale.ROOT))) {
+        throw new IllegalStateException(
+            key
+                + "="
+                + value
+                + " is not a known value; use one of "
+                + new java.util.TreeSet<>(allowed));
+      }
+    });
     GATES.stream()
         .filter(gate -> gate.isUsed(environment) && !present.test(gate.provider()))
         .findFirst()
@@ -126,5 +169,24 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
                   + gate.hint()
                   + ", or remove the setting. See LICENSING.md.");
         });
+    // the PostgreSQL stores and the lease are configured only with PostgreSQL sessions: without
+    // them these switches would be ignored and the data kept in memory
+    if (!isPostgres(environment, SESSION_TYPE)) {
+      POSTGRES_ONLY.stream()
+          .filter(key -> isPostgres(environment, key))
+          .findFirst()
+          .ifPresent(key -> {
+            throw new IllegalStateException(
+                key
+                    + "=postgres needs "
+                    + SESSION_TYPE
+                    + "=postgres, or it is ignored and the data stays in memory.");
+          });
+    }
+  }
+
+  private static boolean isPostgres(final Environment environment, final String key) {
+    final String value = environment.getProperty(key);
+    return value != null && POSTGRES_TYPE.equalsIgnoreCase(value.strip());
   }
 }
