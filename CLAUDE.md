@@ -88,9 +88,9 @@ a controller signature or `@Schema`) makes `:boot:test` fail on `OpenApiSnapshot
 
 ```bash
 yk gradle :boot:test --tests "*OpenApiSnapshotTest" -Pyukta.openapi.update=true   # rewrites ui/openapi.json
-yk tool -C ui pnpm run api:types -- openapi.json                                   # rewrites ui/src/types/api.generated.ts
+yk tool -C ui node scripts/generate-api-types.mjs openapi.json  # rewrites ui/src/types/api.generated.ts
 ```
-The test refreshes only `ui/openapi.json`; whether `docs/api/openapi.json` needs the same is unconfirmed (see `design/decisions/0001-input-requests.md`). Commit the regenerated files with the DTO change. Never hand-edit them.
+(Same as `pnpm run api:types -- openapi.json`, which needs a working corepack pnpm.) The test refreshes only `ui/openapi.json`; whether `docs/api/openapi.json` needs the same is unconfirmed (see `design/decisions/0001-input-requests.md`). Commit the regenerated files with the DTO change. Never hand-edit them.
 
 ## Commit Message Conventions
 
