@@ -574,20 +574,22 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     return events;
   }
 
-  /** Keeps the newest runs (by last event) and every run without an end. */
+  /**
+   * Keeps the newest {@code retained-runs} ended runs (by their last end) and every run without an
+   * end. Only the run starts and ends are read (index {@code execution_log_run_edge}, about two
+   * rows per run), not the whole log. ponytail: events of a run that has no start or end in the log
+   * are not trimmed here; recovery drops them at the next start.
+   */
   private void compact() {
     try {
       client
           .sql(
               """
-              DELETE FROM execution_log WHERE execution_id <> :scheduler
-              AND execution_id NOT IN (
-                SELECT execution_id FROM execution_log WHERE execution_id <> :scheduler
-                GROUP BY execution_id ORDER BY max(seq) DESC LIMIT :runs)
-              AND execution_id NOT IN (
-                SELECT execution_id FROM execution_log GROUP BY execution_id
-                HAVING bool_or(event ->> 'type' = 'RUN_STARTED')
-                   AND NOT bool_or(event ->> 'type' IN ('RUN_FINISHED', 'RUN_ABORTED')))
+              DELETE FROM execution_log WHERE execution_id IN (
+                SELECT execution_id FROM execution_log
+                WHERE event ->> 'type' IN ('RUN_FINISHED', 'RUN_ABORTED')
+                  AND execution_id <> :scheduler
+                GROUP BY execution_id ORDER BY max(seq) DESC OFFSET :runs)
               """)
           .bind("scheduler", SCHEDULER)
           .bind("runs", retainedRuns)
