@@ -223,8 +223,24 @@ final class PtySession implements PluginLogSink {
 
   private void typePrompt() {
     if (typed.compareAndSet(false, true)) {
-      type(pty.type().replace("{prompt}", run.prompt()));
+      final String text = pty.type().replace("{prompt}", run.prompt());
+      if (pty.submitDelayMs() > 0) {
+        typeAndSubmit(text);
+      } else {
+        type(text);
+      }
     }
+  }
+
+  /** Types text and the submit keys, these apart after the preset's pause when it has one. */
+  private void typeAndSubmit(final String text) {
+    if (pty.submitDelayMs() <= 0) {
+      type(text + pty.submit());
+      return;
+    }
+    type(text);
+    background.add(
+        Mono.delay(Duration.ofMillis(pty.submitDelayMs())).subscribe(_ -> type(pty.submit())));
   }
 
   private void type(final String text) {
@@ -271,7 +287,7 @@ final class PtySession implements PluginLogSink {
     if (message.interrupt()) {
       type(pty.interruptKeys());
     }
-    type(message.text() + pty.submit());
+    typeAndSubmit(message.text());
   }
 
   /** Asks the host to end the program; one that stays is killed after the grace period. */

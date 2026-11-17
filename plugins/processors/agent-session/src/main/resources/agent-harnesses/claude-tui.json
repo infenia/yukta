@@ -10,10 +10,11 @@
     "{model}"
   ],
   "pty": {
-    "type": "\u001b[200~{prompt}\u001b[201~\r",
+    "type": "\u001b[200~{prompt}\u001b[201~",
     "readyPattern": "(?m)^─{10,}\\n❯",
     "readyDelayMs": 15000,
     "submit": "\r",
+    "submitDelayMs": 500,
     "interruptKeys": "\u001b",
     "attentionPattern": "Esc to cancel|Enter to confirm",
     "donePattern": null

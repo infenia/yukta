@@ -76,6 +76,9 @@ public record AgentPreset(
    * @param readyDelayMs how long to wait for it before typing the prompt anyway (never into a
    *     screen that wants attention: then the prompt waits until the screen stops wanting it)
    * @param submit what is typed after a message to send it
+   * @param submitDelayMs above 0, the pause before {@code submit} is typed on its own, after the
+   *     prompt and after each message; then {@code type} leaves the submit out. A program that
+   *     takes a fast burst of keys as a paste (Claude Code) ignores an Enter that comes with it
    * @param interruptKeys what is typed to stop the program's turn
    * @param attentionPattern a screen that matches says the program waits for a person, or null
    * @param donePattern a screen that matches says the program is finished, or null
@@ -85,6 +88,7 @@ public record AgentPreset(
       @Nullable Pattern readyPattern,
       int readyDelayMs,
       String submit,
+      int submitDelayMs,
       String interruptKeys,
       @Nullable Pattern attentionPattern,
       @Nullable Pattern donePattern) {
@@ -319,6 +323,7 @@ public record AgentPreset(
         pattern(node, "readyPattern"),
         node.path("readyDelayMs").asInt(Pty.DEFAULT_READY_DELAY_MS),
         node.path("submit").asString("\r"),
+        node.path("submitDelayMs").asInt(0),
         node.path("interruptKeys").asString("\u0003"),
         pattern(node, "attentionPattern"),
         pattern(node, "donePattern"));

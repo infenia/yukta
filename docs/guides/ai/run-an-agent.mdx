@@ -127,11 +127,11 @@ The presets `claude-tui`, `codex-tui` and `antigravity-tui` run `claude`, `codex
 ```
 
 - The server needs `yukta.agents.pty.enabled=true`, the program (`claude`, `codex` or `agy`) in `yukta.process.allowed-commands`, and `HOME` (and `XDG_*` if you use them) in `yukta.process.pass-env` so the program finds its login. Log in to each CLI once as the user the server runs as.
-- The prompt is pasted (bracketed paste, so a prompt of several lines stays one message) once the program is ready: `claude-tui` waits for its prompt box, the other two wait four seconds. It is never typed into a screen that waits for a person, such as the trust dialog of a folder the program has not seen: answer it in the tab, and the prompt follows.
+- The prompt is pasted (bracketed paste, so a prompt of several lines stays one message) and Enter follows half a second later, once the program is ready: `claude-tui` waits for its prompt box, the other two wait four seconds. It is never typed into a screen that waits for a person, such as the trust dialog of a folder the program has not seen: answer it in the tab, and the prompt follows.
 - The node runs until the program exits (`/exit`), someone presses **End**, or `timeout` passes. `text` is the last screen. There is no cost, usage or structured output: use `claude-code` or `codex` for those.
 - `model` works (`--model`). Interrupt types Esc (Ctrl-C for `agy`).
 
-A custom preset (`yukta.ai.presets-dir`) with `"protocol": "pty"` sets `pty.type`, `readyPattern`, `readyDelayMs`, `submit`, `interruptKeys`, `attentionPattern` (a matching screen sets the conversation `WAITING`) and `donePattern`, and may give its own `command`.
+A custom preset (`yukta.ai.presets-dir`) with `"protocol": "pty"` sets `pty.type`, `readyPattern`, `readyDelayMs`, `submit`, `submitDelayMs` (above 0: the pause before `submit` is typed on its own, after the prompt and each message, for a program that takes a fast burst of keys as a paste and drops an Enter in it; `type` then leaves the submit out), `interruptKeys`, `attentionPattern` (a matching screen sets the conversation `WAITING`) and `donePattern`, and may give its own `command`.
 
 ## Limits
 

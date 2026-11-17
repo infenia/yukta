@@ -72,7 +72,8 @@ class AgentPresetTest {
       assertThat(preset.protocol()).as(id).isEqualTo(AgentProtocol.PTY);
       assertThat(preset.command()).as(id).isNotEmpty();
       assertThat(preset.modelArgs()).as(id).containsExactly("--model", "{model}");
-      assertThat(preset.pty().type()).as(id).isEqualTo("\u001b[200~{prompt}\u001b[201~\r");
+      assertThat(preset.pty().type()).as(id).isEqualTo("\u001b[200~{prompt}\u001b[201~");
+      assertThat(preset.pty().submitDelayMs()).as(id).isPositive();
     }
     final AgentPreset.Pty claude = shipped.get("claude-tui").pty();
     // the screens of Claude Code 2.1: the prompt box, and its trust dialog
