@@ -171,21 +171,74 @@ class SessionInfoProviderTest {
 
   @Test
   void testCreateSession() {
+    when(sessionService.getSessionIds()).thenReturn(reactor.core.publisher.Flux.just("other"));
     when(sessionService.applyConfig(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
 
-    StepVerifier.create(provider.createSession(config()))
+    StepVerifier.create(provider.createSession(config(), false))
         .expectNextMatches(res ->
             res.success() && res.sessionId().equals("s1") && res.createdWorkflows().isEmpty())
         .verifyComplete();
   }
 
   @Test
+  void testCreateSessionRefusesAnExistingSessionWithoutOverwrite() {
+    when(sessionService.getSessionIds()).thenReturn(reactor.core.publisher.Flux.just("s1"));
+
+    StepVerifier.create(provider.createSession(config(), false))
+        .expectErrorSatisfies(e ->
+            org.assertj.core.api.Assertions.assertThat(e)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Session s1 already exists")
+                .hasMessageContaining("overwrite=true"))
+        .verify();
+    org.mockito.Mockito.verify(sessionService, org.mockito.Mockito.never())
+        .applyConfig(org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void testCreateSessionOverwriteNamesTheRemovedWorkflows() {
+    when(sessionService.getSessionIds()).thenReturn(reactor.core.publisher.Flux.just("s1"));
+    final var old = com.infenia.yukta.testing.Fixtures.workflow("old", "d", List.of(), List.of());
+    when(sessionService.getSessionConfig("s1"))
+        .thenReturn(
+            Mono.just(
+                new com.infenia.yukta.model.session.SessionConfigResponse(
+                    "s1", "n", "d", "i", Map.of(), null, Map.of("old", old))));
+    when(sessionService.applyConfig(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.createSession(config(), true))
+        .assertNext(res ->
+            org.assertj.core.api.Assertions.assertThat(res.warnings())
+                .containsExactly("Removed workflow old: the new config does not list it."))
+        .verifyComplete();
+  }
+
+  @Test
+  void testCreateSessionOverwriteKeepsWorkflowsTheNewConfigListsWithoutWarning() {
+    when(sessionService.getSessionIds()).thenReturn(reactor.core.publisher.Flux.just("s1"));
+    final var kept = com.infenia.yukta.testing.Fixtures.workflow("keep", "d", List.of(), List.of());
+    when(sessionService.getSessionConfig("s1"))
+        .thenReturn(
+            Mono.just(
+                new com.infenia.yukta.model.session.SessionConfigResponse(
+                    "s1", "n", "d", "i", Map.of(), null, Map.of("keep", kept))));
+    when(sessionService.applyConfig(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
+    final var config =
+        new SessionConfigData("s1", "n", "d", "i", Map.of(), null, Map.of("keep", kept));
+
+    StepVerifier.create(provider.createSession(config, true))
+        .assertNext(res -> org.assertj.core.api.Assertions.assertThat(res.warnings()).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
   void testCreateSessionErrorPassesThroughUnchanged() {
+    when(sessionService.getSessionIds()).thenReturn(reactor.core.publisher.Flux.empty());
     final var failure = new IllegalStateException("Config error");
     when(sessionService.applyConfig(org.mockito.ArgumentMatchers.any()))
         .thenReturn(Mono.error(failure));
 
-    StepVerifier.create(provider.createSession(config()))
+    StepVerifier.create(provider.createSession(config(), false))
         .expectErrorMatches(failure::equals)
         .verify();
   }

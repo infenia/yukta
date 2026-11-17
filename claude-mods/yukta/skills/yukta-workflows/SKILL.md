@@ -94,7 +94,7 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 
 Stop and get an explicit yes, naming what will happen, before any of these:
 
-- `create_session` when the `sessionId` already exists (check `list_sessions`): it **replaces** that session. A new session is also code that runs
+- `create_session` with `overwrite: true` (needed when the `sessionId` already exists; check `list_sessions`): it **replaces** that session and deletes the workflows the new config leaves out (named in `warnings`). A new session is also code that runs
   on the server, so show the user the workflows you are about to install.
 - `delete_session` and `delete_workflow`, and any call with `force` set (it cancels active runs).
 - `control_workflow` with `STOP_ALL` (stops every active run of a workflow), and any stop with `mode` `KILL` or `CANCEL`.

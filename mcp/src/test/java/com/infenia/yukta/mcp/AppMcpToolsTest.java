@@ -318,9 +318,9 @@ class AppMcpToolsTest {
   void testCreateSession() {
     var response = new SessionCreationResult("s1", List.of("wf-1"), List.of(), true);
     var config = new SessionConfigData("s1", "n", "d", "i", null, null, null);
-    when(sessionInfoProvider.createSession(config)).thenReturn(Mono.just(response));
+    when(sessionInfoProvider.createSession(config, false)).thenReturn(Mono.just(response));
 
-    StepVerifier.create(mcpTools.createSession(config)).expectNext(response).verifyComplete();
+    StepVerifier.create(mcpTools.createSession(config, null)).expectNext(response).verifyComplete();
   }
 
   @Test

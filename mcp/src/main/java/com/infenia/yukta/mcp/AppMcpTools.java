@@ -1649,9 +1649,10 @@ public class AppMcpTools {
   }
 
   /**
-   * Create a new Yukta session, or overwrite an existing one with the same ID.
+   * Create a new Yukta session, or replace an existing one with the same ID when asked to.
    *
    * @param config the session configuration: sessionId, name, description, initiator, workflows
+   * @param overwrite true to replace an existing session with the same ID
    * @return Mono containing SessionCreationResult with sessionId, created workflows, warnings, and
    *     success status
    */
@@ -1659,8 +1660,10 @@ public class AppMcpTools {
       name = "create_session",
       title = "Create Session",
       description =
-          "Create a Yukta session from a structured configuration, overwriting any existing "
-              + "session with the same sessionId. The workflows it defines can run commands "
+          "Create a Yukta session from a structured configuration. A session with the same "
+              + "sessionId is refused unless overwrite is true; then it is replaced, its "
+              + "workflows the new config leaves out are deleted and the warnings name them. "
+              + "To change a session, send all of it. The workflows it defines can run commands "
               + "and reach external systems, so confirm with the user first. See "
               + "get_session_creation_instructions for the format.",
       generateOutputSchema = true,
@@ -1673,8 +1676,13 @@ public class AppMcpTools {
       @McpToolParam(
               required = true,
               description = "Session configuration (sessionId, name, description, workflows, ...)")
-          final SessionConfigData config) {
-    return sessionInfoProvider.createSession(config);
+          final SessionConfigData config,
+      @McpToolParam(
+              required = false,
+              description =
+                  "true to replace an existing session with the same sessionId (default false)")
+          final Boolean overwrite) {
+    return sessionInfoProvider.createSession(config, Boolean.TRUE.equals(overwrite));
   }
 
   /**
