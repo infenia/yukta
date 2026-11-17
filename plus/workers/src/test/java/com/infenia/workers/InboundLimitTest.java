@@ -15,6 +15,11 @@ class InboundLimitTest {
   }
 
   @Test
+  void testSmallCapStillAllowsOneWholeFrame() {
+    assertThat(WorkerTransport.inboundLimit(1024)).isEqualTo(0xFF_FFFF);
+  }
+
+  @Test
   void testNoCapOrHugeCapMeansNoLimit() {
     assertThat(WorkerTransport.inboundLimit(0)).isEqualTo(Integer.MAX_VALUE);
     assertThat(WorkerTransport.inboundLimit(-1)).isEqualTo(Integer.MAX_VALUE);

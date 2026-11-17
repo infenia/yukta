@@ -37,11 +37,15 @@ class WorkerTransport {
    */
   /* default */ static final int FRAGMENT_BYTES = 64 * 1024;
 
+  /** Largest RSocket frame: its length is 24 bits. */
+  private static final int MAX_FRAME_BYTES = 0xFF_FFFF;
+
   /**
    * Largest message, reassembled from its fragments, that a side accepts from the other: twice the
    * messaging payload cap plus 1 MiB, because a message crosses as JSON (base64 for byte arrays,
    * escapes, the envelope's fields), which is larger than the payload {@code
    * yukta.messaging.max-payload-bytes} counts. The cap is checked again on the message itself.
+   * Never below the largest frame (16 MiB): RSocket refuses to start with a smaller limit.
    *
    * @param maxPayloadBytes {@code yukta.messaging.max-payload-bytes}; 0 or less means no limit
    * @return the limit for {@code maxInboundPayloadSize}
@@ -50,7 +54,9 @@ class WorkerTransport {
   /* default */ static int inboundLimit(final long maxPayloadBytes) {
     return maxPayloadBytes <= 0
         ? Integer.MAX_VALUE
-        : (int) Math.min(Integer.MAX_VALUE, maxPayloadBytes * 2 + 1024 * 1024);
+        : (int)
+            Math.min(
+                Integer.MAX_VALUE, Math.max(MAX_FRAME_BYTES, maxPayloadBytes * 2 + 1024 * 1024));
   }
 
   /**
