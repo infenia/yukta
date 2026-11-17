@@ -15,6 +15,7 @@ import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -208,6 +209,17 @@ class RemoteNodeTest {
     StepVerifier.create(executor.run("UPPER", "other-pool", Flux.empty(), Map.of()))
         .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("other-pool"));
     assertThat(Mono.just(1).block()).isEqualTo(1);
+  }
+
+  /** Over the 16 MiB an unfragmented RSocket frame can hold, under the default payload cap. */
+  @Test
+  void messageLargerThanOneFrame_crossesBothWays() {
+    final String big = "a".repeat(20 * 1024 * 1024);
+
+    StepVerifier.create(run("UPPER", Flux.just(message(big))))
+        .assertNext(out -> assertThat(out.payload()).isEqualTo(big.toUpperCase(Locale.ROOT)))
+        .expectComplete()
+        .verify(Duration.ofSeconds(30));
   }
 
   @Test
