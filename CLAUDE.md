@@ -139,3 +139,4 @@ The yukta skill is imported so it is always loaded (also after /compact and in s
 @.claude/rules/git-workflow.md
 
 IMPORTANT: Navigate code with the `codebase-memory` MCP tools first (see `.claude/CLAUDE.md`); when the IDE is open, the intellij-index MCP tools are fine for refactoring.
+For Java/TS references, definitions, renames, hierarchies and diagnostics use the `mcp__intellij-index__*` tools (skill: `ide-index-mcp`), not grep.
