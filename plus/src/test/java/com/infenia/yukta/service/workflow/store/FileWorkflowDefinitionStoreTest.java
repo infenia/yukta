@@ -150,6 +150,19 @@ class FileWorkflowDefinitionStoreTest {
   }
 
   @Test
+  void onlyJsonFilesWithATimestampAreRevisions_aBareTimestampIsOne() throws IOException {
+    store.save("s", definition("w", "one")).block();
+    final Path history = dir.resolve("workflows").resolve("s").resolve("w").resolve("history");
+    Files.writeString(history.resolve("1700000000000abc.txt"), "x");
+    Files.writeString(history.resolve("1700000000000.json"), "{}");
+
+    assertThat(store.revisions("s", "w").collectList().block())
+        .extracting(DefinitionRevision::id)
+        .contains("1700000000000")
+        .doesNotContain("1700000000000ab");
+  }
+
+  @Test
   void workflowDirectoryWithoutCurrentFile_isSkippedWhenListing() throws IOException {
     store.save("s", definition("w1", "one")).block();
     Files.createDirectories(dir.resolve("workflows").resolve("s").resolve("empty"));
