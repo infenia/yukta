@@ -48,6 +48,30 @@ class MessageReflectionHintsTest {
   }
 
   @Test
+  void registerHints_metricsEndpointResponse_isReadableAsArraysInNative() {
+    final RuntimeHints hints = new RuntimeHints();
+
+    new MessageReflectionHints.Hints()
+        .registerHints(hints, Thread.currentThread().getContextClassLoader());
+
+    // the array class of AvailableTag made /actuator/metrics/{name} hang in the native image
+    for (final Class<?> type :
+        List.of(
+            org.springframework.boot.micrometer.metrics.actuate.endpoint.MetricsEndpoint
+                .AvailableTag.class,
+            org.springframework.boot.micrometer.metrics.actuate.endpoint.MetricsEndpoint.Sample
+                .class,
+            org.springframework.boot.micrometer.metrics.actuate.endpoint.MetricsEndpoint
+                .MetricDescriptor.class)) {
+      assertThat(RuntimeHintsPredicates.reflection().onType(type)).accepts(hints);
+      assertThat(
+              RuntimeHintsPredicates.reflection()
+                  .onType(org.springframework.aot.hint.TypeReference.of(type.getName() + "[]")))
+          .accepts(hints);
+    }
+  }
+
+  @Test
   void registerHints_apiKeyEntry_isBindableInNative() {
     final RuntimeHints hints = new RuntimeHints();
 

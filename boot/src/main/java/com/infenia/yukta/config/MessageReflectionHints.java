@@ -14,6 +14,7 @@ import org.springframework.aot.hint.RuntimeHintsRegistrar;
 import org.springframework.aot.hint.TypeReference;
 import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.boot.micrometer.metrics.actuate.endpoint.MetricsEndpoint;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
@@ -126,6 +127,7 @@ public class MessageReflectionHints {
           .registerReflectionHints(
               hints.reflection(), ApiResponse.class, ApiResponse.FieldError.class);
       registerRecordArrays(hints);
+      registerMetricsEndpoint(hints);
       // WireSchemas reads these from the classpath at startup; a native image drops resources it
       // is not told about, and the binary then dies in ExternalPlugins ("NullPointerException:
       // /schema/plugin/v1/manifest.schema.json").
@@ -134,6 +136,25 @@ public class MessageReflectionHints {
           hints
               .reflection()
               .registerType(TypeReference.of(name), MemberCategory.INVOKE_PUBLIC_METHODS));
+    }
+
+    /**
+     * {@code /actuator/metrics/{name}} answers with these classes, and Jackson reads their {@code
+     * List} fields through the array classes. Without them the native image throws "Cannot
+     * reflectively instantiate the array class ...MetricsEndpoint$AvailableTag[]"; Reactor treats
+     * that as fatal and swallows it, so the request never answers (the soak's sampler timed out
+     * after 60 s on every call).
+     */
+    private static void registerMetricsEndpoint(final RuntimeHints hints) {
+      final List<Class<?>> types =
+          List.of(
+              MetricsEndpoint.MetricDescriptor.class,
+              MetricsEndpoint.Sample.class,
+              MetricsEndpoint.AvailableTag.class);
+      new BindingReflectionHintsRegistrar()
+          .registerReflectionHints(hints.reflection(), types.toArray(Class<?>[]::new));
+      types.forEach(
+          type -> hints.reflection().registerType(TypeReference.of(type.getName() + "[]")));
     }
 
     /**
