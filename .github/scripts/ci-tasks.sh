@@ -58,6 +58,7 @@ group_of() {
     :plugins:*) echo plugins ;;
     :plus|:plus:*) echo infra ;;
     :cli) echo cli ;;
+    :e2e) echo e2e ;;
     :ui) echo ui ;;
     *) echo platform ;;
   esac
@@ -133,7 +134,7 @@ if [ "$full" != true ] && [ -n "$lint" ]; then
 fi
 
 shards='[]'
-for shard in platform infra plugins cli ui; do
+for shard in platform infra plugins cli ui e2e; do
   tasks=''
   for m in "${affected_list[@]}"; do
     [ "$(group_of "$m")" = "$shard" ] && tasks="$tasks$m:build "

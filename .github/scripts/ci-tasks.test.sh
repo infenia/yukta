@@ -30,48 +30,48 @@ affected='.affected | join(" ")'
 shards='[.shards[].name] | join(" ")'
 
 # Library modules rebuild only what consumes them, not the whole repository.
-expect 'web/src/A.java' "$affected" '":architecture :boot :plus:plus-architecture :web"'
-expect 'mcp/src/A.java' "$affected" '":architecture :boot :mcp :plus:plus-architecture"'
+expect 'web/src/A.java' "$affected" '":architecture :boot :e2e :plus:plus-architecture :web"'
+expect 'mcp/src/A.java' "$affected" '":architecture :boot :e2e :mcp :plus:plus-architecture"'
 expect 'core/src/A.java' "$affected" \
-  '":architecture :boot :core :mcp :plus :plus:persistence-postgres :plus:plus-architecture :plus:workers :web"'
-expect 'core/src/A.java' "$shards" '"platform infra postgres-acceptance workers-acceptance plus-acceptance"'
+  '":architecture :boot :core :e2e :mcp :plus :plus:persistence-postgres :plus:plus-architecture :plus:workers :web"'
+expect 'core/src/A.java' "$shards" '"platform infra e2e postgres-acceptance workers-acceptance plus-acceptance"'
 # 31 modules: :plugins:processors:agent-session depends on :messaging, so it is rebuilt with it
-expect 'messaging/src/A.java' '.affected | length' '31'
+expect 'messaging/src/A.java' '.affected | length' '32'
 expect 'messaging/src/A.java' '.affected | index(":cli")' 'null'
 
 # Plugin-to-plugin dependencies are followed transitively.
 expect 'plugins/processors/llm-call/src/A.java' "$affected" \
-  '":architecture :boot :plugins:processors:decision :plugins:processors:llm-call :plus:plus-architecture"'
+  '":architecture :boot :e2e :plugins:processors:decision :plugins:processors:llm-call :plus:plus-architecture"'
 expect 'plugins/supervisors/rules/src/A.java' "$affected" \
-  '":architecture :boot :plugins:supervisors:rules :plus:plus-architecture"'
+  '":architecture :boot :e2e :plugins:supervisors:rules :plus:plus-architecture"'
 expect 'plugins/processors/internal/internal-core/src/A.java' "$affected" \
-  '":architecture :boot :plugins:processors:internal:internal-core :plugins:processors:internal:script-js :plus:plus-architecture"'
-expect 'plugins/processors/http-request/src/A.java' "$shards" '"platform infra plugins"'
+  '":architecture :boot :e2e :plugins:processors:internal:internal-core :plugins:processors:internal:script-js :plus:plus-architecture"'
+expect 'plugins/processors/http-request/src/A.java' "$shards" '"platform infra plugins e2e"'
 
 # The deepest module owns a path: plus/workers is not plus.
-expect 'plus/workers/src/A.java' "$affected" '":boot :plus:plus-architecture :plus:workers"'
-expect 'plus/workers/src/A.java' "$shards" '"platform infra workers-acceptance"'
-expect 'plus/src/A.java' "$shards" '"platform infra postgres-acceptance plus-acceptance"'
-expect 'plus/persistence-postgres/src/A.java' "$shards" '"platform infra postgres-acceptance"'
+expect 'plus/workers/src/A.java' "$affected" '":boot :e2e :plus:plus-architecture :plus:workers"'
+expect 'plus/workers/src/A.java' "$shards" '"platform infra e2e workers-acceptance"'
+expect 'plus/src/A.java' "$shards" '"platform infra e2e postgres-acceptance plus-acceptance"'
+expect 'plus/persistence-postgres/src/A.java' "$shards" '"platform infra e2e postgres-acceptance"'
 
 # Leaf modules: the UI rebuilds boot (which embeds it) and runs E2E; the CLI stands alone.
-expect 'ui/src/a.ts' "$affected" '":boot :ui"'
+expect 'ui/src/a.ts' "$affected" '":boot :e2e :ui"'
 expect 'ui/src/a.ts' '.e2e' 'true'
 expect 'cli/main.go' "$shards" '"cli"'
 expect 'cli/main.go' '.e2e' 'false'
 
 # A boot change runs all three acceptance suites.
-expect 'boot/src/A.java' "$shards" '"platform postgres-acceptance workers-acceptance plus-acceptance"'
+expect 'boot/src/A.java' "$shards" '"platform e2e postgres-acceptance workers-acceptance plus-acceptance"'
 
 # Lint covers the affected JVM modules; boot gets OpenGrep only, cli and ui none.
 expect 'web/src/A.java' '.lint' \
-  '":architecture:opengrep :architecture:checkstyleMain :architecture:checkstyleTest :architecture:pmdMain :architecture:pmdTest :boot:opengrep :plus:plus-architecture:opengrep :plus:plus-architecture:checkstyleMain :plus:plus-architecture:checkstyleTest :plus:plus-architecture:pmdMain :plus:plus-architecture:pmdTest :web:opengrep :web:checkstyleMain :web:checkstyleTest :web:pmdMain :web:pmdTest"'
+  '":architecture:opengrep :architecture:checkstyleMain :architecture:checkstyleTest :architecture:pmdMain :architecture:pmdTest :boot:opengrep :e2e:opengrep :e2e:checkstyleMain :e2e:checkstyleTest :e2e:pmdMain :e2e:pmdTest :plus:plus-architecture:opengrep :plus:plus-architecture:checkstyleMain :plus:plus-architecture:checkstyleTest :plus:plus-architecture:pmdMain :plus:plus-architecture:pmdTest :web:opengrep :web:checkstyleMain :web:checkstyleTest :web:pmdMain :web:pmdTest"'
 expect 'cli/main.go' '.lint' '""'
 
 # The shards skip what the lint job already ran (partial runs only), so no check runs twice.
 shard_args='.shards[0].args'
 expect 'web/src/A.java' "$shard_args" \
-  '":architecture:build :boot:build :web:build --continue -x spotlessCheck -x :architecture:opengrep -x :architecture:checkstyleMain -x :architecture:checkstyleTest -x :architecture:pmdMain -x :architecture:pmdTest -x :boot:opengrep -x :plus:plus-architecture:opengrep -x :plus:plus-architecture:checkstyleMain -x :plus:plus-architecture:checkstyleTest -x :plus:plus-architecture:pmdMain -x :plus:plus-architecture:pmdTest -x :web:opengrep -x :web:checkstyleMain -x :web:checkstyleTest -x :web:pmdMain -x :web:pmdTest"'
+  '":architecture:build :boot:build :web:build --continue -x spotlessCheck -x :architecture:opengrep -x :architecture:checkstyleMain -x :architecture:checkstyleTest -x :architecture:pmdMain -x :architecture:pmdTest -x :boot:opengrep -x :e2e:opengrep -x :e2e:checkstyleMain -x :e2e:checkstyleTest -x :e2e:pmdMain -x :e2e:pmdTest -x :plus:plus-architecture:opengrep -x :plus:plus-architecture:checkstyleMain -x :plus:plus-architecture:checkstyleTest -x :plus:plus-architecture:pmdMain -x :plus:plus-architecture:pmdTest -x :web:opengrep -x :web:checkstyleMain -x :web:checkstyleTest -x :web:pmdMain -x :web:pmdTest"'
 expect 'cli/main.go' "$shard_args" '":cli:build --continue"'
 got=$(FULL=true "$planner" </dev/null | jq -c '[.shards[].args | contains(" -x ")] | any')
 [ "$got" = false ] || fail "FULL=true shards must not skip checks" false "$got"
@@ -89,7 +89,7 @@ expect 'core/gradle.lockfile' '.full' 'false'
 
 # FULL=true (main, schedule, dispatch, `ci:full` label) runs every shard and E2E.
 got=$(FULL=true "$planner" </dev/null | jq -c '[([.shards[].name] | join(" ")), (.affected | length), .e2e]')
-want='["platform infra plugins cli ui postgres-acceptance workers-acceptance plus-acceptance",34,true]'
+want='["platform infra plugins cli ui e2e postgres-acceptance workers-acceptance plus-acceptance",35,true]'
 [ "$got" = "$want" ] || fail "FULL=true" "$want" "$got"
 
 # A dependency on a module missing from settings.gradle.kts must fail loudly, not be skipped.

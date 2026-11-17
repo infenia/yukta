@@ -18,11 +18,12 @@ import org.junit.jupiter.api.Test;
 class ModuleCoverageTest {
 
   /**
-   * Modules with nothing to check: the checker itself, the app, the other languages, the helper.
-   * The plus* modules may only be used by boot (licensing), so plus:plus-architecture checks them.
+   * Modules with nothing to check: the checker itself, the end-to-end tests (no main classes), the
+   * app, the other languages, the helper. The plus* modules may only be used by boot (licensing),
+   * so plus:plus-architecture checks them.
    */
   private static final List<String> SKIPPED =
-      List.of("architecture", "boot", "cli", "ui", "test-support");
+      List.of("architecture", "boot", "cli", "e2e", "ui", "test-support");
 
   private static Set<String> included() throws IOException {
     return Pattern.compile("^include\\(\"(.*)\"\\)", Pattern.MULTILINE)
