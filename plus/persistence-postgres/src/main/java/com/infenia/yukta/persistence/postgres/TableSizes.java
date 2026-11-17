@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.r2dbc.core.DatabaseClient;
 
@@ -43,10 +44,13 @@ public final class TableSizes {
   private final List<String> tables;
 
   /** The last known sizes, in bytes. */
-  private final Map<String, AtomicLong> bytes = new ConcurrentHashMap<>();
+  private final Map<String, AtomicLong> lastBytes = new ConcurrentHashMap<>();
 
-  /** When the sizes were last asked for, by {@link System#nanoTime()}. */
-  private final AtomicLong askedAt = new AtomicLong(System.nanoTime() - 2 * MAX_AGE_NANOS);
+  /** The clock, in nanoseconds, as {@link System#nanoTime()}. */
+  private final LongSupplier clock;
+
+  /** When the sizes were last asked for, by {@link #clock}. */
+  private final AtomicLong askedAt;
 
   /** A read is going. */
   private final AtomicBoolean reading = new AtomicBoolean();
@@ -58,9 +62,23 @@ public final class TableSizes {
    * @param tables the tables to read
    */
   public TableSizes(final DatabaseClient client, final List<String> tables) {
+    this(client, tables, System::nanoTime);
+  }
+
+  /**
+   * Creates the reader with the clock it ages the sizes by.
+   *
+   * @param client runs the query
+   * @param tables the tables to read
+   * @param clock the clock, in nanoseconds
+   */
+  /* default */ TableSizes(
+      final DatabaseClient client, final List<String> tables, final LongSupplier clock) {
     this.client = client;
     this.tables = List.copyOf(tables);
-    tables.forEach(table -> bytes.put(table, new AtomicLong()));
+    this.clock = clock;
+    this.askedAt = new AtomicLong(clock.getAsLong() - 2 * MAX_AGE_NANOS);
+    tables.forEach(table -> lastBytes.put(table, new AtomicLong()));
   }
 
   /**
@@ -84,7 +102,7 @@ public final class TableSizes {
    * @return the size in bytes, 0 until the first read has answered
    */
   public long bytes(final String table) {
-    final long now = System.nanoTime();
+    final long now = clock.getAsLong();
     if (now - askedAt.get() >= MAX_AGE_NANOS && reading.compareAndSet(false, true)) {
       askedAt.set(now);
       client
@@ -96,9 +114,9 @@ public final class TableSizes {
           .all()
           .doFinally(_ -> reading.set(false))
           .subscribe(
-              entry -> bytes.get(entry.getKey()).set(entry.getValue()),
+              entry -> lastBytes.get(entry.getKey()).set(entry.getValue()),
               error -> log.atWarn().setCause(error).log("Could not read the store table sizes"));
     }
-    return bytes.get(table).get();
+    return lastBytes.get(table).get();
   }
 }

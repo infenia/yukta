@@ -255,7 +255,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
             .tag("reason", "write_failed")
             .register(meters);
     this.pending = pending;
-    Gauge.builder("yukta.execution.log.queue", this, store -> store.queued())
+    Gauge.builder("yukta.execution.log.queue", this, R2dbcExecutionLogStore::queued)
         .description("Execution log events waiting for the writer; a steady rise means it is stuck")
         .register(meters);
     this.client = client;

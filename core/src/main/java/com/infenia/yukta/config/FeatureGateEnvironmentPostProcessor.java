@@ -33,6 +33,9 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   /** The store type value that selects PostgreSQL. */
   private static final String POSTGRES_TYPE = "postgres";
 
+  /** The in-memory store type. */
+  private static final String IN_MEMORY_TYPE = "in-memory";
+
   /** Provider of the on-disk stores. */
   private static final String FILES =
       "com.infenia.yukta.service.sessionstore.FileSessionConfigStore";
@@ -56,10 +59,10 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   /** The values each store switch accepts (case and blanks do not matter; unset is the default). */
   /* default */ static final Map<String, Set<String>> STORE_VALUES =
       Map.of(
-          "yukta.session.store-type", Set.of("in-memory", "file", POSTGRES_TYPE),
-          "yukta.restart.store-type", Set.of("memory", "in-memory", "file", POSTGRES_TYPE),
-          "yukta.input.store-type", Set.of("memory", "in-memory", POSTGRES_TYPE),
-          "yukta.agents.store-type", Set.of("memory", "in-memory", POSTGRES_TYPE),
+          "yukta.session.store-type", Set.of(IN_MEMORY_TYPE, "file", POSTGRES_TYPE),
+          "yukta.restart.store-type", Set.of("memory", IN_MEMORY_TYPE, "file", POSTGRES_TYPE),
+          "yukta.input.store-type", Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
+          "yukta.agents.store-type", Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
           "yukta.ha.mode", Set.of("single", POSTGRES_TYPE));
 
   /** The gated settings. */

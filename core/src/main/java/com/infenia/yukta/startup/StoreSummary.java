@@ -32,13 +32,13 @@ import org.springframework.util.ClassUtils;
 public class StoreSummary {
 
   /** The kinds of data, in the order logged. */
-  private static final Map<String, Class<?>> KINDS = kinds();
+  private static final Map<String, Class<?>> KINDS = kindsInOrder();
 
   /** Where the stores are looked up. */
   private final ListableBeanFactory beans;
 
-  private static Map<String, Class<?>> kinds() {
-    final Map<String, Class<?>> kinds = new LinkedHashMap<>();
+  private static Map<String, Class<?>> kindsInOrder() {
+    final var kinds = new LinkedHashMap<String, Class<?>>();
     kinds.put("sessions", SessionConfigStore.class);
     kinds.put("definitions", WorkflowDefinitionStore.class);
     kinds.put("executionLog", ExecutionLogStore.class);
@@ -67,7 +67,7 @@ public class StoreSummary {
    * @return kind to simple class name, in a fixed order
    */
   /* default */ Map<String, String> describe() {
-    final Map<String, String> stores = new LinkedHashMap<>();
+    final var stores = new LinkedHashMap<String, String>();
     KINDS.forEach((kind, type) ->
         stores.put(
             kind,

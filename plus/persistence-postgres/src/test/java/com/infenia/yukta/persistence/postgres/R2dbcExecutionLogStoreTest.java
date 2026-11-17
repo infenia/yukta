@@ -306,6 +306,21 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void queueGauge_countsTheEventsWaitingForTheWriter() {
+    final java.util.concurrent.BlockingQueue<ExecutionLogEvent> waiting =
+        new java.util.concurrent.ArrayBlockingQueue<>(4);
+    waiting.add(started("waiting"));
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final R2dbcExecutionLogStore gauged =
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 5_000, waiting, meters, 1);
+
+    assertThat(waiting).hasSize(1);
+    assertThat(meters.get("yukta.execution.log.queue").gauge().value()).isEqualTo(1.0);
+    gauged.close();
+  }
+
+  @Test
   void whenTheQueueIsFull_theRunEndIsStillWritten() {
     final java.util.concurrent.BlockingQueue<ExecutionLogEvent> full =
         new java.util.concurrent.ArrayBlockingQueue<>(1);

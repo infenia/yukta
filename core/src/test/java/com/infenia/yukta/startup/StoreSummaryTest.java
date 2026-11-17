@@ -14,16 +14,17 @@ class StoreSummaryTest {
 
   @Test
   void namesTheStoreOfEachKind_andNoneWhereThereIsNone() {
-    final StaticApplicationContext context = new StaticApplicationContext();
-    context.registerBean(ExecutionLogStore.class, InMemoryExecutionLogStore::new);
-    context.refresh();
+    try (StaticApplicationContext context = new StaticApplicationContext()) {
+      context.registerBean(ExecutionLogStore.class, InMemoryExecutionLogStore::new);
+      context.refresh();
 
-    final StoreSummary summary = new StoreSummary(context);
+      final StoreSummary summary = new StoreSummary(context);
 
-    assertThat(summary.describe())
-        .containsEntry("executionLog", "InMemoryExecutionLogStore")
-        .containsEntry("checkpoints", "none")
-        .containsKeys("sessions", "definitions", "inputs", "supervisors", "agents", "leader");
-    assertThatCode(summary::onReady).doesNotThrowAnyException();
+      assertThat(summary.describe())
+          .containsEntry("executionLog", "InMemoryExecutionLogStore")
+          .containsEntry("checkpoints", "none")
+          .containsKeys("sessions", "definitions", "inputs", "supervisors", "agents", "leader");
+      assertThatCode(summary::onReady).doesNotThrowAnyException();
+    }
   }
 }

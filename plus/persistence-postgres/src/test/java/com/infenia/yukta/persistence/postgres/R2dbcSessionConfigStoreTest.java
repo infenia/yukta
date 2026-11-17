@@ -102,7 +102,7 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void workflowsWithoutASessionRow_areListedAndReadable_soTheyCanBeDeleted() {
+  void workflowsWithoutSessionRow_areListedAndReadable_soTheyCanBeDeleted() {
     new R2dbcWorkflowDefinitionStore(db, new ObjectMapper()).save("orphan", workflow()).block();
 
     assertThat(store.getSessionIds().collectList().block()).contains("orphan");

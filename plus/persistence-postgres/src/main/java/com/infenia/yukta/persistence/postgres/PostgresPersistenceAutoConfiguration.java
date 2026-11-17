@@ -16,10 +16,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 import org.springframework.r2dbc.core.DatabaseClient;
 import tools.jackson.databind.ObjectMapper;
 
@@ -33,6 +32,7 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfiguration(before = DefaultsAutoConfiguration.class)
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @ConditionalOnProperty(name = "yukta.session.store-type", havingValue = "postgres")
+@Import(PostgresHaConfiguration.class)
 public class PostgresPersistenceAutoConfiguration {
 
   /** Default constructor. */
@@ -123,51 +123,6 @@ public class PostgresPersistenceAutoConfiguration {
         mapper,
         meters.getIfAvailable(io.micrometer.core.instrument.simple.SimpleMeterRegistry::new),
         leaderElection.stream().findFirst().map(Fencing::tokenOf).orElse(null));
-  }
-
-  /**
-   * Leader election through a lease row, when {@code yukta.ha.mode=postgres}.
-   *
-   * @param client runs the statements
-   * @param instanceId this server's id in the lease row (random if not set)
-   * @param lease how long a renewal keeps the lease
-   * @param meters where the {@code yukta.leader} gauge is registered
-   * @return the election
-   */
-  @Bean
-  @ConditionalOnProperty(name = "yukta.ha.mode", havingValue = "postgres")
-  public R2dbcLeaderElection leaderElection(
-      final DatabaseClient client,
-      @Value("${yukta.ha.instance-id:#{T(java.util.UUID).randomUUID().toString()}}")
-          final String instanceId,
-      @Value("${yukta.ha.lease:15s}") final java.time.Duration lease,
-      final io.micrometer.core.instrument.MeterRegistry meters) {
-    return new R2dbcLeaderElection(client, instanceId, lease, meters);
-  }
-
-  /**
-   * Warns at start when a standby can take over runs but not continue them: with {@code
-   * yukta.ha.mode=postgres} the node outputs must be in PostgreSQL too, or a resume after a
-   * takeover runs every node again.
-   *
-   * @param checkpoints the checkpoint store in use
-   * @return the listener
-   */
-  @Bean
-  @ConditionalOnProperty(name = "yukta.ha.mode", havingValue = "postgres")
-  public ApplicationListener<ApplicationReadyEvent> haCheckpointCheck(
-      final org.springframework.beans.factory.ObjectProvider<NodeCheckpointStore> checkpoints) {
-    return _ -> {
-      final NodeCheckpointStore store = checkpoints.getIfAvailable();
-      if (!(store instanceof R2dbcNodeCheckpointStore)) {
-        log.atWarn()
-            .addKeyValue("checkpoints", store == null ? "none" : store.getClass().getSimpleName())
-            .log(
-                "yukta.ha.mode=postgres without yukta.restart.store-type=postgres: a server that"
-                    + " takes over cannot replay the output of finished nodes, so a resumed run"
-                    + " runs them again");
-      }
-    };
   }
 
   /**
