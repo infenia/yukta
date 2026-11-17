@@ -4,8 +4,8 @@
 name: Perf nightly
 
 # Builds the native binary of main (the quick build, as perf-weekly.yml), runs the k6 perf test (2 min) and a 30 minute
-# soak against it in a container with fixed resources (perf/run.sh), and fails on: a stuck run, a lost tracker event, a success rate under 99%, a median or
-# p99 above the baseline, or server memory that keeps rising (perf/compare.py says how much each may move).
+# soak against it in a container with fixed resources (perf/run.sh), and fails on: a stuck run, a lost tracker event,
+# a success rate under 99%, a median or p99 above the baseline, or server memory that keeps rising (perf/compare.py says how much each may move).
 # The baseline is the last green run of main (cache), which absorbs the speed of the hosted runner; until there is
 # one it is perf/baseline.json. Each failure becomes an issue (auto-found.sh). The weekly long run is perf-weekly.yml.
 on:
