@@ -26,7 +26,7 @@ session=$(jq -c . ../01-hello-world/session.json)
 sid=$(jq -r .sessionId <<<"$session")
 
 echo "--> create_session $sid"
-mcp_call create_session "$(jq -n --argjson c "$session" '{config: $c}')" >/dev/null
+mcp_call create_session "$(jq -n --argjson c "$session" '{config: $c, overwrite: true}')" >/dev/null
 
 echo "--> start_workflow hello"
 eid=$(mcp_call start_workflow "$(jq -n --arg s "$sid" '{sessionId: $s, workflowId: "hello"}')" | jq -r .executionId)

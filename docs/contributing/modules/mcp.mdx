@@ -289,7 +289,7 @@ Lists sessions, reads one, explains the session format, and creates (or overwrit
 
 - list_sessions returns each session's id and workflow count. A session whose config cannot be loaded is left out with a warning in the server log, so one broken session does not hide the others. get_session_details returns the workflow ids of one session, or 'Session not found: ... Use list_sessions' if it is unknown.
 - create_session takes a structured SessionConfigData: sessionId, name, description, initiator, optional tags and projectPath, and workflows. The framework generates the argument schema from it, so the agent sees the field names and the constraints (name and description at most 256 characters, workflows not empty). Earlier versions took a JSON string, which an agent had to escape by hand.
-- It overwrites. A second create_session with the same sessionId replaces the session, and workflows the new config no longer lists are removed from it (core logs 'Removed stale workflow'). That is why the tool is marked destructive. The result lists the session id and the workflow names, with an always-empty warnings list.
+- It overwrites only when asked. A create_session with an existing sessionId is refused unless `overwrite` is true; then the session is replaced and workflows the new config no longer lists are removed from it. That is why the tool is marked destructive. The result lists the session id and the workflow names; on an overwrite, its warnings name each removed workflow.
 - get_session_creation_instructions returns a text guide: naming rules, structure, an example, the DAG rules, the list of plugin types actually registered, and three common errors with fixes.
 - Judgement: the example config in that guide does not match the real model. It uses node fields 'id', edge fields 'from', 'to', 'port', and plugin types (webhook-trigger, gradle-checker, log-aggregator) that are not registered. The real fields are nodeId, source, target, sourcePort, a workflowId and description per workflow, and plugin types such as HTTP_REQUEST. The server is set to fail on unknown JSON properties, so an agent copying the example would be rejected.
 
@@ -378,7 +378,7 @@ The agent calls get_session_creation_instructions and list_plugins. The first re
 get_plugin_details for a type returns description, usage pattern and ports. Ports are read without config, so a plugin with config-dependent ports shows only 'default'.
 </Step>
 <Step title="Create the session">
-create_session takes the structured config. The tool is marked destructive and open-world, so a careful client asks the user first. Core validates and stores it. A session with the same id is replaced and its other workflows are removed.
+create_session takes the structured config. The tool is marked destructive and open-world, so a careful client asks the user first. Core validates and stores it. A session with the same id is refused unless `overwrite` is true; then it is replaced and its other workflows are removed (named in the warnings).
 </Step>
 <Step title="Start a workflow">
 start_workflow returns an execution id. There is no way to pass trigger data and no idempotency key. If the call times out and the agent repeats it, two runs may start.
@@ -492,7 +492,7 @@ Eighteen things an agent can do or rely on, grouped by what they are for.
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
 | Session format guide | Naming rules, structure, example and live plugin list. | get_session_creation_instructions builds it on each call. | Plugin list is always current. | The inline example uses wrong field names and unregistered types. |
-| Create or overwrite a session | Installs workflows from a structured config. | create_session passes SessionConfigData to core's applyConfig. | Core validates; stale workflows are removed. | Overwrites by id with no preview or diff. |
+| Create or overwrite a session | Installs workflows from a structured config. | create_session passes SessionConfigData to core's applyConfig. | Core validates; stale workflows are removed. | Replaces an existing id only with `overwrite`; no preview or diff. |
 | Plugin lookup | Types, categories, descriptions, usage and ports. | list_plugins and get_plugin_details read the registry. | Always matches registered plugins. | No config schema; ports ignore config. |
 | Plugin creation guide | Templates and checklists for a new plugin. | get_plugin_creation_guide returns text and code templates. | A starting point. | Templates do not compile against the real plugin API. |
 

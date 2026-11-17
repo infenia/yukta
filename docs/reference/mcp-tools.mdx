@@ -61,7 +61,7 @@ Create, read and version sessions and workflows, and discover plugins.
 | Tool | Role | Arguments | Purpose |
 |---|---|---|---|
 | `get_session_creation_instructions` | VIEWER | none | The format of a session configuration. |
-| `create_session` | ADMIN | `config` (sessionId, name, description, workflows, ...) | Creates a session, overwriting one with the same `sessionId`. Its workflows can run commands, so confirm first. |
+| `create_session` | ADMIN | `config` (sessionId, name, description, workflows, ...), `overwrite?` | Creates a session. An existing `sessionId` is refused unless `overwrite` is true; then the session is replaced and `warnings` name the workflows it deleted. Its workflows can run commands, so confirm first. |
 | `list_sessions` | VIEWER | `includeInternal?` | Lists sessions with workflow counts; internal (supervisor) sessions only when asked. |
 | `get_session_details` | VIEWER | `sessionId` | One session with its workflow ids. |
 | `get_workflow_details` | VIEWER | `sessionId`, `workflowId` | The full definition: nodes and edges. |

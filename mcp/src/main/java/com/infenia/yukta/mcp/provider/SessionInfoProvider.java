@@ -227,17 +227,55 @@ public class SessionInfoProvider {
   }
 
   /**
-   * Create a new session with the provided configuration.
+   * Create a session, or replace an existing one when {@code overwrite} is set.
    *
    * @param config the session configuration
-   * @return Mono containing the session creation result
+   * @param overwrite true to replace a session with the same id; its workflows the new config
+   *     leaves out are deleted and listed in the warnings
+   * @return Mono containing the session creation result, or an error when the session exists and
+   *     {@code overwrite} is false
    */
-  public Mono<SessionCreationResult> createSession(final SessionConfigData config) {
+  public Mono<SessionCreationResult> createSession(
+      final SessionConfigData config, final boolean overwrite) {
+    final String id = config.sessionId();
+    return sessionService
+        .getSessionIds()
+        .any(id::equals)
+        .flatMap(exists -> {
+          if (!exists) {
+            return apply(config, List.of());
+          }
+          if (!overwrite) {
+            return Mono.error(
+                new IllegalArgumentException(
+                    describe(
+                        "Session " + id + " already exists",
+                        "create_session would replace it and delete every workflow the new "
+                            + "config leaves out.",
+                        "read it with get_session_details and send the whole session with "
+                            + "overwrite=true to replace it, or choose another sessionId.")));
+          }
+          return sessionService
+              .getSessionConfig(id)
+              .map(existing ->
+                  existing.workflows().keySet().stream()
+                      .filter(workflowId -> !config.workflows().containsKey(workflowId))
+                      .sorted()
+                      .map(workflowId ->
+                          "Removed workflow " + workflowId + ": the new config does not list it.")
+                      .toList())
+              .defaultIfEmpty(List.of())
+              .flatMap(removed -> apply(config, removed));
+        });
+  }
+
+  private Mono<SessionCreationResult> apply(
+      final SessionConfigData config, final List<String> warnings) {
     return sessionService
         .applyConfig(config)
         .thenReturn(
             new SessionCreationResult(
-                config.sessionId(), List.copyOf(config.workflows().keySet()), List.of(), true));
+                config.sessionId(), List.copyOf(config.workflows().keySet()), warnings, true));
   }
 
   private static String describe(final String error, final String cause, final String resolution) {

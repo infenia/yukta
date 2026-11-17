@@ -73,7 +73,7 @@ In session release-checks, workflow gate, change the coverage bar from 80 to
 in the session the change touches.
 ```
 
-**Tools, in order:** `get_workflow_details` (the current definition), then `create_session` with the changed session. There is no tool that edits a single node: `create_session` replaces the whole session, so the assistant sends the full session with one node changed. It can show you the difference first, and after the save `diff_workflow_versions` shows what changed.
+**Tools, in order:** `get_workflow_details` (the current definition), then `create_session` with the changed session and `overwrite: true`. There is no tool that edits a single node: `create_session` replaces the whole session, so the assistant sends the full session with one node changed. Without `overwrite` it refuses an existing session id; with it, the `warnings` name any workflow the new config left out and that was deleted. It can show you the difference first, and after the save `diff_workflow_versions` shows what changed.
 
 **Check:** that only the node you named changed. Ask the assistant to list `list_workflow_versions` and `diff_workflow_versions` for `gate` after the save.
 
@@ -258,7 +258,7 @@ An assistant is fast, and a fast mistake is still a mistake. Four habits keep yo
 
 **Know what it will ask you about.** The `yukta-workflows` skill tells the assistant to stop and get an explicit yes, naming what will happen, before it does any of these:
 
-- `create_session` when the session id already exists: it replaces that session. A new session is also code that runs on the server.
+- `create_session` with `overwrite: true`: it replaces the session with that id and deletes the workflows the new config leaves out. A new session is also code that runs on the server.
 - `delete_session`, `delete_workflow`, and any call with `force` set, which cancels active runs.
 - `control_workflow` with `STOP_ALL`, and any stop with mode `KILL` or `CANCEL`.
 - `rollback_workflow` and `set_scheduler_limits`.
