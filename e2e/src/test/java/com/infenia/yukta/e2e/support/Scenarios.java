@@ -111,7 +111,7 @@ public final class Scenarios implements ExtensionContext.Store.CloseableResource
     final JsonNode[] last = new JsonNode[1];
     await()
         .atMost(timeout)
-        .pollInterval(Duration.ofMillis(100))
+        .pollInterval(Duration.ofMillis(250))
         .until(() -> {
           // the execution can be unknown for a moment right after the start
           final var response = api.client().get().uri("/api/executions/{id}", execution).exchange();
