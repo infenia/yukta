@@ -414,10 +414,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     }
     // only the events waiting now: a failed one goes back to the queue for the next, later drain
     for (int n = urgent.size(); n > 0; n--) {
-      final ExecutionLogEvent event = urgent.poll();
-      if (event != null) {
-        insert(event);
-      }
+      insert(urgent.remove()); // only this thread removes, so the n entries are there
     }
   }
 
