@@ -3,7 +3,7 @@
 
 name: Perf nightly
 
-# Builds the jar of main, runs the k6 perf test (2 min) and a 30 minute soak against it in a container with fixed
+# Builds the native binary of main (the quick build, as perf-weekly.yml), runs the k6 perf test (2 min) and a 30 minute soak against it in a container with fixed
 # resources (perf/run.sh), and fails on: a stuck run, a lost tracker event, a success rate under 99%, a median or
 # p99 above the baseline, or server memory that keeps rising (perf/compare.py says how much each may move).
 # The baseline is the last green run of main (cache), which absorbs the speed of the hosted runner; until there is
@@ -22,9 +22,9 @@ permissions:
 
 jobs:
   perf:
-    name: Perf and soak against the jar
+    name: Perf and soak against the native binary
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     permissions:
       contents: read
       issues: write # file a finding as an issue
@@ -32,10 +32,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-
-      - uses: ./.github/actions/setup-build
-        with:
-          node: 'false'   # the jar is built without the UI
 
       - name: Set up k6
         uses: grafana/setup-k6-action@c47136d33d365efbeb9ae7266908b5dcf98cdece # v1.3.0
@@ -46,19 +42,30 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: perf/.baseline
-          key: perf-nightly-baseline-${{ github.run_id }}
-          restore-keys: perf-nightly-baseline-
+          key: perf-nightly-native-baseline-${{ github.run_id }}
+          restore-keys: perf-nightly-native-baseline-
 
-      - name: Build the jar without the UI, the perf test uses the API
-        run: ./gradlew :boot:bootJar -PskipUi -q --console=plain
+      # The hosted runner has little free disk; the native build and its builder image need several GB.
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
-      - name: Find the jar
+      # The 12g builder heap on a 16 GB runner leaves little for the OS and the linker; swap turns an
+      # OOM kill late in the build into a slower step.
+      - name: Add swap
         run: |
-          for candidate in boot/build/libs/boot-*.jar; do
-            case $candidate in *-plain.jar) ;; *) JAR=$candidate ;; esac
-          done
-          [ -n "${JAR:-}" ] || { echo "::error::no boot jar was built"; exit 1; }
-          echo "JAR=$JAR" >> "$GITHUB_ENV"
+          sudo fallocate -l 8G /mnt/extra.swap
+          sudo chmod 600 /mnt/extra.swap
+          sudo mkswap /mnt/extra.swap
+          sudo swapon /mnt/extra.swap
+
+      # Built once, before the tests; every perf/run.sh below runs this binary (BINARY).
+      - name: Native compile (quick)
+        env:
+          NATIVE_QUICK: '1'
+          NATIVE_HEAP: 12g
+        run: |
+          release/build-server.sh
+          echo "BINARY=$PWD/dist/linux-amd64/yukta" >> "$GITHUB_ENV"
 
       - name: Perf test (10 starts/s, 2 min)
         run: |
