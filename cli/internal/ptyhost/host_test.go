@@ -190,6 +190,19 @@ func TestScreen_keepsWideCharactersWhole(t *testing.T) {
 	}
 }
 
+func TestScreen_carriesItsColoursInStyled_andPlainText(t *testing.T) {
+	s := start(t, []string{"sh", "-c", "printf '\\033[31mred\\033[0m\\n'; sleep 1"}, nil)
+
+	s.until("a screen frame", func() bool { return len(s.out.ofType("screen")) > 0 })
+	s.wait()
+
+	got := s.out.ofType("screen")[0]
+	styled, _ := got["styled"].(string)
+	if got["text"] != "red" || !strings.Contains(styled, "\x1b[") || !strings.Contains(styled, "red") {
+		t.Fatalf("screen = %q", got)
+	}
+}
+
 func TestExit_passesOnTheCodeOfTheProgram(t *testing.T) {
 	s := start(t, []string{"sh", "-c", "exit 7"}, nil)
 

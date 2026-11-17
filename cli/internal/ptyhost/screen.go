@@ -20,6 +20,9 @@ type Screen interface {
 	io.Writer
 	// Text is the screen as lines without trailing blanks.
 	Text() string
+	// Styled is the screen with its colours and attributes as escape sequences, lines joined by
+	// newlines, so a viewer that connects late draws it as the program did.
+	Styled() string
 	// Cursor is the cursor row and column, counted from 0.
 	Cursor() (row, col int)
 	// Resize changes the size.
@@ -41,6 +44,8 @@ func (s vtScreen) Text() string {
 	}
 	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
 }
+
+func (s vtScreen) Styled() string { return s.Render() }
 
 func (s vtScreen) Cursor() (int, int) {
 	position := s.CursorPosition()

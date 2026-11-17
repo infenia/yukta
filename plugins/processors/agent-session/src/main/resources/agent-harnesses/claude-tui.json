@@ -1,0 +1,22 @@
+{
+  "id": "claude-tui",
+  "protocol": "pty",
+  "description": "Claude Code in its own terminal UI, colours, menus and keys as in a terminal: watch and type in the Agents tab. The prompt is pasted once the prompt box shows. The output is the last screen as text: no cost, usage or structured result (use the headless preset for those). The node runs until the program exits, someone ends it, or its timeout. Needs yukta.agents.pty.enabled=true, the command in yukta.process.allowed-commands and HOME in yukta.process.pass-env; log in once beforehand and trust the working folder, else the first screen is a dialog the person answers in the Agents tab before the prompt is typed.",
+  "command": [
+    "claude"
+  ],
+  "modelArgs": [
+    "--model",
+    "{model}"
+  ],
+  "pty": {
+    "type": "\u001b[200~{prompt}\u001b[201~",
+    "readyPattern": "(?m)^─{10,}\\n❯",
+    "readyDelayMs": 15000,
+    "submit": "\r",
+    "submitDelayMs": 500,
+    "interruptKeys": "\u001b",
+    "attentionPattern": "Esc to cancel|Enter to confirm",
+    "donePattern": null
+  }
+}

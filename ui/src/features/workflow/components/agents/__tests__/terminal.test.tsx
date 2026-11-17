@@ -142,6 +142,21 @@ describe('AgentTerminal', () => {
     );
   });
 
+  it('draws a screen in its colours when the host sent them', () => {
+    render(<AgentTerminal conversation={pty()} canType />);
+    const source = MockEventSource.latest();
+    const fake = terminals[0];
+
+    act(() => {
+      source.emitNamed(
+        'event',
+        event({ screen: 'red', styled: '\x1b[31mred\x1b[m' })
+      );
+    });
+
+    expect(fake.writes[0]).toBe('\x1b[31mred\x1b[m');
+  });
+
   it('writes the output, and starts again from a screen', () => {
     render(<AgentTerminal conversation={pty()} canType />);
     const source = MockEventSource.latest();

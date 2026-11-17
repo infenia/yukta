@@ -214,6 +214,32 @@ class PtyAdapterTest {
   }
 
   @Test
+  void submitDelaySendsTheEnterOnItsOwn_afterThePromptAndEachMessage() throws Exception {
+    final CompletableFuture<Map<String, Object>> result =
+        start(
+            run(
+                preset("{\"readyDelayMs\":10,\"type\":\"[{prompt}]\",\"submitDelayMs\":50}"),
+                "go",
+                false));
+
+    await().atMost(2, TimeUnit.SECONDS).until(() -> "[go]\r".equals(typed()));
+    commands.tryEmitNext(new AgentCommand.Message("more", false, "arun"));
+    await().atMost(2, TimeUnit.SECONDS).until(() -> "[go]\rmore\r".equals(typed()));
+    // each Enter is a frame of its own, not part of the text before it
+    final List<String> inputs =
+        written.stream()
+            .filter(frame -> "in".equals(frame.path("t").asString()))
+            .map(frame ->
+                new String(
+                    Base64.getDecoder().decode(frame.path("d").asString()), StandardCharsets.UTF_8))
+            .toList();
+    assertThat(inputs).containsExactly("[go]", "\r", "more", "\r");
+
+    commands.tryEmitNext(new AgentCommand.End(null, null, "arun"));
+    done(result);
+  }
+
+  @Test
   void messagesInterruptsKeysAndResizesGoToTheHost() throws Exception {
     final CompletableFuture<Map<String, Object>> result =
         start(run(preset("{\"readyDelayMs\":60000,\"submit\":\"\\n\"}"), "p", false));
@@ -282,6 +308,44 @@ class PtyAdapterTest {
             "state WAITING the terminal wants attention",
             "state RUNNING null");
 
+    commands.tryEmitNext(new AgentCommand.End(null, null, "arun"));
+    done(result);
+  }
+
+  @Test
+  void delayDoesNotTypeIntoScreenThatWantsAttention_butOnceItClears() throws Exception {
+    final CompletableFuture<Map<String, Object>> result =
+        start(
+            run(
+                preset(
+                    "{\"readyDelayMs\":300,\"type\":\"{prompt}\\r\","
+                        + "\"attentionPattern\":\"Enter to confirm\"}"),
+                "go",
+                false));
+
+    // the dialog comes before the delay ends; the delay then passes while it is shown
+    screen("Trust this folder? Enter to confirm");
+    await().pollDelay(Duration.ofMillis(600)).until(() -> true);
+    assertThat(typed()).isEmpty();
+    screen("ready");
+    assertThat(typed()).isEqualTo("go\r");
+
+    commands.tryEmitNext(new AgentCommand.End(null, null, "arun"));
+    done(result);
+  }
+
+  @Test
+  void screenWithColoursCarriesThemNextToItsText() throws Exception {
+    final CompletableFuture<Map<String, Object>> result =
+        start(run(preset("{\"readyDelayMs\":60000}"), "p", false));
+
+    send(
+        new LinkedHashMap<>(
+            Map.of(
+                "t", "screen", "cols", 100, "rows", 30, "text", "red", "styled", "\u001b[31mred")));
+
+    assertThat(conversation.calls())
+        .anyMatch(c -> c.startsWith("emit TERMINAL null") && c.contains("styled=\u001b[31mred"));
     commands.tryEmitNext(new AgentCommand.End(null, null, "arun"));
     done(result);
   }

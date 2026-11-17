@@ -8,6 +8,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.infenia.yukta.plugin.agent.AgentProtocol;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
@@ -57,6 +59,29 @@ class AgentPresetTest {
     assertThat(new AgentHarnesses(JSON, null).all().stream().map(AgentPreset::id).toList())
         .contains("claude-code", "codex")
         .isInstanceOf(List.class);
+  }
+
+  @Test
+  void agentTerminalPresetsPasteThePromptAndClaudeWaitsForItsPromptBox() throws IOException {
+    final Map<String, AgentPreset> shipped =
+        new AgentHarnesses(JSON, null)
+            .all().stream().collect(Collectors.toMap(AgentPreset::id, preset -> preset));
+
+    for (final String id : List.of("claude-tui", "codex-tui", "antigravity-tui")) {
+      final AgentPreset preset = shipped.get(id);
+      assertThat(preset.protocol()).as(id).isEqualTo(AgentProtocol.PTY);
+      assertThat(preset.command()).as(id).isNotEmpty();
+      assertThat(preset.modelArgs()).as(id).containsExactly("--model", "{model}");
+      assertThat(preset.pty().type()).as(id).isEqualTo("\u001b[200~{prompt}\u001b[201~");
+      assertThat(preset.pty().submitDelayMs()).as(id).isPositive();
+    }
+    final AgentPreset.Pty claude = shipped.get("claude-tui").pty();
+    // the screens of Claude Code 2.1: the prompt box, and its trust dialog
+    assertThat(claude.readyPattern().matcher("────────────\n❯ Try \"fix lint errors\"").find())
+        .isTrue();
+    assertThat(claude.readyPattern().matcher("Security guide\n❯ No, exit").find()).isFalse();
+    assertThat(claude.attentionPattern().matcher("Enter to confirm · Esc to cancel").find())
+        .isTrue();
   }
 
   @Test

@@ -1,0 +1,22 @@
+{
+  "id": "codex-tui",
+  "protocol": "pty",
+  "description": "OpenAI Codex CLI in its own terminal UI: watch and type in the Agents tab. The prompt is pasted after a delay (its screens are not recorded yet, so no ready pattern). The output is the last screen as text: no cost, usage or structured result (use the headless preset for those). The node runs until the program exits, someone ends it, or its timeout. Needs yukta.agents.pty.enabled=true, the command in yukta.process.allowed-commands and HOME in yukta.process.pass-env; log in once beforehand and trust the working folder, else the first screen is a dialog the person answers in the Agents tab before the prompt is typed.",
+  "command": [
+    "codex"
+  ],
+  "modelArgs": [
+    "--model",
+    "{model}"
+  ],
+  "pty": {
+    "type": "\u001b[200~{prompt}\u001b[201~",
+    "readyPattern": null,
+    "readyDelayMs": 4000,
+    "submit": "\r",
+    "submitDelayMs": 500,
+    "interruptKeys": "\u001b",
+    "attentionPattern": "(?i)enter to confirm|esc to cancel",
+    "donePattern": null
+  }
+}

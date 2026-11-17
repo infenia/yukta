@@ -63,6 +63,7 @@ final class PtySession implements PluginLogSink {
   private boolean closing;
   private boolean done;
   private boolean waiting;
+  private boolean due;
   private int sent;
   private int cols;
   private int rows;
@@ -120,7 +121,7 @@ final class PtySession implements PluginLogSink {
     if (!run.promptInArgs() && !run.prompt().isEmpty()) {
       background.add(
           Mono.delay(Duration.ofMillis(Math.max(0, pty.readyDelayMs())))
-              .subscribe(_ -> typePrompt()));
+              .subscribe(_ -> delayPassed()));
     }
   }
 
@@ -170,16 +171,20 @@ final class PtySession implements PluginLogSink {
     rows = frame.rows() > 0 ? frame.rows() : rows;
     final Map<String, Object> data = new LinkedHashMap<>();
     data.put("screen", frame.text());
+    if (!frame.styled().isEmpty()) {
+      data.put("styled", frame.styled());
+    }
     data.put(COLS, cols);
     data.put(ROWS, rows);
     data.put("cursorRow", frame.cursorRow());
     data.put("cursorCol", frame.cursorCol());
     data.put("settled", true);
     handle.emit(AgentEventKind.TERMINAL, null, data);
-    if (!typed.get() && matches(pty.readyPattern(), frame.text())) {
+    attention(frame.text());
+    // never into a screen that wants attention: a trust dialog takes Enter as its answer
+    if (!waiting && (due || matches(pty.readyPattern(), frame.text()))) {
       typePrompt();
     }
-    attention(frame.text());
     if (matches(pty.donePattern(), frame.text())) {
       done = true;
       closeHost();
@@ -203,10 +208,39 @@ final class PtySession implements PluginLogSink {
 
   // ---- typing
 
+  /** The ready delay has passed: type the prompt unless the screen wants attention first. */
+  private void delayPassed() {
+    lock.lock();
+    try {
+      due = true;
+      if (!waiting) {
+        typePrompt();
+      }
+    } finally {
+      lock.unlock();
+    }
+  }
+
   private void typePrompt() {
     if (typed.compareAndSet(false, true)) {
-      type(pty.type().replace("{prompt}", run.prompt()));
+      final String text = pty.type().replace("{prompt}", run.prompt());
+      if (pty.submitDelayMs() > 0) {
+        typeAndSubmit(text);
+      } else {
+        type(text);
+      }
     }
+  }
+
+  /** Types text and the submit keys, these apart after the preset's pause when it has one. */
+  private void typeAndSubmit(final String text) {
+    if (pty.submitDelayMs() <= 0) {
+      type(text + pty.submit());
+      return;
+    }
+    type(text);
+    background.add(
+        Mono.delay(Duration.ofMillis(pty.submitDelayMs())).subscribe(_ -> type(pty.submit())));
   }
 
   private void type(final String text) {
@@ -253,7 +287,7 @@ final class PtySession implements PluginLogSink {
     if (message.interrupt()) {
       type(pty.interruptKeys());
     }
-    type(message.text() + pty.submit());
+    typeAndSubmit(message.text());
   }
 
   /** Asks the host to end the program; one that stays is killed after the grace period. */
