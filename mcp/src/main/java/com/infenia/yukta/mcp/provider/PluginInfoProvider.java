@@ -109,7 +109,8 @@ public class PluginInfoProvider {
         plugin.getTier(),
         plugin.isRestricted(),
         enabledPlugin != null,
-        enabledPlugin != null ? null : registry.enableHint(type));
+        enabledPlugin != null ? null : registry.enableHint(type),
+        plugin.getConfigSchema());
   }
 
   /**

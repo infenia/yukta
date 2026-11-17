@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.mcp.dto.PluginCreationGuide;
 import com.infenia.yukta.mcp.dto.PluginDetails;
 import com.infenia.yukta.mcp.dto.PluginSummary;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
@@ -88,11 +89,14 @@ class PluginInfoProviderTest {
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(plugin.describe()).thenReturn(new PluginDescriptor("desc", "pattern", Optional.empty()));
     when(plugin.getOutputPorts()).thenReturn(List.of());
+    final var field = ConfigField.required("url", ConfigField.Type.STRING, "where to send");
+    when(plugin.getConfigSchema()).thenReturn(List.of(field));
     when(registry.get("test-plugin")).thenReturn(plugin);
 
     PluginDetails details = provider.getPluginDetails("test-plugin", null);
     assertEquals("test-plugin", details.type());
     assertEquals("desc", details.description());
+    assertEquals(List.of(field), details.configFields());
   }
 
   @Test

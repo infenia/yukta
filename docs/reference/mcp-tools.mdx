@@ -73,7 +73,7 @@ Create, read and version sessions and workflows, and discover plugins.
 | `delete_workflow` | ADMIN | `sessionId`, `workflowId`, `force?` | Deletes one workflow and its versions; run history stays. Same `force` rule. |
 | `list_plugins` | VIEWER | none | Lists plugins with categories. |
 | `list_ai_backends` | VIEWER | none | Lists the model and agent backends a plugin's `backend` option can select, with the options each reads. |
-| `get_plugin_details` | VIEWER | `type` | One plugin with its usage pattern. |
+| `get_plugin_details` | VIEWER | `type` | One plugin with its usage pattern and config fields (name, type, required, default, options). |
 | `get_plugin_creation_guide` | VIEWER | `templateType?` (`trigger`, `processor`, `terminal` or `all`) | Guide and templates for writing a plugin. |
 
 ## Run

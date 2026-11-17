@@ -3,6 +3,7 @@
 package com.infenia.yukta.mcp.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.UiDesign;
@@ -22,6 +23,7 @@ import org.jspecify.annotations.Nullable;
  * @param restricted true when it reaches outside the engine
  * @param enabled false when the plugin exists but is not enabled; a workflow cannot use it
  * @param enableWith what an operator sets to enable it; absent when already enabled
+ * @param configFields the keys the node config takes: name, type, required, default and options
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record PluginDetails(
@@ -34,7 +36,8 @@ public record PluginDetails(
     PluginTier tier,
     boolean restricted,
     boolean enabled,
-    @Nullable String enableWith) {
+    @Nullable String enableWith,
+    List<ConfigField> configFields) {
 
   /** Details of an enabled, core, unrestricted plugin. */
   public PluginDetails(
@@ -54,11 +57,13 @@ public record PluginDetails(
         PluginTier.CORE,
         false,
         true,
-        null);
+        null,
+        List.of());
   }
 
   /** Compact constructor to ensure immutability. */
   public PluginDetails {
     outputPorts = outputPorts == null ? List.of() : List.copyOf(outputPorts);
+    configFields = configFields == null ? List.of() : List.copyOf(configFields);
   }
 }
