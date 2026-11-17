@@ -3,18 +3,8 @@
 
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
-
-const envelope = (path: string, data: unknown) => ({
-  status: 200,
-  contentType: 'application/json',
-  body: JSON.stringify({
-    timestamp: '2026-07-26T14:23:23',
-    status: 200,
-    message: 'OK',
-    path,
-    data,
-  }),
-});
+import { envelope } from '../api-envelope';
+import { ControlPage } from '../pages/ControlPage';
 
 const ok = (data: unknown) => envelope('/api', data);
 
@@ -56,7 +46,8 @@ test.describe('Control page', () => {
         leaseUntil: '2099-01-01T00:00:00Z',
       },
     ]);
-    await page.goto('/control');
+    const control = new ControlPage(page);
+    await control.goto();
 
     const row = page.getByRole('row', { name: /gpu-worker-1/ });
     await expect(row).toContainText('6/8');
@@ -66,7 +57,8 @@ test.describe('Control page', () => {
 
   test('says when no workers are connected', async ({ page }) => {
     await mockControlApi(page, []);
-    await page.goto('/control');
+    const control = new ControlPage(page);
+    await control.goto();
 
     await expect(page.getByText('No workers connected.')).toBeVisible();
   });
@@ -94,7 +86,8 @@ test.describe('Control page', () => {
           }),
       })
     );
-    await page.goto('/control?tab=activity');
+    const control = new ControlPage(page);
+    await control.goto('activity');
 
     await expect(page.getByText('ingest → RUNNING')).toBeVisible();
     await expect(page.getByText('load → FAILURE')).toBeVisible();
@@ -122,7 +115,8 @@ test.describe('Control page', () => {
       }
       return route.fulfill(envelope('/limits', limits));
     });
-    await page.goto('/control');
+    const control = new ControlPage(page);
+    await control.goto();
 
     await expect(page.getByText('Unlimited')).toBeVisible();
     await page.getByRole('button', { name: 'Edit limits' }).click();
@@ -187,7 +181,8 @@ test.describe('Control page', () => {
         })
       );
     });
-    await page.goto('/control');
+    const control = new ControlPage(page);
+    await control.goto();
 
     const strip = page.getByTestId('command-strip');
     await expect(strip).toContainText('2.0');
@@ -238,7 +233,8 @@ test.describe('Control page', () => {
         })
       )
     );
-    await page.goto('/control');
+    const control = new ControlPage(page);
+    await control.goto();
 
     const section = page.getByRole('region', { name: 'Supervisors' });
     await expect(section).toContainText('Under direct control2');
@@ -251,8 +247,9 @@ test.describe('Control page', () => {
     page,
   }) => {
     await mockControlApi(page, []);
-    await page.goto('/control');
-    await page.getByRole('button', { name: 'Kiosk' }).click();
+    const control = new ControlPage(page);
+    await control.goto();
+    await control.kioskButton.click();
 
     const kiosk = page.getByRole('dialog', { name: 'Kiosk mode' });
     await expect(kiosk).toBeVisible();
@@ -271,17 +268,18 @@ test.describe('Control page', () => {
   }) => {
     await mockControlApi(page, []);
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/control');
+    const control = new ControlPage(page);
+    await control.goto();
     const overflow = () =>
       page.evaluate(
         () =>
           document.documentElement.scrollWidth >
           document.documentElement.clientWidth
       );
-    await expect(page.getByTestId('mission-control')).toBeVisible();
+    await expect(control.root).toBeVisible();
     expect(await overflow()).toBe(false);
 
-    await page.getByRole('button', { name: 'Kiosk' }).click();
+    await control.kioskButton.click();
     const kiosk = page.getByTestId('kiosk');
     await expect(kiosk).toBeVisible();
     const sideways = await kiosk.evaluate(
@@ -292,8 +290,9 @@ test.describe('Control page', () => {
 
   test('keeps the control audit in its own tab', async ({ page }) => {
     await mockControlApi(page, []);
-    await page.goto('/control');
-    await expect(page.getByTestId('mission-control')).toBeVisible();
+    const control = new ControlPage(page);
+    await control.goto();
+    await expect(control.root).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Who did what' })
     ).toHaveCount(0);
@@ -303,7 +302,7 @@ test.describe('Control page', () => {
     await expect(
       page.getByRole('heading', { name: 'Who did what' })
     ).toBeVisible();
-    await expect(page.getByTestId('mission-control')).toHaveCount(0);
+    await expect(control.root).toHaveCount(0);
   });
 
   test('narrows every panel to a workflow chosen in the scope filter', async ({
@@ -332,7 +331,8 @@ test.describe('Control page', () => {
         ])
       )
     );
-    await page.goto('/control');
+    const control = new ControlPage(page);
+    await control.goto();
 
     const scope = page.getByRole('combobox', { name: 'Scope' });
     await expect(
@@ -385,7 +385,8 @@ test.describe('Control page', () => {
         })
       )
     );
-    await page.goto('/control');
+    const control = new ControlPage(page);
+    await control.goto();
 
     const approvals = page.getByRole('group', {
       name: /Approvals waiting: 2\./,
@@ -422,7 +423,8 @@ test.describe('Control page', () => {
       resumed = new URL(route.request().url()).pathname;
       return route.fulfill(ok({ executionId: 'run-7' }));
     });
-    await page.goto('/control');
+    const control = new ControlPage(page);
+    await control.goto();
 
     await page
       .getByRole('button', { name: 'resume wf-held run run-7' })

@@ -2,18 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { test, expect } from '../fixtures';
-
-const envelope = (path: string, data: unknown) => ({
-  status: 200,
-  contentType: 'application/json',
-  body: JSON.stringify({
-    timestamp: '2026-07-26T14:23:23',
-    status: 200,
-    message: 'OK',
-    path,
-    data,
-  }),
-});
+import { envelope } from '../api-envelope';
+import { RunsPage } from '../pages/RunsPage';
 
 const run = (n: number, status: string) => ({
   sessionId: 'SESSION_A92_XP_2024',
@@ -50,27 +40,29 @@ test.describe('Runs page', () => {
     mockWorkflowApi,
   }) => {
     await mockWorkflowApi(page);
-    await page.goto('/runs');
-    await expect(page.getByRole('link', { name: '0000abcd' })).toBeVisible();
+    const runs = new RunsPage(page);
+    await runs.goto();
+    await expect(runs.run('0000abcd')).toBeVisible();
 
-    await page.getByLabel('Status').selectOption('FAILURE');
+    await runs.status.selectOption('FAILURE');
     await expect(page).toHaveURL(/status=FAILURE/);
-    await expect(page.getByRole('link', { name: '0001abcd' })).toBeVisible();
-    await expect(page.getByRole('link', { name: '0000abcd' })).toHaveCount(0);
+    await expect(runs.run('0001abcd')).toBeVisible();
+    await expect(runs.run('0000abcd')).toHaveCount(0);
 
-    await page.getByLabel('Status').selectOption('');
-    await expect(page.getByRole('row')).toHaveCount(101);
-    await page.getByRole('button', { name: 'Load more' }).click();
-    await expect(page.getByRole('row')).toHaveCount(151);
+    await runs.status.selectOption('');
+    await expect(runs.rows).toHaveCount(101);
+    await runs.loadMore.click();
+    await expect(runs.rows).toHaveCount(151);
 
-    await page.getByRole('link', { name: '0000abcd' }).click();
+    await runs.run('0000abcd').click();
     await expect(page).toHaveURL(/\/workflow\/wf-982-xk-11\?exec=0000abcd-run/);
   });
 
   test('old /history links land on /runs with their query', async ({
     page,
   }) => {
-    await page.goto('/history?status=SUCCESS');
+    const runs = new RunsPage(page);
+    await runs.gotoHistory('SUCCESS');
     await expect(page).toHaveURL(/\/runs\?status=SUCCESS/);
   });
 });

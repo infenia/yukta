@@ -8,6 +8,7 @@ import {
   defaultWorkflowGraph,
   sseBody,
 } from '../fixtures';
+import { envelope } from '../api-envelope';
 
 const WORKFLOW_URL = '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11';
 
@@ -407,17 +408,6 @@ test.describe('Workflow Details Page', () => {
   test('answers an input request that waits for a decision', async ({
     page,
   }) => {
-    const envelope = (path: string, data: unknown) => ({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        timestamp: '2026-07-26T14:23:23',
-        status: 200,
-        message: 'OK',
-        path,
-        data,
-      }),
-    });
     let pending = true;
     await page.route('**/api/sessions/*/inputs*', (route) =>
       route.fulfill(
@@ -474,17 +464,6 @@ test.describe('Workflow Details Page', () => {
     // rollback is blocked while the run on screen is going, so use a finished one
     await mockWorkflowApi(page, {
       progress: { ...defaultProgress, status: 'COMPLETED' },
-    });
-    const envelope = (path: string, data: unknown) => ({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        timestamp: '2026-07-26T14:23:23',
-        status: 200,
-        message: 'OK',
-        path,
-        data,
-      }),
     });
     await page.route(/\/workflows\/[^/]+\/versions$/, (route) =>
       route.fulfill(
