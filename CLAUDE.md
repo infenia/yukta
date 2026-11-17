@@ -80,6 +80,18 @@ root, so `ui/`, `boot/` and `docs/` carry their own `.claude/settings.json` with
 rule to the root file and to the module that holds the path. Worktree sessions get them with the checkout. To work on a denied file,
 remove its rule in your own checkout for the session (a deny cannot be overridden by `allow` or `settings.local.json`).
 
+## API-shape changes: refresh the snapshots in the same change
+
+Changing anything that reaches the REST schema (a `*Request`/`*Response` DTO in `web`, a model it maps from such as `WorkflowDefinition`,
+a controller signature or `@Schema`) makes `:boot:test` fail on `OpenApiSnapshotTest` ("ui/openapi.json is stale") and `ui` fail on
+`apiTypesCheck`. Do this **before** `yk check`, not after it fails (the heal ladder cannot fix it: `openapi.json` is unreadable to it):
+
+```bash
+yk gradle :boot:test --tests "*OpenApiSnapshotTest" -Pyukta.openapi.update=true   # rewrites ui/openapi.json
+yk tool -C ui pnpm run api:types -- openapi.json                                   # rewrites ui/src/types/api.generated.ts
+```
+The test refreshes only `ui/openapi.json`; whether `docs/api/openapi.json` needs the same is unconfirmed (see `design/decisions/0001-input-requests.md`). Commit the regenerated files with the DTO change. Never hand-edit them.
+
 ## Commit Message Conventions
 
 All commits follow **Conventional Commits** format. See `.gitmessage` template (shown when committing), `.git-commit-guide.md`, and `.claude/rules/git-workflow.md` for full details. The `.git/hooks/commit-msg` hook validates format automatically.
