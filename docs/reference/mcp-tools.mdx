@@ -83,7 +83,7 @@ Start runs and read their state, logs, output and result.
 | Tool | Role | Arguments | Purpose |
 |---|---|---|---|
 | `start_workflow` | OPERATOR | `sessionId`, `workflowId`, `idempotencyKey?` | Starts a run and returns its id. The same key for the same workflow returns the first run (remembered for `yukta.start.idempotency-ttl`, 10 minutes by default). Without a key, a repeat start within `yukta.mcp.start-dedupe-window` (30 seconds by default) returns the earlier run with `reusedExecution: true`. |
-| `get_workflow_status` | VIEWER | `sessionId`, `executionId` | Overall status, per-node progress, start and end times. |
+| `get_workflow_status` | VIEWER | `sessionId`, `executionId`, `waitSeconds?` | Overall status, per-node progress, start and end times. With `waitSeconds` (at most 30) it answers when the run status, control state or a node's status changes, or with the current snapshot when the time is up. |
 | `get_workflow_history` | VIEWER | `sessionId` | Runs of a session with status and times. |
 | `get_execution_tree` | VIEWER | `sessionId`, `executionId` | A run and every sub-workflow run it started, oldest first, with `parentExecutionId` and status. |
 | `get_execution_logs` | VIEWER | `sessionId`, `executionId`, `tailLines?`, `filterPattern?`, `afterCursor?` | Persisted plugin logs. `filterPattern` is a regex; pass the previous `nextCursor` as `afterCursor` to read newer lines. |

@@ -864,14 +864,22 @@ public class AppMcpTools {
       title = "Get Workflow Status",
       description =
           "Get the current progress snapshot of a workflow execution, including overall "
-              + "status, per-node task progress, and start/end times. Poll this tool to track "
-              + "a running execution.",
+              + "status, per-node task progress, and start/end times. To follow a running "
+              + "execution, pass waitSeconds (at most 30): the call returns as soon as the run's "
+              + "status, control state or a node's status changes (a node pausing at a "
+              + "breakpoint, the run finishing), or with the current snapshot when the time is "
+              + "up. Call it again to keep watching.",
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<WorkflowProgress> getWorkflowStatus(
       @McpToolParam(required = true, description = SESSION_ID_DESC) final String sessionId,
-      @McpToolParam(required = true, description = EXECUTION_ID_DESC) final String executionId) {
-    return workflowExecutionProvider.getWorkflowStatus(sessionId, executionId);
+      @McpToolParam(required = true, description = EXECUTION_ID_DESC) final String executionId,
+      @McpToolParam(
+              required = false,
+              description =
+                  "Seconds to wait for a change before answering, 0 to 30 (default 0: answer now)")
+          final Integer waitSeconds) {
+    return workflowExecutionProvider.getWorkflowStatus(sessionId, executionId, waitSeconds);
   }
 
   /**

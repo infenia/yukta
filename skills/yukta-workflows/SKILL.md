@@ -119,7 +119,7 @@ Never put credentials, keys or tokens in a workflow you create or in a message; 
 ## Start a run and watch it
 
 1. `start_workflow` with `sessionId` and `workflowId` returns `executionId`. It has no payload argument: the run starts with an empty trigger payload.
-2. Poll `get_workflow_status`: the run status and a status for each node. Poll every few seconds, not in a tight loop.
+2. Watch with `get_workflow_status` and `waitSeconds: 30`: it answers as soon as the run status or a node's status changes (or after 30 s with the current one); call it again until the run has finished. Without `waitSeconds` it answers at once, so do not call it in a tight loop.
 3. While it runs, read the log with `get_execution_logs`: pass the previous call's `nextCursor` as `afterCursor` to receive only new lines. Use
    `filterPattern` (a regular expression, at most 200 characters) and `tailLines` to keep the answer small.
 4. When it has ended, `get_execution_result` gives what reached the terminal nodes (`complete` is `true` once the run ended).
