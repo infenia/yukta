@@ -1568,7 +1568,9 @@ public class AppMcpTools {
       name = "get_plugin_details",
       title = "Get Plugin Details",
       description =
-          "Get full details of a specific Yukta plugin including usage pattern. Some plugins"
+          "Get full details of a specific Yukta plugin: its usage pattern and its config fields"
+              + " (configFields: each key's name, type, whether it is required, default and"
+              + " allowed options). Some plugins"
               + " (routers, gates, classifiers) derive their output ports from the node config:"
               + " pass that config to get the ports to use as an edge's sourcePort",
       generateOutputSchema = true,

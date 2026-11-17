@@ -71,6 +71,19 @@ class McpDtoTest {
   }
 
   @Test
+  void testPluginDetailsNullConfigFieldsDefaultsToEmpty() {
+    assertThat(
+            new PluginDetails("t", null, "d", "u", null, List.of(), null, false, true, null, null)
+                .configFields())
+        .isEmpty();
+    assertThat(
+            new PluginDetails(
+                    "t", null, "d", "u", null, List.of(), null, false, true, null, List.of())
+                .configFields())
+        .isEmpty();
+  }
+
+  @Test
   void testPluginCreationGuideNullTemplatesDefaultsToEmpty() {
     assertThat(new PluginCreationGuide("a", null, "i", "c", "v", "t", "d").templateCode())
         .isEmpty();
