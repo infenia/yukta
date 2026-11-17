@@ -35,6 +35,8 @@ yk gradle :ui:pnpmTest
 yk gradle :ui:pnpmTestE2e -PrunE2e=true
 ```
 
+Before writing or changing any `e2e/**/*.spec.ts` (MSW-mocked), load the `playwright` skill.
+
 ### E2E against a real server
 `e2e/real/examples.spec.ts` (config `playwright.real.config.ts`, no MSW) drives the UI of a running server: it creates a session from
 every bundled template and runs examples, one with a human answer in the UI. Sessions are named `e2e-<template>-<run>` and deleted
