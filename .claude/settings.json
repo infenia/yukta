@@ -20,8 +20,7 @@
       "Read(./**/pnpm-lock.yaml)",
       "Read(./**/openapi.json)",
       "Read(./**/*.generated.*)",
-      "Read(./**/META-INF/native-image/**/*)",
-      "Read(./**/dogfood/session.json)"
+      "Read(./**/META-INF/native-image/**/*)"
     ]
   },
   "extraKnownMarketplaces": {
