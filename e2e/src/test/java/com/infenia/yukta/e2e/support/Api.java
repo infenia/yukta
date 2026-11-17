@@ -6,7 +6,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.security.ApiRole;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.List;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -78,6 +81,45 @@ public final class Api {
   }
 
   /**
+   * A client that authenticates with a bearer token (an agent credential) instead of an API key.
+   *
+   * @param baseUrl the server's base URL
+   * @param token the token
+   * @return the client
+   */
+  public static Api bearer(final String baseUrl, final String token) {
+    return new Api(
+        WebTestClient.bindToServer()
+            .baseUrl(baseUrl)
+            .defaultHeader("Authorization", "Bearer " + token)
+            .build());
+  }
+
+  /**
+   * Opens a server-sent event stream, checks it answers 200 as {@code text/event-stream}, reads for
+   * a short time and closes it.
+   *
+   * @param request the GET request of the stream
+   * @param window how long to read
+   * @return the events received in that time, one per line (empty if none came)
+   */
+  public static String events(
+      final WebTestClient.RequestHeadersSpec<?> request, final Duration window) {
+    final var result =
+        request
+            .accept(MediaType.TEXT_EVENT_STREAM)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .expectHeader()
+            .contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM)
+            .returnResult(String.class);
+    final List<String> received =
+        result.getResponseBody().take(window).collectList().block(window.plusSeconds(10));
+    return received == null ? "" : String.join("\n", received);
+  }
+
+  /**
    * Reads an answer as text, whatever its status.
    *
    * @param response the response to a request built on {@link #client()}
@@ -112,7 +154,7 @@ public final class Api {
    * @param status the expected HTTP status
    * @return the envelope, to assert the message further
    */
-  public JsonNode error(final WebTestClient.ResponseSpec response, final int status) {
+  public JsonNode failure(final WebTestClient.ResponseSpec response, final int status) {
     final JsonNode body =
         response
             .expectStatus()

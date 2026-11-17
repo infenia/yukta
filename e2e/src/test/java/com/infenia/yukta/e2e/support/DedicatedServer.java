@@ -27,17 +27,12 @@ public final class DedicatedServer implements AutoCloseable {
   private final String url;
   private final Map<ApiRole, String> keys;
   private final String scopedKey;
-  private final ConfigurableApplicationContext context;
 
   private DedicatedServer(
-      final String url,
-      final Map<ApiRole, String> keys,
-      final String scopedKey,
-      final ConfigurableApplicationContext context) {
+      final String url, final Map<ApiRole, String> keys, final String scopedKey) {
     this.url = url;
     this.keys = keys;
     this.scopedKey = scopedKey;
-    this.context = context;
   }
 
   /**
@@ -66,6 +61,7 @@ public final class DedicatedServer implements AutoCloseable {
     for (final String property : properties) {
       args.add("--" + property);
     }
+    @SuppressWarnings("PMD.CloseResource") // stopped by its shutdown hook, see close()
     final ConfigurableApplicationContext context =
         new SpringApplicationBuilder(YuktaApplication.class)
             .properties("yukta.process.allowed-commands=sh,echo")
@@ -73,8 +69,7 @@ public final class DedicatedServer implements AutoCloseable {
     return new DedicatedServer(
         "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port"),
         keys,
-        scoped,
-        context);
+        scoped);
   }
 
   /**
@@ -89,7 +84,7 @@ public final class DedicatedServer implements AutoCloseable {
     if (adminKey != null && !adminKey.isBlank()) {
       keys.put(ApiRole.ADMIN, adminKey);
     }
-    return new DedicatedServer(url.replaceAll("/+$", ""), keys, null, null);
+    return new DedicatedServer(url.replaceAll("/+$", ""), keys, null);
   }
 
   private static String addKey(
@@ -142,10 +137,12 @@ public final class DedicatedServer implements AutoCloseable {
     return scopedKey;
   }
 
+  /**
+   * Does nothing: the server stays up until the JVM exits. Closing one application context in a JVM
+   * that holds others stopped the shared server too (its Reactor resources are process-wide).
+   */
   @Override
   public void close() {
-    if (context != null) {
-      context.close();
-    }
+    // intentionally empty; the shutdown hook of each SpringApplication stops its context
   }
 }
