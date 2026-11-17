@@ -33,11 +33,19 @@ public final class Api {
    * @return the client
    */
   public static Api forRole(final ApiRole role) {
-    return new Api(
-        WebTestClient.bindToServer()
-            .baseUrl(YuktaServer.baseUrl())
-            .defaultHeader("X-API-Key", YuktaServer.key(role))
-            .build());
+    return toServer(YuktaServer.baseUrl(), YuktaServer.key(role));
+  }
+
+  /**
+   * A client for any server.
+   *
+   * @param baseUrl the server's base URL
+   * @param key the key to send in {@code X-API-Key}, or null to send none
+   * @return the client
+   */
+  public static Api toServer(final String baseUrl, final String key) {
+    final WebTestClient.Builder builder = WebTestClient.bindToServer().baseUrl(baseUrl);
+    return new Api(key == null ? builder.build() : builder.defaultHeader("X-API-Key", key).build());
   }
 
   /**
@@ -66,10 +74,16 @@ public final class Api {
             .method(HttpMethod.valueOf(method))
             .uri(path)
             .header("Content-Type", "application/json");
-    return read(body == null ? request.exchange() : request.bodyValue(body).exchange());
+    return reply(body == null ? request.exchange() : request.bodyValue(body).exchange());
   }
 
-  private static Reply read(final WebTestClient.ResponseSpec response) {
+  /**
+   * Reads an answer as text, whatever its status.
+   *
+   * @param response the response to a request built on {@link #client()}
+   * @return its status and body
+   */
+  public static Reply reply(final WebTestClient.ResponseSpec response) {
     final var result = response.returnResult(String.class);
     final byte[] content = result.getResponseBodyContent();
     return new Reply(
@@ -84,7 +98,7 @@ public final class Api {
    * @return the {@code data} field of the envelope (a missing node if there is none)
    */
   public JsonNode data(final WebTestClient.ResponseSpec response) {
-    final Reply reply = read(response);
+    final Reply reply = reply(response);
     assertThat(reply.status() / 100).as("answer %s: %s", reply.status(), reply.body()).isEqualTo(2);
     final JsonNode body = JSON.readTree(reply.body().isEmpty() ? "{}" : reply.body());
     assertThat(body.has("status")).as("the envelope has a status: %s", reply.body()).isTrue();
