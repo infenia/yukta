@@ -7,8 +7,12 @@ allowed-tools: Bash, Read, Monitor
 # Build, test and check through Yukta
 
 Every Gradle, Go and pnpm/npx run in this repo goes through a Yukta workflow on the dev server (built from `origin/main`,
-`http://127.0.0.1:9858`, started on demand). `yk` comes from the sibling [yukta-dogfood](https://github.com/infenia/yukta-dogfood) checkout (`scripts/dogfood-setup.sh` makes it, at the ref in `.dogfood-ref`; on PATH after session start). The `yukta-dogfood` mod blocks
-direct `./gradlew`, `gradle`, `go test|vet|build|fmt` and `pnpm|npm|npx` and names the `yk` command to use instead.
+`http://127.0.0.1:9858`, started on demand). `yk` comes from [yukta-dogfood](https://github.com/infenia/yukta-dogfood), a separate repository.
+This repo holds only the shim: `.dogfood-ref` (the ref to use), `scripts/dogfood-setup.sh` (clones/updates it into
+`$YUKTA_DOGFOOD_HOME`, default `~/.local/state/yukta-dev/dogfood`; on PATH after session start) and `scripts/dogfood-hook.sh`
+(runs its hooks). The hooks and the `yukta-dogfood` plugin block direct `./gradlew`, `gradle`, `go test|vet|build|fmt`,
+`pnpm|npm|npx` and bare `bun` and name the `yk` command to use instead. Anything about how `yk` itself works is documented in the
+[yukta-dogfood README](https://github.com/infenia/yukta-dogfood#readme): read it there, and change `yk` there, not in this repo.
 
 ```bash
 yk gradle <gradle args...>             # :core:compileJava | :core:test --tests '<FQCN>' | spotlessApply
@@ -16,6 +20,19 @@ yk tool [-C <dir>] <command> [args...] # dir relative to the repo root: -C cli g
 yk check                               # the gate for your changes (below)
 ```
 Every argument is shell-quoted. Two runs go at once (a Gradle daemon uses about 4 GB); a third waits.
+
+Other commands (`yk --help` lists all; the README has the detail):
+
+| Command | Use |
+|---|---|
+| `yk up` / `status` / `down` | the dev server: build from `origin/main` and run it, show whether it is stale, stop it |
+| `yk stats` | runs, failures, median wall time and heal dollars per kind of run |
+| `yk heal report\|show` | what the heal ladder did and cost, the raw events |
+| `yk report [scan\|on\|off\|status]` | failures captured from runs, filed as GitHub issues once you approve |
+| `yk throttle` | the load supervisor: pauses runs while CPU/RAM are short (starts by itself; `YK_THROTTLE=off`) |
+| `yk bench` | the same Gradle work direct and through `yk`, as a wall-time ratio |
+| `yk new engine <name>` | scaffold a supervisor engine module |
+| `yk ticket ...`, `yk pickup ...` | the issue pipeline and the issue hand-over (see below) |
 
 ## Pick the smallest scope
 | Need | Command |
@@ -76,14 +93,17 @@ lines of that stage). Fix only what they report, then rerun the same command. If
 (`<failure` in `<module>/build/test-results/test/TEST-*.xml`); never read a report or log whole.
 Levels of output: a green run is a few lines ending in `RESULT`; a red run adds the `ERROR` lines (known noise such as `BUILD FAILED in ..`, the exit-code line and JVM `WARNING:` lines is dropped, so a failing compile is a few hundred bytes), then a `MORE yk detail <session> <execution>` line just above `RESULT`. That is the next level: `yk detail <session> <execution> [--grep P] [--tail N] [--head N]` prints the full output of the stage that failed, filtered; use it before opening a report file.
 
-## Headless fixers read more over MCP
-A fixer's prompt carries the failure in short (the L1 digest) and its session id. With the dev server's read-only `fixer` key it can call
-`mcp__yukta__get_workflow_history` / `get_node_output` (tail, grep, page) for more, so it asks for detail instead of receiving it. It cannot
-start, control or change anything (a `VIEWER` key, plus a deny list in `src/heal/claude.ts` of yukta-dogfood). `YUKTA_FIXER_MCP=off` disables it.
+## Fixers, pickup and tickets
+- Headless fixers get a short failure digest and can read more through the dev server's read-only `fixer` MCP key (`YUKTA_FIXER_MCP=off` disables it).
+- `yk pickup session|on|off|now|status|list` hands assigned issues to open sessions; a `<channel source="yukta-pickup" ..>` event means: use the `pickup` skill.
+- `yk ticket new|edit|run|status|...` takes an issue to a draft PR: use the `ticket` skill to write one; never start `yk ticket run` on your own.
+- Details for all three: the yukta-dogfood README.
 
-## Pickup (scheduled issue hand-over)
-`yk pickup session` opens an interactive session that receives issues (several may be open; the schedule hands each idle one an issue); `yk pickup on|off|now|status` drives the schedule. To hand out only chosen issues: `yk pickup now --issue 12,34` (one round) or the file `$DEV_HOME/pickup-issues` (numbers, one per line; `//` comments; the schedule reads it every round); `yk pickup list` shows what the next round would take and the filter in force. An event
-`<channel source="yukta-pickup" ..>` means: use the `pickup` skill. Details in the yukta-dogfood README ("Pickup").
+## Update and repair the setup
+- **Newer `yk`**: `.dogfood-ref` is a branch (`main` follows the tip), tag or commit; run `scripts/dogfood-setup.sh` after changing it. A tag pins.
+- **Newer server**: `yk up` (swaps only while no run is going). **Down or stale**: `yk status`; log `~/.local/state/yukta-dev/up.log`.
+- **Hooks do nothing / `yk` not found**: the checkout is missing (the hook exits silently): run `scripts/dogfood-setup.sh`; needs `git` and `bun`.
+- **Developing yukta-dogfood**: set `YUKTA_DOGFOOD_HOME` to your clone and run `yk` from a yukta checkout; its tests run in that repository.
 
 ## Don'ts
 - Don't run `./gradlew`/`gradle`, `go` or `pnpm`/`npm`/`npx` directly, or start the Yukta dev server yourself (`./gradlew bootRun`
