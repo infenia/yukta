@@ -73,7 +73,8 @@ public record AgentPreset(
    * @param type what is typed once the program is ready, to give it the prompt; {@code {prompt}} is
    *     the prompt. Not used when the command carries {@code {prompt}} as an argument
    * @param readyPattern a screen that matches says the program is ready for the prompt, or null
-   * @param readyDelayMs how long to wait for it before typing the prompt anyway
+   * @param readyDelayMs how long to wait for it before typing the prompt anyway (never into a
+   *     screen that wants attention: then the prompt waits until the screen stops wanting it)
    * @param submit what is typed after a message to send it
    * @param interruptKeys what is typed to stop the program's turn
    * @param attentionPattern a screen that matches says the program waits for a person, or null

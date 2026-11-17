@@ -287,6 +287,44 @@ class PtyAdapterTest {
   }
 
   @Test
+  void delayDoesNotTypeIntoScreenThatWantsAttention_butOnceItClears() throws Exception {
+    final CompletableFuture<Map<String, Object>> result =
+        start(
+            run(
+                preset(
+                    "{\"readyDelayMs\":300,\"type\":\"{prompt}\\r\","
+                        + "\"attentionPattern\":\"Enter to confirm\"}"),
+                "go",
+                false));
+
+    // the dialog comes before the delay ends; the delay then passes while it is shown
+    screen("Trust this folder? Enter to confirm");
+    await().pollDelay(Duration.ofMillis(600)).until(() -> true);
+    assertThat(typed()).isEmpty();
+    screen("ready");
+    assertThat(typed()).isEqualTo("go\r");
+
+    commands.tryEmitNext(new AgentCommand.End(null, null, "arun"));
+    done(result);
+  }
+
+  @Test
+  void screenWithColoursCarriesThemNextToItsText() throws Exception {
+    final CompletableFuture<Map<String, Object>> result =
+        start(run(preset("{\"readyDelayMs\":60000}"), "p", false));
+
+    send(
+        new LinkedHashMap<>(
+            Map.of(
+                "t", "screen", "cols", 100, "rows", 30, "text", "red", "styled", "\u001b[31mred")));
+
+    assertThat(conversation.calls())
+        .anyMatch(c -> c.startsWith("emit TERMINAL null") && c.contains("styled=\u001b[31mred"));
+    commands.tryEmitNext(new AgentCommand.End(null, null, "arun"));
+    done(result);
+  }
+
+  @Test
   void screenThatIsDoneEndsTheTerminalAsSuccess_whateverTheHostExitCodeWas() throws Exception {
     final CompletableFuture<Map<String, Object>> result =
         start(run(preset("{\"readyDelayMs\":60000,\"donePattern\":\"DONE\"}"), "p", false));

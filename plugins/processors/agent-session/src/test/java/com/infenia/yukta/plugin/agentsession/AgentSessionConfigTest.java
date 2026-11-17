@@ -64,7 +64,8 @@ class AgentSessionConfigTest {
     assertThatThrownBy(() -> config.validate(Map.of("harness", "codex")))
         .hasMessage("prompt is mandatory");
     assertThatThrownBy(() -> config.validate(Map.of("prompt", "p")))
-        .hasMessageStartingWith("harness is mandatory; one of [antigravity, claude-code, codex");
+        .hasMessageStartingWith(
+            "harness is mandatory; one of [antigravity, antigravity-tui, claude-code");
   }
 
   @Test

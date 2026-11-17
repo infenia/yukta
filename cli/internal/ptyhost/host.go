@@ -192,6 +192,7 @@ func (h *host) screenLocked() {
 		Cols:      h.opts.Cols,
 		Rows:      h.opts.Rows,
 		Text:      h.screen.Text(),
+		Styled:    h.screen.Styled(),
 		CursorRow: row,
 		CursorCol: col,
 	}

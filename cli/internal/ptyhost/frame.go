@@ -30,6 +30,7 @@ type screenFrame struct {
 	Cols      int    `json:"cols"`
 	Rows      int    `json:"rows"`
 	Text      string `json:"text"`
+	Styled    string `json:"styled,omitempty"`
 	CursorRow int    `json:"cursorRow"`
 	CursorCol int    `json:"cursorCol"`
 }

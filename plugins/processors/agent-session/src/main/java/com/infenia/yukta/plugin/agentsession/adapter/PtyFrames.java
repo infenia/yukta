@@ -14,7 +14,8 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * The frames of {@code yukta-cli pty-host}: one JSON object per line, {@code t} names the kind. The
  * server sends {@code in} (keys, base64), {@code resize} and {@code close}; the host sends {@code
- * out} (output, base64), {@code screen} (the settled screen as text) and {@code exit}.
+ * out} (output, base64), {@code screen} (the settled screen as text, and with its colours as {@code
+ * styled}) and {@code exit}.
  */
 final class PtyFrames {
 
@@ -32,6 +33,7 @@ final class PtyFrames {
       String kind,
       byte @Nullable [] data,
       String text,
+      String styled,
       int cols,
       int rows,
       int cursorRow,
@@ -58,19 +60,20 @@ final class PtyFrames {
     return switch (kind) {
       case "out" -> {
         final byte[] bytes = decode(node.path("d").asString(""));
-        yield bytes.length == 0 ? null : new Host(kind, bytes, "", 0, 0, 0, 0, 0);
+        yield bytes.length == 0 ? null : new Host(kind, bytes, "", "", 0, 0, 0, 0, 0);
       }
       case "screen" ->
           new Host(
               kind,
               null,
               node.path("text").asString(""),
+              node.path("styled").asString(""),
               node.path("cols").asInt(0),
               node.path("rows").asInt(0),
               node.path("cursorRow").asInt(0),
               node.path("cursorCol").asInt(0),
               0);
-      case "exit" -> new Host(kind, null, "", 0, 0, 0, 0, node.path("code").asInt(-1));
+      case "exit" -> new Host(kind, null, "", "", 0, 0, 0, 0, node.path("code").asInt(-1));
       default -> null;
     };
   }

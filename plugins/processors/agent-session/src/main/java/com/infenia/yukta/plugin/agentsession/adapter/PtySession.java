@@ -63,6 +63,7 @@ final class PtySession implements PluginLogSink {
   private boolean closing;
   private boolean done;
   private boolean waiting;
+  private boolean due;
   private int sent;
   private int cols;
   private int rows;
@@ -120,7 +121,7 @@ final class PtySession implements PluginLogSink {
     if (!run.promptInArgs() && !run.prompt().isEmpty()) {
       background.add(
           Mono.delay(Duration.ofMillis(Math.max(0, pty.readyDelayMs())))
-              .subscribe(_ -> typePrompt()));
+              .subscribe(_ -> delayPassed()));
     }
   }
 
@@ -170,16 +171,20 @@ final class PtySession implements PluginLogSink {
     rows = frame.rows() > 0 ? frame.rows() : rows;
     final Map<String, Object> data = new LinkedHashMap<>();
     data.put("screen", frame.text());
+    if (!frame.styled().isEmpty()) {
+      data.put("styled", frame.styled());
+    }
     data.put(COLS, cols);
     data.put(ROWS, rows);
     data.put("cursorRow", frame.cursorRow());
     data.put("cursorCol", frame.cursorCol());
     data.put("settled", true);
     handle.emit(AgentEventKind.TERMINAL, null, data);
-    if (!typed.get() && matches(pty.readyPattern(), frame.text())) {
+    attention(frame.text());
+    // never into a screen that wants attention: a trust dialog takes Enter as its answer
+    if (!waiting && (due || matches(pty.readyPattern(), frame.text()))) {
       typePrompt();
     }
-    attention(frame.text());
     if (matches(pty.donePattern(), frame.text())) {
       done = true;
       closeHost();
@@ -202,6 +207,19 @@ final class PtySession implements PluginLogSink {
   }
 
   // ---- typing
+
+  /** The ready delay has passed: type the prompt unless the screen wants attention first. */
+  private void delayPassed() {
+    lock.lock();
+    try {
+      due = true;
+      if (!waiting) {
+        typePrompt();
+      }
+    } finally {
+      lock.unlock();
+    }
+  }
 
   private void typePrompt() {
     if (typed.compareAndSet(false, true)) {

@@ -105,9 +105,10 @@ export function AgentTerminal({
     if (!terminal || event.kind !== 'TERMINAL') return;
     const { data } = event;
     if (typeof data.screen === 'string') {
-      // a settled screen: start the view again from it
+      // a settled screen: start the view again from it, in its colours when the host sent them
+      const shown = typeof data.styled === 'string' ? data.styled : data.screen;
       terminal.reset();
-      terminal.write(data.screen.replace(/\n/g, '\r\n'));
+      terminal.write(shown.replace(/\n/g, '\r\n'));
       const row = Number(data.cursorRow ?? 0) + 1;
       const col = Number(data.cursorCol ?? 0) + 1;
       terminal.write(`\x1b[${row};${col}H`);
