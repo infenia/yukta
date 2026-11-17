@@ -150,7 +150,7 @@ class FileWorkflowDefinitionStoreTest {
   }
 
   @Test
-  void onlyJsonFilesWithATimestampAreRevisions_aBareTimestampIsOne() throws IOException {
+  void onlyJsonFilesWithTimestampAreRevisions_bareTimestampIsOne() throws IOException {
     store.save("s", definition("w", "one")).block();
     final Path history = dir.resolve("workflows").resolve("s").resolve("w").resolve("history");
     Files.writeString(history.resolve("1700000000000abc.txt"), "x");
