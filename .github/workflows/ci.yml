@@ -250,7 +250,9 @@ jobs:
       - uses: ./.github/actions/setup-build
         with:
           go: ${{ matrix.name == 'cli' }}
-          node: ${{ contains(fromJson('["platform", "ui", "e2e", "postgres-acceptance", "plus-acceptance", "workers-acceptance"]'), matrix.name) }}
+          node: >-
+            ${{ contains(fromJson('["platform", "ui", "e2e", "postgres-acceptance", "plus-acceptance", "workers-acceptance"]'),
+            matrix.name) }}
           opengrep: ${{ contains(fromJson('["platform", "infra", "plugins"]'), matrix.name) }}
 
       # Trivy only gates main / scheduled runs (PRs get the report-only scan in security.yml).
