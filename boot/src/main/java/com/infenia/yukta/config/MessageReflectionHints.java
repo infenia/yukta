@@ -126,6 +126,10 @@ public class MessageReflectionHints {
           .registerReflectionHints(
               hints.reflection(), ApiResponse.class, ApiResponse.FieldError.class);
       registerRecordArrays(hints);
+      // WireSchemas reads these from the classpath at startup; a native image drops resources it
+      // is not told about, and the binary then dies in ExternalPlugins ("NullPointerException:
+      // /schema/plugin/v1/manifest.schema.json").
+      hints.resources().registerPattern("schema/plugin/v1/*.schema.json");
       EXPRESSION_TYPES.forEach(name ->
           hints
               .reflection()
