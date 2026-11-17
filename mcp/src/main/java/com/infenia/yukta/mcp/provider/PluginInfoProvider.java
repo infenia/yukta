@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.ai.AiBackend;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,9 +90,10 @@ public class PluginInfoProvider {
    * Get full details of a specific plugin.
    *
    * @param type the plugin type
+   * @param config the node config the output ports depend on, or null for the default ports
    * @return plugin details
    */
-  public PluginDetails getPluginDetails(final String type) {
+  public PluginDetails getPluginDetails(final String type, final Map<String, Object> config) {
     final Plugin enabledPlugin = registry.get(type);
     final Plugin plugin = enabledPlugin != null ? enabledPlugin : registry.getDisabled(type);
     if (plugin == null) {
@@ -103,7 +105,7 @@ public class PluginInfoProvider {
         plugin.describe().description(),
         plugin.describe().usagePattern(),
         plugin.describe().uiDesign().orElse(null),
-        plugin.getOutputPorts(),
+        config == null ? plugin.getOutputPorts() : plugin.getOutputPorts(config),
         plugin.getTier(),
         plugin.isRestricted(),
         enabledPlugin != null,

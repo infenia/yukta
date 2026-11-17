@@ -288,9 +288,11 @@ class AppMcpToolsTest {
   @Test
   void testGetPluginDetails() {
     var details = mock(PluginDetails.class);
-    when(pluginInfoProvider.getPluginDetails("test")).thenReturn(details);
+    when(pluginInfoProvider.getPluginDetails("test", null)).thenReturn(details);
 
-    StepVerifier.create(mcpTools.getPluginDetails("test")).expectNext(details).verifyComplete();
+    StepVerifier.create(mcpTools.getPluginDetails("test", null))
+        .expectNext(details)
+        .verifyComplete();
   }
 
   @Test

@@ -17,6 +17,7 @@ import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -74,7 +75,7 @@ class PluginInfoProviderTest {
     when(registry.getDisabled("LLM_TEST")).thenReturn(off);
     when(registry.enableHint("LLM_TEST")).thenReturn("set it");
 
-    PluginDetails details = provider.getPluginDetails("LLM_TEST");
+    PluginDetails details = provider.getPluginDetails("LLM_TEST", null);
 
     assertEquals(false, details.enabled());
     assertEquals("set it", details.enableWith());
@@ -89,16 +90,31 @@ class PluginInfoProviderTest {
     when(plugin.getOutputPorts()).thenReturn(List.of());
     when(registry.get("test-plugin")).thenReturn(plugin);
 
-    PluginDetails details = provider.getPluginDetails("test-plugin");
+    PluginDetails details = provider.getPluginDetails("test-plugin", null);
     assertEquals("test-plugin", details.type());
     assertEquals("desc", details.description());
+  }
+
+  @Test
+  void testGetPluginDetailsResolvesOutputPortsFromConfig() {
+    Plugin plugin = mock(Plugin.class);
+    when(plugin.getType()).thenReturn("BRANCH");
+    when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(plugin.describe()).thenReturn(new PluginDescriptor("desc", "pattern", Optional.empty()));
+    when(plugin.getOutputPorts()).thenReturn(List.of("default"));
+    Map<String, Object> config = Map.of("routes", List.of("high", "low"));
+    when(plugin.getOutputPorts(config)).thenReturn(List.of("high", "low"));
+    when(registry.get("BRANCH")).thenReturn(plugin);
+
+    assertEquals(List.of("default"), provider.getPluginDetails("BRANCH", null).outputPorts());
+    assertEquals(List.of("high", "low"), provider.getPluginDetails("BRANCH", config).outputPorts());
   }
 
   @Test
   void testGetPluginDetailsNotFound() {
     when(registry.get("unknown")).thenReturn(null);
 
-    assertThrows(IllegalArgumentException.class, () -> provider.getPluginDetails("unknown"));
+    assertThrows(IllegalArgumentException.class, () -> provider.getPluginDetails("unknown", null));
   }
 
   @Test
