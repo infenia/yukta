@@ -65,6 +65,17 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
           "yukta.agents.store-type", Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
           "yukta.ha.mode", Set.of("single", POSTGRES_TYPE));
 
+  /** The switch that turns the PostgreSQL module on. */
+  private static final String SESSION_TYPE = "yukta.session.store-type";
+
+  /** Switches whose {@code postgres} value only works with PostgreSQL sessions. */
+  /* default */ static final List<String> POSTGRES_ONLY =
+      List.of(
+          "yukta.restart.store-type",
+          "yukta.input.store-type",
+          "yukta.agents.store-type",
+          "yukta.ha.mode");
+
   /** The gated settings. */
   /* default */ static final List<Gate> GATES =
       List.of(
@@ -154,5 +165,24 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
                   + gate.hint()
                   + ", or remove the setting. See LICENSING.md.");
         });
+    // the PostgreSQL stores and the lease are configured only with PostgreSQL sessions: without
+    // them these switches would be ignored and the data kept in memory
+    if (!isPostgres(environment, SESSION_TYPE)) {
+      POSTGRES_ONLY.stream()
+          .filter(key -> isPostgres(environment, key))
+          .findFirst()
+          .ifPresent(key -> {
+            throw new IllegalStateException(
+                key
+                    + "=postgres needs "
+                    + SESSION_TYPE
+                    + "=postgres, or it is ignored and the data stays in memory.");
+          });
+    }
+  }
+
+  private static boolean isPostgres(final Environment environment, final String key) {
+    final String value = environment.getProperty(key);
+    return value != null && POSTGRES_TYPE.equalsIgnoreCase(value.strip());
   }
 }

@@ -104,11 +104,11 @@ Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execu
 | `yukta.restart.messages-per-node` | int | `200` | In-memory cap: messages per node and run. |
 | `yukta.restart.bytes-per-node` | long | `4194304` | In-memory cap: bytes per node and run. |
 | `yukta.restart.auto-resume` | boolean | `false` | Resumes each interrupted run after recovery or takeover, one after another. |
-| `yukta.restart.store-type` | enum | file if `yukta.restart.dir` is set, else memory | `memory`, `file` or `postgres` (PostgreSQL); any other value stops start-up. |
+| `yukta.restart.store-type` | enum | file if `yukta.restart.dir` is set, else memory | `memory`, `file` or `postgres` (PostgreSQL; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
 | `yukta.session.store-type` | enum | `in-memory` | `in-memory`, `file` or `postgres`; any other value stops start-up. The log line `Stores in use` names the store of each kind of data. |
 | `yukta.session.base-dir` (`YUKTA_SESSION_BASE_DIR`) | path | `<user.home>/.yukta` | Root of the file store. |
-| `yukta.input.store-type` | enum | `memory` | `memory` or `postgres` (keeps input requests; needs `yukta.session.store-type=postgres`); any other value stops start-up. |
-| `yukta.agents.store-type` | enum | `memory` | `postgres` keeps the conversations with AI agents across a restart (Plus; the `postgres` profile sets it). A conversation a restart left open is ended as `failure`, reason "server restarted"; terminal output is not stored, only the last screen; `memory` or `postgres`, any other value stops start-up. |
+| `yukta.input.store-type` | enum | `memory` | `memory` or `postgres` (keeps input requests; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
+| `yukta.agents.store-type` | enum | `memory` | `postgres` keeps the conversations with AI agents across a restart (Plus; the `postgres` profile sets it). A conversation a restart left open is ended as `failure`, reason "server restarted"; terminal output is not stored, only the last screen; `memory` or `postgres` (needs `yukta.session.store-type=postgres`), any other value or combination stops start-up. |
 | `yukta.bootstrap.dir`, `.watch`, `.watch-interval` | path, boolean, duration | unset, `false`, `5s` | Session files applied at start-up and optionally watched (not re-checked). |
 | `yukta.cache.ttl` | duration | `10m` | How long an unused prepared workflow stays cached. |
 | `yukta.cache.max-size` | long | `1000` | Prepared workflows cached. |
@@ -235,7 +235,7 @@ A tier name matches `[A-Za-z0-9._-]{1,64}`. A tier's `type` defaults to `AUTO` w
 | `yukta.workers.ssl-bundle` | string | none (plain TCP) | TLS bundle to the control plane. |
 | `spring.rsocket.server.port` | int | none | Control-plane port workers connect to. |
 | `spring.rsocket.server.ssl.bundle`, `.client-auth` | string | none | TLS bundle; `need` requires a client certificate. |
-| `yukta.ha.mode` | string | single server | `single` or `postgres` (active/standby); any other value stops start-up. With `postgres`, start-up warns unless `yukta.restart.store-type=postgres`, since a server that takes over could not replay node output. |
+| `yukta.ha.mode` | string | single server | `single` or `postgres` (active/standby; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. With `postgres`, start-up warns unless `yukta.restart.store-type=postgres`, since a server that takes over could not replay node output. |
 | `yukta.ha.lease` | duration | `15s` | Leader lease, renewed three times per lease. |
 | `yukta.ha.instance-id` | string | random per start | Server name in the lease row. |
 
