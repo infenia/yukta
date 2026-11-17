@@ -534,6 +534,36 @@ class ProcessExecutorPluginTest {
   }
 
   @Test
+  void process_failureMessage_saysHowManyCharactersWereCut() {
+    gatewayReturns(failedResult(1, "x".repeat(100_000) + "END"));
+
+    StepVerifier.create(
+            plugin.process(Flux.just(message("input")), Map.of("command", List.of("x"))))
+        .verifyErrorSatisfies(
+            error -> assertThat(error.getMessage()).contains("[... 91811 characters cut ...]"));
+  }
+
+  @Test
+  void process_useShellWrittenAsText_reachesTheSpec() {
+    final ArgumentCaptor<ProcessExecutionSpec> specCaptor =
+        ArgumentCaptor.forClass(ProcessExecutionSpec.class);
+    when(gateway.executeForResult(specCaptor.capture())).thenReturn(Mono.just(successResult("ok")));
+
+    for (final String text : List.of("true", "false")) {
+      StepVerifier.create(
+              plugin.process(
+                  Flux.just(message("test")),
+                  Map.of("command", List.of("echo", "hi"), "useShell", text)))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+
+    assertThat(specCaptor.getAllValues())
+        .extracting(ProcessExecutionSpec::useShell)
+        .containsExactly(true, false);
+  }
+
+  @Test
   void process_nonZeroExitWithCapturedStderr_errorMessageIncludesStderr() {
     final Map<String, Object> config =
         Map.of("command", List.of("false"), "failureMode", "ERROR", "captureStderr", true);
