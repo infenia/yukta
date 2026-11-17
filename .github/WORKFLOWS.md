@@ -320,7 +320,7 @@ Issues, issue types and the **Yukta Roadmap** project are described in
 
 **Purpose**: Catch performance and stability regressions of `main`.
 **Triggered on**: daily schedule, manual.
-**Behavior**: builds the jar, runs the k6 test (2 min) and a 30 minute soak in a container with fixed resources (`perf/run.sh`); `perf/compare.py` fails on a stuck run, a lost tracker event, success under 99%, a median or p99 above the baseline, or rising memory. The baseline is the last green run of `main`. Each failure becomes an `auto-found` issue.
+**Behavior**: builds the native binary (quick build), runs the k6 test (2 min) and a 30 minute soak in a container with fixed resources (`perf/run.sh`); `perf/compare.py` fails on a stuck run, a lost tracker event, success under 99%, a median or p99 above the baseline, or rising memory. The baseline is the last green run of `main`. Each failure becomes an `auto-found` issue.
 
 ---
 

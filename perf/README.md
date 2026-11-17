@@ -48,18 +48,14 @@ notifications".
 `perf/run.sh <perf|load|soak> [k6 args]` runs the server in a container with fixed CPU and memory, runs the test
 from other cores, and writes a report. the server is one of:
 
-| Server | Runs | Image | Needs |
-|---|---|---|---|
-| jar (default) | `boot/build/libs/boot-<version>.jar` on a JVM | `eclipse-temurin:25-jre` | nothing: the script runs `./gradlew :boot:bootJar` every time (a no-op when up to date), unless you set `JAR=<path>` |
-| `BINARY=<path>` (native) | the GraalVM binary, e.g. `dist/linux-amd64/yukta` | `debian:12-slim` | the binary, built once with `release/build-server.sh` (add `NATIVE_QUICK=1` for a fast, slower-running rehearsal build; `NATIVE_HEAP=24g` for more builder heap). |
-
-`MODE=native perf/run.sh ...` builds the binary first with `release/build-server.sh` (a full build with a PGO profile
-takes a long time; `NATIVE_QUICK=1` is faster) and runs it. `BINARY=<path>` alone does **not** build: rebuild it yourself
-after changing code, or you benchmark an old binary. Compare the `artifact` hash and `commit` in `meta.json`.
+The server is always the GraalVM native binary (image `debian:12-slim`), never the jar: the script runs
+`release/build-server.sh` first (`NATIVE_QUICK=1` for a fast build that runs slower, `NATIVE_HEAP=24g` for more builder
+heap; a full build with a PGO profile takes a long time) and then the test against `dist/linux-<arch>/yukta`. CI builds
+the binary in an earlier step or job and passes it with `BINARY=<path>`, which skips the build: set it yourself only when
+you built the binary from the current code, or you benchmark an old one (compare `artifact` hash and `commit` in `meta.json`).
 
 ```bash
-perf/run.sh perf                                # jar, 2 vCPU, 8 GB (defaults), 10 starts/s for 2m
-MODE=native perf/run.sh perf                    # build the native binary, then the same test against it
+perf/run.sh perf                                # builds the native binary, then 2 vCPU, 8 GB (defaults), 10 starts/s for 2m
 BINARY=dist/linux-amd64/yukta perf/run.sh perf  # an existing binary, no build
 DURATION=5m RATE=20 perf/run.sh perf
 RATE=200 HOLD=10m perf/run.sh load
@@ -69,17 +65,13 @@ KEEP=1 perf/run.sh load                         # leave the server up to inspect
 PORT=18080 perf/run.sh perf                     # another host port = its own compose project, so two runs never remove each other's server
 ```
 
-To compare jar and native, run the same test and options once per server kind on the same commit, then compare the two
-`summary.json` files (and `container-stats.csv` for CPU and memory). Native starts faster and uses less memory;
-the jar is usually faster after warm-up, so use `load` or `soak` rather than a short `perf` for peak numbers.
-
-Env: `JAR`, `BINARY`, `CPUS` (2), `CPUSET` (0,1; the cores the server is pinned to), `MEMORY` (8g,
+Env: `BINARY`, `CPUS` (2), `CPUSET` (0,1; the cores the server is pinned to), `MEMORY` (8g,
 no swap), `K6_CPUSET` (2-15; keep it off the server cores), `JAVA_OPTS` (jar only,
 `-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Dyukta.rate-limit-per-minute=0`: the per-key limit of 1200 requests/min would otherwise refuse about a third of the starts at 10 starts/s; a native binary gets the same flag as an argument (untested in a native run yet)), `IMAGE` (per mode, see the table). `RATE`, `RAMP`,
 `HOLD`, `DURATION`, `WORKFLOWS`, `GRACE`, `LENIENT`, `MAX_REJECTED` are passed to k6.
 
-Report in `perf/reports/<perf|load|soak>/<UTC time>-<jar|native>-<commit>/` (git-ignored): `meta.json` (mode, hash
-of the jar or binary, commit, dirty flag, resources, options, tool versions), `summary.json` and `k6.log`
+Report in `perf/reports/<perf|load|soak>/<UTC time>-native-<commit>/` (git-ignored): `meta.json` (mode, hash
+of the binary, commit, dirty flag, resources, options, tool versions), `summary.json` and `k6.log`
 (results), `dashboard.html` (k6 web dashboard), `metrics.csv.gz` (raw samples), `container-stats.csv` (server CPU
 and memory every 5 s), `server.log` and `diagnostics.txt` (counts of lost tracker events and errors). The exit
 code is k6's, so a failed threshold fails the script.
@@ -102,7 +94,7 @@ the default set. Their runs may end `FAILURE` or `STOPPED`; `workflow_success` c
 
 | Workflow | When | What |
 |---|---|---|
-| `.github/workflows/perf-nightly.yml` | daily | jar of main: `perf` (2 min) then a 30 min `soak`; `compare.py` on both |
+| `.github/workflows/perf-nightly.yml` | daily | quick native build of main: `perf` (2 min) then a 30 min `soak`; `compare.py` on both |
 | `.github/workflows/perf-weekly.yml` | Sunday night UTC | quick native build of main: 4 h `soak` and a `load` ramp to 200/s, each on its own runner |
 
 `compare.py <report dir> [--baseline FILE] [--findings FILE] [--write-baseline FILE]` judges a report:
