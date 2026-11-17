@@ -728,23 +728,18 @@ public class SupervisorHost implements DryRunRecorder {
         // feed does not hold the notice back.
         .publish(shared ->
             Flux.merge(
-                shared.flatMapIterable(event -> withMissed(missed, event)),
+                shared.flatMapIterable(event ->
+                    java.util.stream.Stream.concat(
+                            missedNotice(missed).stream(), java.util.stream.Stream.of(event))
+                        .toList()),
                 Flux.interval(MISSED_NOTICE_PERIOD)
                     .takeUntilOther(shared.then())
-                    .flatMapIterable(_ -> withMissed(missed, null))));
+                    .flatMapIterable(_ -> missedNotice(missed))));
   }
 
-  private static List<ExecutionEvent> withMissed(
-      final AtomicLong missed, @Nullable final ExecutionEvent event) {
+  private static List<ExecutionEvent> missedNotice(final AtomicLong missed) {
     final long count = missed.getAndSet(0);
-    final List<ExecutionEvent> out = new ArrayList<>(2);
-    if (count > 0) {
-      out.add(new ExecutionEvent.EventsMissed(count, Instant.now()));
-    }
-    if (event != null) {
-      out.add(event);
-    }
-    return out;
+    return count > 0 ? List.of(new ExecutionEvent.EventsMissed(count, Instant.now())) : List.of();
   }
 
   private Mono<Void> apply(
