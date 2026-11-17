@@ -31,6 +31,10 @@ public class WorkflowControlProvider {
   /** Reason recorded for stop actions when the caller does not provide one. */
   private static final String DEFAULT_REASON = "Requested via MCP";
 
+  /** Appended to a signal result: the tool returns when the command is sent, not when done. */
+  private static final String CONFIRM =
+      " The effect is asynchronous: confirm it with get_workflow_status.";
+
   /** Gateway for workflow control operations. */
   private final ControlBusGateway controlBus;
 
@@ -260,10 +264,6 @@ public class WorkflowControlProvider {
                         List.of(),
                         "Breakpoint set on node " + nodeId + ".")));
   }
-
-  /** Appended to a signal result: the tool returns when the command is sent, not when done. */
-  private static final String CONFIRM =
-      " The effect is asynchronous: confirm it with get_workflow_status.";
 
   private Mono<ControlActionResult> stopAllExecutions(
       final String sessionId, final String workflowId, final String reason, final StopMode mode) {
