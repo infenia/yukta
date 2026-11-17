@@ -1561,18 +1561,26 @@ public class AppMcpTools {
    * Get plugin details.
    *
    * @param type the plugin type
+   * @param config the node config the output ports are resolved for, or null for the defaults
    * @return plugin details
    */
   @McpTool(
       name = "get_plugin_details",
       title = "Get Plugin Details",
-      description = "Get full details of a specific Yukta plugin including usage pattern",
+      description =
+          "Get full details of a specific Yukta plugin including usage pattern. Some plugins"
+              + " (routers, gates, classifiers) derive their output ports from the node config:"
+              + " pass that config to get the ports to use as an edge's sourcePort",
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<PluginDetails> getPluginDetails(
       @McpToolParam(required = true, description = "The unique plugin type/identifier")
-          final String type) {
-    return Mono.fromCallable(() -> pluginInfoProvider.getPluginDetails(type));
+          final String type,
+      @McpToolParam(
+              required = false,
+              description = "The node config to resolve output ports for; default ports if omitted")
+          final Map<String, Object> config) {
+    return Mono.fromCallable(() -> pluginInfoProvider.getPluginDetails(type, config));
   }
 
   /**
