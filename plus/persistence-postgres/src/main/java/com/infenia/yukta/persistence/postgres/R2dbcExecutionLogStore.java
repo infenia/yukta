@@ -10,14 +10,13 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
@@ -62,12 +61,18 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   /** How often the insert of a run start or end is retried; the delay doubles each time. */
   private static final int CRITICAL_RETRIES = 4;
 
+  /** The wait before a kept run start or end is tried again: the retry delay times 2^7. */
+  private static final int REQUEUE_SHIFT = 7;
+
   /** The event types that start and end a run. */
-  private static final Set<ExecutionLogEvent.Type> RUN_EDGES =
-      EnumSet.of(
+  private static final List<ExecutionLogEvent.Type> RUN_EDGES =
+      List.of(
           ExecutionLogEvent.Type.RUN_STARTED,
           ExecutionLogEvent.Type.RUN_FINISHED,
           ExecutionLogEvent.Type.RUN_ABORTED);
+
+  /** Log key of the run an event belongs to. */
+  private static final String EXECUTION_ID = "executionId";
 
   /** Longest one statement may take. */
   private static final Duration STATEMENT_TIMEOUT = Duration.ofSeconds(30);
@@ -262,7 +267,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
       if (!critical(event)) {
         droppedFull.increment();
         log.atError()
-            .addKeyValue("executionId", event.executionId())
+            .addKeyValue(EXECUTION_ID, event.executionId())
             .log("Execution log is falling behind, event dropped");
         return;
       }
@@ -361,6 +366,12 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
       if (!writer.awaitTermination(shutdownWaitMillis, TimeUnit.MILLISECONDS)) {
         log.atWarn().log("Execution log writer did not finish in time");
       }
+      for (ExecutionLogEvent event = urgent.poll(); event != null; event = urgent.poll()) {
+        droppedFailed.increment();
+        log.atError()
+            .addKeyValue(EXECUTION_ID, event.executionId())
+            .log("Run start or end not stored before shutdown");
+      }
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     }
@@ -401,8 +412,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
         compact();
       }
     }
-    for (ExecutionLogEvent event = urgent.poll(); event != null; event = urgent.poll()) {
-      insert(event);
+    // only the events waiting now: a failed one goes back to the queue for the next, later drain
+    for (int n = urgent.size(); n > 0; n--) {
+      insert(urgent.remove()); // only this thread removes, so the n entries are there
     }
   }
 
@@ -476,16 +488,42 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
         write(List.of(event));
         return;
       } catch (final RuntimeException e) {
+        if (attempt >= retries && requeue(event)) {
+          return;
+        }
         if (attempt >= retries || !pause(retryMillis << attempt)) {
           droppedFailed.increment();
           log.atError()
-              .addKeyValue("executionId", event.executionId())
+              .addKeyValue(EXECUTION_ID, event.executionId())
               .setCause(e)
               .log("Could not append to the execution log");
           return;
         }
       }
     }
+  }
+
+  /**
+   * Keeps a run start or end that the retries could not store and tries again later, until the
+   * database is back or the store shuts down. False if it cannot wait any longer.
+   */
+  private boolean requeue(final ExecutionLogEvent event) {
+    if (!critical(event) || writer.isShutdown()) {
+      return false;
+    }
+    urgent.add(event);
+    log.atWarn()
+        .addKeyValue(EXECUTION_ID, event.executionId())
+        .log("Could not append a run start or end, trying again later");
+    CompletableFuture.delayedExecutor(retryMillis << REQUEUE_SHIFT, TimeUnit.MILLISECONDS)
+        .execute(() -> {
+          try {
+            writer.execute(this::drainAll);
+          } catch (final RejectedExecutionException e) {
+            log.atDebug().setCause(e).log("Execution log writer is stopped");
+          }
+        });
+    return true;
   }
 
   /** Sleeps on the writer thread; false if interrupted, so shutdown is not held up. */
@@ -508,7 +546,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
         throw e;
       }
       log.atWarn()
-          .addKeyValue("executionId", event.executionId())
+          .addKeyValue(EXECUTION_ID, event.executionId())
           .log("Run payload cannot be serialised, so the run cannot be resumed");
       return mapper.writeValueAsString(event.withoutPayload());
     }

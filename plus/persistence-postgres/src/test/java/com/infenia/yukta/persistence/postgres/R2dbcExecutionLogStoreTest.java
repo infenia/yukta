@@ -361,7 +361,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void runEndThatNeverGetsWritten_isCountedAsLostAfterTheRetries() {
+  void runEndThatNeverGetsWritten_isCountedAsLostAfterTheRetries() throws InterruptedException {
     final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
         new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
     final R2dbcExecutionLogStore counting =
@@ -377,9 +377,50 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
 
     counting.append(finished(UNWRITABLE));
     counting.readAll();
+    counting.close(); // the event waited for a later try; shutdown ends the wait
+    Thread.sleep(300); // the later try finds the writer stopped
 
     assertThat(meters.get(LOST).tag(REASON, "write_failed").counter().count()).isEqualTo(1.0);
-    counting.close();
+  }
+
+  @Test
+  void runEndThatFailsAfterShutdown_isCountedAsLostAtOnce() throws ReflectiveOperationException {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry meters =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final R2dbcExecutionLogStore stopped =
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 1_000, 100_000, 5_000, meters);
+    stopped.close();
+    final java.lang.reflect.Method insert =
+        R2dbcExecutionLogStore.class.getDeclaredMethod("insert", ExecutionLogEvent.class);
+    insert.setAccessible(true);
+
+    insert.invoke(stopped, finished(UNWRITABLE));
+
+    assertThat(meters.get(LOST).tag(REASON, "write_failed").counter().count()).isEqualTo(1.0);
+  }
+
+  @Test
+  void runEndThatOutlastsTheRetries_isWrittenOnceTheDatabaseIsBack() throws InterruptedException {
+    db.sql("ALTER TABLE execution_log RENAME TO execution_log_gone").fetch().rowsUpdated().block();
+    final R2dbcExecutionLogStore waiting =
+        new R2dbcExecutionLogStore(
+            db,
+            new ObjectMapper(),
+            2,
+            1_000,
+            5_000,
+            new java.util.concurrent.ArrayBlockingQueue<>(10),
+            new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),
+            1);
+    waiting.append(finished("r1"));
+    waiting.readAll(); // the writer has used up the retries by now
+    db.sql("ALTER TABLE execution_log_gone RENAME TO execution_log").fetch().rowsUpdated().block();
+    Thread.sleep(500); // the later try runs after 128 ms
+
+    assertThat(waiting.readAll())
+        .extracting(ExecutionLogEvent::type)
+        .containsExactly(ExecutionLogEvent.Type.RUN_FINISHED);
+    waiting.close();
   }
 
   @Test
