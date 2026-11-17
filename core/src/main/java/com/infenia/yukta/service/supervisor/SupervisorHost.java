@@ -729,9 +729,7 @@ public class SupervisorHost implements DryRunRecorder {
         .publish(shared ->
             Flux.merge(
                 shared.flatMapIterable(event ->
-                    java.util.stream.Stream.concat(
-                            missedNotice(missed).stream(), java.util.stream.Stream.of(event))
-                        .toList()),
+                    Stream.concat(missedNotice(missed).stream(), Stream.of(event)).toList()),
                 Flux.interval(MISSED_NOTICE_PERIOD)
                     .takeUntilOther(shared.then())
                     .flatMapIterable(_ -> missedNotice(missed))));
