@@ -47,7 +47,7 @@ dependencies {
 }
 
 
-// InputRequestFuzzTest: -PfuzzTries=<cases per target>, -PfuzzSeed=<number>|random (nightly), as for boot's fuzz test
+// InputRequestFuzzTest: -PfuzzTries=<cases per target>, -PfuzzSeed=<number>|random (nightly), as for the e2e module's BoundaryFuzzE2eTest
 tasks.withType<Test>().configureEach {
     providers.gradleProperty("fuzzTries").orNull?.let { systemProperty("yukta.fuzz.tries", it) }
     providers.gradleProperty("fuzzSeed").orNull?.let { systemProperty("yukta.fuzz.seed", it) }

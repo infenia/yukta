@@ -25,6 +25,9 @@ dependencies {
 tasks.withType<Test>().configureEach {
     providers.gradleProperty("yukta.e2e.url").orNull?.let { systemProperty("yukta.e2e.url", it) }
     providers.gradleProperty("yukta.e2e.key").orNull?.let { systemProperty("yukta.e2e.key", it) }
+    // BoundaryFuzzE2eTest: -PfuzzTries=<cases per entry point>, -PfuzzSeed=<number>|random (nightly)
+    providers.gradleProperty("fuzzTries").orNull?.let { systemProperty("yukta.fuzz.tries", it) }
+    providers.gradleProperty("fuzzSeed").orNull?.let { systemProperty("yukta.fuzz.seed", it) }
     // a failing scenario shows its assertion in the CI log
     testLogging { exceptionFormat = TestExceptionFormat.FULL }
 }

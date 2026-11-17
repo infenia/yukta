@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Cases come from a seeded {@link Random}; a failure prints the seed and the case number. Replay
  * with {@code -Dyukta.fuzz.seed=<seed>}. The nightly run raises the count and picks a random seed
- * the same way as {@code BoundaryFuzzAcceptanceTest}: {@code -PfuzzTries=...} and {@code
+ * the same way as {@code BoundaryFuzzE2eTest}: {@code -PfuzzTries=...} and {@code
  * -PfuzzSeed=random}.
  */
 @NoArgsConstructor

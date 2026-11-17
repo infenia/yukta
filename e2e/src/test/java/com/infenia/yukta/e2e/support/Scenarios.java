@@ -28,6 +28,7 @@ public final class Scenarios implements ExtensionContext.Store.CloseableResource
 
   private final Api api;
   private final List<String> sessions = Collections.synchronizedList(new ArrayList<>());
+  private final List<String> supervisors = Collections.synchronizedList(new ArrayList<>());
 
   /* default */ Scenarios(final Api api) {
     this.api = api;
@@ -60,6 +61,23 @@ public final class Scenarios implements ExtensionContext.Store.CloseableResource
             .exchange());
     sessions.add(id);
     return id;
+  }
+
+  /**
+   * Creates a supervisor and removes it (and what it owns) when the test ends.
+   *
+   * @param json the supervisor, with its {@code id} from {@link #unique}
+   */
+  public void createSupervisor(final String json) {
+    final String id = JSON.readTree(json).path("id").asString();
+    api.data(
+        api.client()
+            .post()
+            .uri("/api/supervisors")
+            .header("Content-Type", "application/json")
+            .bodyValue(json)
+            .exchange());
+    supervisors.add(id);
   }
 
   /**
@@ -125,7 +143,11 @@ public final class Scenarios implements ExtensionContext.Store.CloseableResource
   public void close() {
     for (final String session : List.copyOf(sessions)) {
       // best effort: a test may have deleted it already
-      api.client().delete().uri("/api/sessions/{id}", session).exchange().returnResult(Void.class);
+      api.call("DELETE", "/api/sessions/" + session, null);
+    }
+    for (final String supervisor : List.copyOf(supervisors)) {
+      api.call("PUT", "/api/supervisors/" + supervisor + "/assignments?unlock=true", "[]");
+      api.call("DELETE", "/api/supervisors/" + supervisor, null);
     }
   }
 }

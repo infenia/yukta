@@ -228,7 +228,7 @@ Rules that bite:
 - `boot/build.gradle.kts`: `implementation(project(":plugins:supervisors:my-guard"))`
 - `plugins/supervisors/my-guard/build.gradle.kts`: `id("com.infenia.yukta.library-conventions")`, `api(project(":plugin-api"))`
 
-**4. Test it.** Follow `FailureGuardFactoryTest`: build a `Supervisor`, call `factory.create`, feed `Flux.just(events)` to `supervise` and assert the commands (`StepVerifier` for time). Add the type to the catalog test in `boot` (`SupervisorCatalogTest`) and an attach-through-the-API test like `SupervisorApiAcceptanceTest`.
+**4. Test it.** Follow `FailureGuardFactoryTest`: build a `Supervisor`, call `factory.create`, feed `Flux.just(events)` to `supervise` and assert the commands (`StepVerifier` for time). Add the type to the catalog test in `boot` (`SupervisorCatalogTest`) and an attach-through-the-API test like `SupervisorApiE2eTest` (in `e2e`).
 
 ```bash
 yk gradle :plugins:supervisors:my-guard:test
