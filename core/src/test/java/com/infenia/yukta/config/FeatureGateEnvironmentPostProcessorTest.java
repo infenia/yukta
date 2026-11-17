@@ -16,6 +16,8 @@ class FeatureGateEnvironmentPostProcessorTest {
 
   private static final String HA_MODE = "yukta.ha.mode";
   private static final String POSTGRES = "postgres";
+  private static final String SESSION_TYPE = "yukta.session.store-type";
+  private static final String RESTART_DIR = "yukta.restart.dir";
 
   @ParameterizedTest
   @CsvSource({
@@ -61,14 +63,14 @@ class FeatureGateEnvironmentPostProcessorTest {
             FeatureGateEnvironmentPostProcessor.check(
                 new MockEnvironment()
                     .withProperty(HA_MODE, POSTGRES)
-                    .withProperty("yukta.session.store-type", POSTGRES),
+                    .withProperty(SESSION_TYPE, POSTGRES),
                 name -> true))
         .doesNotThrowAnyException();
     assertThatCode(() ->
             FeatureGateEnvironmentPostProcessor.check(
                 new MockEnvironment()
-                    .withProperty("yukta.restart.dir", " ")
-                    .withProperty("yukta.session.store-type", "in-memory")
+                    .withProperty(RESTART_DIR, " ")
+                    .withProperty(SESSION_TYPE, "in-memory")
                     .withProperty(HA_MODE, ""),
                 name -> false))
         .doesNotThrowAnyException();
@@ -97,7 +99,7 @@ class FeatureGateEnvironmentPostProcessorTest {
     assertThatCode(() ->
             FeatureGateEnvironmentPostProcessor.check(
                 new MockEnvironment()
-                    .withProperty("yukta.session.store-type", " In-Memory ")
+                    .withProperty(SESSION_TYPE, " In-Memory ")
                     .withProperty("yukta.restart.store-type", "memory")
                     .withProperty("yukta.input.store-type", "MEMORY")
                     .withProperty("yukta.agents.store-type", "memory")
@@ -126,8 +128,8 @@ class FeatureGateEnvironmentPostProcessorTest {
   void directoryWithPostgresStoreTypeIsGatedByThePostgresRowOnly() {
     final MockEnvironment env =
         new MockEnvironment()
-            .withProperty("yukta.restart.dir", "/tmp/r")
-            .withProperty("yukta.session.store-type", POSTGRES)
+            .withProperty(RESTART_DIR, "/tmp/r")
+            .withProperty(SESSION_TYPE, POSTGRES)
             .withProperty("yukta.restart.store-type", POSTGRES);
 
     assertThatCode(
@@ -135,7 +137,7 @@ class FeatureGateEnvironmentPostProcessorTest {
         .doesNotThrowAnyException();
     assertThatThrownBy(() -> FeatureGateEnvironmentPostProcessor.check(env, name -> false))
         .hasMessageContaining("-Pyukta.persistence=postgres")
-        .hasMessageNotContaining("yukta.restart.dir");
+        .hasMessageNotContaining(RESTART_DIR);
   }
 
   @Test
@@ -146,7 +148,7 @@ class FeatureGateEnvironmentPostProcessorTest {
         .doesNotThrowAnyException();
     assertThatThrownBy(() ->
             hook.postProcessEnvironment(
-                new MockEnvironment().withProperty("yukta.restart.dir", "/tmp/r"), null))
+                new MockEnvironment().withProperty(RESTART_DIR, "/tmp/r"), null))
         .isInstanceOf(IllegalStateException.class);
   }
 }

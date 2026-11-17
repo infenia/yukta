@@ -56,17 +56,22 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   /** Build hint for workers. */
   private static final String WORKERS_HINT = "-Pyukta.workers=true";
 
+  /** The switch that turns the PostgreSQL module on. */
+  private static final String SESSION_TYPE = "yukta.session.store-type";
+
   /** The values each store switch accepts (case and blanks do not matter; unset is the default). */
   /* default */ static final Map<String, Set<String>> STORE_VALUES =
       Map.of(
-          "yukta.session.store-type", Set.of(IN_MEMORY_TYPE, "file", POSTGRES_TYPE),
-          "yukta.restart.store-type", Set.of("memory", IN_MEMORY_TYPE, "file", POSTGRES_TYPE),
-          "yukta.input.store-type", Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
-          "yukta.agents.store-type", Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
-          "yukta.ha.mode", Set.of("single", POSTGRES_TYPE));
-
-  /** The switch that turns the PostgreSQL module on. */
-  private static final String SESSION_TYPE = "yukta.session.store-type";
+          SESSION_TYPE,
+          Set.of(IN_MEMORY_TYPE, "file", POSTGRES_TYPE),
+          "yukta.restart.store-type",
+          Set.of("memory", IN_MEMORY_TYPE, "file", POSTGRES_TYPE),
+          "yukta.input.store-type",
+          Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
+          "yukta.agents.store-type",
+          Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
+          "yukta.ha.mode",
+          Set.of("single", POSTGRES_TYPE));
 
   /** Switches whose {@code postgres} value only works with PostgreSQL sessions. */
   /* default */ static final List<String> POSTGRES_ONLY =
@@ -79,11 +84,10 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   /** The gated settings. */
   /* default */ static final List<Gate> GATES =
       List.of(
-          new Gate("yukta.session.store-type", "file", FILES, Edition.PLUS, FILES_HINT),
+          new Gate(SESSION_TYPE, "file", FILES, Edition.PLUS, FILES_HINT),
           new Gate("yukta.execution-log.dir", null, FILES, Edition.PLUS, FILES_HINT),
           new Gate("yukta.restart.dir", null, FILES, Edition.PLUS, FILES_HINT),
-          new Gate(
-              "yukta.session.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
+          new Gate(SESSION_TYPE, POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
           new Gate(
               "yukta.restart.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
           new Gate("yukta.input.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),

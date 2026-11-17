@@ -35,8 +35,7 @@ import org.springframework.stereotype.Component;
 @SuppressWarnings({
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.AvoidCatchingGenericException",
-  "PMD.TooManyMethods"
+  "PMD.AvoidCatchingGenericException"
 })
 public class ExecutionRecovery implements SmartInitializingSingleton {
 
