@@ -131,7 +131,15 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
 
   @Override
   public Mono<Message<?>> get(final String executionId, final String nodeId) {
-    return getAll(executionId, nodeId).takeLast(1).next();
+    return client
+        .sql(
+            "SELECT CAST(message AS text) AS message FROM node_checkpoint"
+                + " WHERE execution_id = :e AND node_id = :n ORDER BY seq DESC LIMIT 1")
+        .bind(EXECUTION, executionId)
+        .bind(NODE, nodeId)
+        .map(row -> row.get("message", String.class))
+        .one()
+        .map(json -> CheckpointJson.read(mapper, json));
   }
 
   @Override
