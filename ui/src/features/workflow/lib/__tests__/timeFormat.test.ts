@@ -66,8 +66,10 @@ describe('formatDuration', () => {
 });
 
 describe('formatLogTimestamp', () => {
-  it('wraps the clock time in brackets', () => {
-    expect(formatLogTimestamp('2026-07-26T14:22:15')).toBe('[14:22:15]');
+  it('wraps the date and time in brackets', () => {
+    expect(formatLogTimestamp('2026-07-26T14:22:15')).toBe(
+      '[26-Jul-2026 14:22:15]'
+    );
   });
 
   it('wraps the placeholder when missing', () => {
@@ -95,14 +97,9 @@ describe('formatRelative', () => {
 });
 
 describe('formatDateTime', () => {
-  it('shows a local date and clock time', () => {
-    const iso = new Date(2026, 10, 7, 14, 22, 1).toISOString();
-    expect(formatDateTime(iso)).toBe(
-      new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'short',
-        timeStyle: 'medium',
-      }).format(new Date(iso))
-    );
+  it('shows DD-MMM-YYYY and a 24-hour clock in local time', () => {
+    const iso = new Date(2026, 10, 7, 4, 2, 9).toISOString();
+    expect(formatDateTime(iso)).toBe('07-Nov-2026 04:02:09');
   });
 
   it('has a placeholder for a missing or broken time', () => {

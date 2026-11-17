@@ -3,6 +3,7 @@
 
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { useState } from 'react';
+import { formatDateTime } from '../lib/timeFormat';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -112,7 +113,7 @@ export function WorkflowVersionsPanel({
           <div className="flex items-center gap-3">
             <span className="text-code-sm text-on-surface">{version.id}</span>
             <span className="text-body-md text-on-surface-variant">
-              {new Date(version.savedAt).toLocaleString()}
+              {formatDateTime(version.savedAt)}
             </span>
             <Button
               size="sm"
