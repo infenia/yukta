@@ -72,11 +72,16 @@ public class FileSessionConfigStore implements SessionConfigStore {
 
   @Override
   public Mono<Void> applySessionConfig(@Valid final SessionConfigData data) {
-    return Mono.fromCallable(() ->
+    // the initiated time is kept from the first apply
+    return loadSessionConfig(data.sessionId())
+        .mapNotNull(SessionConfig::initiatedTime)
+        .filter(time -> !time.isBlank())
+        .switchIfEmpty(Mono.fromCallable(() -> Instant.now().toString()))
+        .map(initiated ->
             new SessionConfig(
                 data.projectPath(),
                 data.initiator(),
-                Instant.now().toString(),
+                initiated,
                 data.tags(),
                 data.description(),
                 data.name()))

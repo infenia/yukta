@@ -98,6 +98,17 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
     assertThat(store.getInitiator("s1").block()).isEqualTo("bob");
     assertThat(store.getTags("s1").block()).isEmpty();
     assertThat(store.getProjectPath("s1").block()).isEmpty();
+    assertThat(store.getInitiatedTime("s1").block()).isEqualTo(all.initiatedTime());
+  }
+
+  @Test
+  void workflowsWithoutASessionRow_areListedAndReadable_soTheyCanBeDeleted() {
+    new R2dbcWorkflowDefinitionStore(db, new ObjectMapper()).save("orphan", workflow()).block();
+
+    assertThat(store.getSessionIds().collectList().block()).contains("orphan");
+    final SessionSnapshot all = store.getAllConfigs("orphan").block();
+    assertThat(all.name()).isEmpty();
+    assertThat(all.workflows()).containsOnlyKeys("w1");
   }
 
   @Test

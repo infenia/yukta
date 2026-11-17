@@ -84,6 +84,21 @@ public abstract class SessionConfigStoreContract {
   }
 
   @Test
+  void applyingAgain_replacesTheValues_butKeepsTheInitiatedTime() throws InterruptedException {
+    final SessionConfigStore store = create();
+    store.applySessionConfig(session("s1", FIRST)).block();
+    final String initiated = store.getInitiatedTime("s1").block();
+    Thread.sleep(5);
+
+    store.applySessionConfig(session("s1", "second")).block();
+
+    assertThat(initiated).isNotBlank();
+    assertThat(store.getInitiatedTime("s1").block()).isEqualTo(initiated);
+    assertThat(store.getDescription("s1").block()).isEqualTo("second");
+    assertThat(store.getAllConfigs("s1").block().initiatedTime()).isEqualTo(initiated);
+  }
+
+  @Test
   void sessionThatWasNeverAppliedIsNotListed() {
     assertThat(create().getSessionIds().collectList().block()).isEmpty();
   }

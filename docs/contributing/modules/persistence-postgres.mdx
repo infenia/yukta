@@ -205,9 +205,9 @@ Stores the workflow definitions of each session with their newest 20 versions, a
 
 - `R2dbcWorkflowDefinitionStore.save` is one statement: it writes a new row in `workflow_definition_revision` unless the stored definition is identical (compared as JSONB), and upserts the current row. A second statement then deletes all but the newest 20 revisions of that workflow. The revision id comes from the time and the definition, and is ordered as text.
 - `saveNote` sets the note on one version (an empty note is stored as null) and fails with Not Found if the version does not exist. `findRevision` and `revisions` back the web diff and rollback endpoints.
-- `R2dbcSessionConfigStore` keeps name, description, working directory, initiator, initiated time and tags in `session_config`. Initiator, description, initiated time and tags are set only while still empty.
-- Applying a session config writes the row, then saves each workflow one after the other. The store has no way to delete a session row, and the interface has no delete either.
-- `getAllConfigs` runs about seven queries for one session. `getSessionIds` lists sessions that have a config row, so definitions without a row are not listed.
+- `R2dbcSessionConfigStore` keeps name, description, working directory, initiator, initiated time and tags in `session_config`. An apply replaces every value but the initiated time, which is kept from the first apply; `setInitiator` sets the initiator only while it is empty.
+- Applying a session config writes the row, then saves each workflow one after the other, in one transaction. `removeSession` deletes the row.
+- `getAllConfigs` is one query for the row plus `findAll` for the workflows. `getSessionIds` lists the union of `session_config` and `workflow_definition`, so workflows left without a row (a delete that stopped half way) can still be seen and deleted.
 
 - **Guarantees.** Saving an identical definition adds no version; at most 20 versions per workflow are kept.
 - **State.** Tables `workflow_definition`, `workflow_definition_revision` and `session_config`.
@@ -230,7 +230,7 @@ Records the start and end of runs, node ends, control commands and idempotency k
 
 - **Guarantees.** Events of one run keep their order (the sequence column); a run without an end is never trimmed.
 - **State.** Table `execution_log`: a sequence number, the execution id and the event as JSONB. In memory: the queue and a counter since the last compaction.
-- **Ceiling.** One writer thread, one statement at a time. Compaction groups the whole table by execution id every 10,000 events.
+- **Ceiling.** One writer thread, one statement at a time. Every 10,000 events the trim reads only the run ends through the partial index `execution_log_run_edge` (about 0.15 s for 500 runs of 2,000 events) and keeps the newest `retained-runs` ended runs plus every open run. `yukta.execution.log.queue` shows the events waiting.
 - **On failure.** A full queue or a failing insert loses events silently as far as the run is concerned; a crash inside `replaceAll` loses the log.
 
 **Settings:** `yukta.execution-log.retained-runs`, `yukta.execution-log.compact-after`
@@ -244,11 +244,11 @@ Stores what each node of a run produced and whether it ended normally, so a run 
 - `save` inserts one row per message in `node_checkpoint` (JSONB). If the insert fails the node is marked *incomplete* in `node_checkpoint_state`, so a restart that needs this node is refused instead of replaying part of it.
 - `markComplete` sets the *done* flag in a second table, after the last message; if that fails the node is marked incomplete instead and a resume will run it again. `isFinished` is true only when done is set and incomplete is not.
 - `isComplete` and `isFinished` are plain (blocking) methods in the interface, so they wait for the database up to 30 s; a timeout is treated as *unfinished*, which is the safe side for a resume.
-- `get` reads all rows of the node and takes the last one. `getAll` streams the rows in order. `clear` deletes the rows and the state of a run, and lowers the byte counter.
-- The byte counter (`bytesHeld`, shown as a core meter) counts characters on save and bytes on clear, only in this JVM.
+- `get` reads only the newest row of the node. `getAll` streams the rows in order. `clear` deletes the rows and the state of a run. At startup recovery deletes the rows of every run no longer in the log (`removeNotIn`), unless the log read came back empty.
+- `bytesHeld` (the core meter `yukta.checkpoint.bytes`) is the size on disk of `node_checkpoint`, read in the background at most once a minute, so it is the same on every server and after a restart.
 
 - **Guarantees.** A node counts as finished only when its end marker is durable; a failed save makes the node incomplete.
-- **State.** Tables `node_checkpoint` and `node_checkpoint_state`; the counter is in memory.
+- **State.** Tables `node_checkpoint` and `node_checkpoint_state`.
 - **Ceiling.** The end marker is a separate statement from the last message, so there is a short window between them.
 - **On failure.** A database failure marks nodes incomplete, which makes a restart from them impossible but never replays half an output.
 
@@ -495,9 +495,9 @@ Nine tables from six migrations. 'Cleaned by' says what removes rows; 'nothing' 
 |---|---|---|---|---|
 | workflow_definition | V1 | Definition store (save) | find, findAll | remove, removeAll (no caller in core) |
 | workflow_definition_revision | V1, V2 (note) | save, saveNote | revisions, findRevision | prune to 20 after each save; remove |
-| session_config | V1 | Session config store | getAllConfigs, getSessionIds | nothing (the interface has no delete) |
-| execution_log | V1 | Log writer thread | readAll at recovery and resume | compaction; replaceAll |
-| node_checkpoint | V3 | Checkpoint save | get, getAll | clear when the run leaves the archive of retained executions; recovery for dropped runs |
+| session_config | V1 | Session config store | getAllConfigs, getSessionIds | removeSession |
+| execution_log | V1, V5 (index of run starts and ends) | Log writer thread | readAll at recovery and resume | compaction; replaceAll |
+| node_checkpoint | V3 | Checkpoint save | get, getAll | clear when the run leaves the archive of retained executions; at startup, every run no longer in the log |
 | node_checkpoint_state | V3 | markComplete, failed saves | isComplete, isFinished | clear |
 | leader_lease | V4 | Every server, every 5 s | The same statement | nothing (one row) |
 
