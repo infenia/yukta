@@ -10,6 +10,7 @@ import { CodeBlock } from '@/components/common/CodeBlock';
 import { usePlugin } from '@/features/plugins/hooks/usePlugins';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { textareaFieldClassName } from '@/components/ui/native-select';
 import type { DraftEdge, DraftNode } from '../types';
 import { ConfigForm, JsonField } from './ConfigForm';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -102,6 +103,7 @@ export function NodeInspector({
   onChange,
   onRemove,
   onGroupChange,
+  onDescriptionChange,
   groupColor,
   onColorChange,
   onGroupColorChange,
@@ -114,6 +116,8 @@ export function NodeInspector({
   onRemove: () => void;
   /** A blank stage removes the declared group. */
   onGroupChange: (group: string | null) => void;
+  /** A blank description removes it, so the plugin description shows. */
+  onDescriptionChange?: (description: string | null) => void;
   /** The palette color of this node's stage. */
   groupColor?: string | null;
   /** Null removes the color. */
@@ -201,6 +205,34 @@ export function NodeInspector({
               Blank uses the node-ID prefix.
             </span>
           </div>
+          {onDescriptionChange && (
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="node-description"
+                className="text-label-sm text-on-surface font-semibold"
+              >
+                Node description
+              </label>
+              <textarea
+                id="node-description"
+                rows={3}
+                maxLength={1000}
+                value={node.description ?? ''}
+                className={textareaFieldClassName}
+                aria-describedby="node-description-hint"
+                onChange={(event) =>
+                  onDescriptionChange(event.target.value || null)
+                }
+              />
+              <span
+                id="node-description-hint"
+                className="text-body-sm text-on-surface-variant"
+              >
+                Optional. Shown by the node&apos;s info button; blank shows the
+                plugin description.
+              </span>
+            </div>
+          )}
           {onColorChange && (
             <ColorSwatches
               label="Node color"

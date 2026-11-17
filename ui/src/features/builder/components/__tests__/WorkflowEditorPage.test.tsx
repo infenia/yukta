@@ -480,6 +480,18 @@ describe('WorkflowEditorPage', () => {
     expect(after.defaultPrevented).toBe(false);
   });
 
+  it('edits the open node description and marks the draft unsaved', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByLabelText('Configuration (JSON)');
+
+    await user.type(screen.getByLabelText('Node description'), 'Runs lint');
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('Node description'));
+    expect(screen.getByLabelText('Node description')).toHaveValue('');
+  });
+
   it('keeps unsaved edits in the tab and restores them on reopening; Discard forgets them', async () => {
     const user = userEvent.setup();
     const first = renderEditor();

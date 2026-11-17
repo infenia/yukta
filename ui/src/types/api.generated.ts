@@ -6071,6 +6071,8 @@ export interface components {
             config?: {
                 [key: string]: unknown;
             };
+            /** @description Optional description of what this node does; the UI info button shows it. Without it, the plugin description is shown */
+            description?: string | null;
             /** @description The stage the node belongs to, for display only: the UI groups nodes of one stage. Without it, nodes group by node-ID prefix (before the first dot) */
             group?: string | null;
             /** @description Unique ID for the node */
@@ -6105,6 +6107,8 @@ export interface components {
             config?: {
                 [key: string]: unknown;
             };
+            /** @description Optional description of what this node does; the UI info button shows it */
+            description?: string | null;
             /** @description The stage the node belongs to, for display only */
             group?: string | null;
             /** @description Unique ID for the node */

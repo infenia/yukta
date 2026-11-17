@@ -205,4 +205,29 @@ class WorkflowDetailsControllerTest {
         .jsonPath("$.data.groupColors.lint")
         .isEqualTo("teal");
   }
+
+  @Test
+  void testGraphPrefersNodeDescription() {
+    final WorkflowDefinition described =
+        new WorkflowDefinition(
+            "wf5",
+            DESC,
+            List.of(
+                new WorkflowDefinition.Node("a", "x", Map.of(), null, null, "Mine"),
+                Fixtures.node("b", "x", Map.of())),
+            List.of(),
+            List.of(),
+            Map.of());
+    when(sessionService.getSessionWorkflow("s1", "wf5")).thenReturn(Mono.just(described));
+
+    client
+        .get()
+        .uri("/api/sessions/s1/workflows/wf5/graph")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.nodes[0].description")
+        .isEqualTo("Mine");
+  }
 }

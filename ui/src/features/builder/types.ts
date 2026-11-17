@@ -11,6 +11,8 @@ export interface DraftNode {
   group?: string | null;
   /** The palette color of the node, for display; absent means the default look. */
   color?: string | null;
+  /** What the node does; the info button shows it instead of the plugin description. */
+  description?: string | null;
 }
 
 export interface DraftEdge {

@@ -257,6 +257,20 @@ class WorkflowDefinitionTest {
     assertThat(validator.validate(definition)).isEmpty();
   }
 
+  @Test
+  void blankNodeDescriptionBecomesNull() {
+    assertThat(new WorkflowDefinition.Node("n", "t", null, null, null, "  ").description())
+        .isNull();
+    assertThat(new WorkflowDefinition.Node("n", "t", null, null, null, "hi").description())
+        .isEqualTo("hi");
+  }
+
+  @Test
+  void tooLongNodeDescriptionIsRejected() {
+    final var node = new WorkflowDefinition.Node("n", "t", null, null, null, "x".repeat(1001));
+    assertThat(validator.validateProperty(node, "description")).hasSize(1);
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"red", "#ff0000", "Teal", ""})
   void colorsOutsideThePaletteAreRejected(final String color) {

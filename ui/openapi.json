@@ -5392,6 +5392,12 @@
             "description" : "Plugin configuration",
             "type" : "object"
           },
+          "description" : {
+            "description" : "Optional description of what this node does; the UI info button shows it. Without it, the plugin description is shown",
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
           "group" : {
             "description" : "The stage the node belongs to, for display only: the UI groups nodes of one stage. Without it, nodes group by node-ID prefix (before the first dot)",
             "type" : [ "string", "null" ]
@@ -5467,6 +5473,12 @@
             "additionalProperties" : { },
             "description" : "Plugin configuration",
             "type" : "object"
+          },
+          "description" : {
+            "description" : "Optional description of what this node does; the UI info button shows it",
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
           },
           "group" : {
             "description" : "The stage the node belongs to, for display only",

@@ -113,6 +113,7 @@ public record WorkflowDefinitionRequest(
    * @param config configuration for the plugin
    * @param group the stage the node belongs to, for display only; null when undeclared
    * @param color the palette color of the node, for display only; null for the default look
+   * @param description what the node does, for display only; null shows the plugin description
    */
   @Schema(description = "A single node in the workflow DAG")
   public record NodeRequest(
@@ -131,17 +132,41 @@ public record WorkflowDefinitionRequest(
               description = "Palette color of the node, for display only: " + Palette.NAMES,
               nullable = true)
           @Pattern(regexp = Palette.REGEX, message = Palette.MESSAGE)
-          @Nullable String color) {
+          @Nullable String color,
+      @Schema(
+              description =
+                  "Optional description of what this node does; the UI info button shows it",
+              nullable = true)
+          @Size(max = 1000, message = "Node description must be at most 1000 characters")
+          @Nullable String description) {
 
     /**
-     * A node without group or color.
+     * A node without group, color or description.
      *
      * @param nodeId unique identifier for the node
      * @param type the type of plugin to use
      * @param config configuration for the plugin
      */
     public NodeRequest(final String nodeId, final String type, final Map<String, Object> config) {
-      this(nodeId, type, config, null, null);
+      this(nodeId, type, config, null, null, null);
+    }
+
+    /**
+     * A node without a description.
+     *
+     * @param nodeId unique identifier for the node
+     * @param type the type of plugin to use
+     * @param config configuration for the plugin
+     * @param group the stage of the node, or null
+     * @param color the palette color of the node, or null
+     */
+    public NodeRequest(
+        final String nodeId,
+        final String type,
+        final Map<String, Object> config,
+        final @Nullable String group,
+        final @Nullable String color) {
+      this(nodeId, type, config, group, color, null);
     }
 
     /** Compact constructor. */
