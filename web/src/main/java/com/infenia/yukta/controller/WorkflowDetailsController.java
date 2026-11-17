@@ -133,7 +133,7 @@ public class WorkflowDetailsController {
                   enriched.nodeId(),
                   enriched.type(),
                   enriched.category(),
-                  enriched.description(),
+                  node.description() != null ? node.description() : enriched.description(),
                   enriched.uiDesign(),
                   enriched.outputPorts(),
                   node.group(),

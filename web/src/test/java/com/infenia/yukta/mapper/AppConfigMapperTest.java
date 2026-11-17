@@ -145,6 +145,15 @@ class AppConfigMapperTest {
   }
 
   @Test
+  void testToNodeCarriesDescription() {
+    final Node result =
+        mapper.toNode(
+            new NodeRequest(NODE_1, PROCESSOR_PLUGIN, Map.of(), null, null, "Runs the linter"));
+
+    assertThat(result.description()).isEqualTo("Runs the linter");
+  }
+
+  @Test
   void testToWorkflowDefinitionCarriesGroupColors() {
     final WorkflowDefinitionRequest request =
         new WorkflowDefinitionRequest(

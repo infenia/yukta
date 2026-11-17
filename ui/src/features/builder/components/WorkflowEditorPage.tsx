@@ -680,6 +680,16 @@ function Editor({
                     ),
                   })
                 }
+                onDescriptionChange={(description) =>
+                  update({
+                    // a null description is left out of the saved JSON
+                    nodes: workflow.nodes.map((n) =>
+                      n.nodeId === node.nodeId
+                        ? { ...n, description: description ?? undefined }
+                        : n
+                    ),
+                  })
+                }
                 groupColor={workflow.groupColors?.[stageOf(node)]}
                 onColorChange={(color) =>
                   update({
