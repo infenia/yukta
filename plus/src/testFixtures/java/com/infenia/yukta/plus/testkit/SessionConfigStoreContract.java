@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 public abstract class SessionConfigStoreContract {
   private static final String FIRST = "first";
 
+  private static final String SECOND = "second";
+
   /** Creates the contract. */
   protected SessionConfigStoreContract() {
     super();
@@ -75,9 +77,9 @@ public abstract class SessionConfigStoreContract {
   void sessionsDoNotShareValues() {
     final SessionConfigStore store = create();
     store.applySessionConfig(session("s1", FIRST)).block();
-    store.applySessionConfig(session("s2", "second")).block();
+    store.applySessionConfig(session("s2", SECOND)).block();
 
-    assertThat(store.getDescription("s2").block()).isEqualTo("second");
+    assertThat(store.getDescription("s2").block()).isEqualTo(SECOND);
     assertThat(store.getDescription("s1").block()).isEqualTo(FIRST);
     assertThat(store.getSessionIds().collectList().block()).contains("s1", "s2");
     assertThat(store.getAllConfigs("s2").block()).isNotNull();
@@ -90,11 +92,11 @@ public abstract class SessionConfigStoreContract {
     final String initiated = store.getInitiatedTime("s1").block();
     Thread.sleep(5);
 
-    store.applySessionConfig(session("s1", "second")).block();
+    store.applySessionConfig(session("s1", SECOND)).block();
 
     assertThat(initiated).isNotBlank();
     assertThat(store.getInitiatedTime("s1").block()).isEqualTo(initiated);
-    assertThat(store.getDescription("s1").block()).isEqualTo("second");
+    assertThat(store.getDescription("s1").block()).isEqualTo(SECOND);
     assertThat(store.getAllConfigs("s1").block().initiatedTime()).isEqualTo(initiated);
   }
 
