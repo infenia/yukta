@@ -56,6 +56,9 @@ yk gradle :mcp:test
   left out) and every component that can be null is `@Nullable` (so it is not `required`). A core
   record shared with the REST API uses `@Schema(nullable = true) @Nullable` instead, which keeps the
   REST JSON as it is. `ToolOutputSchemaTest` checks every `@Nullable` component of every tool result.
+- **A new or changed tool needs its row in `docs/reference/mcp-tools.mdx`** (name and role, as in
+  `McpToolAccess`); `ToolTextDriftTest` fails otherwise, and also when a control action enum gains a
+  value its parameter description does not name.
 - Errors surface as `Mono.error(new IllegalArgumentException(...))` with agent-actionable
   messages; the framework converts them to `isError` tool results.
 - Every executionId-scoped tool verifies session ownership via
