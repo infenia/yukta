@@ -5,6 +5,7 @@ package com.infenia.yukta.persistence.postgres;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.PreDestroy;
@@ -254,6 +255,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
             .tag("reason", "write_failed")
             .register(meters);
     this.pending = pending;
+    Gauge.builder("yukta.execution.log.queue", this, store -> store.queued())
+        .description("Execution log events waiting for the writer; a steady rise means it is stuck")
+        .register(meters);
     this.client = client;
     this.mapper = mapper;
     this.retainedRuns = Math.max(1, retainedRuns);
@@ -393,6 +397,11 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
       log.atError().setCause(e).log("Could not access the execution log");
       return fallback;
     }
+  }
+
+  /** Events waiting for the writer, in both queues. */
+  private int queued() {
+    return pending.size() + urgent.size();
   }
 
   /** A run start or end: losing it stops the run from being resumed or recovered. */

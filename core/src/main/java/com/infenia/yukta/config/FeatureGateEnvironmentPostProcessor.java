@@ -4,6 +4,9 @@ package com.infenia.yukta.config;
 
 import com.infenia.yukta.edition.Edition;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 import lombok.NoArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -20,7 +23,9 @@ import org.springframework.util.StringUtils;
  * the user expected to keep would be lost on restart. A setting is refused only when the class that
  * provides it is absent, so a build that has the module is never affected.
  *
- * <p>To gate another setting, add a row to {@link #GATES}.
+ * <p>To gate another setting, add a row to {@link #GATES}. It also refuses a value of a store
+ * switch that no store answers to ({@link #STORE_VALUES}): a typo would otherwise select the
+ * default silently.
  */
 @NoArgsConstructor
 public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProcessor {
@@ -47,6 +52,15 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
 
   /** Build hint for workers. */
   private static final String WORKERS_HINT = "-Pyukta.workers=true";
+
+  /** The values each store switch accepts (case and blanks do not matter; unset is the default). */
+  /* default */ static final Map<String, Set<String>> STORE_VALUES =
+      Map.of(
+          "yukta.session.store-type", Set.of("in-memory", "file", POSTGRES_TYPE),
+          "yukta.restart.store-type", Set.of("memory", "in-memory", "file", POSTGRES_TYPE),
+          "yukta.input.store-type", Set.of("memory", "in-memory", POSTGRES_TYPE),
+          "yukta.agents.store-type", Set.of("memory", "in-memory", POSTGRES_TYPE),
+          "yukta.ha.mode", Set.of("single", POSTGRES_TYPE));
 
   /** The gated settings. */
   /* default */ static final List<Gate> GATES =
@@ -112,6 +126,17 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   }
 
   /* default */ static void check(final Environment environment, final Predicate<String> present) {
+    STORE_VALUES.forEach((key, allowed) -> {
+      final String value = environment.getProperty(key);
+      if (StringUtils.hasText(value) && !allowed.contains(value.strip().toLowerCase(Locale.ROOT))) {
+        throw new IllegalStateException(
+            key
+                + "="
+                + value
+                + " is not a known value; use one of "
+                + new java.util.TreeSet<>(allowed));
+      }
+    });
     GATES.stream()
         .filter(gate -> gate.isUsed(environment) && !present.test(gate.provider()))
         .findFirst()

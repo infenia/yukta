@@ -12,9 +12,12 @@ import com.infenia.yukta.service.supervisor.SupervisorStore;
 import com.infenia.yukta.service.supervisor.agent.AgentCredentialStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.startup.DefaultsAutoConfiguration;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -26,6 +29,7 @@ import tools.jackson.databind.ObjectMapper;
  * the schema is created by Flyway from {@code spring.flyway.url} (a JDBC URL, since Flyway has no
  * R2DBC support), with {@code spring.flyway.user} and {@code spring.flyway.password}.
  */
+@Slf4j
 @AutoConfiguration(before = DefaultsAutoConfiguration.class)
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @ConditionalOnProperty(name = "yukta.session.store-type", havingValue = "postgres")
@@ -139,6 +143,49 @@ public class PostgresPersistenceAutoConfiguration {
       @Value("${yukta.ha.lease:15s}") final java.time.Duration lease,
       final io.micrometer.core.instrument.MeterRegistry meters) {
     return new R2dbcLeaderElection(client, instanceId, lease, meters);
+  }
+
+  /**
+   * Warns at start when a standby can take over runs but not continue them: with {@code
+   * yukta.ha.mode=postgres} the node outputs must be in PostgreSQL too, or a resume after a
+   * takeover runs every node again.
+   *
+   * @param checkpoints the checkpoint store in use
+   * @return the listener
+   */
+  @Bean
+  @ConditionalOnProperty(name = "yukta.ha.mode", havingValue = "postgres")
+  public ApplicationListener<ApplicationReadyEvent> haCheckpointCheck(
+      final org.springframework.beans.factory.ObjectProvider<NodeCheckpointStore> checkpoints) {
+    return _ -> {
+      final NodeCheckpointStore store = checkpoints.getIfAvailable();
+      if (!(store instanceof R2dbcNodeCheckpointStore)) {
+        log.atWarn()
+            .addKeyValue("checkpoints", store == null ? "none" : store.getClass().getSimpleName())
+            .log(
+                "yukta.ha.mode=postgres without yukta.restart.store-type=postgres: a server that"
+                    + " takes over cannot replay the output of finished nodes, so a resumed run"
+                    + " runs them again");
+      }
+    };
+  }
+
+  /**
+   * The size on disk of the store tables, as {@code yukta.store.table.bytes{table}}.
+   *
+   * @param client runs the query
+   * @param meters where the gauges go
+   * @return the reader
+   */
+  @Bean
+  public TableSizes storeTableSizes(
+      final DatabaseClient client,
+      final org.springframework.beans.factory.ObjectProvider<
+              io.micrometer.core.instrument.MeterRegistry>
+          meters) {
+    final TableSizes sizes = new TableSizes(client, TableSizes.TABLES);
+    meters.ifAvailable(sizes::register);
+    return sizes;
   }
 
   /**

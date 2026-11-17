@@ -68,6 +68,38 @@ class FeatureGateEnvironmentPostProcessorTest {
         .doesNotThrowAnyException();
   }
 
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.CsvSource({
+    "yukta.session.store-type, postgre",
+    "yukta.restart.store-type, pg",
+    "yukta.input.store-type, durable",
+    "yukta.agents.store-type, postgresql",
+    "yukta.ha.mode, active"
+  })
+  void unknownStoreSwitchValue_stopsStartupInsteadOfSelectingTheDefault(
+      final String key, final String value) {
+    assertThatThrownBy(() ->
+            FeatureGateEnvironmentPostProcessor.check(
+                new MockEnvironment().withProperty(key, value), name -> true))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining(key + "=" + value)
+        .hasMessageContaining("postgres");
+  }
+
+  @Test
+  void knownStoreSwitchValues_areAccepted_ignoringCaseAndBlanks() {
+    assertThatCode(() ->
+            FeatureGateEnvironmentPostProcessor.check(
+                new MockEnvironment()
+                    .withProperty("yukta.session.store-type", " In-Memory ")
+                    .withProperty("yukta.restart.store-type", "memory")
+                    .withProperty("yukta.input.store-type", "POSTGRES")
+                    .withProperty("yukta.agents.store-type", "memory")
+                    .withProperty("yukta.ha.mode", "single"),
+                name -> true))
+        .doesNotThrowAnyException();
+  }
+
   @Test
   void directoryWithPostgresStoreTypeIsGatedByThePostgresRowOnly() {
     final MockEnvironment env =
