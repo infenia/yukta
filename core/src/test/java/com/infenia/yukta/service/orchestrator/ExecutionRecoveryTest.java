@@ -123,6 +123,27 @@ class ExecutionRecoveryTest {
   }
 
   @Test
+  void startupWithAnEmptyLog_doesNotSweep(
+      @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws java.io.IOException {
+    // a store that could not be read answers empty: that must not wipe every recorded output
+    final var files =
+        new com.infenia.yukta.service.store.FileNodeCheckpointStore(
+            dir.toString(), tools.jackson.databind.json.JsonMapper.builder().build());
+    files
+        .save(
+            "kept",
+            "n1",
+            com.infenia.yukta.message.DefaultMessage.create(java.util.UUID.randomUUID(), "x"))
+        .block();
+
+    new ExecutionRecovery(store, tracker, 100, files).afterSingletonsInstantiated();
+
+    try (var left = java.nio.file.Files.list(dir)) {
+      assertThat(left.toList()).hasSize(1);
+    }
+  }
+
+  @Test
   void recoveryOnAliveServerLeavesTheDurableOutputAlone(
       @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws java.io.IOException {
     final var files =

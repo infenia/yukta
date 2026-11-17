@@ -41,7 +41,23 @@ class R2dbcNodeCheckpointStoreTest extends PostgresTestSupport {
         .containsExactly("a", Map.of("k", 1));
     assertThat(store.get("e1", "n1").block().payload()).isEqualTo(Map.of("k", 1));
     assertThat(store.getAll("e1", "other").collectList().block()).isEmpty();
-    assertThat(store.bytesHeld()).isPositive();
+    // read in the background from the table size, so the same on every server and after a restart
+    org.awaitility.Awaitility.await()
+        .atMost(java.time.Duration.ofSeconds(10))
+        .until(() -> store.bytesHeld() > 0);
+  }
+
+  @Test
+  void removeNotIn_dropsTheOutputOfRunsThatAreGone() {
+    store.save("gone", "n1", message("a")).block();
+    store.markComplete("gone", "n1").block();
+    store.save("kept", "n1", message("b")).block();
+
+    store.removeNotIn(java.util.Set.of("kept"));
+
+    assertThat(store.getAll("gone", "n1").collectList().block()).isEmpty();
+    assertThat(store.isFinished("gone", "n1")).isFalse();
+    assertThat(store.getAll("kept", "n1").collectList().block()).hasSize(1);
   }
 
   @Test
@@ -71,7 +87,7 @@ class R2dbcNodeCheckpointStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void clearRemovesTheRun_andFreesTheCountedBytes() {
+  void clearRemovesTheRun() {
     store.save("e1", "n1", message("a")).block();
     store.markComplete("e1", "n1").block();
     store.save("e2", "n1", message("b")).block();

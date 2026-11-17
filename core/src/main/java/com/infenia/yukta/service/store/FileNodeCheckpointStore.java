@@ -57,7 +57,7 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.ExcessiveImports",
   "PMD.GodClass"
 })
-public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
+public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted, RunOutputSweep {
 
   /** Suffix of the file holding a node's messages. */
   private static final String MESSAGES = ".jsonl";
@@ -261,12 +261,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     }
   }
 
-  /**
-   * Removes the output of every run that is not in {@code kept}: what an earlier process left for
-   * runs that are no longer in the execution log would otherwise stay on disk for good.
-   *
-   * @param kept the ids of the runs whose output is still wanted
-   */
+  @Override
   public void removeNotIn(final Set<String> kept) {
     if (!Files.isDirectory(root)) {
       return;

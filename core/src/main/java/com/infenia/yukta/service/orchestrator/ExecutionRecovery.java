@@ -11,7 +11,7 @@ import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.LogRetention;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
-import com.infenia.yukta.service.store.FileNodeCheckpointStore;
+import com.infenia.yukta.service.store.RunOutputSweep;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -188,8 +188,9 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
       }
     }
     store.replaceAll(kept);
-    if (startup && checkpoints instanceof FileNodeCheckpointStore files) {
-      files.removeNotIn(keep);
+    // an empty log may be a failed read (the stores answer empty then): never sweep on it
+    if (startup && !keep.isEmpty() && checkpoints instanceof RunOutputSweep sweep) {
+      sweep.removeNotIn(keep);
     }
     log.atInfo()
         .addKeyValue("restored", runs.size() - skip)
