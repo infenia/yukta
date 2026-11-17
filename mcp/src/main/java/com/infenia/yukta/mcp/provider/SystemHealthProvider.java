@@ -40,6 +40,12 @@ public class SystemHealthProvider {
   /** Maximum number of recent executions included in the status. */
   private static final int RECENT_EXECUTION_LIMIT = 20;
 
+  /**
+   * How long one read of every session's config and history is reused. Agents poll the status
+   * often, and each fresh read costs two calls per session.
+   */
+  private static final Duration SNAPSHOT_TTL = Duration.ofSeconds(5);
+
   /** Filter values accepted by getControlBusStatus. */
   private static final Set<String> VALID_FILTERS =
       Set.of("sessions", "executions", "plugins", "health");
@@ -55,6 +61,12 @@ public class SystemHealthProvider {
 
   /** Says whether the default supervisor is on and who owns what the caller can reach. */
   private final com.infenia.yukta.service.review.ControlReviewer reviewer;
+
+  /** The cached read with each session's config (for the session list). */
+  private final Mono<Snapshots> withConfig = cachedSnapshots(true);
+
+  /** The cached read of the histories alone (for the executions filter). */
+  private final Mono<Snapshots> historyOnly = cachedSnapshots(false);
 
   /**
    * Who is calling and what they may do, from the key the endpoint filter resolved.
@@ -112,10 +124,8 @@ public class SystemHealthProvider {
     final boolean wantSessions = all || "sessions".equalsIgnoreCase(filterType);
     final boolean wantExecutions = all || "executions".equalsIgnoreCase(filterType);
     // One pass over the sessions feeds both the session list and the recent executions.
-    final Mono<List<SessionSnapshot>> snapshots =
-        wantSessions || wantExecutions
-            ? snapshotSessions(wantSessions).cache()
-            : Mono.just(List.of());
+    final Mono<Snapshots> snapshots =
+        wantSessions ? withConfig : wantExecutions ? historyOnly : Mono.just(Snapshots.NONE);
     final Mono<List<SessionExecutionInfo>> sessions =
         wantSessions ? snapshots.map(this::toSessionInfos) : Mono.just(List.of());
     final Mono<List<ExecutionRecord>> executions =
@@ -129,12 +139,20 @@ public class SystemHealthProvider {
             ? buildSystemHealthMetrics()
             : new SystemHealthMetrics("0", "0", "0s");
 
-    return Mono.zip(sessions, plugins, executions)
-        .map(parts -> new ControlBusStatus(parts.getT1(), parts.getT2(), health, parts.getT3()));
+    return Mono.zip(sessions, plugins, executions, snapshots.map(Snapshots::skipped))
+        .map(parts ->
+            new ControlBusStatus(
+                parts.getT1(), parts.getT2(), health, parts.getT3(), parts.getT4()));
+  }
+
+  /** One read of all sessions, reused for {@link #SNAPSHOT_TTL}; a failed read is not kept. */
+  private Mono<Snapshots> cachedSnapshots(final boolean withConfig) {
+    return Mono.defer(() -> snapshotSessions(withConfig))
+        .cache(_ -> SNAPSHOT_TTL, _ -> Duration.ZERO, () -> Duration.ZERO);
   }
 
   /** Reads each session's config and history once, a few sessions at a time. */
-  private Mono<List<SessionSnapshot>> snapshotSessions(final boolean withConfig) {
+  private Mono<Snapshots> snapshotSessions(final boolean withConfig) {
     return sessionService
         .getSessionIds()
         .flatMap(
@@ -148,10 +166,11 @@ public class SystemHealthProvider {
                       log.atWarn()
                           .setCause(e)
                           .log("Skipping session {} in control bus status", sessionId);
-                      return Mono.empty();
+                      return Mono.just(SessionSnapshot.skipped(sessionId));
                     }),
             SESSION_CONCURRENCY)
-        .collectList();
+        .collectList()
+        .map(Snapshots::from);
   }
 
   private Mono<Integer> workflowCount(final String sessionId, final boolean withConfig) {
@@ -160,15 +179,15 @@ public class SystemHealthProvider {
         : Mono.just(0);
   }
 
-  private List<SessionExecutionInfo> toSessionInfos(final List<SessionSnapshot> snapshots) {
-    return snapshots.stream()
+  private List<SessionExecutionInfo> toSessionInfos(final Snapshots snapshots) {
+    return snapshots.read().stream()
         .map(s ->
             new SessionExecutionInfo(s.sessionId(), countActive(s.history()), s.workflowCount()))
         .toList();
   }
 
-  private List<ExecutionRecord> toRecentExecutions(final List<SessionSnapshot> snapshots) {
-    return snapshots.stream()
+  private List<ExecutionRecord> toRecentExecutions(final Snapshots snapshots) {
+    return snapshots.read().stream()
         .flatMap(s -> s.history().stream().map(h -> new SessionExecution(s.sessionId(), h)))
         .sorted(
             Comparator.comparing(
@@ -179,9 +198,35 @@ public class SystemHealthProvider {
         .toList();
   }
 
-  /** A session's workflow count and execution history, read once per status call. */
+  /** A session's workflow count and execution history; {@code skipped} when the read failed. */
   private record SessionSnapshot(
-      String sessionId, int workflowCount, List<WorkflowExecutionSummary> history) {}
+      String sessionId,
+      int workflowCount,
+      List<WorkflowExecutionSummary> history,
+      boolean skipped) {
+
+    /* default */ SessionSnapshot(
+        final String sessionId,
+        final int workflowCount,
+        final List<WorkflowExecutionSummary> history) {
+      this(sessionId, workflowCount, history, false);
+    }
+
+    /* default */ static SessionSnapshot skipped(final String sessionId) {
+      return new SessionSnapshot(sessionId, 0, List.of(), true);
+    }
+  }
+
+  /** The sessions that were read, and how many could not be. */
+  private record Snapshots(List<SessionSnapshot> read, int skipped) {
+
+    /* default */ static final Snapshots NONE = new Snapshots(List.of(), 0);
+
+    /* default */ static Snapshots from(final List<SessionSnapshot> all) {
+      final List<SessionSnapshot> read = all.stream().filter(s -> !s.skipped()).toList();
+      return new Snapshots(read, all.size() - read.size());
+    }
+  }
 
   /** Pairs an execution summary with its owning session for cross-session ordering. */
   private record SessionExecution(String sessionId, WorkflowExecutionSummary summary) {}

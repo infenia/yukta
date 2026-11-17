@@ -81,7 +81,7 @@ class McpDtoTest {
 
   @Test
   void testControlBusStatusNullListsDefaultToEmpty() {
-    final ControlBusStatus status = new ControlBusStatus(null, null, null, null);
+    final ControlBusStatus status = new ControlBusStatus(null, null, null, null, 0);
     assertThat(status.activeSessions()).isEmpty();
     assertThat(status.pluginRegistry()).isEmpty();
     assertThat(status.recentExecutions()).isEmpty();
@@ -90,7 +90,8 @@ class McpDtoTest {
             List.of(new SessionExecutionInfo("s1", 1, 2)),
             List.of(new PluginRegistryEntry("t", "PROCESSOR", "ACTIVE")),
             new SystemHealthMetrics("1 MB", "2 MB", "1s"),
-            List.of(new ExecutionRecord("s1", "e1", "RUNNING", "running")));
+            List.of(new ExecutionRecord("s1", "e1", "RUNNING", "running")),
+            0);
     assertThat(filled.activeSessions()).hasSize(1);
     assertThat(filled.pluginRegistry()).hasSize(1);
     assertThat(filled.recentExecutions()).hasSize(1);

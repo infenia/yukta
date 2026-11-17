@@ -242,7 +242,37 @@ class SystemHealthProviderTest {
         .assertNext(status -> {
           assertThat(status.activeSessions()).hasSize(1);
           assertThat(status.activeSessions().get(0).sessionId()).isEqualTo("s2");
+          assertThat(status.skippedSessions()).isEqualTo(1);
         })
+        .verifyComplete();
+  }
+
+  @Test
+  void testSnapshotIsReusedWithinTtl() {
+    when(registry.listPlugins()).thenReturn(List.of());
+    when(sessionService.getSessionIds()).thenReturn(Flux.just("s1"));
+    when(controlBus.getHistory("s1")).thenReturn(Mono.just(List.of()));
+
+    StepVerifier.create(provider.getControlBusStatus("executions"))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(provider.getControlBusStatus("executions"))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    verify(sessionService, times(1)).getSessionIds();
+    verify(controlBus, times(1)).getHistory("s1");
+  }
+
+  @Test
+  void testFailedListingIsNotCached() {
+    when(sessionService.getSessionIds())
+        .thenReturn(Flux.error(new RuntimeException("down")), Flux.just("s1"));
+    when(controlBus.getHistory("s1")).thenReturn(Mono.just(List.of()));
+
+    StepVerifier.create(provider.getControlBusStatus("executions")).verifyError();
+    StepVerifier.create(provider.getControlBusStatus("executions"))
+        .assertNext(status -> assertThat(status.skippedSessions()).isZero())
         .verifyComplete();
   }
 

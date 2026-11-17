@@ -13,13 +13,15 @@ import java.util.List;
  * @param pluginRegistry registered plugins and their status
  * @param systemHealth JVM health metrics
  * @param recentExecutions recent execution records across sessions
+ * @param skippedSessions sessions left out of the lists above because reading them failed
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ControlBusStatus(
     List<SessionExecutionInfo> activeSessions,
     List<PluginRegistryEntry> pluginRegistry,
     SystemHealthMetrics systemHealth,
-    List<ExecutionRecord> recentExecutions) {
+    List<ExecutionRecord> recentExecutions,
+    int skippedSessions) {
 
   /** Compact constructor to ensure immutability. */
   public ControlBusStatus {
