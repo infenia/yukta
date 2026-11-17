@@ -4348,7 +4348,7 @@
           },
           "sourcePort" : {
             "description" : "Source port name (optional; omit to route all messages)",
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "target" : {
             "description" : "Target node ID",

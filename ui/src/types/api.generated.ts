@@ -5675,7 +5675,7 @@ export interface components {
             /** @description Source node ID */
             source: string;
             /** @description Source port name (optional; omit to route all messages) */
-            sourcePort?: string;
+            sourcePort?: string | null;
             /** @description Target node ID */
             target: string;
         };
