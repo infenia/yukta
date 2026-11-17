@@ -7,6 +7,9 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.rsocket.transport.netty.client.TcpClientTransport;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.net.ssl.SSLEngine;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLParameters;
@@ -29,6 +32,28 @@ import reactor.netty.tcp.TcpClient;
 class WorkerTransport {
 
   /**
+   * Fragment size of both sides. An RSocket frame holds at most 16 MiB, so a larger message must be
+   * split into fragments, or it cannot be sent at all.
+   */
+  /* default */ static final int FRAGMENT_BYTES = 64 * 1024;
+
+  /**
+   * Largest message, reassembled from its fragments, that a side accepts from the other: twice the
+   * messaging payload cap plus 1 MiB, because a message crosses as JSON (base64 for byte arrays,
+   * escapes, the envelope's fields), which is larger than the payload {@code
+   * yukta.messaging.max-payload-bytes} counts. The cap is checked again on the message itself.
+   *
+   * @param maxPayloadBytes {@code yukta.messaging.max-payload-bytes}; 0 or less means no limit
+   * @return the limit for {@code maxInboundPayloadSize}
+   */
+  // ponytail: fixed 2x margin over the cap; measure the JSON size instead if it is ever too tight
+  /* default */ static int inboundLimit(final long maxPayloadBytes) {
+    return maxPayloadBytes <= 0
+        ? Integer.MAX_VALUE
+        : (int) Math.min(Integer.MAX_VALUE, maxPayloadBytes * 2 + 1024 * 1024);
+  }
+
+  /**
    * Connects, with the worker's own handlers answering the control plane's requests on the same
    * connection.
    *
@@ -37,6 +62,7 @@ class WorkerTransport {
    * @param host the control plane's host
    * @param port the control plane's RSocket port
    * @param bundle the SSL bundle for TLS, or null for plain TCP
+   * @param maxInbound largest reassembled message accepted from the control plane
    * @return the connection, made when subscribed (again for every attempt)
    */
   /* default */ static Mono<RSocketRequester> connect(
@@ -44,13 +70,65 @@ class WorkerTransport {
       final RSocketMessageHandler responder,
       final String host,
       final int port,
-      @Nullable final SslBundle bundle) {
+      @Nullable final SslBundle bundle,
+      final int maxInbound) {
     final RSocketRequester.Builder configured =
-        builder.rsocketConnector(connector -> connector.acceptor(responder.responder()));
+        builder.rsocketConnector(connector ->
+            connector
+                .acceptor(responder.responder())
+                .fragment(FRAGMENT_BYTES)
+                .maxInboundPayloadSize(maxInbound));
     return bundle == null
         ? configured.connectTcp(host, port)
         : Mono.fromCallable(() -> secure(host, port, bundle))
             .flatMap(client -> configured.connect(TcpClientTransport.create(client)));
+  }
+
+  /**
+   * Connects to one control plane given as {@code host:port}, refusing plain TCP off this machine
+   * unless allowed.
+   *
+   * @param address the control plane's {@code host:port}
+   * @param builder builds the RSocket requester
+   * @param responder lets the control plane call back into the connection
+   * @param bundle the SSL bundle for TLS, or null for plain TCP
+   * @param allowInsecure allow plain TCP to a host that is not this machine
+   * @param maxInbound largest reassembled message accepted from the control plane
+   * @return the connection, made when subscribed
+   */
+  /* default */ static Mono<RSocketRequester> target(
+      final String address,
+      final RSocketRequester.Builder builder,
+      final RSocketMessageHandler responder,
+      @Nullable final SslBundle bundle,
+      final boolean allowInsecure,
+      final int maxInbound) {
+    final int colon = address.lastIndexOf(':');
+    if (colon <= 0) {
+      throw new IllegalArgumentException("yukta.workers.control-plane must be host:port");
+    }
+    final String host = address.substring(0, colon);
+    requireTls(host, bundle != null, allowInsecure);
+    return connect(
+        builder,
+        responder,
+        host,
+        Integer.parseInt(address.substring(colon + 1)),
+        bundle,
+        maxInbound);
+  }
+
+  /**
+   * Splits a comma separated list, dropping blanks and repeats.
+   *
+   * @param csv the list
+   * @return the distinct values
+   */
+  /* default */ static Set<String> split(final String csv) {
+    return Arrays.stream(csv.split(","))
+        .map(String::trim)
+        .filter(value -> !value.isEmpty())
+        .collect(Collectors.toUnmodifiableSet());
   }
 
   /**

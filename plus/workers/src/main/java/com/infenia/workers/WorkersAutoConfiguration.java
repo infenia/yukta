@@ -11,15 +11,14 @@ import com.infenia.yukta.startup.DefaultsAutoConfiguration;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.rsocket.server.RSocketServerCustomizer;
 import org.springframework.boot.ssl.SslBundle;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
@@ -126,7 +125,25 @@ public class WorkersAutoConfiguration {
       final PluginRegistry plugins,
       @Value("${yukta.workers.plugin-types:}") final String pluginTypes,
       final ObjectMapper mapper) {
-    return new NodeRunner(plugins, split(pluginTypes), mapper);
+    return new NodeRunner(plugins, WorkerTransport.split(pluginTypes), mapper);
+  }
+
+  /**
+   * Splits large messages to workers into fragments, and limits the size of a message a worker
+   * sends back (see {@link WorkerTransport#inboundLimit}).
+   *
+   * @param maxPayloadBytes {@code yukta.messaging.max-payload-bytes}
+   * @return the customizer of the control plane's RSocket server
+   */
+  @Bean
+  @ConditionalOnProperty(name = "yukta.workers.token")
+  @ConditionalOnExpression("'${yukta.workers.control-plane:}'.isEmpty()")
+  public RSocketServerCustomizer workerFrameLimits(
+      @Value("${yukta.messaging.max-payload-bytes:67108864}") final long maxPayloadBytes) {
+    return server ->
+        server
+            .fragment(WorkerTransport.FRAGMENT_BYTES)
+            .maxInboundPayloadSize(WorkerTransport.inboundLimit(maxPayloadBytes));
   }
 
   /**
@@ -159,6 +176,8 @@ public class WorkersAutoConfiguration {
    * @param runner runs the attempts, and counts them
    * @param sslBundle name of the SSL bundle for TLS to the control plane; empty for plain TCP
    * @param allowInsecure allow plain TCP to a host that is not this machine
+   * @param maxPayloadBytes {@code yukta.messaging.max-payload-bytes}, which limits the size of a
+   *     message from the control plane
    * @param bundles the SSL bundles of the application
    * @return the agent, started and stopped with the application
    */
@@ -179,15 +198,19 @@ public class WorkersAutoConfiguration {
       @Value("${yukta.workers.drain-timeout:30s}") final Duration drainTimeout,
       @Value("${yukta.workers.ssl-bundle:}") final String sslBundle,
       @Value("${yukta.workers.allow-insecure:false}") final boolean allowInsecure,
+      @Value("${yukta.messaging.max-payload-bytes:67108864}") final long maxPayloadBytes,
       final ObjectProvider<SslBundles> bundles) {
     final SslBundle bundle = sslBundle.isBlank() ? null : bundles.getObject().getBundle(sslBundle);
+    final int maxInbound = WorkerTransport.inboundLimit(maxPayloadBytes);
     // Several control planes (the leader and its standbys) may be listed; each connection attempt
     // tries the next one, and a standby refuses the worker, so the worker ends up on the leader.
     final List<Mono<RSocketRequester>> targets =
         Arrays.stream(controlPlane.split(","))
             .map(String::trim)
             .filter(address -> !address.isEmpty())
-            .map(address -> target(address, builder, responder, bundle, allowInsecure))
+            .map(address ->
+                WorkerTransport.target(
+                    address, builder, responder, bundle, allowInsecure, maxInbound))
             .toList();
     final AtomicInteger turn = new AtomicInteger();
     // The control plane calls back into this connection to run nodes, so the worker answers
@@ -197,32 +220,10 @@ public class WorkersAutoConfiguration {
     return new WorkerAgent(
         connect,
         token,
-        new WorkerRegistration(workerId, split(pools), split(pluginTypes), capacity),
+        new WorkerRegistration(
+            workerId, WorkerTransport.split(pools), WorkerTransport.split(pluginTypes), capacity),
         lease.dividedBy(3),
         runner::running,
         drainTimeout);
-  }
-
-  private static Mono<RSocketRequester> target(
-      final String address,
-      final RSocketRequester.Builder builder,
-      final RSocketMessageHandler responder,
-      final SslBundle bundle,
-      final boolean allowInsecure) {
-    final int colon = address.lastIndexOf(':');
-    if (colon <= 0) {
-      throw new IllegalArgumentException("yukta.workers.control-plane must be host:port");
-    }
-    final String host = address.substring(0, colon);
-    WorkerTransport.requireTls(host, bundle != null, allowInsecure);
-    return WorkerTransport.connect(
-        builder, responder, host, Integer.parseInt(address.substring(colon + 1)), bundle);
-  }
-
-  private static Set<String> split(final String csv) {
-    return Arrays.stream(csv.split(","))
-        .map(String::trim)
-        .filter(value -> !value.isEmpty())
-        .collect(Collectors.toUnmodifiableSet());
   }
 }
