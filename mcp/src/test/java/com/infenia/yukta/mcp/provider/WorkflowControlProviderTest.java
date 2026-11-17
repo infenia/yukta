@@ -72,6 +72,9 @@ class WorkflowControlProviderTest {
         .assertNext(result -> {
           org.assertj.core.api.Assertions.assertThat(result.executionId()).isEqualTo(EXECUTION);
           org.assertj.core.api.Assertions.assertThat(result.action()).isEqualTo("PAUSE");
+          // The pause is only sent; the agent must confirm it.
+          org.assertj.core.api.Assertions.assertThat(result.message())
+              .contains("get_workflow_status");
         })
         .verifyComplete();
 

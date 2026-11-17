@@ -923,7 +923,9 @@ public class AppMcpTools {
               + "RESTART_FROM_NODE to restart from a specific node (requires fromNodeId); "
               + "STOP_ALL to stop every active execution of a workflow (requires workflowId, "
               + "no executionId). Restart and recover actions return the new execution ID in "
-              + "resultExecutionIds.",
+              + "resultExecutionIds. PAUSE, RESUME and STOP return once the signal is sent, not "
+              + "when it took effect (a DRAIN stop can take a while): confirm with "
+              + "get_workflow_status.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
@@ -1069,7 +1071,9 @@ public class AppMcpTools {
           "Control a single node within a running workflow execution: PAUSE, RESUME, or STOP "
               + "the node; STEP_ENABLE/STEP_DISABLE to toggle step-by-step mode and STEP to "
               + "execute one step; SKIP/UNSKIP to pass its input through; RETRY to restart from "
-              + "a failed node as a new execution; BREAKPOINT_CLEAR to remove its breakpoint.",
+              + "a failed node as a new execution; BREAKPOINT_CLEAR to remove its breakpoint. "
+              + "The result means the signal was sent, not that the node changed: confirm with "
+              + "get_workflow_status.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
