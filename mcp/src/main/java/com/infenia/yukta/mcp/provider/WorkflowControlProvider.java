@@ -218,7 +218,7 @@ public class WorkflowControlProvider {
                             executionId,
                             nodeId,
                             List.of(),
-                            action + " signal sent to node " + nodeId + ".")));
+                            action + " signal sent to node " + nodeId + "." + CONFIRM)));
   }
 
   /**
@@ -261,6 +261,10 @@ public class WorkflowControlProvider {
                         "Breakpoint set on node " + nodeId + ".")));
   }
 
+  /** Appended to a signal result: the tool returns when the command is sent, not when done. */
+  private static final String CONFIRM =
+      " The effect is asynchronous: confirm it with get_workflow_status.";
+
   private Mono<ControlActionResult> stopAllExecutions(
       final String sessionId, final String workflowId, final String reason, final StopMode mode) {
     if (workflowId == null || workflowId.isBlank()) {
@@ -275,7 +279,12 @@ public class WorkflowControlProvider {
                 null,
                 null,
                 stopped,
-                "Stopped " + stopped.size() + " execution(s) of workflow " + workflowId + "."));
+                "Stop signal sent to "
+                    + stopped.size()
+                    + " execution(s) of workflow "
+                    + workflowId
+                    + "."
+                    + CONFIRM));
   }
 
   private Mono<ControlActionResult> executeWorkflowAction(
@@ -291,7 +300,11 @@ public class WorkflowControlProvider {
           treeControl
               .apply(executionId, tree, control::resumeWorkflow)
               .thenReturn(
-                  result(action, executionId, List.of(), "Resume signal sent" + scope + "."));
+                  result(
+                      action,
+                      executionId,
+                      List.of(),
+                      "Resume signal sent" + scope + "." + CONFIRM));
       case STOP ->
           treeControl
               .apply(
@@ -301,7 +314,7 @@ public class WorkflowControlProvider {
                       action,
                       executionId,
                       List.of(executionId),
-                      "Execution stopped" + scope + "."));
+                      "Stop signal sent" + scope + "." + CONFIRM));
       case RESTART ->
           control
               .restartWorkflow(executionId)
@@ -334,7 +347,8 @@ public class WorkflowControlProvider {
           treeControl
               .apply(executionId, tree, control::pauseWorkflow)
               .thenReturn(
-                  result(action, executionId, List.of(), "Pause signal sent" + scope + "."));
+                  result(
+                      action, executionId, List.of(), "Pause signal sent" + scope + "." + CONFIRM));
     };
   }
 

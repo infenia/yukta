@@ -569,7 +569,7 @@ What the server really prevents, compared with what it merely says.
 | Topic | Behaviour |
 |---|---|
 | Calls are independent | Every request stands alone. There is no session, no subscription and no push. Agents poll. |
-| Control results | 'Signal sent' and 'Stopped N executions' mean the command went onto the bus. Effects show in get_workflow_status. |
+| Control results | 'Signal sent' and 'Stop signal sent to N executions' mean the command went onto the bus. Effects show in get_workflow_status. |
 | Restart and retry | Create a new execution with a new id, returned in resultExecutionIds. The old run stays as history. |
 | Errors | Plain-text IllegalArgumentException messages, shown as isError results, usually naming the next tool to call. |
 | Lists | Always whole lists in a wrapper record (sessions, history, plugins). No paging. |
@@ -618,7 +618,7 @@ What each action needs and returns. 'Signal' results confirm emission, not effec
 | Tool and action | Needs | Returns |
 |---|---|---|
 | control_workflow PAUSE / RESUME | executionId | Signal sent |
-| control_workflow STOP | executionId; reason optional | Execution stopped, with the stopped id |
+| control_workflow STOP | executionId; reason optional | Stop signal sent, with the stopped id; confirm with get_workflow_status |
 | control_workflow STOP_ALL | workflowId (no executionId, no ownership check) | Ids of stopped executions |
 | control_workflow RESTART | executionId | New execution id |
 | control_workflow RESTART_FROM_NODE | executionId, fromNodeId | New execution id |
