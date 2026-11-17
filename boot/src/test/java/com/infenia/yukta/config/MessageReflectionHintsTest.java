@@ -32,6 +32,22 @@ class MessageReflectionHintsTest {
   }
 
   @Test
+  void registerHints_pluginWireSchemas_areIncludedInNativeImage() {
+    final RuntimeHints hints = new RuntimeHints();
+
+    new MessageReflectionHints.Hints()
+        .registerHints(hints, Thread.currentThread().getContextClassLoader());
+
+    assertThat(
+            RuntimeHintsPredicates.resource().forResource("schema/plugin/v1/manifest.schema.json"))
+        .accepts(hints);
+    assertThat(
+            RuntimeHintsPredicates.resource()
+                .forResource("schema/plugin/v1/message-out.schema.json"))
+        .accepts(hints);
+  }
+
+  @Test
   void registerHints_apiKeyEntry_isBindableInNative() {
     final RuntimeHints hints = new RuntimeHints();
 
