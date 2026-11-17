@@ -88,6 +88,9 @@ public class SupervisorHost implements DryRunRecorder {
   /** Events handed to the supervisor's thread at a time. */
   private static final int SUPERVISOR_PREFETCH = 256;
 
+  /** How long dropped events wait for a next event before the supervisor is told anyway. */
+  private static final Duration MISSED_NOTICE_PERIOD = Duration.ofSeconds(1);
+
   /** Most decisions kept for the decision feed. */
   private static final int MAX_DECISIONS = 500;
 
@@ -721,14 +724,20 @@ public class SupervisorHost implements DryRunRecorder {
         // The feed delivers on the publisher's thread (the tracker's); a supervisor that blocks,
         // for example on a model call, must not hold the runs up.
         .publishOn(Schedulers.boundedElastic(), SUPERVISOR_PREFETCH)
-        // ponytail: the gap is reported with the next event, so it is late if the feed then goes
-        // quiet; add a timer if that matters.
-        .flatMapIterable(event -> {
-          final long count = missed.getAndSet(0);
-          return count == 0
-              ? List.of(event)
-              : List.of(new ExecutionEvent.EventsMissed(count, Instant.now()), event);
-        });
+        // The gap is reported with the next event, or by a timer when none follows, so a quiet
+        // feed does not hold the notice back.
+        .publish(shared ->
+            Flux.merge(
+                shared.flatMapIterable(event ->
+                    Stream.concat(missedNotice(missed).stream(), Stream.of(event)).toList()),
+                Flux.interval(MISSED_NOTICE_PERIOD)
+                    .takeUntilOther(shared.then())
+                    .flatMapIterable(_ -> missedNotice(missed))));
+  }
+
+  private static List<ExecutionEvent> missedNotice(final AtomicLong missed) {
+    final long count = missed.getAndSet(0);
+    return count > 0 ? List.of(new ExecutionEvent.EventsMissed(count, Instant.now())) : List.of();
   }
 
   private Mono<Void> apply(

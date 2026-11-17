@@ -470,6 +470,31 @@ class SupervisorHostTest {
   }
 
   @Test
+  void start_overflowThenQuietFeed_stillTellsSupervisorWhatItMissed() {
+    final List<ExecutionEvent.EventsMissed> gaps = new CopyOnWriteArrayList<>();
+    start(
+        supervisor(
+            "quiet",
+            events ->
+                events
+                    .limitRate(1)
+                    .concatMap(event -> Mono.delay(Duration.ofMillis(5)).thenReturn(event))
+                    .ofType(ExecutionEvent.EventsMissed.class)
+                    .doOnNext(gaps::add)
+                    .then(Mono.<ExecutionControlCommand>empty())
+                    .flux()),
+        false,
+        10,
+        4);
+
+    for (int i = 0; i < 2000; i++) {
+      feed.publish(failed("e" + i));
+    }
+
+    await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> assertThat(gaps).isNotEmpty());
+  }
+
+  @Test
   void status_describesEachSupervisorWithItsCommandCounts() {
     final var plane = new NamedPlane();
     final ExecutionSupervisor plain = supervisor("rules", SupervisorHostTest::pauseOnFailure);
