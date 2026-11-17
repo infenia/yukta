@@ -174,6 +174,27 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void resumedRun_continuesUnderItsOwnId_andIsKeptWhileItRuns() {
+    final R2dbcExecutionLogStore trimming =
+        new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 10, 5_000);
+    final ExecutionLogEvent first = started("first");
+    trimming.append(first);
+    trimming.append(ExecutionLogEvent.aborted(first));
+    trimming.append(ExecutionLogEvent.resumed(first, "again"));
+    trimming.append(started("again"));
+    for (final String run : List.of("r2", "r3", "r4")) {
+      trimming.append(started(run));
+      trimming.append(finished(run));
+    }
+
+    assertThat(trimming.readAll())
+        .extracting(ExecutionLogEvent::executionId)
+        .contains("again", "r3", "r4")
+        .doesNotContain("first", "r2");
+    trimming.close();
+  }
+
+  @Test
   void schedulerChangesAreTrimmedToTheNewestFew() {
     final R2dbcExecutionLogStore trimming =
         new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 4, 5_000);
