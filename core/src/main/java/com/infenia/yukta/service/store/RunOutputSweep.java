@@ -6,7 +6,8 @@ import java.util.Set;
 
 /**
  * A durable checkpoint store that can drop the output of runs that are no longer in the execution
- * log. {@code ExecutionRecovery} calls it at startup, when no run of this process is going yet.
+ * log. {@code ExecutionRecovery} calls it at startup and on takeover, when no run of this server is
+ * going yet.
  */
 @FunctionalInterface
 public interface RunOutputSweep {

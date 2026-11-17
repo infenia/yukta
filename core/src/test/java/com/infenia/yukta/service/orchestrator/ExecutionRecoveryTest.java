@@ -144,7 +144,7 @@ class ExecutionRecoveryTest {
   }
 
   @Test
-  void recoveryOnAliveServerLeavesTheDurableOutputAlone(
+  void takeoverRecovery_alsoRemovesTheOutputOfRunsNoLongerInTheLog(
       @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws java.io.IOException {
     final var files =
         new com.infenia.yukta.service.store.FileNodeCheckpointStore(
@@ -156,10 +156,13 @@ class ExecutionRecoveryTest {
             com.infenia.yukta.message.DefaultMessage.create(java.util.UUID.randomUUID(), "x"))
         .block();
 
+    finishedRun("done", "SUCCESS");
+
+    // a standby runs nothing, so on takeover every run without a log entry is gone
     new ExecutionRecovery(store, tracker, 100, files).recover();
 
     try (var left = java.nio.file.Files.list(dir)) {
-      assertThat(left.toList()).hasSize(1);
+      assertThat(left.toList()).isEmpty();
     }
   }
 

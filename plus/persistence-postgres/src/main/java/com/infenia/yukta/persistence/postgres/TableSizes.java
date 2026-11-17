@@ -34,6 +34,9 @@ public final class TableSizes {
           "input_request",
           "notifications");
 
+  /** Longest a read of the sizes may take. */
+  private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
+
   /** How old a size may be before it is read again. */
   private static final long MAX_AGE_NANOS = Duration.ofMinutes(1).toNanos();
 
@@ -112,6 +115,8 @@ public final class TableSizes {
           .bind("tables", tables.toArray(String[]::new))
           .map(row -> Map.entry(row.get("t", String.class), row.get("size", Long.class)))
           .all()
+          // a read that never answers must not keep the sizes from being read again
+          .timeout(READ_TIMEOUT)
           .doFinally(_ -> reading.set(false))
           .subscribe(
               entry -> lastBytes.get(entry.getKey()).set(entry.getValue()),

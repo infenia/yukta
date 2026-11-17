@@ -244,7 +244,7 @@ Stores what each node of a run produced and whether it ended normally, so a run 
 - `save` inserts one row per message in `node_checkpoint` (JSONB). If the insert fails the node is marked *incomplete* in `node_checkpoint_state`, so a restart that needs this node is refused instead of replaying part of it.
 - `markComplete` sets the *done* flag in a second table, after the last message; if that fails the node is marked incomplete instead and a resume will run it again. `isFinished` is true only when done is set and incomplete is not.
 - `isComplete` and `isFinished` are plain (blocking) methods in the interface, so they wait for the database up to 30 s; a timeout is treated as *unfinished*, which is the safe side for a resume.
-- `get` reads only the newest row of the node. `getAll` streams the rows in order. `clear` deletes the rows and the state of a run. At startup recovery deletes the rows of every run no longer in the log (`removeNotIn`), unless the log read came back empty.
+- `get` reads only the newest row of the node. `getAll` streams the rows in order. `clear` deletes the rows and the state of a run. Recovery (at startup, and on takeover with `yukta.ha.mode=postgres`) deletes the rows of every run no longer in the log (`removeNotIn`), unless the log read came back empty.
 - `bytesHeld` (the core meter `yukta.checkpoint.bytes`) is the size on disk of `node_checkpoint`, read in the background at most once a minute, so it is the same on every server and after a restart.
 
 - **Guarantees.** A node counts as finished only when its end marker is durable; a failed save makes the node incomplete.
@@ -497,7 +497,7 @@ Nine tables from six migrations. 'Cleaned by' says what removes rows; 'nothing' 
 | workflow_definition_revision | V1, V2 (note) | save, saveNote | revisions, findRevision | prune to 20 after each save; remove |
 | session_config | V1 | Session config store | getAllConfigs, getSessionIds | removeSession |
 | execution_log | V1, V5 (index of run starts and ends) | Log writer thread | readAll at recovery and resume | compaction; replaceAll |
-| node_checkpoint | V3 | Checkpoint save | get, getAll | clear when the run leaves the archive of retained executions; at startup, every run no longer in the log |
+| node_checkpoint | V3 | Checkpoint save | get, getAll | clear when the run leaves the archive of retained executions; recovery (startup, takeover): every run no longer in the log |
 | node_checkpoint_state | V3 | markComplete, failed saves | isComplete, isFinished | clear |
 | leader_lease | V4 | Every server, every 5 s | The same statement | nothing (one row) |
 
