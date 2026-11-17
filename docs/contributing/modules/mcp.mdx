@@ -49,7 +49,7 @@ mcp depends on core only. It does not depend on web, so REST and MCP are two ind
 | Control bus | The part of core that carries commands (pause, stop, skip, retry) to a run and reports its progress. mcp reaches it through one gateway object. | control_node with action PAUSE becomes a pause command on the bus. |
 | Signal, not state | Most control tools return as soon as the command has been sent. They do not wait until the node actually changed. The agent checks the status afterwards. | Result 'Pause signal sent.' means sent, not yet paused. |
 | Ownership check | Every tool that names an execution also names its session, and mcp confirms the two belong together. An unknown id and an id from another session give the same error. | 'Execution not found: e-9' either way, so an agent cannot probe other sessions. |
-| Stateless, so poll | The server remembers nothing between requests and cannot push updates. An agent that wants progress asks again and again. | Call get_workflow_status every few seconds while the run is active. |
+| Stateless, so poll | The server remembers nothing between requests and cannot push updates. An agent that wants progress asks again and again. | Call get_workflow_status with waitSeconds (at most 30): it answers on the next change of the run or a node, so the agent repeats a held call instead of polling blind. |
 
 ### One example, end to end
 
@@ -99,7 +99,7 @@ An agent is told 'run e-42 in session ci failed, find out why and fix it'. Click
 <Step title="Check new run">
 **What happens.** The agent polls get_workflow_status with the new execution id until it is terminal, then reads the logs of the new run.
 
-**Why it works this way.** The transport is stateless, so the server cannot push 'done'. Polling is the whole mechanism and every poll is an ordinary, independent request.
+**Why it works this way.** The transport is stateless, so the server cannot push 'done'. Polling is the whole mechanism and every poll is an ordinary, independent request; `waitSeconds` holds one such request open until the run changes (a long poll), so the agent reacts within a second without asking every second.
 
 **Can go wrong.** Each poll repeats the ownership read. Many agents polling many runs add load that grows with the number of pollers.
 

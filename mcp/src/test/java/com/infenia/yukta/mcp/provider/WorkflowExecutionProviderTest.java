@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.mcp.dto.WorkflowStartResult;
+import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
@@ -25,6 +26,7 @@ import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
 import com.infenia.yukta.testing.Fixtures;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -198,6 +200,95 @@ class WorkflowExecutionProviderTest {
     StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1"))
         .expectNext(progress)
         .verifyComplete();
+  }
+
+  private static WorkflowProgress progress(final TaskStatus status) {
+    return Fixtures.workflowProgress("e1", "sess-1", "w1", status, List.of(), Instant.EPOCH, null);
+  }
+
+  @Test
+  void testWaitReturnsTheFirstChangedSnapshot() {
+    when(controlBus.getProgress("sess-1", "e1")).thenReturn(progress(TaskStatus.RUNNING));
+    final WorkflowProgress done = progress(TaskStatus.SUCCESS);
+    when(controlBus.watchExecution("e1", false))
+        .thenReturn(reactor.core.publisher.Flux.just(progress(TaskStatus.RUNNING), done));
+
+    StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1", 10))
+        .expectNext(done)
+        .verifyComplete();
+  }
+
+  @Test
+  void testWaitWithoutChangeAnswersWithTheSnapshotWhenTimeIsUp() {
+    final WorkflowProgress running = progress(TaskStatus.RUNNING);
+    when(controlBus.getProgress("sess-1", "e1")).thenReturn(running);
+    when(controlBus.watchExecution("e1", false)).thenReturn(reactor.core.publisher.Flux.never());
+
+    StepVerifier.withVirtualTime(() -> provider.getWorkflowStatus("sess-1", "e1", 300))
+        .expectSubscription()
+        .expectNoEvent(Duration.ofSeconds(WorkflowExecutionProvider.MAX_WAIT_SECONDS - 1))
+        .thenAwait(Duration.ofSeconds(1))
+        .expectNext(running)
+        .verifyComplete();
+  }
+
+  @Test
+  void testWaitSeesNodeStatusChange() {
+    final TaskProgress node =
+        new TaskProgress("n1", "mod", TaskStatus.RUNNING, null, null, Map.of(), null);
+    final TaskProgress nodeDone =
+        new TaskProgress("n1", "mod", TaskStatus.SUCCESS, null, null, Map.of(), null);
+    final WorkflowProgress before =
+        Fixtures.workflowProgress(
+            "e1", "sess-1", "w1", TaskStatus.RUNNING, List.of(node), Instant.EPOCH, null);
+    final WorkflowProgress after =
+        Fixtures.workflowProgress(
+            "e1", "sess-1", "w1", TaskStatus.RUNNING, List.of(nodeDone), Instant.EPOCH, null);
+    when(controlBus.getProgress("sess-1", "e1")).thenReturn(before);
+    when(controlBus.watchExecution("e1", false))
+        .thenReturn(reactor.core.publisher.Flux.just(after));
+
+    StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1", 10))
+        .expectNext(after)
+        .verifyComplete();
+  }
+
+  @Test
+  void testWaitWithoutStatusKeepsWaiting() {
+    final WorkflowProgress unknown = progress(null);
+    when(controlBus.getProgress("sess-1", "e1")).thenReturn(unknown);
+    when(controlBus.watchExecution("e1", false)).thenReturn(reactor.core.publisher.Flux.never());
+
+    StepVerifier.withVirtualTime(() -> provider.getWorkflowStatus("sess-1", "e1", 5))
+        .expectSubscription()
+        .thenAwait(Duration.ofSeconds(5))
+        .expectNext(unknown)
+        .verifyComplete();
+  }
+
+  @Test
+  void testWaitWithNoTimeAnswersWithTheSnapshotAtOnce() {
+    final WorkflowProgress running = progress(TaskStatus.RUNNING);
+    when(controlBus.getProgress("sess-1", "e1")).thenReturn(running);
+
+    StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1", null))
+        .expectNext(running)
+        .verifyComplete();
+    StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1", 0))
+        .expectNext(running)
+        .verifyComplete();
+    org.mockito.Mockito.verify(controlBus, org.mockito.Mockito.never()).watchExecution("e1", false);
+  }
+
+  @Test
+  void testWaitOnFinishedRunAnswersAtOnce() {
+    final WorkflowProgress done = progress(TaskStatus.SUCCESS);
+    when(controlBus.getProgress("sess-1", "e1")).thenReturn(done);
+
+    StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1", 10))
+        .expectNext(done)
+        .verifyComplete();
+    org.mockito.Mockito.verify(controlBus, org.mockito.Mockito.never()).watchExecution("e1", false);
   }
 
   @Test

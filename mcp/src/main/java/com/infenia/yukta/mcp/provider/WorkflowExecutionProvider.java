@@ -35,6 +35,9 @@ public class WorkflowExecutionProvider {
   /** Service for executing workflows and managing their lifecycle. */
   private final WorkflowService workflowService;
 
+  /** The longest a status call waits for a change, so a request does not hang. */
+  public static final int MAX_WAIT_SECONDS = 30;
+
   /** Service for managing session state and configuration. */
   private final SessionService sessionService;
 
@@ -164,6 +167,44 @@ public class WorkflowExecutionProvider {
   public Mono<WorkflowProgress> getWorkflowStatus(
       final String sessionId, final String executionId) {
     return ExecutionOwnership.require(controlBus, sessionId, executionId);
+  }
+
+  /**
+   * The progress of an execution, after waiting up to {@code waitSeconds} for it to change: its
+   * status, its control state or a node's status. Returns at once when the run has finished.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the execution identifier
+   * @param waitSeconds how long to wait for a change, capped at {@link #MAX_WAIT_SECONDS}; null or
+   *     0 returns the current snapshot
+   * @return Mono containing the changed progress, or the current one when nothing changed in time
+   */
+  public Mono<WorkflowProgress> getWorkflowStatus(
+      final String sessionId, final String executionId, final Integer waitSeconds) {
+    final Mono<WorkflowProgress> now = getWorkflowStatus(sessionId, executionId);
+    if (waitSeconds == null || waitSeconds <= 0) {
+      return now;
+    }
+    final Duration wait = Duration.ofSeconds(Math.min(waitSeconds, MAX_WAIT_SECONDS));
+    // ponytail: a change between the first read and the subscription shows at the next update or
+    // when the wait ends; subscribe before reading if that delay matters
+    return now.flatMap(before ->
+        before.status() != null && before.status().isTerminal()
+            ? Mono.just(before)
+            : controlBus
+                .watchExecution(executionId, false)
+                .filter(after -> !shape(after).equals(shape(before)))
+                .next()
+                .timeout(wait, Mono.empty())
+                .switchIfEmpty(Mono.defer(() -> getWorkflowStatus(sessionId, executionId))));
+  }
+
+  /** What counts as a change for a waiting caller: run status, control state, node statuses. */
+  private static List<Object> shape(final WorkflowProgress progress) {
+    return List.of(
+        String.valueOf(progress.status()),
+        String.valueOf(progress.controlState()),
+        progress.tasks().stream().map(t -> t.nodeId() + "=" + t.status()).toList());
   }
 
   /**
