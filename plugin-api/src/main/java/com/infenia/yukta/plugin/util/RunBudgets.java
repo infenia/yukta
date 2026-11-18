@@ -17,6 +17,7 @@ import java.util.Optional;
  * estimate that in-flight calls can pass. The newest {@value #MAX_RUNS} keys are remembered; an
  * older one starts again from zero.
  */
+@SuppressWarnings("PMD.TooManyMethods") // one small method per kind of use, kept together
 @SuppressFBWarnings(
     value = "MS_EXPOSE_REP",
     justification = "shared() is a convenience; tests and plugins may still own an instance")
@@ -151,6 +152,7 @@ public final class RunBudgets {
    * @param budget the option of the node
    * @return why the run may not call, or empty if the call is counted and may go on
    */
+  @SuppressWarnings("PMD.AvoidSynchronizedStatement") // the monitor of the synchronized map
   public Optional<String> reserve(final String runId, final Map<?, ?> budget) {
     synchronized (byRun) {
       final Optional<String> why = exceeded(runId, budget);
