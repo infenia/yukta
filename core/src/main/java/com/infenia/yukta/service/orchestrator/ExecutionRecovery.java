@@ -11,7 +11,7 @@ import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.LogRetention;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
-import com.infenia.yukta.service.store.FileNodeCheckpointStore;
+import com.infenia.yukta.service.store.RunOutputSweep;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,8 +35,7 @@ import org.springframework.stereotype.Component;
 @SuppressWarnings({
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.AvoidCatchingGenericException",
-  "PMD.TooManyMethods"
+  "PMD.AvoidCatchingGenericException"
 })
 public class ExecutionRecovery implements SmartInitializingSingleton {
 
@@ -123,24 +122,19 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     // With several servers a standby must not mark a living leader's runs aborted: recovery then
     // happens on takeover (TakeoverRecovery).
     if (election == null || !election.recoversOnTakeover()) {
-      recover(true);
+      recover();
     }
   }
 
   /**
-   * Marks interrupted runs aborted, trims the log and restores recent runs into the tracker.
+   * Marks interrupted runs aborted, trims the log and restores recent runs into the tracker. It
+   * also removes the durable output of runs that are no longer in the log (an earlier process, or a
+   * log trimmed since), which nothing else would. It runs at startup or when this server takes over
+   * (a standby runs nothing), so no run of this server is going yet.
    *
    * @return the ids of the runs that were interrupted and are now marked aborted
    */
   public List<String> recover() {
-    return recover(false);
-  }
-
-  /**
-   * As {@link #recover()}; at start-up it also removes the durable output of runs that are no
-   * longer in the log (an earlier process, or a log trimmed since), which nothing else would.
-   */
-  private List<String> recover(final boolean startup) {
     final List<ExecutionLogEvent> all = store.readAll();
     final List<ExecutionLogEvent> scheduler =
         all.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).toList();
@@ -188,8 +182,9 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
       }
     }
     store.replaceAll(kept);
-    if (startup && checkpoints instanceof FileNodeCheckpointStore files) {
-      files.removeNotIn(keep);
+    // an empty log may be a failed read (the stores answer empty then): never sweep on it
+    if (!keep.isEmpty() && checkpoints instanceof RunOutputSweep sweep) {
+      sweep.removeNotIn(keep);
     }
     log.atInfo()
         .addKeyValue("restored", runs.size() - skip)

@@ -10,6 +10,7 @@ import type {
   WorkflowGraph,
   WorkflowProgress,
 } from '../src/features/workflow/types/workflow';
+import { envelope } from './api-envelope';
 
 export interface MockWorkflowData {
   graph?: WorkflowGraph;
@@ -272,18 +273,6 @@ async function mockWorkflowApi(
   const executions = data.executions ?? defaultExecutions;
   const progress = data.progress ?? defaultProgress;
   const logs = data.logs ?? defaultLogs;
-
-  const envelope = (path: string, payload: unknown) => ({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({
-      timestamp: new Date().toISOString(),
-      status: 200,
-      message: 'OK',
-      path,
-      data: payload,
-    }),
-  });
 
   await page.route('**/api/sessions/*/workflows/*/graph', (route) =>
     route.fulfill(envelope('/graph', graph))

@@ -71,7 +71,7 @@ class MigrationUpgradeTest extends PostgresTestSupport {
       assertThat(scalar(statement, "SELECT to_regclass('half_done')::text")).isNull();
       assertThat(scalar(statement, "SELECT count(*) FROM workflow_definition")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("4");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("5");
   }
 
   /**
@@ -126,7 +126,7 @@ class MigrationUpgradeTest extends PostgresTestSupport {
           .isEqualTo("t");
       assertThat(scalar(statement, "SELECT nextval('notification_seq')")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("4");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("5");
   }
 
   /** A database on the V3 schema takes V4 (agent conversations) and keeps its notifications. */
@@ -159,6 +159,6 @@ class MigrationUpgradeTest extends PostgresTestSupport {
       assertThat(scalar(statement, "SELECT length(epoch) > 0 FROM agent_epoch")).isEqualTo("t");
       assertThat(scalar(statement, "SELECT nextval('agent_seq')")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("4");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("5");
   }
 }

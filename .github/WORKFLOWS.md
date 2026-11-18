@@ -292,11 +292,19 @@ Issues, issue types and the **Yukta Roadmap** project are described in
 
 ---
 
+### `e2e-nightly.yml` — E2E nightly
+
+**Purpose**: Run the end-to-end tiers that need a server process of their own: `yukta-cli` against the boot jar (`cli/e2e`).
+**Triggered on**: daily schedule, manual, and pull requests that carry the `ci:e2e` label.
+**Behavior**: builds the boot jar, starts it with `release/e2e-server.sh start` (a free port, a random ADMIN key, every plugin, the commands `sh` and `echo`), runs `make -C cli e2e` against it, then stops it and uploads the server log on failure. The Java tier (the `e2e` module) runs in `ci.yml`.
+
+---
+
 ### `examples-nightly.yml` — Examples nightly
 
 **Purpose**: Find a merge that breaks an example (and the docs that quote it) the same night.
 **Triggered on**: daily schedule, manual.
-**Behavior**: starts the server from the commit and runs `examples/run-all.sh`; examples that need something the runner lacks (an LLM endpoint) print SKIP. Failures open the nightly issue (`nightly-report.yml`).
+**Behavior**: starts the server from the commit (`release/e2e-server.sh start`, any executable allowed) and runs `examples/run-all.sh`; examples that need something the runner lacks (an LLM endpoint) print SKIP. Failures open the nightly issue (`nightly-report.yml`).
 
 ---
 

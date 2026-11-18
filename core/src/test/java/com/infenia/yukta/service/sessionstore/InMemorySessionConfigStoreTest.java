@@ -238,6 +238,28 @@ class InMemorySessionConfigStoreTest {
   }
 
   @Test
+  void applyKeepsTheInitiatedTimeOfTheFirstApply() {
+    configService.applySessionConfig(data("s-keep", "first")).block();
+    final String firstTime = configService.getInitiatedTime("s-keep").block();
+
+    configService.applySessionConfig(data("s-keep", "second")).block();
+
+    assertThat(configService.getInitiatedTime("s-keep").block()).isEqualTo(firstTime);
+    assertThat(configService.getInitiator("s-keep").block()).isEqualTo("second");
+  }
+
+  @Test
+  void applyStampsTheInitiatedTimeOverSessionThatHasNone() {
+    configService.setInitiator("s-blank", "alice").block();
+    assertThat(configService.getInitiatedTime("s-blank").block()).isEmpty();
+
+    configService.applySessionConfig(data("s-blank", "bob")).block();
+
+    assertThat(configService.getInitiatedTime("s-blank").block()).isNotBlank();
+    assertThat(configService.getInitiator("s-blank").block()).isEqualTo("bob");
+  }
+
+  @Test
   void logInitialization_runs() {
     configService.logInitialization();
 

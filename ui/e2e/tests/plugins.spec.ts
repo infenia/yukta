@@ -3,6 +3,7 @@
 
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
+import { envelope } from '../api-envelope';
 
 const details: Record<string, object> = {
   OneShotTrigger: {
@@ -30,18 +31,6 @@ const details: Record<string, object> = {
     outputPorts: [],
   },
 };
-
-const envelope = (path: string, data: unknown) => ({
-  status: 200,
-  contentType: 'application/json',
-  body: JSON.stringify({
-    timestamp: new Date().toISOString(),
-    status: 200,
-    message: 'OK',
-    path,
-    data,
-  }),
-});
 
 async function mockPluginsApi(page: Page) {
   await page.route('**/api/plugins', (route) =>

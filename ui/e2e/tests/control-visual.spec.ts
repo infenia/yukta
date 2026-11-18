@@ -4,18 +4,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { mockMetricsApi } from '../utils';
-
-const envelope = (path: string, data: unknown) => ({
-  status: 200,
-  contentType: 'application/json',
-  body: JSON.stringify({
-    timestamp: '2026-07-26T14:23:23',
-    status: 200,
-    message: 'OK',
-    path,
-    data,
-  }),
-});
+import { envelope } from '../api-envelope';
 
 /** Everything the Control page reads, with fixed values and a fixed clock so the page is repeatable. */
 async function mockControlPage(page: Page) {

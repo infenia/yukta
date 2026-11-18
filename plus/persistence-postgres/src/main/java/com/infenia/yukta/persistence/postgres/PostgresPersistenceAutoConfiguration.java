@@ -12,11 +12,13 @@ import com.infenia.yukta.service.supervisor.SupervisorStore;
 import com.infenia.yukta.service.supervisor.agent.AgentCredentialStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.startup.DefaultsAutoConfiguration;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 import org.springframework.r2dbc.core.DatabaseClient;
 import tools.jackson.databind.ObjectMapper;
 
@@ -26,9 +28,11 @@ import tools.jackson.databind.ObjectMapper;
  * the schema is created by Flyway from {@code spring.flyway.url} (a JDBC URL, since Flyway has no
  * R2DBC support), with {@code spring.flyway.user} and {@code spring.flyway.password}.
  */
+@Slf4j
 @AutoConfiguration(before = DefaultsAutoConfiguration.class)
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @ConditionalOnProperty(name = "yukta.session.store-type", havingValue = "postgres")
+@Import(PostgresHaConfiguration.class)
 public class PostgresPersistenceAutoConfiguration {
 
   /** Default constructor. */
@@ -122,23 +126,21 @@ public class PostgresPersistenceAutoConfiguration {
   }
 
   /**
-   * Leader election through a lease row, when {@code yukta.ha.mode=postgres}.
+   * The size on disk of the store tables, as {@code yukta.store.table.bytes{table}}.
    *
-   * @param client runs the statements
-   * @param instanceId this server's id in the lease row (random if not set)
-   * @param lease how long a renewal keeps the lease
-   * @param meters where the {@code yukta.leader} gauge is registered
-   * @return the election
+   * @param client runs the query
+   * @param meters where the gauges go
+   * @return the reader
    */
   @Bean
-  @ConditionalOnProperty(name = "yukta.ha.mode", havingValue = "postgres")
-  public R2dbcLeaderElection leaderElection(
+  public TableSizes storeTableSizes(
       final DatabaseClient client,
-      @Value("${yukta.ha.instance-id:#{T(java.util.UUID).randomUUID().toString()}}")
-          final String instanceId,
-      @Value("${yukta.ha.lease:15s}") final java.time.Duration lease,
-      final io.micrometer.core.instrument.MeterRegistry meters) {
-    return new R2dbcLeaderElection(client, instanceId, lease, meters);
+      final org.springframework.beans.factory.ObjectProvider<
+              io.micrometer.core.instrument.MeterRegistry>
+          meters) {
+    final TableSizes sizes = new TableSizes(client, TableSizes.TABLES);
+    meters.ifAvailable(sizes::register);
+    return sizes;
   }
 
   /**

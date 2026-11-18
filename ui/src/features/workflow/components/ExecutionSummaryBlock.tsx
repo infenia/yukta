@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { Card } from '@/components/ui/card';
-import { formatClockTime, TIME_PLACEHOLDER } from '../lib/timeFormat';
+import { formatDateTime, TIME_PLACEHOLDER } from '../lib/timeFormat';
 import { toStatusDisplay } from '../lib/statusMapper';
 import type { WorkflowProgress } from '../types/workflow';
 
@@ -51,13 +51,11 @@ export function ExecutionSummaryBlock({
       />
       <SummaryRow
         label="Start Time"
-        value={
-          progress ? formatClockTime(progress.startTime) : TIME_PLACEHOLDER
-        }
+        value={progress ? formatDateTime(progress.startTime) : TIME_PLACEHOLDER}
       />
       <SummaryRow
         label="End Time"
-        value={progress ? formatClockTime(progress.endTime) : TIME_PLACEHOLDER}
+        value={progress ? formatDateTime(progress.endTime) : TIME_PLACEHOLDER}
       />
     </Card>
   );

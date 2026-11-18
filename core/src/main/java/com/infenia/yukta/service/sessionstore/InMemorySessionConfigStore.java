@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -48,11 +49,15 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
     return Mono.fromRunnable(
             () -> {
               final String sessionId = data.sessionId();
+              final SessionConfig before = sessions.get(sessionId);
               final SessionConfig config =
                   new SessionConfig(
                       data.projectPath(),
                       data.initiator(),
-                      Instant.now().toString(),
+                      // kept from the first apply
+                      before == null || !StringUtils.hasText(before.initiatedTime())
+                          ? Instant.now().toString()
+                          : before.initiatedTime(),
                       data.tags(),
                       data.description(),
                       data.name());

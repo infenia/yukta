@@ -35,33 +35,28 @@ jobs:
       - name: Build the server jar
         run: ./gradlew :boot:bootJar -q --console=plain
 
-      # Loopback only. The examples run commands (PROCESS_EXECUTOR), which a default server refuses,
-      # so this throwaway server allows any executable.
+      # Loopback only, on a free port with a random ADMIN key. The examples run commands
+      # (PROCESS_EXECUTOR), which a default server refuses, so this throwaway server allows any
+      # executable.
       - name: Start the server
         env:
-          YUKTA_PROCESS_ALLOW_ANY: 'true'
-          YUKTA_PLUGINS_ENABLED: 'all'
-        run: |
-          jar=''
-          for candidate in boot/build/libs/boot-*.jar; do
-            case $candidate in *-plain.jar) ;; *) jar=$candidate; break ;; esac
-          done
-          [ -n "$jar" ] || { echo "::error::no boot jar was built"; exit 1; }
-          nohup java -jar "$jar" > server.log 2>&1 &
-          for _ in $(seq 1 60); do
-            curl -fsS http://127.0.0.1:9858/actuator/health 2>/dev/null | grep -q '"status":"UP"' && exit 0
-            sleep 2
-          done
-          echo "::error::the server never reported UP"
-          exit 1
+          YUKTA_E2E_ALLOW_ANY: 'true'
+        run: release/e2e-server.sh start
 
       - name: Run the examples
-        run: examples/run-all.sh
+        run: |
+          YUKTA_URL=$(release/e2e-server.sh url) \
+          YUKTA_API_KEY=$(release/e2e-server.sh key) \
+          examples/run-all.sh
+
+      - name: Stop the server
+        if: always()
+        run: release/e2e-server.sh stop
 
       - name: Upload the server log
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: examples-server-log
-          path: server.log
+          path: build/e2e-server/server.log
           retention-days: 7
