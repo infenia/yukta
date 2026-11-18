@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.decision;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -22,6 +23,7 @@ import org.jspecify.annotations.Nullable;
  * @param budget for {@link Backend#LLM}: the node's {@code budget} option, counted in the shared
  *     run ledger, or {@code null} for none
  */
+@SuppressFBWarnings("EI_EXPOSE_REP") // the budget map is read-only config
 public record ModelSpec(
     Backend backend,
     @Nullable String provider,

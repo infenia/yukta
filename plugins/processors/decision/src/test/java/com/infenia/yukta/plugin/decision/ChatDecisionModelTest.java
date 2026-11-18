@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.llm.LlmGateway;
 import com.infenia.yukta.plugin.llm.LlmRequest;
 import com.infenia.yukta.plugin.llm.LlmResponse;
 import com.infenia.yukta.plugin.llm.Provider;
+import com.infenia.yukta.plugin.util.RunBudgets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,6 +84,32 @@ class ChatDecisionModelTest {
     assertThat(ask.get()).isNotNull(); // 4 tokens used: the budget is now spent
     assertThatThrownBy(ask::get).hasMessageContaining("LLM budget exceeded");
     verify(gateway, org.mockito.Mockito.times(2)).call(any());
+  }
+
+  @Test
+  void answer_hardStopBudgetEndsTheRun() {
+    final ModelSpec spec =
+        new ModelSpec(
+            ModelSpec.Backend.LLM,
+            "ollama",
+            "llama",
+            "http://x",
+            "key",
+            Duration.ofSeconds(5),
+            null,
+            null,
+            Map.of("maxCalls", 1, "hardStop", true, "agent", "hard-stop-test"));
+    final java.util.function.Supplier<Map<String, Answer>> ask =
+        () ->
+            new ChatDecisionModel(replying("{}"))
+                .answer(spec, "s", questions())
+                .contextWrite(ctx -> ctx.put("executionId", "run-hard"))
+                .onErrorReturn(
+                    com.infenia.yukta.plugin.exception.RunAbortedException.class, Map.of())
+                .block();
+    RunBudgets.shared().addCall(RunBudgets.key("run-hard", spec.budget()));
+
+    assertThat(ask.get()).isEmpty();
   }
 
   @Test

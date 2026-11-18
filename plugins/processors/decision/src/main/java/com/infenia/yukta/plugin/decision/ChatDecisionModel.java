@@ -100,14 +100,15 @@ public final class ChatDecisionModel implements DecisionBackend {
                 BUDGETS.addCall(key);
               })
               .map(response -> parse(response.text(), questions));
-      return spec.budget() == null
+      final Map<?, ?> budget = spec.budget();
+      return budget == null
           ? call
           : BUDGETS
-              .exceeded(key, spec.budget())
+              .exceeded(key, budget)
               .<Mono<Map<String, Answer>>>map(why -> {
                 final String message = "LLM budget exceeded: " + why;
                 return Mono.error(
-                    Boolean.TRUE.equals(spec.budget().get("hardStop"))
+                    Boolean.TRUE.equals(budget.get("hardStop"))
                         ? new RunAbortedException(message)
                         : new IllegalStateException(message));
               })
