@@ -12,7 +12,7 @@ export const options = {
   scenarios: {
     load: {
       executor: 'ramping-arrival-rate', startRate: 5, timeUnit: '1s',
-      preAllocatedVUs: 50, maxVUs: 500,
+      preAllocatedVUs: 250, maxVUs: 500, // 200/s peaked at 175 VUs; 50 dropped 125 iterations while k6 allocated more
       stages: [
         { target: rate, duration: __ENV.RAMP || '1m' },
         { target: rate, duration: __ENV.HOLD || '3m' },
