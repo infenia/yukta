@@ -17,6 +17,7 @@ import com.infenia.yukta.service.orchestrator.assembly.NodeAssembler;
 import com.infenia.yukta.service.orchestrator.stream.ConcurrencyGroups;
 import com.infenia.yukta.service.orchestrator.stream.FailureLedger;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
+import com.infenia.yukta.service.orchestrator.stream.NodeInputs;
 import com.infenia.yukta.service.orchestrator.stream.NodePolicies;
 import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
@@ -208,7 +209,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
               context.executionId(),
               node);
       final Flux<Message<?>> safeInput =
-          controlled.doOnNext(_ -> activity.touch()).onErrorMap(UpstreamFailure::mark);
+          NodeInputs.recordFirst(
+                  controlled.doOnNext(_ -> activity.touch()), tracker, context.executionId(), node)
+              .onErrorMap(UpstreamFailure::mark);
       final Flux<Message<?>> retimedInput =
           NodeTimeouts.retimeOnFirstInput(safeInput, node, plugin, variableResolver, activity);
       final Flux<Message<?>> timedInput = offloaded(retimedInput, processor.isBlocking());
