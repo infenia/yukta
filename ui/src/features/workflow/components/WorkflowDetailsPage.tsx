@@ -9,7 +9,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { iconButton } from '@/components/ui/iconTone';
+import {
+  TOOLBAR_DIVIDER,
+  TOOLBAR_GROUP,
+  iconButton,
+  toolbarSegment,
+} from '@/components/ui/iconTone';
 import { OverflowMenu } from '@/components/common/OverflowMenu';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
@@ -71,6 +76,8 @@ export function WorkflowDetailsPage() {
   const [deleting, setDeleting] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [stopping, setStopping] = useState<string | null>(null);
+  // The logs dock shows only this node's lines; set from its picker or the node sheet
+  const [logNode, setLogNode] = useState<string | null>(null);
   // Clicking a node on the canvas opens its sheet; the node is in the URL so the view can be shared
   const [searchParams, setSearchParams] = useSearchParams();
   const openNode = searchParams.get('node');
@@ -281,18 +288,22 @@ export function WorkflowDetailsPage() {
           />
         }
         actions={
-          <>
+          <div
+            role="group"
+            aria-label="Workflow tools"
+            className={TOOLBAR_GROUP}
+          >
             <Tip label="Edit workflow">
               <Link
                 to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
                 aria-label="Edit"
-                className={iconButton('primary')}
+                className={toolbarSegment('neutral')}
               >
                 <span
                   aria-hidden="true"
-                  className="material-symbols-outlined text-base"
+                  className="material-symbols-outlined text-lg"
                 >
-                  edit
+                  edit_square
                 </span>
               </Link>
             </Tip>
@@ -304,20 +315,21 @@ export function WorkflowDetailsPage() {
                 onClick={() => setPanelOpen((value) => !value)}
                 aria-pressed={panelOpen}
                 aria-label="Workflow progress"
-                className={cn(
-                  iconButton(panelOpen ? 'primary' : 'neutral'),
-                  'transition-standard active:scale-95'
-                )}
+                className={toolbarSegment(panelOpen ? 'primary' : 'neutral')}
               >
                 <span
                   aria-hidden="true"
-                  className="material-symbols-outlined text-base"
+                  className="material-symbols-outlined text-lg"
                 >
                   {panelOpen ? 'right_panel_close' : 'right_panel_open'}
                 </span>
               </button>
             </Tip>
-            <OverflowMenu label="Workflow actions">
+            <span aria-hidden="true" className={TOOLBAR_DIVIDER} />
+            <OverflowMenu
+              label="Workflow actions"
+              className={toolbarSegment('neutral')}
+            >
               <DropdownMenuItem
                 onClick={() => setVersionsOpen((value) => !value)}
               >
@@ -344,7 +356,7 @@ export function WorkflowDetailsPage() {
                 </DropdownMenuItem>
               </RequirePermission>
             </OverflowMenu>
-          </>
+          </div>
         }
       />
 
@@ -504,6 +516,9 @@ export function WorkflowDetailsPage() {
                   dropped={logs.dropped}
                   isStreaming={isStreaming || logs.isStreaming}
                   progress={progress}
+                  node={logNode}
+                  nodes={graph.nodes.map((n) => n.nodeId)}
+                  onNode={setLogNode}
                 />
               </div>
               {panel.shown && (
@@ -533,10 +548,10 @@ export function WorkflowDetailsPage() {
                       sessionId={sessionId}
                       workflowId={workflowId}
                       executionId={selectedExecutionId}
-                      entries={logs.entries}
                       tab={sheetTab}
                       onTab={(tab) => setOpenNode(shownNode.nodeId, tab)}
                       onCommand={onNodeCommand}
+                      onShowLogs={setLogNode}
                       onClose={() => setOpenNode(null)}
                     />
                   )}

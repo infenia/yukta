@@ -254,9 +254,12 @@ describe('WorkflowDetailsPage', () => {
             /"apiKey": "\*{6}"/.test(el.textContent ?? '')
         )
       ).toBeVisible();
+      await user.click(
+        within(sheet).getByRole('button', { name: "Show this node's logs" })
+      );
       expect(
-        within(sheet).getByText('No log lines from this node.')
-      ).toBeVisible();
+        screen.getByRole('combobox', { name: 'Show lines of node' })
+      ).toHaveValue('vectorize-batch');
 
       await user.click(
         within(sheet).getByRole('button', { name: 'Close node details' })

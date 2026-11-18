@@ -55,14 +55,14 @@ export function ViewSwitch({
       role="radiogroup"
       aria-label="Run view"
       className={cn(
-        'border-border bg-surface shadow-card flex gap-0.5 rounded-lg border p-0.5',
+        'border-border bg-card/80 shadow-card flex w-max gap-0.5 rounded-full border p-1 backdrop-blur-sm',
         className
       )}
     >
       {(
         [
-          ['graph', 'Graph', 'account_tree'],
-          ['timeline', 'Timeline', 'timeline'],
+          ['graph', 'Graph', 'schema'],
+          ['timeline', 'Timeline', 'view_timeline'],
         ] as const
       ).map(([value, label, icon]) => (
         <button
@@ -74,15 +74,15 @@ export function ViewSwitch({
           title={label}
           onClick={() => onChange(value)}
           className={cn(
-            'flex size-7 items-center justify-center rounded-md',
+            'transition-standard focus-visible:ring-ring flex size-8 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none',
             view === value
-              ? 'bg-muted text-on-surface'
-              : 'text-on-surface-variant hover:text-on-surface'
+              ? 'bg-primary/10 text-primary'
+              : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
           )}
         >
           <span
             aria-hidden="true"
-            className="material-symbols-outlined text-base"
+            className="material-symbols-outlined text-lg"
           >
             {icon}
           </span>
@@ -293,7 +293,11 @@ function NodeRow({
               </div>
             </div>
             {owner && (
-              <NodeOwner nodeId={row.nodeId} owner={owner} className="size-6" />
+              <NodeOwner
+                nodeId={row.nodeId}
+                owner={owner}
+                className="bg-muted/70 size-6"
+              />
             )}
             {href && (
               <Tip label="Open the sub-workflow">

@@ -160,7 +160,8 @@ export function LogsPanel({
   sessionId = '',
   executionId = null,
   node = null,
-  onClearNode,
+  nodes = [],
+  onNode,
   progress = null,
   agents = null,
 }: {
@@ -171,9 +172,11 @@ export function LogsPanel({
   /** With the execution id, names the downloads and enables the raw stream. */
   sessionId?: string;
   executionId?: string | null;
-  /** Show only this node's lines (set by clicking it on the canvas). */
+  /** Show only this node's lines and events; null shows every node. */
   node?: string | null;
-  onClearNode?: () => void;
+  /** The nodes the picker offers; with `onNode` the dock shows a node picker. */
+  nodes?: string[];
+  onNode?: (node: string | null) => void;
   /** The run, for the Events tab (its status transitions); no tab without it. */
   progress?: WorkflowProgress | null;
   /** The Agents tab: how many agents wait for someone, and what the tab shows; none, no tab. */
@@ -399,13 +402,12 @@ export function LogsPanel({
               role="img"
               aria-label="Streaming"
               data-testid="streaming-pill"
-              className="bg-attention/10 text-label-sm text-attention inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 tracking-wider"
+              className="bg-attention/10 inline-flex size-5 items-center justify-center rounded-full"
             >
               <span
                 aria-hidden="true"
                 className="live-dot bg-attention size-1.5 rounded-full"
               />
-              LIVE
             </span>
           </Tip>
         )}
@@ -418,18 +420,41 @@ export function LogsPanel({
           </span>
         )}
         <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-4 sm:gap-y-1.5">
-          {node && !raw && (
-            <span className="border-primary text-label-sm text-primary inline-flex items-center gap-1 rounded-lg border px-2 py-0.5">
-              Node: {node}
-              <button
-                type="button"
-                aria-label={`Show every node's lines, not only ${node}'s`}
-                onClick={onClearNode}
-                className="material-symbols-outlined text-sm"
+          {onNode && nodes.length > 0 && !showAgents && (
+            <div className="relative">
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'material-symbols-outlined pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm',
+                  node ? 'text-primary' : 'text-on-surface-variant'
+                )}
               >
-                close
-              </button>
-            </span>
+                filter_alt
+              </span>
+              <select
+                aria-label="Show lines of node"
+                value={node ?? ''}
+                disabled={raw}
+                onChange={(event) => onNode(event.target.value || null)}
+                className={cn(
+                  'border-input bg-card text-body-sm transition-standard focus-visible:ring-ring h-7 max-w-48 cursor-pointer appearance-none rounded-lg border pr-7 pl-7 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50',
+                  node ? 'border-primary text-primary' : 'text-on-surface'
+                )}
+              >
+                <option value="">All nodes</option>
+                {nodes.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-sm"
+              >
+                expand_more
+              </span>
+            </div>
           )}
           {!showEvents && !showAgents && (
             <>

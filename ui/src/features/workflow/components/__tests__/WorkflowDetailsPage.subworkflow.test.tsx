@@ -132,9 +132,9 @@ describe('opening a sub-workflow from a run', () => {
     );
     expect(screen.queryByText('Failed to load workflow')).toBeNull();
     expect(
-      within(screen.getByTestId('workflow-details-page')).getByText(
+      within(screen.getByTestId('workflow-details-page')).getAllByText(
         /child-step/
-      )
-    ).toBeInTheDocument();
+      ).length
+    ).toBeGreaterThan(0);
   });
 });
