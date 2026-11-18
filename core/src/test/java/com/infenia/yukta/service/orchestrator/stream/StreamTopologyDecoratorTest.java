@@ -191,6 +191,21 @@ class StreamTopologyDecoratorTest {
 
   @Test
   @SuppressWarnings(UNCHECKED)
+  void testOwnFailureAndUnattributedErrorStayOnTheErrorPort() {
+    final Message<?> own =
+        DefaultMessage.create(UUID.randomUUID(), DATA)
+            .withFailure(PARENT_1, "PROCESSING_FAILED", "boom")
+            .withSourcePort(NodePolicy.ERROR_PORT);
+    final Message<?> unattributed =
+        DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(NodePolicy.ERROR_PORT);
+    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(own, unattributed)};
+
+    StepVerifier.create(decorator.applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, null)))
+        .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
   void testApplyEdgeRoutingNoPort() {
     final Message<?> msg1 = DefaultMessage.create(UUID.randomUUID(), DATA);
     final Message<?> msg2 = DefaultMessage.create(UUID.randomUUID(), DATA);
