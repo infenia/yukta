@@ -74,9 +74,6 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   /** Log key of the run. */
   private static final String EXECUTION_ID = "executionId";
 
-  /** Separates the run from the node in a key. */
-  private static final String SEP = "\0";
-
   /** Run data is for this server's user only: node outputs can hold tokens and other secrets. */
   private static final FileAttribute<?>[] DIR_ATTRS =
       attributes(FileSystems.getDefault().supportedFileAttributeViews(), "rwx------");
@@ -100,11 +97,14 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
           60,
           true);
 
+  /** One node of one run. */
+  private record NodeKey(String executionId, String nodeId) {}
+
   /** Root directory. */
   private final Path root;
 
   /** Nodes whose output could not be written in full: they must not get an end marker. */
-  private final Set<String> failedWrites = ConcurrentHashMap.newKeySet();
+  private final Set<NodeKey> failedWrites = ConcurrentHashMap.newKeySet();
 
   /** Bytes written and not yet cleared in this process (earlier runs' files are not counted). */
   private final AtomicLong held = new AtomicLong();
@@ -173,7 +173,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
    * marker that may not survive a crash.
    */
   private void writeDone(final String executionId, final String nodeId) {
-    if (failedWrites.contains(executionId + SEP + nodeId)) {
+    if (failedWrites.contains(new NodeKey(executionId, nodeId))) {
       // an output write failed: the file may lack a message, whatever the marker could say
       markerFailed(executionId, nodeId, null);
       return;
@@ -282,7 +282,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   @Override
   public void clear(final String executionId) {
     cleared.add(executionId);
-    failedWrites.removeIf(key -> key.startsWith(executionId + SEP));
+    failedWrites.removeIf(key -> key.executionId().equals(executionId));
     deleteTree(executionId);
   }
 
@@ -344,7 +344,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
       }
       held.addAndGet(written);
     } catch (final IOException | RuntimeException e) {
-      failedWrites.add(executionId + SEP + nodeId);
+      failedWrites.add(new NodeKey(executionId, nodeId));
       log.atWarn()
           .addKeyValue(EXECUTION_ID, executionId)
           .addKeyValue("nodeId", nodeId)
