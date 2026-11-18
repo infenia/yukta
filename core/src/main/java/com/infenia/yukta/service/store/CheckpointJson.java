@@ -17,9 +17,9 @@ import tools.jackson.databind.node.ObjectNode;
  *
  * <p>The message is written as usual, with the payload's class name added as {@code payloadType}.
  * On reading, the payload is rebuilt as that class only if its name starts with one of {@link
- * #ALLOWED}; the name comes from stored data, so it is never loaded blindly. Any other type, or a
- * payload that does not fit the class, comes back as the plain JSON value (map, list, text,
- * number), with a warning.
+ * #ALLOWED} or of the configured extra packages; the name comes from stored data, so it is never
+ * loaded blindly. Any other type, or a payload that does not fit the class, comes back as the plain
+ * JSON value (map, list, text, number), with a warning.
  */
 @Slf4j
 @UtilityClass
@@ -29,7 +29,7 @@ public class CheckpointJson {
   private static final String TYPE = "payloadType";
 
   /** Class name prefixes whose payloads are restored with their type. */
-  // ponytail: fixed list; a setting for third-party plugin packages when someone needs one.
+  // Third-party plugin packages are added with yukta.restart.payload-packages.
   private static final List<String> ALLOWED =
       List.of(
           "com.infenia.yukta.",
@@ -41,6 +41,18 @@ public class CheckpointJson {
           "java.lang.Byte",
           "java.lang.Float",
           "[B");
+
+  /** Extra class name prefixes from the settings; set once at startup. */
+  private static volatile List<String> extra = List.of();
+
+  /**
+   * Allows the payload classes of more packages (a third-party plugin's own types).
+   *
+   * @param prefixes class name prefixes such as {@code com.acme.plugin.}
+   */
+  public static void allowPackages(final List<String> prefixes) {
+    extra = List.copyOf(prefixes);
+  }
 
   /**
    * Writes a message with the payload's class.
@@ -70,7 +82,8 @@ public class CheckpointJson {
     final String type = tree.path(TYPE).asString(null);
     Message<?> result = message;
     if (type != null) {
-      if (ALLOWED.stream().noneMatch(type::startsWith)) {
+      if (ALLOWED.stream().noneMatch(type::startsWith)
+          && extra.stream().noneMatch(type::startsWith)) {
         log.atWarn().addKeyValue("type", type).log("Payload type not allowed, restored as JSON");
       } else {
         try {

@@ -130,13 +130,16 @@ public record YuktaProperties(
    * @param spillDir directory for output beyond the caps; empty to refuse such restarts
    * @param autoResume whether interrupted runs are resumed on their own
    * @param retainedExecutions executions whose outputs are kept
+   * @param payloadPackages extra class name prefixes whose payloads a resume restores with their
+   *     type (a third-party plugin's own classes); others come back as JSON
    */
   public record Restart(
       @Min(1) @DefaultValue(DEFAULT_CAP) int messagesPerNode,
       @Min(1) @DefaultValue("4194304") long bytesPerNode,
       @DefaultValue("") String spillDir,
       @DefaultValue("false") boolean autoResume,
-      @Min(1) @DefaultValue("10") int retainedExecutions) {}
+      @Min(1) @DefaultValue("10") int retainedExecutions,
+      @DefaultValue List<String> payloadPackages) {}
 
   /**
    * The status history of live streams.
