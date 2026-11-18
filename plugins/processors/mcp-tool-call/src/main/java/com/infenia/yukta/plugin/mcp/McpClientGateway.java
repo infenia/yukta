@@ -15,11 +15,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -47,7 +49,7 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.UseConcurrentHashMap",
   "PMD.CouplingBetweenObjects"
 })
-public class McpClientGateway {
+public class McpClientGateway implements SmartLifecycle {
 
   private static final String PROTOCOL_VERSION = "2025-06-18";
   private static final String SESSION_HEADER = "Mcp-Session-Id";
@@ -399,12 +401,43 @@ public class McpClientGateway {
     return sessions.estimatedSize();
   }
 
-  /** Terminate server sessions on application shutdown; the engine never calls plugin shutdown. */
-  @jakarta.annotation.PreDestroy
-  public void close() {
+  /** Whether the gateway is started, so Spring calls {@link #stop(Runnable)} on shutdown. */
+  private final AtomicBoolean running = new AtomicBoolean();
+
+  @Override
+  public void start() {
+    running.set(true);
+  }
+
+  @Override
+  public boolean isRunning() {
+    return running.get();
+  }
+
+  /** Same as {@link #stop(Runnable)}, for a caller that does not wait. */
+  @Override
+  public void stop() {
+    stop(() -> {});
+  }
+
+  /**
+   * Ends the server sessions on application shutdown (the engine never calls plugin shutdown),
+   * without parking a thread: Spring waits for {@code callback}, which runs when every session is
+   * ended or after {@value #CLOSE_SECONDS} seconds, whichever comes first.
+   *
+   * @param callback runs when the sessions are ended
+   */
+  @Override
+  public void stop(final Runnable callback) {
+    running.set(false);
     final List<Session> open = new ArrayList<>(sessions.asMap().values());
     sessions.invalidateAll();
-    terminate(open).blockLast(Duration.ofSeconds(CLOSE_SECONDS));
+    terminate(open)
+        .then()
+        .timeout(Duration.ofSeconds(CLOSE_SECONDS))
+        .onErrorComplete()
+        .doFinally(_ -> callback.run())
+        .subscribe();
   }
 
   /** Ends sessions on their servers; a server that cannot be reached is not an error. */
