@@ -30,6 +30,7 @@ import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -289,46 +290,51 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
 
   /** Uses the {@code execution_id} index, so a lookup does not read the table. */
   @Override
-  public List<ExecutionLogEvent> forExecution(final String executionId) {
-    return onWriter(
-        () ->
-            parse(
+  public Flux<ExecutionLogEvent> forExecution(final String executionId) {
+    return reading(() ->
+        parse(
+            client
+                .sql(
+                    "SELECT CAST(event AS text) AS event FROM execution_log"
+                        + " WHERE execution_id = :id ORDER BY seq")
+                .bind("id", executionId)
+                .map(row -> row.get("event", String.class))
+                .all()
+                .collectList()
+                .block(STATEMENT_TIMEOUT)));
+  }
+
+  @Override
+  public Flux<ExecutionLogEvent> ofType(
+      final ExecutionLogEvent.Type type, final java.time.Instant since) {
+    return reading(() ->
+        parse(
                 client
                     .sql(
                         "SELECT CAST(event AS text) AS event FROM execution_log"
-                            + " WHERE execution_id = :id ORDER BY seq")
-                    .bind("id", executionId)
+                            + " WHERE event->>'type' = :type ORDER BY seq")
+                    .bind("type", type.name())
                     .map(row -> row.get("event", String.class))
                     .all()
                     .collectList()
-                    .block(STATEMENT_TIMEOUT)),
-        List.of());
+                    .block(STATEMENT_TIMEOUT))
+            .stream()
+            .filter(event -> event.timestamp().isAfter(since))
+            .toList());
   }
 
   @Override
-  public List<ExecutionLogEvent> ofType(
-      final ExecutionLogEvent.Type type, final java.time.Instant since) {
-    return onWriter(
-        () ->
-            parse(
-                    client
-                        .sql(
-                            "SELECT CAST(event AS text) AS event FROM execution_log"
-                                + " WHERE event->>'type' = :type ORDER BY seq")
-                        .bind("type", type.name())
-                        .map(row -> row.get("event", String.class))
-                        .all()
-                        .collectList()
-                        .block(STATEMENT_TIMEOUT))
-                .stream()
-                .filter(event -> event.timestamp().isAfter(since))
-                .toList(),
-        List.of());
+  public Flux<ExecutionLogEvent> readAll() {
+    return reading(this::read);
   }
 
-  @Override
-  public List<ExecutionLogEvent> readAll() {
-    return onWriter(this::read, List.of());
+  /**
+   * Runs a read behind the queued events on the writer thread, so it sees every earlier append; the
+   * wait is on a boundedElastic thread, not the caller's.
+   */
+  private Flux<ExecutionLogEvent> reading(final Callable<List<ExecutionLogEvent>> work) {
+    return Flux.defer(() -> Flux.fromIterable(onWriter(work, List.<ExecutionLogEvent>of())))
+        .subscribeOn(Schedulers.boundedElastic());
   }
 
   /**
@@ -336,7 +342,12 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
    * insert rolls everything back and leaves the old log, never an empty or partial one.
    */
   @Override
-  public void replaceAll(final List<ExecutionLogEvent> events) {
+  public Mono<Void> replaceAll(final List<ExecutionLogEvent> events) {
+    return Mono.<Void>fromRunnable(() -> rewriteAll(events))
+        .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  private void rewriteAll(final List<ExecutionLogEvent> events) {
     onWriter(
         () -> {
           final TransactionalOperator transaction =

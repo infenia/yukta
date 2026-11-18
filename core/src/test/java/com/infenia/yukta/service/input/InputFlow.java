@@ -119,7 +119,7 @@ public final class InputFlow {
    * @return the entry
    */
   public ExecutionLogEvent logged(final String event) {
-    return log.readAll().stream()
+    return log.readAll().collectList().block().stream()
         .filter(entry -> {
           final Map<String, Object> payload = entry.payload();
           return payload != null && event.equals(payload.get("event"));

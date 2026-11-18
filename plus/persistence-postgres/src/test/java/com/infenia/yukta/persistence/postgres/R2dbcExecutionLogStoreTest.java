@@ -65,7 +65,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     store.append(started("r1"));
     store.append(finished("r1"));
 
-    final List<ExecutionLogEvent> events = store.readAll();
+    final List<ExecutionLogEvent> events = store.readAll().collectList().block();
 
     assertThat(events)
         .extracting(ExecutionLogEvent::type)
@@ -81,7 +81,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
       store.append(started("r" + i));
     }
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
         .containsExactlyElementsOf(
             java.util.stream.IntStream.range(0, 250).mapToObj(i -> "r" + i).toList());
@@ -91,9 +91,9 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   void replaceAllSwapsTheWholeLog() {
     store.append(started("old"));
 
-    store.replaceAll(List.of(started("new1"), started("new2")));
+    store.replaceAll(List.of(started("new1"), started("new2"))).block();
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
         .containsExactly("new1", "new2");
   }
@@ -101,13 +101,15 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   @Test
   void replaceAllThatFails_keepsTheOldLog() {
     store.append(started("old"));
-    store.readAll();
+    store.readAll().collectList().block();
     // PostgreSQL text cannot hold a NUL character, so the second insert fails
     final ExecutionLogEvent unwritable = started(UNWRITABLE);
 
-    store.replaceAll(List.of(started("new1"), unwritable));
+    store.replaceAll(List.of(started("new1"), unwritable)).block();
 
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("old");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("old");
   }
 
   @Test
@@ -115,7 +117,9 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     store.append(started(UNWRITABLE));
     store.append(started("ok"));
 
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("ok");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("ok");
   }
 
   @Test
@@ -123,15 +127,15 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     final List<ExecutionLogEvent> events =
         java.util.stream.IntStream.range(0, 250).mapToObj(i -> started("r" + i)).toList();
 
-    store.replaceAll(events);
+    store.replaceAll(events).block();
 
-    assertThat(store.readAll()).hasSize(250);
+    assertThat(store.readAll().collectList().block()).hasSize(250);
   }
 
   @Test
   void unreadableRow_isSkipped() {
     store.append(started("r1"));
-    store.readAll();
+    store.readAll().collectList().block();
     db.sql(
             "INSERT INTO execution_log (execution_id, event) VALUES ('bad',"
                 + " CAST('{\"type\":\"NOPE\"}' AS jsonb))")
@@ -139,7 +143,9 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
         .rowsUpdated()
         .block();
 
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("r1");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("r1");
   }
 
   @Test
@@ -148,7 +154,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     cyclic.put("self", cyclic);
     store.append(ExecutionLogEvent.started("r1", "s", "w", "v", cyclic));
 
-    final List<ExecutionLogEvent> events = store.readAll();
+    final List<ExecutionLogEvent> events = store.readAll().collectList().block();
 
     assertThat(events).hasSize(1);
     assertThat(events.getFirst().payload()).isNull();
@@ -166,7 +172,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     trimming.append(
         ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(1)", null));
 
-    assertThat(trimming.readAll())
+    assertThat(trimming.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
         .contains("long", "r3", "r4", ExecutionLogEvent.SCHEDULER)
         .doesNotContain("r2");
@@ -187,7 +193,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
       trimming.append(finished(run));
     }
 
-    assertThat(trimming.readAll())
+    assertThat(trimming.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
         .contains("again", "r3", "r4")
         .doesNotContain("first", "r2");
@@ -204,7 +210,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
               true, ExecutionLogEvent.SCHEDULER, "SetLimits(" + i + ")", null));
     }
 
-    assertThat(trimming.readAll())
+    assertThat(trimming.readAll().collectList().block())
         .extracting(ExecutionLogEvent::status)
         .containsExactly("SetLimits(2)", "SetLimits(3)");
     trimming.close();
@@ -267,7 +273,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
 
     failing.append(ExecutionLogEvent.finished("r1", "s", "w", "SUCCESS", Map.of()));
 
-    assertThat(failing.readAll()).isEmpty();
+    assertThat(failing.readAll().collectList().block()).isEmpty();
     failing.close();
   }
 
@@ -278,17 +284,29 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
 
     store.append(started("r2"));
 
-    assertThat(store.readAll()).isEmpty();
+    assertThat(store.readAll().collectList().block()).isEmpty();
   }
 
   @Test
-  void interruptedCaller_getsTheFallback() {
-    Thread.currentThread().interrupt();
-    try {
-      assertThat(store.readAll()).isEmpty();
-    } finally {
-      assertThat(Thread.interrupted()).isTrue();
-    }
+  void cancelledRead_givesUpQuietly() {
+    // a busy writer, so the read waits behind it on a boundedElastic thread
+    final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
+    org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(_ -> {
+          // simulated slow writer
+          Thread.sleep(500); // nosem: yukta-test-thread-sleep
+          return "{}";
+        });
+    final R2dbcExecutionLogStore busy = new R2dbcExecutionLogStore(db, slow, 2, 1_000, 5_000);
+    busy.append(started("r1"));
+
+    final var read = busy.readAll().subscribe();
+    org.mockito.Mockito.verify(slow, org.mockito.Mockito.timeout(5_000))
+        .writeValueAsString(org.mockito.ArgumentMatchers.any());
+    // cancelling interrupts the waiting thread, which gives up with nothing
+    read.dispose();
+    assertThat(read.isDisposed()).isTrue();
+    busy.close();
   }
 
   @Test
@@ -298,8 +316,8 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
         new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1, 5_000);
     try {
       trimming.append(started("r1"));
-      assertThat(trimming.readAll()).isEmpty();
-      trimming.replaceAll(List.of(started("r2")));
+      assertThat(trimming.readAll().collectList().block()).isEmpty();
+      trimming.replaceAll(List.of(started("r2"))).block();
       trimming.close();
     } finally {
       db.sql("ALTER TABLE execution_log_gone RENAME TO execution_log")
@@ -353,7 +371,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
 
     saturated.append(finished("r1"));
 
-    assertThat(saturated.readAll())
+    assertThat(saturated.readAll().collectList().block())
         .extracting(ExecutionLogEvent::type)
         .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
     assertThat(meters.get(LOST).tag(REASON, "queue_full").counter().count()).isEqualTo(0.0);
@@ -376,7 +394,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     retrying.append(finished("r1"));
     db.sql("ALTER TABLE execution_log_gone RENAME TO execution_log").fetch().rowsUpdated().block();
 
-    assertThat(retrying.readAll())
+    assertThat(retrying.readAll().collectList().block())
         .extracting(ExecutionLogEvent::type)
         .containsExactly(ExecutionLogEvent.Type.RUN_FINISHED);
     retrying.close();
@@ -390,7 +408,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
         new R2dbcExecutionLogStore(db, new ObjectMapper(), 1_000, 100_000, 5_000, meters);
 
     counting.append(ExecutionLogEvent.nodeFinished(UNWRITABLE, "s", "w", "n"));
-    counting.readAll();
+    counting.readAll().collectList().block();
 
     assertThat(meters.get(LOST).tag(REASON, "write_failed").counter().count()).isEqualTo(1.0);
     counting.close();
@@ -412,7 +430,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
             1);
 
     counting.append(finished(UNWRITABLE));
-    counting.readAll();
+    counting.readAll().collectList().block();
     counting.close(); // the event waited for a later try; shutdown ends the wait
     Thread.sleep(300); // the later try finds the writer stopped
 
@@ -449,11 +467,11 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
             new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),
             1);
     waiting.append(finished("r1"));
-    waiting.readAll(); // the writer has used up the retries by now
+    waiting.readAll().collectList().block(); // the writer has used up the retries by now
     db.sql("ALTER TABLE execution_log_gone RENAME TO execution_log").fetch().rowsUpdated().block();
     Thread.sleep(500); // the later try runs after 128 ms
 
-    assertThat(waiting.readAll())
+    assertThat(waiting.readAll().collectList().block())
         .extracting(ExecutionLogEvent::type)
         .containsExactly(ExecutionLogEvent.Type.RUN_FINISHED);
     waiting.close();
@@ -492,14 +510,16 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     final R2dbcExecutionLogStore leader =
         new R2dbcExecutionLogStore(db, new ObjectMapper(), 2, 1_000, 5_000, meters, () -> 1);
     leader.append(started("r1"));
-    assertThat(leader.readAll()).hasSize(1);
+    assertThat(leader.readAll().collectList().block()).hasSize(1);
 
     leaseAt(2); // another server took over
     leader.append(started("r2"));
     leader.append(finished("r2"));
-    leader.replaceAll(List.of(started("r3")));
+    leader.replaceAll(List.of(started("r3"))).block();
 
-    assertThat(leader.readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("r1");
+    assertThat(leader.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("r1");
     assertThat(meters.get("yukta.fencing.refused").tag("store", "execution_log").counter().count())
         .isEqualTo(3);
     leader.close();
@@ -518,7 +538,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
             new io.micrometer.core.instrument.simple.SimpleMeterRegistry(),
             () -> 0);
     standby.append(started("r1"));
-    assertThat(standby.readAll()).hasSize(1);
+    assertThat(standby.readAll().collectList().block()).hasSize(1);
     standby.close();
   }
 
@@ -528,16 +548,22 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     store.append(started("r2"));
     store.append(finished("r1"));
 
-    assertThat(store.forExecution("r1"))
+    assertThat(store.forExecution("r1").collectList().block())
         .extracting(ExecutionLogEvent::type)
         .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
-    assertThat(store.forExecution("unknown")).isEmpty();
-    assertThat(store.ofType(ExecutionLogEvent.Type.RUN_STARTED, java.time.Instant.EPOCH))
+    assertThat(store.forExecution("unknown").collectList().block()).isEmpty();
+    assertThat(
+            store
+                .ofType(ExecutionLogEvent.Type.RUN_STARTED, java.time.Instant.EPOCH)
+                .collectList()
+                .block())
         .extracting(ExecutionLogEvent::executionId)
         .containsExactly("r1", "r2");
     assertThat(
-            store.ofType(
-                ExecutionLogEvent.Type.RUN_STARTED, java.time.Instant.now().plusSeconds(60)))
+            store
+                .ofType(ExecutionLogEvent.Type.RUN_STARTED, java.time.Instant.now().plusSeconds(60))
+                .collectList()
+                .block())
         .isEmpty();
   }
 }

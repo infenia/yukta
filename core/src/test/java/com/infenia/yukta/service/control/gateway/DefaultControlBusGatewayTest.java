@@ -2750,15 +2750,16 @@ class DefaultControlBusGatewayTest {
         .satisfies(r -> assertThat(r.command()).isEqualTo("SetLimits(2, 0)"));
 
     assertThat(waiting).isCompleted();
-    assertThat(auditLog.readAll())
+    assertThat(auditLog.readAll().collectList().block())
         .hasSize(2)
         .allSatisfy(e ->
             assertThat(e.executionId())
                 .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.SCHEDULER));
-    assertThat(auditLog.readAll().get(0).nodeStatuses())
+    assertThat(auditLog.readAll().collectList().block().get(0).nodeStatuses())
         .containsEntry("maxConcurrent", "2")
         .containsEntry("maxPerWorkflow", "0");
-    assertThat(auditLog.readAll().get(1).status()).isEqualTo("SetLimits(2, 0)");
+    assertThat(auditLog.readAll().collectList().block().get(1).status())
+        .isEqualTo("SetLimits(2, 0)");
   }
 
   @Test
@@ -2829,7 +2830,7 @@ class DefaultControlBusGatewayTest {
         .expectError(com.infenia.yukta.service.review.ControlRejectedException.class)
         .verify();
 
-    assertThat(auditLog.readAll())
+    assertThat(auditLog.readAll().collectList().block())
         .singleElement()
         .satisfies(e -> {
           assertThat(e.type())
@@ -2864,7 +2865,7 @@ class DefaultControlBusGatewayTest {
         .expectError(IllegalArgumentException.class)
         .verify();
 
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .extracting(
             com.infenia.yukta.service.log.ExecutionLogEvent::type,
             com.infenia.yukta.service.log.ExecutionLogEvent::status)
@@ -2924,7 +2925,7 @@ class DefaultControlBusGatewayTest {
                 "s".equals(request.sessionId())
                     && "w".equals(request.workflowId())
                     && "key:bob".equals(request.actor())));
-    assertThat(auditLog.readAll())
+    assertThat(auditLog.readAll().collectList().block())
         .singleElement()
         .satisfies(e -> {
           assertThat(e.type())
@@ -2947,7 +2948,7 @@ class DefaultControlBusGatewayTest {
         .expectErrorMessage("busy")
         .verify();
 
-    assertThat(auditLog.readAll())
+    assertThat(auditLog.readAll().collectList().block())
         .singleElement()
         .satisfies(e -> {
           assertThat(e.type())
@@ -2981,7 +2982,7 @@ class DefaultControlBusGatewayTest {
                     ctx.put(com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
         .verifyComplete();
 
-    assertThat(auditLog.readAll())
+    assertThat(auditLog.readAll().collectList().block())
         .singleElement()
         .satisfies(
             e -> assertThat(e.status()).isEqualTo("DeleteSession(s, force=false) [by key:bob]"));

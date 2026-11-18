@@ -398,40 +398,50 @@ public class SupervisorService {
         .filter(found -> found.id().equals(id))
         .next()
         .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + id)))
-        .flatMap(stored -> {
-          final List<ExecutionEvent> events =
-              ReplayEvents.from(executionLog.forExecution(executionId));
-          if (events.isEmpty()) {
-            return Mono.error(
-                new NotFoundException("No recorded events for execution " + executionId));
-          }
-          final Supervisor trial =
-              new Supervisor(
-                  id,
-                  stored.type(),
-                  draft == null ? stored.settings() : draft,
-                  true,
-                  stored.description(),
-                  stored.parents(),
-                  stored.delegation());
-          validateAsSaved(trial);
-          final SupervisorCapabilities caps = capabilities(trial);
-          final ExecutionSupervisor made = create(trial);
-          final Flux<ReplayDecision> out =
-              made instanceof DirectiveSupervisor directives
-                  ? directives
-                      .directives(Flux.fromIterable(events))
-                      .map(d ->
-                          decision(
-                              d.command(),
-                              d.cause().text(),
-                              d.reason(),
-                              caps.allows(d.command())
-                                  && (!d.cause().unprompted() || caps.mayInitiate(d.command()))))
-                  : made.supervise(Flux.fromIterable(events))
-                      .map(c -> decision(c, "event", null, caps.allows(c)));
-          return out.takeUntilOther(Mono.delay(REPLAY_WAIT)).take(REPLAY_LIMIT).collectList();
-        });
+        .flatMap(stored ->
+            executionLog
+                .forExecution(executionId)
+                .collectList()
+                .map(ReplayEvents::from)
+                .flatMap(events -> replayOn(stored, id, draft, executionId, events)));
+  }
+
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  private Mono<List<ReplayDecision>> replayOn(
+      final Supervisor stored,
+      final String id,
+      final @Nullable Map<String, Object> draft,
+      final String executionId,
+      final List<ExecutionEvent> events) {
+    if (events.isEmpty()) {
+      return Mono.error(new NotFoundException("No recorded events for execution " + executionId));
+    }
+    final Supervisor trial =
+        new Supervisor(
+            id,
+            stored.type(),
+            draft == null ? stored.settings() : draft,
+            true,
+            stored.description(),
+            stored.parents(),
+            stored.delegation());
+    validateAsSaved(trial);
+    final SupervisorCapabilities caps = capabilities(trial);
+    final ExecutionSupervisor made = create(trial);
+    final Flux<ReplayDecision> out =
+        made instanceof DirectiveSupervisor directives
+            ? directives
+                .directives(Flux.fromIterable(events))
+                .map(d ->
+                    decision(
+                        d.command(),
+                        d.cause().text(),
+                        d.reason(),
+                        caps.allows(d.command())
+                            && (!d.cause().unprompted() || caps.mayInitiate(d.command()))))
+            : made.supervise(Flux.fromIterable(events))
+                .map(c -> decision(c, "event", null, caps.allows(c)));
+    return out.takeUntilOther(Mono.delay(REPLAY_WAIT)).take(REPLAY_LIMIT).collectList();
   }
 
   private static ReplayDecision decision(

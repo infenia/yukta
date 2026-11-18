@@ -559,7 +559,9 @@ class InputBrokerTest {
     final String everything =
         store.findById(request.id()).blockOptional().orElseThrow().toString()
             + events
-            + log.readAll().stream().map(ExecutionLogEvent::toString).toList();
+            + log.readAll().collectList().block().stream()
+                .map(ExecutionLogEvent::toString)
+                .toList();
     assertThat(everything)
         .doesNotContain("abcdefghijklmnop", "DB_PASS", "hunter2", "internal-only", "sk-secret");
     assertThat(store.findById(request.id()).blockOptional().orElseThrow().spec().prompt())
@@ -573,7 +575,9 @@ class InputBrokerTest {
     inputBroker.answer(request.id(), null, answer(request, "ann")).block();
 
     final List<ExecutionLogEvent> entries =
-        log.readAll().stream().filter(e -> e.type() == ExecutionLogEvent.Type.INPUT).toList();
+        log.readAll().collectList().block().stream()
+            .filter(e -> e.type() == ExecutionLogEvent.Type.INPUT)
+            .toList();
     assertThat(entries)
         .extracting(e -> Objects.requireNonNull(e.payload()).get(ExecutionLogEvent.INPUT_EVENT_KEY))
         .containsExactly("INPUT_REQUESTED", "INPUT_ANSWERED");
@@ -588,7 +592,7 @@ class InputBrokerTest {
     inputBroker.logDelivery(request, "INPUT_DELIVERED", Map.of("channel", "webhook:ops"));
 
     assertThat(
-            log.readAll().stream()
+            log.readAll().collectList().block().stream()
                 .filter(e -> e.type() == ExecutionLogEvent.Type.INPUT)
                 .map(
                     e -> Objects.requireNonNull(e.payload()).get(ExecutionLogEvent.INPUT_EVENT_KEY))

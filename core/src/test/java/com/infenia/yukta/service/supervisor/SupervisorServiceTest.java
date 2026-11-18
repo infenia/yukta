@@ -107,7 +107,7 @@ class SupervisorServiceTest {
       new SupervisorService(store, List.of(factory), host, log);
 
   private List<com.infenia.yukta.service.log.ExecutionLogEvent> audit() {
-    return log.readAll().stream()
+    return log.readAll().collectList().block().stream()
         .filter(e -> SupervisorService.AUDIT_RUN.equals(e.executionId()))
         .toList();
   }

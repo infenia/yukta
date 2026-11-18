@@ -150,8 +150,14 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     return Mono.defer(() -> {
       final ExecutionScheduler gate = executionScheduler;
       final Runnable release = gate == null ? () -> {} : gate.holdStarts();
-      return Mono.fromCallable(this::recoverNow)
-          .subscribeOn(Schedulers.boundedElastic())
+      return store
+          .readAll()
+          .collectList()
+          // the restore and the output sweep touch files, so off the database's thread
+          .publishOn(Schedulers.boundedElastic())
+          .map(this::plan)
+          .flatMap(plan -> store.replaceAll(plan.kept()).thenReturn(plan))
+          .map(this::finish)
           .doOnNext(aborted -> {
             release.run();
             afterRecovery.accept(aborted);
@@ -161,8 +167,15 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     });
   }
 
-  private List<String> recoverNow() {
-    final List<ExecutionLogEvent> all = store.readAll();
+  /** What recovery decided: the events to keep, which runs to keep and which it aborted. */
+  private record Plan(
+      List<ExecutionLogEvent> kept,
+      Set<String> keep,
+      List<String> aborted,
+      int restored,
+      int dropped) {}
+
+  private Plan plan(final List<ExecutionLogEvent> all) {
     final List<ExecutionLogEvent> scheduler =
         all.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).toList();
     final Map<String, List<ExecutionLogEvent>> byRun = byRun(all);
@@ -217,17 +230,21 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
             .log("Could not restore a run into the history; skipping it");
       }
     }
-    store.replaceAll(kept);
+    return new Plan(kept, keep, abortedIds, runs.size() - skip, skip);
+  }
+
+  /** Runs once the log is replaced: sweeps the outputs of dropped runs, then reports. */
+  private List<String> finish(final Plan plan) {
     // an empty log may be a failed read (the stores answer empty then): never sweep on it
-    if (!keep.isEmpty() && checkpoints instanceof RunOutputSweep sweep) {
-      sweep.removeNotIn(keep);
+    if (!plan.keep().isEmpty() && checkpoints instanceof RunOutputSweep sweep) {
+      sweep.removeNotIn(plan.keep());
     }
     log.atInfo()
-        .addKeyValue("restored", runs.size() - skip)
-        .addKeyValue("aborted", abortedIds.size())
-        .addKeyValue("dropped", skip)
+        .addKeyValue("restored", plan.restored())
+        .addKeyValue("aborted", plan.aborted().size())
+        .addKeyValue("dropped", plan.dropped())
         .log("Recovered execution history");
-    return abortedIds;
+    return plan.aborted();
   }
 
   /**

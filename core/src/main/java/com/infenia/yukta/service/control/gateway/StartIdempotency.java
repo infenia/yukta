@@ -18,7 +18,6 @@ import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * Makes workflow starts safe to retry.
@@ -92,14 +91,9 @@ public class StartIdempotency implements SmartInitializingSingleton {
       final ExecutionScheduler gate = scheduler;
       final Runnable release = gate == null ? () -> {} : gate.holdStarts();
       final Instant oldest = Instant.now().minus(ttl);
-      return Mono.fromRunnable(
-              () -> {
-                for (final ExecutionLogEvent event :
-                    logStore.ofType(ExecutionLogEvent.Type.IDEMPOTENCY_KEY, oldest)) {
-                  entries.put(event.status(), Mono.just(event.executionId()));
-                }
-              })
-          .subscribeOn(Schedulers.boundedElastic())
+      return logStore
+          .ofType(ExecutionLogEvent.Type.IDEMPOTENCY_KEY, oldest)
+          .doOnNext(event -> entries.put(event.status(), Mono.just(event.executionId())))
           .then()
           .doFinally(_ -> release.run());
     });

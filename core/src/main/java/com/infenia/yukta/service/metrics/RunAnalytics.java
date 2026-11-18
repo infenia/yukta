@@ -35,6 +35,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.BufferOverflowStrategy;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
@@ -175,23 +176,26 @@ public class RunAnalytics {
 
   /**
    * Seeds from the execution log once the application is up, so the runs that recovery marked
-   * aborted are in it, and off the init thread, because reading the log can block.
+   * aborted are in it. The read is reactive, so nothing waits on the init thread.
    */
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void seedFromLog() {
     if (logStore != null) {
-      Schedulers.boundedElastic().schedule(this::seedSafely);
+      seedSafely().subscribe();
     }
   }
 
-  // A failed read must say so: the scheduler would drop the error without a word.
-  @SuppressWarnings("PMD.AvoidCatchingGenericException")
-  /* default */ void seedSafely() {
-    try {
-      seed(logStore.readAll());
-    } catch (RuntimeException e) {
-      log.atWarn().setCause(e).log("Could not seed the run analytics from the log");
-    }
+  // A failed read must say so: nothing else would.
+  /* default */ Mono<Void> seedSafely() {
+    return logStore
+        .readAll()
+        .collectList()
+        .doOnNext(this::seed)
+        .onErrorResume(e -> {
+          log.atWarn().setCause(e).log("Could not seed the run analytics from the log");
+          return Mono.empty();
+        })
+        .then();
   }
 
   /** Stops following the feed. */

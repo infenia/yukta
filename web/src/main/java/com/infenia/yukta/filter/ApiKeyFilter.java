@@ -35,7 +35,6 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * Requires an API key on every {@code /api/**} request, on the OpenAPI document and Swagger UI and
@@ -290,12 +289,10 @@ public class ApiKeyFilter implements WebFilter {
     if (executionLog == null) {
       return Mono.just(false);
     }
-    return Mono.fromCallable(() ->
-            executionLog
-                .header(executionId)
-                .map(header -> match.reaches(header.sessionId()))
-                .orElse(false))
-        .subscribeOn(Schedulers.boundedElastic());
+    return executionLog
+        .header(executionId)
+        .map(header -> match.reaches(header.sessionId()))
+        .defaultIfEmpty(false);
   }
 
   /** Ends the exchange with the same JSON shape as the other errors: status and message. */

@@ -46,7 +46,7 @@ class ExecutionRecoveryTest {
 
     ExecutionRecoveryFixture.create(store, tracker, 100).recover().block();
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::type)
         .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_ABORTED);
     StepVerifier.create(tracker.getHistory("s1"))
@@ -69,7 +69,8 @@ class ExecutionRecoveryTest {
     ExecutionRecoveryFixture.create(store, tracker, 100).recover().block();
 
     assertThat(tracker.getProgress("s1", "fine").status()).isEqualTo(TaskStatus.SUCCESS);
-    assertThat(store.readAll()).anyMatch(event -> "odd".equals(event.executionId()));
+    assertThat(store.readAll().collectList().block())
+        .anyMatch(event -> "odd".equals(event.executionId()));
   }
 
   @Test
@@ -219,7 +220,7 @@ class ExecutionRecoveryTest {
 
     ExecutionRecoveryFixture.create(store, tracker, 2).recover().block();
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
         .containsOnly("r3", "long");
   }
@@ -238,7 +239,9 @@ class ExecutionRecoveryTest {
         .recover()
         .block();
 
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsOnly("r2", "r3");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsOnly("r2", "r3");
   }
 
   @Test
@@ -249,7 +252,9 @@ class ExecutionRecoveryTest {
 
     ExecutionRecoveryFixture.create(store, tracker, 2).recover().block();
 
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsOnly("r2", "r3");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsOnly("r2", "r3");
     assertThat(tracker.getProgress("s1", "r1")).isNull();
     assertThat(tracker.getProgress("s1", "r3")).isNotNull();
   }
@@ -261,7 +266,7 @@ class ExecutionRecoveryTest {
     recovery.afterSingletonsInstantiated();
     recovery.recover().block();
 
-    assertThat(store.readAll()).isEmpty();
+    assertThat(store.readAll().collectList().block()).isEmpty();
     assertThat(tracker.getActiveSessions()).isEmpty();
   }
 
@@ -271,7 +276,7 @@ class ExecutionRecoveryTest {
 
     ExecutionRecoveryFixture.create(store, tracker, 100).recover().block();
 
-    assertThat(store.readAll()).hasSize(1);
+    assertThat(store.readAll().collectList().block()).hasSize(1);
     assertThat(tracker.getProgress("s1", "orphan")).isNull();
   }
 
@@ -292,7 +297,7 @@ class ExecutionRecoveryTest {
     org.awaitility.Awaitility.await()
         .atMost(5, java.util.concurrent.TimeUnit.SECONDS)
         .untilAsserted(() ->
-            assertThat(log.readAll())
+            assertThat(log.readAll().collectList().block())
                 .singleElement()
                 .satisfies(event -> {
                   assertThat(event.type()).isEqualTo(ExecutionLogEvent.Type.RUN_FINISHED);
@@ -317,7 +322,7 @@ class ExecutionRecoveryTest {
     org.awaitility.Awaitility.await()
         .atMost(5, java.util.concurrent.TimeUnit.SECONDS)
         .untilAsserted(() ->
-            assertThat(log.readAll())
+            assertThat(log.readAll().collectList().block())
                 .filteredOn(e -> e.type() == ExecutionLogEvent.Type.NODE_FINISHED)
                 .singleElement()
                 .satisfies(e -> assertThat(e.nodeId()).isEqualTo("n1")));
@@ -327,7 +332,7 @@ class ExecutionRecoveryTest {
     store.append(ExecutionLogEvent.nodeFinished("crashed", "s1", "w1", "n1"));
     ExecutionRecoveryFixture.create(store, tracker, 100).recover().block();
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .filteredOn(e -> e.type() == ExecutionLogEvent.Type.RUN_ABORTED)
         .singleElement()
         .satisfies(e -> assertThat(e.nodeStatuses()).containsEntry("n1", "SUCCESS"));
@@ -361,7 +366,9 @@ class ExecutionRecoveryTest {
     new ExecutionRecovery(store, tracker, 1, checkpoints).recover().block();
 
     verify(checkpoints).clearAsync("r1");
-    assertThat(store.readAll()).filteredOn(e -> "r2".equals(e.executionId())).isNotEmpty();
+    assertThat(store.readAll().collectList().block())
+        .filteredOn(e -> "r2".equals(e.executionId()))
+        .isNotEmpty();
   }
 
   @Test
@@ -374,10 +381,10 @@ class ExecutionRecoveryTest {
 
     ExecutionRecoveryFixture.create(store, tracker, 1).recover().block();
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
         .containsExactly("scheduler", "r1", "r1");
-    assertThat(store.readAll().getFirst().status()).isEqualTo("SetLimits(2)");
+    assertThat(store.readAll().collectList().block().getFirst().status()).isEqualTo("SetLimits(2)");
     assertThat(tracker.getProgress("s1", "r1")).isNotNull();
   }
 
@@ -444,14 +451,14 @@ class ExecutionRecoveryTest {
 
     recovery.afterSingletonsInstantiated();
 
-    assertThat(store.readAll()).hasSize(1);
+    assertThat(store.readAll().collectList().block()).hasSize(1);
 
     recovery.setLeaderElection(new com.infenia.yukta.service.leader.SingleServerLeader());
     recovery.afterSingletonsInstantiated();
 
     org.awaitility.Awaitility.await()
-        .atMost(Duration.ofSeconds(5))
-        .untilAsserted(() -> assertThat(store.readAll()).hasSize(2));
+        .atMost(java.time.Duration.ofSeconds(5))
+        .untilAsserted(() -> assertThat(store.readAll().collectList().block()).hasSize(2));
   }
 
   @Test
@@ -480,7 +487,7 @@ class ExecutionRecoveryTest {
 
     ExecutionRecoveryFixture.create(store, tracker, 100).recover().block();
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .filteredOn(e -> e.type() == ExecutionLogEvent.Type.RUN_ABORTED)
         .extracting(ExecutionLogEvent::executionId)
         .containsExactly("crashed");
@@ -495,14 +502,18 @@ class ExecutionRecoveryTest {
     final InMemoryExecutionLogStore slowLog =
         new InMemoryExecutionLogStore() {
           @Override
-          public List<ExecutionLogEvent> readAll() {
-            reading.countDown();
-            try {
-              go.await();
-            } catch (final InterruptedException e) {
-              Thread.currentThread().interrupt();
-            }
-            return super.readAll();
+          public reactor.core.publisher.Flux<ExecutionLogEvent> readAll() {
+            return reactor.core.publisher.Flux.defer(
+                    () -> {
+                      reading.countDown();
+                      try {
+                        go.await();
+                      } catch (final InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                      }
+                      return super.readAll();
+                    })
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
           }
         };
     final ExecutionScheduler scheduler = new ExecutionScheduler(YuktaSettings.bind(Map.of()));
@@ -530,8 +541,8 @@ class ExecutionRecoveryTest {
         ExecutionRecoveryFixture.create(
             new InMemoryExecutionLogStore() {
               @Override
-              public List<ExecutionLogEvent> readAll() {
-                throw new IllegalStateException("unreadable");
+              public reactor.core.publisher.Flux<ExecutionLogEvent> readAll() {
+                return reactor.core.publisher.Flux.error(new IllegalStateException("unreadable"));
               }
             },
             tracker,

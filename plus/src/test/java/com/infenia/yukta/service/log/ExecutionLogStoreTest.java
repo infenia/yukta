@@ -37,7 +37,7 @@ class ExecutionLogStoreTest {
     store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
     store.append(ExecutionLogEvent.finished("e1", "s1", "w1", "SUCCESS", Map.of()));
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::type)
         .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
     store.close();
@@ -47,7 +47,7 @@ class ExecutionLogStoreTest {
   void jsonl_writerThreadIsDaemon_soItNeverKeepsTheJvmAlive() {
     final JsonlExecutionLogStore store = jsonl();
     store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
-    store.readAll();
+    store.readAll().collectList().block();
 
     assertThat(Thread.getAllStackTraces().keySet())
         .filteredOn(thread -> "execution-log-writer".equals(thread.getName()) && thread.isAlive())
@@ -67,12 +67,12 @@ class ExecutionLogStoreTest {
     store.append(finished);
     store.close();
 
-    assertThat(jsonl().readAll()).containsExactly(started, finished);
+    assertThat(jsonl().readAll().collectList().block()).containsExactly(started, finished);
   }
 
   @Test
   void jsonl_missingFileReadsAsEmpty() {
-    assertThat(jsonl().readAll()).isEmpty();
+    assertThat(jsonl().readAll().collectList().block()).isEmpty();
   }
 
   @Test
@@ -80,14 +80,14 @@ class ExecutionLogStoreTest {
     final JsonlExecutionLogStore store = jsonl();
     final ExecutionLogEvent started = ExecutionLogEvent.started("e1", "s1", "w1", "v1");
     store.append(started);
-    store.readAll();
+    store.readAll().collectList().block();
     Files.writeString(
         dir.resolve("executions.jsonl"),
         "\n{\"type\":\"RUN_FINI",
         StandardCharsets.UTF_8,
         java.nio.file.StandardOpenOption.APPEND);
 
-    assertThat(store.readAll()).containsExactly(started);
+    assertThat(store.readAll().collectList().block()).containsExactly(started);
   }
 
   @Test
@@ -96,9 +96,9 @@ class ExecutionLogStoreTest {
     store.append(ExecutionLogEvent.started("old", "s", "w", "v"));
     final ExecutionLogEvent kept = ExecutionLogEvent.started("new", "s", "w", "v");
 
-    store.replaceAll(List.of(kept));
+    store.replaceAll(List.of(kept)).block();
 
-    assertThat(store.readAll()).containsExactly(kept);
+    assertThat(store.readAll().collectList().block()).containsExactly(kept);
     try (var files = Files.list(dir)) {
       assertThat(files.map(f -> f.toFile().getName()).toList()).containsExactly("executions.jsonl");
     }
@@ -111,11 +111,11 @@ class ExecutionLogStoreTest {
     final JsonlExecutionLogStore broken = new JsonlExecutionLogStore(blocker.toString(), mapper);
 
     broken.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
-    broken.replaceAll(List.of(ExecutionLogEvent.started("e2", "s", "w", "v")));
+    broken.replaceAll(List.of(ExecutionLogEvent.started("e2", "s", "w", "v"))).block();
     // close drains the writer, so its error is logged now and not during a later test
     broken.close();
 
-    assertThat(broken.readAll()).isEmpty();
+    assertThat(broken.readAll().collectList().block()).isEmpty();
   }
 
   @Test
@@ -123,7 +123,7 @@ class ExecutionLogStoreTest {
     // executions.jsonl is a directory, so it exists but cannot be read as a file
     Files.createDirectory(dir.resolve("executions.jsonl"));
 
-    assertThat(jsonl().readAll()).isEmpty();
+    assertThat(jsonl().readAll().collectList().block()).isEmpty();
   }
 
   @Test
@@ -134,7 +134,9 @@ class ExecutionLogStoreTest {
       store.append(ExecutionLogEvent.finished(run, "s", "w", "SUCCESS", Map.of()));
     }
 
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsOnly("r3", "r4");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsOnly("r3", "r4");
   }
 
   @Test
@@ -147,7 +149,7 @@ class ExecutionLogStoreTest {
     }
     store.append(ExecutionLogEvent.started("r5", "s", "w", "v"));
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
         .contains("long", "r4", "r5")
         .doesNotContain("r2");
@@ -163,7 +165,7 @@ class ExecutionLogStoreTest {
     store.append(ExecutionLogEvent.finished("b", "s", "w", "SUCCESS", Map.of()));
     store.append(ExecutionLogEvent.finished("long", "s", "w", "SUCCESS", Map.of()));
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
         .containsOnly("b", "long");
   }
@@ -174,7 +176,9 @@ class ExecutionLogStoreTest {
     store.append(ExecutionLogEvent.started("r1", "s", "w", "v"));
     store.append(ExecutionLogEvent.started("r2", "s", "w", "v"));
 
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).contains("r1", "r2");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .contains("r1", "r2");
   }
 
   @Test
@@ -185,12 +189,14 @@ class ExecutionLogStoreTest {
 
     store.append(ExecutionLogEvent.started("e2", "s", "w", "v"));
 
-    assertThat(store.readAll()).isEmpty();
-    assertThat(jsonl().readAll()).extracting(ExecutionLogEvent::executionId).containsExactly("e1");
+    assertThat(store.readAll().collectList().block()).isEmpty();
+    assertThat(jsonl().readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("e1");
   }
 
   @Test
-  void jsonl_interruptedCallers_getTheFallback() {
+  void jsonl_aCancelledReadAndAnInterruptedClose_giveUpQuietly() {
     // a busy writer, so neither call can finish before the interrupt is noticed
     final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
     org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))
@@ -202,11 +208,14 @@ class ExecutionLogStoreTest {
     final JsonlExecutionLogStore store =
         new JsonlExecutionLogStore(dir.toString(), slow, 5, 100, 5_000);
     store.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
+    // the read waits behind the slow event on a boundedElastic thread; cancelling it interrupts
+    // that thread, and the read gives up with nothing
+    final var read = store.readAll().subscribe();
+    org.mockito.Mockito.verify(slow, org.mockito.Mockito.timeout(5_000))
+        .writeValueAsString(org.mockito.ArgumentMatchers.any());
+    read.dispose();
     Thread.currentThread().interrupt();
     try {
-      assertThat(store.readAll()).isEmpty();
-      assertThat(Thread.interrupted()).isTrue();
-      Thread.currentThread().interrupt();
       store.close();
       assertThat(Thread.interrupted()).isTrue();
     } finally {
@@ -229,7 +238,7 @@ class ExecutionLogStoreTest {
 
     store.close();
 
-    assertThat(store.readAll()).isEmpty();
+    assertThat(store.readAll().collectList().block()).isEmpty();
   }
 
   @Test
@@ -242,8 +251,8 @@ class ExecutionLogStoreTest {
     store.append(started);
     store.append(node);
 
-    assertThat(store.readAll()).containsExactly(started, node);
-    assertThat(store.readAll().getFirst().payload()).containsEntry("k", "v");
+    assertThat(store.readAll().collectList().block()).containsExactly(started, node);
+    assertThat(store.readAll().collectList().block().getFirst().payload()).containsEntry("k", "v");
   }
 
   @Test
@@ -255,7 +264,7 @@ class ExecutionLogStoreTest {
 
     store.append(ExecutionLogEvent.started("e1", "s", "w", "v", payload));
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .singleElement()
         .satisfies(e -> {
           assertThat(e.executionId()).isEqualTo("e1");
@@ -276,11 +285,13 @@ class ExecutionLogStoreTest {
       store.append(ExecutionLogEvent.finished(run, "s", "w", "SUCCESS", Map.of()));
     }
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .filteredOn(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId()))
         .extracting(ExecutionLogEvent::status)
         .containsExactly("SetLimits(1)", "SetLimits(2)");
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).doesNotContain("r1");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .doesNotContain("r1");
   }
 
   @Test
@@ -294,7 +305,7 @@ class ExecutionLogStoreTest {
     store.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
     store.close();
 
-    assertThat(store.readAll()).isEmpty();
+    assertThat(store.readAll().collectList().block()).isEmpty();
   }
 
   @Test
@@ -306,7 +317,7 @@ class ExecutionLogStoreTest {
               dir.resolve("f" + fsync).toString(), mapper, 500, 10_000, fsync);
       store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
 
-      assertThat(store.readAll()).hasSize(1);
+      assertThat(store.readAll().collectList().block()).hasSize(1);
       store.close();
     }
   }
@@ -315,15 +326,18 @@ class ExecutionLogStoreTest {
   void jsonl_headerIndexFollowsAppendsAndRewrites() {
     final JsonlExecutionLogStore store = jsonl();
     store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
-    assertThat(store.header("e1")).contains(new ExecutionLogStore.RunHeader("s1", "w1"));
-    assertThat(store.header("missing")).isEmpty();
+    assertThat(store.header("e1").blockOptional())
+        .contains(new ExecutionLogStore.RunHeader("s1", "w1"));
+    assertThat(store.header("missing").blockOptional()).isEmpty();
 
     store.append(ExecutionLogEvent.started("e2", "s2", "w2", "v1"));
-    assertThat(store.header("e2")).contains(new ExecutionLogStore.RunHeader("s2", "w2"));
+    assertThat(store.header("e2").blockOptional())
+        .contains(new ExecutionLogStore.RunHeader("s2", "w2"));
 
-    store.replaceAll(List.of(ExecutionLogEvent.started("e3", "s3", "w3", "v1")));
-    assertThat(store.header("e1")).isEmpty();
-    assertThat(store.header("e3")).contains(new ExecutionLogStore.RunHeader("s3", "w3"));
+    store.replaceAll(List.of(ExecutionLogEvent.started("e3", "s3", "w3", "v1"))).block();
+    assertThat(store.header("e1").blockOptional()).isEmpty();
+    assertThat(store.header("e3").blockOptional())
+        .contains(new ExecutionLogStore.RunHeader("s3", "w3"));
     store.close();
   }
 }

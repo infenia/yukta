@@ -155,7 +155,7 @@ class StartIdempotencyTest {
     final StartIdempotency normal = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
     normal.reload().block();
 
-    assertThat(log.readAll()).hasSize(1);
+    assertThat(log.readAll().collectList().block()).hasSize(1);
     assertThat(tiny.once("s/w", "old", this::start).block()).isEqualTo("exec-2");
     assertThat(normal.once("s/w", "failed", this::start).block()).isEqualTo("exec-3");
   }
@@ -225,15 +225,21 @@ class StartIdempotencyTest {
     final InMemoryExecutionLogStore slowLog =
         new InMemoryExecutionLogStore() {
           @Override
-          public java.util.List<ExecutionLogEvent> ofType(
-              final ExecutionLogEvent.Type type, final java.time.Instant since) {
-            reading.countDown();
-            try {
-              go.await();
-            } catch (final InterruptedException e) {
-              Thread.currentThread().interrupt();
-            }
-            return super.ofType(type, since);
+          public reactor.core.publisher.Flux<com.infenia.yukta.service.log.ExecutionLogEvent>
+              ofType(
+                  final com.infenia.yukta.service.log.ExecutionLogEvent.Type type,
+                  final java.time.Instant since) {
+            return reactor.core.publisher.Flux.defer(
+                    () -> {
+                      reading.countDown();
+                      try {
+                        go.await();
+                      } catch (final InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                      }
+                      return super.ofType(type, since);
+                    })
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
           }
         };
     final com.infenia.yukta.service.runtime.ExecutionScheduler scheduler =
