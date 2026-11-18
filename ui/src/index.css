@@ -745,3 +745,26 @@
     animation: none !important;
   }
 }
+
+/* ---- Compact density (header toggle): the text stays at 12px or more, the room around it shrinks ---- */
+[data-density='compact'] {
+  .text-body-md,
+  .text-label-md {
+    font-size: 13px;
+    line-height: 16px;
+  }
+  .text-headline-lg {
+    font-size: 20px;
+    line-height: 26px;
+  }
+  .text-headline-md {
+    font-size: 17px;
+    line-height: 22px;
+  }
+  [data-slot='table-head'] {
+    height: 2rem;
+  }
+  [data-slot='table-cell'] {
+    padding-block: 0.25rem;
+  }
+}

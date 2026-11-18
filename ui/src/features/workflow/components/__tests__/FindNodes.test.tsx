@@ -47,9 +47,9 @@ describe('FindNodes', () => {
 
     await user.type(input, 'fetch -> parse');
     expect(screen.getByRole('status')).toHaveTextContent('2 matches');
-    expect(screen.getByRole('list', { name: 'Matching nodes' })).toHaveTextContent(
-      'on a matching edge'
-    );
+    expect(
+      screen.getByRole('list', { name: 'Matching nodes' })
+    ).toHaveTextContent('on a matching edge');
 
     await user.clear(input);
     await user.type(input, 'archive');
