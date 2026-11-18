@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta;
+package com.infenia.yukta.e2e;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.e2e.support.Api;
+import com.infenia.yukta.e2e.support.E2eTest;
+import com.infenia.yukta.e2e.support.YuktaServer;
+import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -15,9 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 
 /**
  * Throws malformed, oversized, deeply nested and mistyped bodies at the REST and MCP entry points
@@ -29,7 +32,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
  * replay with {@code -Dyukta.fuzz.seed=<seed> -Dyukta.fuzz.tries=1}. The nightly run raises the
  * count with {@code -PfuzzTries=...} and picks a random seed with {@code -PfuzzSeed=random}.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@E2eTest
 @SuppressWarnings({
   "PMD.SignatureDeclareThrowsException",
   "PMD.TooManyMethods",
@@ -46,9 +49,14 @@ import org.springframework.boot.test.web.server.LocalServerPort;
       "ERROR com.infenia.yukta.service.control.ControlBusService - ",
       "ERROR com.infenia.yukta.service.session.SessionService - ",
       "ERROR com.infenia.yukta.service.control.gateway.WorkflowService - ",
-      "ERROR com.infenia.yukta.exception.GlobalExceptionHandler - "
+      "ERROR com.infenia.yukta.exception.GlobalExceptionHandler - ",
+      "ERROR com.infenia.yukta.service.orchestrator.WorkflowOrchestrator - ",
+      "ERROR com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator - ",
+      "ERROR com.infenia.yukta.service.orchestrator.strategy.StreamAssemblyHelper - ",
+      "ERROR com.infenia.yukta.service.orchestrator.stream.NodeStreams - ",
+      "ERROR com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator - "
     })
-class BoundaryFuzzAcceptanceTest {
+class BoundaryFuzzE2eTest {
 
   private static final Duration LIMIT = Duration.ofSeconds(15);
   private static final String WORKFLOW =
@@ -84,9 +92,17 @@ class BoundaryFuzzAcceptanceTest {
   private static final List<String> MARKERS =
       List.of("\tat com.infenia", "\tat java.", "\tat org.springframework", "\"stackTrace\"");
 
-  @LocalServerPort private int port;
+  private static final String KEY = YuktaServer.key(ApiRole.ADMIN);
 
   private final HttpClient client = HttpClient.newHttpClient();
+
+  /** The sessions the cases may have created. */
+  @AfterAll
+  static void deleteFuzzSessions() {
+    final Api api = Api.forRole(ApiRole.ADMIN);
+    api.call("DELETE", "/api/sessions/fuzz", null);
+    api.call("DELETE", "/api/sessions/big", null);
+  }
 
   private static int tries() {
     return Integer.getInteger("yukta.fuzz.tries", 40);
@@ -163,8 +179,9 @@ class BoundaryFuzzAcceptanceTest {
     final long started = System.nanoTime();
     final HttpResponse<String> response =
         client.send(
-            HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+            HttpRequest.newBuilder(URI.create(YuktaServer.baseUrl() + path))
                 .timeout(LIMIT)
+                .header("X-API-Key", KEY)
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json, text/event-stream")
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
@@ -244,8 +261,9 @@ class BoundaryFuzzAcceptanceTest {
     final long started = System.nanoTime();
     final HttpResponse<String> response =
         client.send(
-            HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/sessions"))
+            HttpRequest.newBuilder(URI.create(YuktaServer.baseUrl() + "/api/sessions"))
                 .timeout(LIMIT)
+                .header("X-API-Key", KEY)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(big))
                 .build(),
@@ -256,8 +274,9 @@ class BoundaryFuzzAcceptanceTest {
 
   private HttpResponse<String> send(final String path, final String body) throws Exception {
     return client.send(
-        HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+        HttpRequest.newBuilder(URI.create(YuktaServer.baseUrl() + path))
             .timeout(LIMIT)
+            .header("X-API-Key", KEY)
             .header("Content-Type", "application/json")
             .header("Accept", "application/json, text/event-stream")
             .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
@@ -301,15 +320,16 @@ class BoundaryFuzzAcceptanceTest {
     run("POST /api/sessions", "/api/sessions", SESSION);
     final HttpResponse<String> health =
         client.send(
-            HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/actuator/health"))
+            HttpRequest.newBuilder(URI.create(YuktaServer.baseUrl() + "/actuator/health"))
+                .header("X-API-Key", KEY)
                 .GET()
                 .build(),
             HttpResponse.BodyHandlers.ofString());
     assertThat(health.body()).contains("\"status\":\"UP\"");
     final HttpResponse<String> valid =
         client.send(
-            HttpRequest.newBuilder(
-                    URI.create("http://localhost:" + port + "/api/sessions/validate"))
+            HttpRequest.newBuilder(URI.create(YuktaServer.baseUrl() + "/api/sessions/validate"))
+                .header("X-API-Key", KEY)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(WORKFLOW))
                 .build(),
