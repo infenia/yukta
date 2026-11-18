@@ -315,6 +315,14 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
         && isComplete(executionId, nodeId);
   }
 
+  /**
+   * Memory only, so it clears at once on the caller's thread: no thread hop, nothing to wait for.
+   */
+  @Override
+  public Mono<Void> clearAsync(final String executionId) {
+    return Mono.fromRunnable(() -> clear(executionId));
+  }
+
   @Override
   public void clear(final String executionId) {
     finished.remove(executionId);

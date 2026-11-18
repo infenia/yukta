@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.store;
 import com.infenia.yukta.message.Message;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Store for the last message produced by each node within an execution.
@@ -58,9 +59,23 @@ public interface NodeCheckpointStore {
    *
    * <p>Called automatically when an execution finishes (success, error, or stop).
    *
+   * <p>Blocking; prefer {@link #clearAsync}, which the orchestrator uses.
+   *
    * @param executionId the execution identifier to clear
    */
   void clear(String executionId);
+
+  /**
+   * Non-blocking {@link #clear}. The default runs the blocking one on a elastic thread; a store
+   * that talks to a database overrides it.
+   *
+   * @param executionId the execution identifier to clear
+   * @return a Mono that completes when the checkpoints are gone
+   */
+  default Mono<Void> clearAsync(final String executionId) {
+    return Mono.<Void>fromRunnable(() -> clear(executionId))
+        .subscribeOn(Schedulers.boundedElastic());
+  }
 
   /**
    * Gets every message a node produced in an execution, in the order it produced them.
@@ -83,6 +98,7 @@ public interface NodeCheckpointStore {
    *
    * @param executionId the execution
    * @param nodeId the node
+   *     <p>Blocking; prefer {@link #completeAsync}.
    * @return true if nothing was dropped
    */
   default boolean isComplete(final String executionId, final String nodeId) {
@@ -112,9 +128,34 @@ public interface NodeCheckpointStore {
    *
    * @param executionId the execution
    * @param nodeId the node
+   *     <p>Blocking; prefer {@link #finishedAsync}.
    * @return true if the node is known to have finished with a complete, durable output
    */
   default boolean isFinished(final String executionId, final String nodeId) {
     return false;
+  }
+
+  /**
+   * Non-blocking {@link #isComplete}. The default runs the blocking one on an elastic thread.
+   *
+   * @param executionId the execution
+   * @param nodeId the node
+   * @return true if nothing was dropped
+   */
+  default Mono<Boolean> completeAsync(final String executionId, final String nodeId) {
+    return Mono.fromCallable(() -> isComplete(executionId, nodeId))
+        .subscribeOn(Schedulers.boundedElastic());
+  }
+
+  /**
+   * Non-blocking {@link #isFinished}. The default runs the blocking one on an elastic thread.
+   *
+   * @param executionId the execution
+   * @param nodeId the node
+   * @return true if the node is known to have finished with a complete, durable output
+   */
+  default Mono<Boolean> finishedAsync(final String executionId, final String nodeId) {
+    return Mono.fromCallable(() -> isFinished(executionId, nodeId))
+        .subscribeOn(Schedulers.boundedElastic());
   }
 }

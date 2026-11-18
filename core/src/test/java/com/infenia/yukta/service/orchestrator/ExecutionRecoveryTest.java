@@ -4,9 +4,12 @@ package com.infenia.yukta.service.orchestrator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.execution.TaskStatus;
+import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.StartOptions;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -21,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
@@ -334,6 +338,20 @@ class ExecutionRecoveryTest {
     new ExecutionRecovery(store, tracker, 1, checkpoints).recover();
 
     StepVerifier.create(checkpoints.getAll("r1", "n1")).verifyComplete();
+  }
+
+  @Test
+  void droppedRunsWhoseCheckpointsCannotBeClearedStillRecover() {
+    final NodeCheckpointStore checkpoints = mock(NodeCheckpointStore.class);
+    when(checkpoints.clearAsync("r1"))
+        .thenReturn(Mono.error(new IllegalStateException("database down")));
+    finishedRun("r1", "SUCCESS");
+    finishedRun("r2", "SUCCESS");
+
+    new ExecutionRecovery(store, tracker, 1, checkpoints).recover();
+
+    verify(checkpoints).clearAsync("r1");
+    assertThat(store.readAll()).filteredOn(e -> "r2".equals(e.executionId())).isNotEmpty();
   }
 
   @Test

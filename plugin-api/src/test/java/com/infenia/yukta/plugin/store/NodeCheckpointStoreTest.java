@@ -63,6 +63,25 @@ class NodeCheckpointStoreTest {
   }
 
   @Test
+  void clearAsync_defaultRunsTheBlockingClear() {
+    StepVerifier.create(new LastOnlyStore(null).clearAsync("e")).verifyComplete();
+  }
+
+  @Test
+  void completeAsync_defaultsToTheBlockingAnswer() {
+    StepVerifier.create(new LastOnlyStore(null).completeAsync("e", "n"))
+        .expectNext(true)
+        .verifyComplete();
+  }
+
+  @Test
+  void finishedAsync_defaultsToTheBlockingAnswer() {
+    StepVerifier.create(new LastOnlyStore(null).finishedAsync("e", "n"))
+        .expectNext(false)
+        .verifyComplete();
+  }
+
+  @Test
   void markComplete_defaultsToDoingNothing_andNothingIsFinished() {
     final LastOnlyStore store = new LastOnlyStore(null);
 

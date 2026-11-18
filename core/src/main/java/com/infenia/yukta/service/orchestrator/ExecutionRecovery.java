@@ -159,7 +159,16 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     int skip = 0;
     for (final List<ExecutionLogEvent> run : runs) {
       if (!keep.contains(run.getFirst().executionId())) {
-        checkpoints.clear(run.getFirst().executionId());
+        final String gone = run.getFirst().executionId();
+        checkpoints
+            .clearAsync(gone)
+            .subscribe(
+                null,
+                error ->
+                    log.atWarn()
+                        .addKeyValue("executionId", gone)
+                        .setCause(error)
+                        .log("Could not clear the checkpoints of a run"));
         skip++;
         continue;
       }
