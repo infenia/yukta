@@ -48,7 +48,8 @@ smoke_test() {
   mkdir -p /tmp/yukta-examples
   docker run -d --rm --name "$name" --platform "linux/$platform" -p "127.0.0.1:$port:9858" \
     --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp -v /tmp/yukta-examples:/tmp/yukta-examples \
-    -e YUKTA_PLUGINS_ENABLED=all -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=smoke-test-key -e YUKTA_API_KEYS_0_ROLE=ADMIN "$image" >/dev/null
+    -e YUKTA_PLUGINS_ENABLED=all -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=smoke-test-key -e YUKTA_API_KEYS_0_ROLE=ADMIN \
+    -e 'YUKTA_API_KEYS_0_SESSIONS_0=*' "$image" -Dyukta.rate-limit-per-minute=100000 >/dev/null
   trap 'docker rm -f "$name" >/dev/null 2>&1 || true' RETURN
   for _ in $(seq 1 60); do
     if curl -fsS "http://127.0.0.1:$port/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
@@ -59,6 +60,12 @@ smoke_test() {
       if [[ "$platform" == "amd64" ]]; then
         SMOKE_IN_CONTAINER=1 "$RELEASE_DIR/examples-smoke.sh" "http://127.0.0.1:$port" smoke-test-key ||
           { docker logs "$name" >&2 || true; docker rm -f "$name" >/dev/null 2>&1 || true; die "examples smoke failed for $platform"; }
+      fi
+      # The e2e suite (the Java tests of the e2e module) against the image, where the caller has a JDK (the release
+      # workflow sets E2E_SUITE): the same checks as on a JVM, on what ships.
+      if [[ "$platform" == "amd64" && -n "${E2E_SUITE:-}" ]]; then
+        (cd "$REPO_ROOT" && ./gradlew :e2e:test "-Pyukta.e2e.url=http://127.0.0.1:$port" -Pyukta.e2e.key=smoke-test-key) ||
+          { docker logs "$name" >&2 || true; docker rm -f "$name" >/dev/null 2>&1 || true; die "e2e suite failed for $platform"; }
       fi
       # /actuator/info needs the key and must report the version this image was built for.
       curl -fsS -H "Authorization: Bearer smoke-test-key" "http://127.0.0.1:$port/actuator/info" 2>/dev/null |

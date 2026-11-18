@@ -237,6 +237,26 @@ jobs:
           # The examples (bash, curl, jq, python3) run on the Linux runners; macOS and Windows have the Quickstart only.
           if [ "$RUNNER_OS" = Linux ]; then release/examples-smoke.sh http://127.0.0.1:9858; fi
 
+      # The same Java suite as the PR gate (the e2e module), against the binary: its own ADMIN key and a high
+      # /api rate limit (a system property: the suite sends more than 1200 requests a minute).
+      - uses: ./.github/actions/setup-build
+        if: runner.os == 'Linux'
+
+      - name: E2E suite against the binary
+        if: runner.os == 'Linux'
+        env:
+          YUKTA_PLUGINS_ENABLED: all
+          YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,python3
+          YUKTA_API_KEYS_0_NAME: e2e
+          YUKTA_API_KEYS_0_KEY: release-e2e-key
+          YUKTA_API_KEYS_0_ROLE: ADMIN
+          YUKTA_API_KEYS_0_SESSIONS_0: '*'
+        run: |
+          dist/${{ matrix.platform }}/yukta -Dyukta.rate-limit-per-minute=100000 &
+          pid=$!
+          trap 'kill "$pid" || true' EXIT
+          ./gradlew :e2e:test -Pyukta.e2e.url=http://127.0.0.1:9858 -Pyukta.e2e.key=release-e2e-key
+
       # The exportSbom Gradle task wrote the bill of materials next to the binary. Checked
       # on every run, so a rehearsal fails when it is missing, not the release.
       - name: SBOM was exported
@@ -329,10 +349,14 @@ jobs:
         with:
           platforms: arm64
 
+      # build-image.sh runs the e2e suite (Gradle) against the amd64 image when E2E_SUITE is set.
+      - uses: ./.github/actions/setup-build
+
       - name: Package, push the image, sign, upload
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
+          E2E_SUITE: '1'
         run: |
           chmod +x dist/*/yukta dist/windows-amd64/yukta.exe dist/cli/yukta-cli-*
           # release-please marks every draft a prerelease; only a version with a "-" is one.
