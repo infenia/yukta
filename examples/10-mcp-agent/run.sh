@@ -18,6 +18,11 @@ mcp_call() {
     echo "MCP tool $1 failed: $(jq -r '.result.content[0].text' <<<"$resp")" >&2
     return 1
   fi
+  # a protocol error (the server threw before the tool ran) has no result at all
+  if jq -e '.error' <<<"$resp" >/dev/null; then
+    echo "MCP call $1 failed: $(jq -c '.error' <<<"$resp")" >&2
+    return 1
+  fi
   jq -c '.result.structuredContent' <<<"$resp"
 }
 
