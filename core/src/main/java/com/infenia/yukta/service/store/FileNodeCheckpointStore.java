@@ -104,15 +104,6 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   /** File operations queued on {@link #IO} or running there, across all stores. */
   private static final AtomicInteger PENDING_IO = new AtomicInteger();
 
-  /**
-   * Checkpoint file operations queued for a thread of the checkpoint scheduler or running on it.
-   *
-   * @return the number of pending operations
-   */
-  public static int pendingIo() {
-    return PENDING_IO.get();
-  }
-
   /** Root directory. */
   private final Path root;
 
@@ -138,6 +129,15 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   /** Reads and writes messages. */
   private final ObjectMapper mapper;
+
+  /**
+   * Checkpoint file operations queued for a thread of the checkpoint scheduler or running on it.
+   *
+   * @return the number of pending operations
+   */
+  public static int pendingIo() {
+    return PENDING_IO.get();
+  }
 
   /**
    * Creates the store.
