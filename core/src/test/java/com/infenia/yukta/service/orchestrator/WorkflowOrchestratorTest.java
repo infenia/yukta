@@ -742,6 +742,38 @@ class WorkflowOrchestratorTest {
   }
 
   @Test
+  void execute_reportsRunningWithoutQueuedWhenSlotIsFree() {
+    final ExecutionScheduler open =
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(30));
+    final WorkflowOrchestrator immediate =
+        new WorkflowOrchestrator(
+            tracker,
+            executionControlStore,
+            executionControlFactory,
+            checkpointStore,
+            executionArchive,
+            executionLog,
+            open,
+            compiler,
+            preparator,
+            new ExecutionResultService(100, Duration.ofMinutes(5), 10));
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
+    lenient()
+        .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
+        .thenReturn(executionControl);
+    lenient().when(executionControl.safeStopSink()).thenAnswer(inv -> Sinks.one());
+    lenient().when(executionControl.stopRequested()).thenAnswer(inv -> new AtomicBoolean());
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(anyString(), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(immediate.execute("s", "w", "e-free", prepared, Map.of())).verifyComplete();
+
+    verify(tracker).emitWorkflowStatusEvent("e-free", TaskStatus.RUNNING);
+    verify(tracker, never()).emitWorkflowStatusEvent("e-free", TaskStatus.QUEUED);
+  }
+
+  @Test
   void execute_endsTimedOutWhenItWaitedTooLongInTheQueue() {
     final ExecutionScheduler limited =
         ExecutionSchedulerFixture.create(

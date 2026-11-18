@@ -27,7 +27,7 @@ function renderCard(data: WorkflowNodeData) {
 }
 
 describe('WorkflowNodeCard color', () => {
-  it('marks a colored failed node with a stripe and wash, and keeps status and category', () => {
+  it('marks a colored failed node with an inner glow and wash, and keeps status and category', () => {
     renderCard({
       node: createMockGraphNode({
         nodeId: 'on-fail',
@@ -38,11 +38,11 @@ describe('WorkflowNodeCard color', () => {
     });
 
     const card = screen.getByTestId('workflow-node-on-fail');
-    expect(screen.getByTestId('node-color-stripe').style.backgroundColor).toBe(
+    expect(screen.getByTestId('node-color-glow').style.boxShadow).toContain(
       'var(--pal-violet)'
     );
     expect(card.style.backgroundImage).toContain('var(--pal-violet)');
-    // status keeps the border, category keeps the top accent and the handles
+    // status keeps the border, category keeps the handles
     expect(card).toHaveClass('border-error');
     expect(card.style.getPropertyValue('--node-accent')).toBe(
       'var(--color-cat-processor)'
@@ -56,7 +56,7 @@ describe('WorkflowNodeCard color', () => {
         node: createMockGraphNode({ nodeId: 'plain', color }),
         status: 'completed',
       });
-      expect(screen.queryByTestId('node-color-stripe')).toBeNull();
+      expect(screen.queryByTestId('node-color-glow')).toBeNull();
       expect(
         screen.getByTestId('workflow-node-plain').style.backgroundImage
       ).toBe('');

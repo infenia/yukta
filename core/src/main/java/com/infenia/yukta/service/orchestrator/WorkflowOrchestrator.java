@@ -417,14 +417,13 @@ public class WorkflowOrchestrator {
           reserved != null
               ? reserved
               : scheduler.acquire(sessionId, workflowId, priority, executionId);
+      final Mono<ExecutionScheduler.Permit> permit = admission.permit();
       // A refused admission is always immediate, so its permit errors without a wait.
-      if (admission.immediate()) {
-        return admission.permit();
+      if (!admission.immediate()) {
+        tracker.emitWorkflowStatusEvent(executionId, TaskStatus.QUEUED);
       }
-      tracker.emitWorkflowStatusEvent(executionId, TaskStatus.QUEUED);
-      return admission
-          .permit()
-          .doOnNext(_ -> tracker.emitWorkflowStatusEvent(executionId, TaskStatus.RUNNING));
+      // RUNNING for every run, not only a queued one: the live-runs view keys on it.
+      return permit.doOnNext(_ -> tracker.emitWorkflowStatusEvent(executionId, TaskStatus.RUNNING));
     });
   }
 

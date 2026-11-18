@@ -119,14 +119,14 @@ export function WorkflowNodeCard({
       style={
         {
           '--node-accent': accent,
-          // a soft wash fading out under the top edge, on top of the card's own background
+          // a soft wash fading out from the top-left corner, on top of the card's own background
           backgroundImage: color
-            ? `linear-gradient(to bottom, ${paletteTint(node.color)}, transparent 64px)`
+            ? `linear-gradient(135deg, ${paletteTint(node.color, 18)}, transparent 70%)`
             : undefined,
         } as React.CSSProperties
       }
       className={cn(
-        'yukta-node group bg-surface relative flex size-full items-center gap-3 border border-t-[3px] border-t-(--node-accent) px-3 outline-none focus-visible:ring-2 focus-visible:ring-(--node-accent)',
+        'yukta-node group bg-surface relative flex size-full items-center gap-3 border px-3 outline-none focus-visible:ring-2 focus-visible:ring-(--node-accent)',
         node.category === 'TERMINAL' ? 'rounded-xl rounded-r-md' : 'rounded-xl',
         STATUS_CARD_CLASSES[status]
       )}
@@ -180,15 +180,15 @@ export function WorkflowNodeCard({
       )}
 
       {color && (
-        // a marker only: a short cap under the top edge, clear of the ports on the side edges and
-        // the owner badge in the corner; borders and the status badge keep meaning status and category
+        // a marker only: an inner rim and glow just inside the edge. It is its own layer because the
+        // card's own box-shadow carries hover, selected and running; borders and the status badge
+        // keep meaning status
         <span
           aria-hidden="true"
-          data-testid="node-color-stripe"
-          className="absolute inset-x-10 top-0 h-0.5 rounded-b-full"
+          data-testid="node-color-glow"
+          className="pointer-events-none absolute inset-0 rounded-[inherit]"
           style={{
-            backgroundColor: color,
-            boxShadow: `0 1px 8px 0 color-mix(in oklab, ${color} 55%, transparent)`,
+            boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${color} 35%, transparent), inset 0 0 18px -6px color-mix(in oklab, ${color} 45%, transparent)`,
           }}
         />
       )}
