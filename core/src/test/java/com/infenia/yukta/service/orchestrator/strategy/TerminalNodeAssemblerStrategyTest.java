@@ -36,6 +36,7 @@ import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.result.ExecutionResultService;
+import com.infenia.yukta.service.result.ResultEvent;
 import com.infenia.yukta.service.runtime.ExecutionControl;
 import com.infenia.yukta.service.runtime.store.ActivePluginRegistry;
 import com.infenia.yukta.service.runtime.valve.ReactiveControlValve;
@@ -708,7 +709,7 @@ class TerminalNodeAssemblerStrategyTest {
     resultService.complete(EXECUTION_ID, runStatus);
     return resultService.stream(EXECUTION_ID)
         .filter(event -> NODE_ID.equals(event.nodeId()) && event.status() != null)
-        .map(event -> event.status())
+        .map(ResultEvent::status)
         .collectList()
         .block();
   }
