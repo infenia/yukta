@@ -1173,6 +1173,7 @@ All meters are Micrometer. Tags in braces.
 | `yukta.edge.dropped` `{type, node}` | counter | [ENG-01](#eng-01-streaming-dag-and-back-pressure) | Messages dropped by an `edgeBuffer` |
 | `yukta.checkpoint.bytes` | gauge | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Node output held by the checkpoint store |
 | `yukta.checkpoint.errors` | counter | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | End markers that failed to write |
+| `yukta.checkpoint.io.pending` | gauge | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Checkpoint file operations queued or running |
 | `yukta.plugin.events` `{plugin, outcome}` | counter | [EXT-01](#ext-01-plugin-contract-and-registry) | Counters a plugin reports through the metrics reporter |
 | `yukta.supervisor.commands` `{id, outcome}` | counter | [CTL-07](#ctl-07-supervisors) | Commands issued by supervisors (outcomes include `forbidden`: not in the supervisor's `allowedCommands`; `out-of-scope`: the target is outside the supervisor's scope) |
 | `yukta.input.requests` `{kind, risk, outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Input requests: asked, answered, defaulted, escalated, expired, cancelled |
