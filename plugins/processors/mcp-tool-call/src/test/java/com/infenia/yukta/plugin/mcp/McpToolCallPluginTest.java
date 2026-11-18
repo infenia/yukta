@@ -118,6 +118,11 @@ class McpToolCallPluginTest {
   }
 
   @Test
+  void validateConfigAcceptsToolFromMessageWithoutGuard() {
+    StepVerifier.create(plugin.validateConfig(config("tool", "${payload.tool}"))).verifyComplete();
+  }
+
+  @Test
   void validateConfigRejectsNonPositiveConcurrency() {
     StepVerifier.create(plugin.validateConfig(config("concurrency", 0)))
         .expectErrorMessage("concurrency must be a positive whole number, got: 0")
@@ -748,5 +753,20 @@ class McpToolCallPluginTest {
   void tierAndRestriction() {
     assertThat(plugin.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.SPECIFIC);
     assertThat(plugin.isRestricted()).isEqualTo(true);
+  }
+
+  @Test
+  void toolFromMessageWithoutGuardIsReported() {
+    final Map<String, Object> open = Map.of("tool", "${payload.tool}");
+    assertThat(McpToolCallPlugin.unguarded(open)).isTrue();
+    assertThat(
+            McpToolCallPlugin.unguarded(
+                Map.of("tool", "${t}", "allowedTools", List.of(), "requireApproval", List.of())))
+        .isTrue();
+    assertThat(McpToolCallPlugin.unguarded(Map.of("tool", "echo"))).isFalse();
+    assertThat(McpToolCallPlugin.unguarded(Map.of("tool", "${t}", "allowedTools", List.of("a"))))
+        .isFalse();
+    assertThat(McpToolCallPlugin.unguarded(Map.of("tool", "${t}", "requireApproval", List.of("*"))))
+        .isFalse();
   }
 }
