@@ -97,9 +97,6 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
           60,
           true);
 
-  /** One node of one run. */
-  private record NodeKey(String executionId, String nodeId) {}
-
   /** Root directory. */
   private final Path root;
 
@@ -125,6 +122,9 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   /** Reads and writes messages. */
   private final ObjectMapper mapper;
+
+  /** One node of one run. */
+  private record NodeKey(String executionId, String nodeId) {}
 
   /**
    * Creates the store.
