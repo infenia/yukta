@@ -4,8 +4,9 @@
 name: E2E nightly
 
 # The end-to-end tiers that need a server process of their own: yukta-cli against the boot jar
-# (cli/e2e) and the web UI in a browser against it (ui/e2e/real). Nightly, on demand, and on a pull request that carries the `ci:e2e` label. The Java
-# tier (the e2e module) runs in ci.yml on every PR that touches a platform module.
+# (cli/e2e) and the web UI in a browser against it (ui/e2e/real). Nightly, on demand, and on a
+# pull request that carries the `ci:e2e` label. The Java tier (the e2e module) runs in ci.yml on
+# every PR that touches a platform module.
 # Failures open the nightly tracking issue (nightly-report.yml).
 on:
   schedule:
