@@ -245,6 +245,8 @@ class SqlQueryPluginTest {
     assertThat(plugin.getDefaultTimeout(Map.of())).isEqualTo(java.time.Duration.ofSeconds(35));
     assertThat(plugin.getDefaultTimeout(Map.of("timeoutSeconds", 120)))
         .isEqualTo(java.time.Duration.ofSeconds(125));
+    assertThat(plugin.getDefaultTimeout(Map.of("timeoutSeconds", 0)))
+        .isEqualTo(java.time.Duration.ofSeconds(35));
     assertThat(plugin.getDefaultTimeout(Map.of("timeoutSeconds", "#{x}")))
         .isEqualTo(java.time.Duration.ofSeconds(35));
   }
