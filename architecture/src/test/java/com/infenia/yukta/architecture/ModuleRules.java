@@ -58,6 +58,13 @@ public final class ModuleRules {
           "com.infenia.yukta.plugin.mcp.McpClientGateway",
           "closes the MCP clients at shutdown");
 
+  /** Classes that may use deprecated API, with the reason; every entry is removed with its API. */
+  private static final Map<String, String> MAY_USE_DEPRECATED =
+      Map.of(
+          "com.infenia.yukta.service.worker.RemoteProcessor",
+          "forwards the deprecated shutdown and optimiser hooks to the local plugin until they are"
+              + " removed");
+
   private static final String[] WEB_AND_DATA_STACKS = {
     "org.springframework.web..",
     "org.springframework.http..",
@@ -176,14 +183,14 @@ public final class ModuleRules {
   public static final ArchRule NO_BLOCKING_CALLS = ReactiveRules.noBlockingCalls(MAY_BLOCK);
 
   /**
-   * No class uses deprecated API.
+   * No class uses deprecated API, except the listed ones.
    *
    * @param classes the imported classes
    */
   @ArchTest
   @SuppressWarnings("PMD.LooseCoupling")
   public static void noDeprecatedApi(final JavaClasses classes) {
-    DeprecationRules.check(classes, Map.of());
+    DeprecationRules.check(classes, MAY_USE_DEPRECATED);
   }
 
   private ModuleRules() {}
