@@ -16,7 +16,7 @@ import reactor.test.StepVerifier;
 
 /** Tests for GatePlugin and ScorePlugin. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 class GateAndScorePluginTest {
 
   private static Map<String, Object> config(final Object... extra) {
@@ -36,6 +36,17 @@ class GateAndScorePluginTest {
   private static GatePlugin gate(final double yes) {
     return new GatePlugin(
         FakeModel.always(Map.of("gate", new Answer.YesNo(yes))), FakeModel.plainResolver());
+  }
+
+  @Test
+  void budgetOptionReachesTheModel() {
+    final FakeModel model = FakeModel.always(Map.of("gate", new Answer.YesNo(0.9)));
+    final Map<String, Object> budget = Map.of("maxTokens", 100);
+    new GatePlugin(model, FakeModel.plainResolver())
+        .process(Flux.just(FakeModel.message("x")), config("budget", budget))
+        .blockFirst();
+
+    assertThat(model.asked.getFirst().spec().budget()).isEqualTo(budget);
   }
 
   private static ScorePlugin score(final double score) {
