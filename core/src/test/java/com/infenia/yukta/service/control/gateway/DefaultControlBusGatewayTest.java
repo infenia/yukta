@@ -2857,7 +2857,7 @@ class DefaultControlBusGatewayTest {
             StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
             log);
     real.acquire("s", "w", 0, null).permit().block();
-    real.acquire("s", "w", 0, "waiting").permit().subscribe();
+    real.acquire("s", "w", 0, "waiting").permit().subscribe(_ -> {}, _ -> {});
 
     StepVerifier.create(limited.changePriority("waiting", 5)).verifyComplete();
     StepVerifier.create(limited.changePriority("running", 5))

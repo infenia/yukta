@@ -286,7 +286,7 @@ class ExecutionSchedulerTest {
   void waitingStartThatIsCancelled_leavesTheQueue() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
     final Permit first = granted(scheduler.acquire("s", "w", 0, null));
-    final var waiting = scheduler.acquire("s", "w", 0, null).permit().subscribe();
+    final var waiting = scheduler.acquire("s", "w", 0, null).permit().subscribe(_ -> {}, _ -> {});
 
     waiting.dispose();
 
@@ -570,7 +570,7 @@ class ExecutionSchedulerTest {
   void setPriority_ofRunningOrUnknownExecution_isFalse_andCancelledMovedWaiterLeavesQueue() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
     granted(scheduler.acquire("s", "w", 0, "running"));
-    final var waiting = scheduler.acquire("s", "w", 0, "w1").permit().subscribe();
+    final var waiting = scheduler.acquire("s", "w", 0, "w1").permit().subscribe(_ -> {}, _ -> {});
 
     assertThat(scheduler.changePriority("running", 9)).isFalse();
     assertThat(scheduler.changePriority("ghost", 9)).isFalse();
