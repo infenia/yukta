@@ -61,7 +61,7 @@ tasks.register<JacocoReport>("e2eCoverageReport") {
     // The conventions make every JacocoReport depend on the tests; this one reads a file the server wrote.
     setDependsOn(emptyList<Any>())
     executionData(
-        providers.gradleProperty("yukta.e2e.exec").orElse("build/e2e-server/jacoco.exec").map { file(it) })
+        providers.gradleProperty("yukta.e2e.exec").orElse("build/e2e-server/jacoco.exec").map { rootProject.file(it) })
     classDirectories.setFrom(mainSources.map { it.output.classesDirs })
     sourceDirectories.setFrom(mainSources.flatMap { it.allJava.srcDirs })
     reports {
