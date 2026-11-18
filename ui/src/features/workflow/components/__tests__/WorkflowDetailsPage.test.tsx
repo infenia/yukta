@@ -92,7 +92,11 @@ const server = setupServer(
 );
 
 beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  // the dock remembers its tab and height between renders
+  localStorage.clear();
+});
 afterAll(() => server.close());
 
 /** Stands for the Control page: shows the query it was opened with. */
@@ -473,6 +477,60 @@ describe('WorkflowDetailsPage', () => {
     expect(
       await screen.findByRole('list', { name: 'Matching nodes' })
     ).toHaveTextContent('vectorize-batch');
+  });
+
+  it('opens a node picked from the find list', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Find nodes' }));
+    await user.type(
+      screen.getByRole('searchbox', { name: 'Find nodes' }),
+      'vector'
+    );
+    await user.click(
+      await within(
+        await screen.findByRole('list', { name: 'Matching nodes' })
+      ).findByRole('button', { name: /vectorize-batch/ })
+    );
+    expect(
+      await screen.findByRole('dialog', { name: 'vectorize-batch' })
+    ).toBeInTheDocument();
+  });
+
+  it('opens a node that has an agent conversation, bringing up the conversation', async () => {
+    renderPage();
+    await waitFor(() =>
+      expect(MockEventSource.byUrl('/conversations/stream')).toBeDefined()
+    );
+    const stream = MockEventSource.byUrl('/conversations/stream');
+    stream.open();
+    stream.emitNamed('conversation', {
+      id: 'conv-1',
+      executionId: 'exec-091-qp-55',
+      rootExecutionId: 'exec-091-qp-55',
+      sessionId: 'dogfood',
+      workflowId: 'wf',
+      nodeId: 'vectorize-batch',
+      messageId: 'm-1',
+      harness: 'claude',
+      protocol: 'JSONL',
+      model: null,
+      capabilities: [],
+      state: 'RUNNING',
+      outcome: null,
+      reason: null,
+      turn: 1,
+      queued: 0,
+      steerAudience: [],
+      startedAt: '2026-07-26T14:22:18Z',
+      updatedAt: '2026-07-26T14:22:18Z',
+      endedAt: null,
+      seq: 1,
+    });
+    fireEvent.click(await screen.findByTestId('workflow-node-vectorize-batch'));
+    expect(
+      await screen.findByRole('dialog', { name: 'vectorize-batch' })
+    ).toBeInTheDocument();
   });
 
   it('shows a loading state before data arrives', () => {

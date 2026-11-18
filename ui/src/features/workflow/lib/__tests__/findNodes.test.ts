@@ -41,5 +41,18 @@ describe('findNodes', () => {
     ]);
     expect(findNodes(graph, 'processor')).toHaveLength(3);
     expect(findNodes(graph, '  ')).toEqual([]);
+    expect(findNodes(graph, 'parse -> fetch')).toEqual([]);
+  });
+
+  it('keeps the first match of a node that is also an edge end', () => {
+    const arrowGraph = {
+      ...graph,
+      nodes: [node('a', { description: 'a -> b' }), node('b')],
+      edges: [{ source: 'a', target: 'b', sourcePort: null }],
+    } as WorkflowGraph;
+    expect(findNodes(arrowGraph, 'a -> b')).toEqual([
+      { nodeId: 'a', via: 'description' },
+      { nodeId: 'b', via: 'edge' },
+    ]);
   });
 });
