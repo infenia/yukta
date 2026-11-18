@@ -487,11 +487,15 @@ class SupervisorHostTest {
         10,
         4);
 
-    for (int i = 0; i < 2000; i++) {
-      feed.publish(failed("e" + i));
-    }
-
-    await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> assertThat(gaps).isNotEmpty());
+    // A fast runner can drain one burst without overflowing, so keep publishing until it does.
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .untilAsserted(() -> {
+          for (int i = 0; i < 2000; i++) {
+            feed.publish(failed("e" + i));
+          }
+          assertThat(gaps).isNotEmpty();
+        });
   }
 
   @Test
