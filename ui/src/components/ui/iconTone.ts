@@ -27,6 +27,6 @@ export const TOOLBAR_DIVIDER = 'bg-border mx-0.5 h-5 w-px shrink-0';
 /** An icon segment inside a toolbar group, in the given tone. */
 export const toolbarSegment = (tone: keyof typeof ICON_TONE) =>
   cn(
-    'transition-standard focus-visible:ring-ring flex h-8 min-w-8 items-center justify-center gap-0.5 rounded-full px-1.5 focus-visible:ring-2 focus-visible:outline-none active:scale-95 disabled:pointer-events-none disabled:opacity-35 aria-pressed:bg-primary/10 data-popup-open:bg-muted',
+    'flex h-8 min-w-8 items-center justify-center gap-0.5 rounded-full px-1.5 transition-standard focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-95 disabled:pointer-events-none disabled:opacity-35 aria-pressed:bg-primary/10 data-popup-open:bg-muted',
     ICON_TONE[tone]
   );

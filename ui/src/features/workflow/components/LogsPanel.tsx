@@ -437,7 +437,7 @@ export function LogsPanel({
                 disabled={raw}
                 onChange={(event) => onNode(event.target.value || null)}
                 className={cn(
-                  'border-input bg-card text-body-sm transition-standard focus-visible:ring-ring h-7 max-w-48 cursor-pointer appearance-none rounded-lg border pr-7 pl-7 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50',
+                  'border-input bg-card text-body-sm transition-standard focus-visible:ring-ring h-7 max-w-48 cursor-pointer appearance-none rounded-lg border px-7 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50',
                   node ? 'border-primary text-primary' : 'text-on-surface'
                 )}
               >
