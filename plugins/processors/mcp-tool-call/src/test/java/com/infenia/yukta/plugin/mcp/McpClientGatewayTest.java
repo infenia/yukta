@@ -460,9 +460,16 @@ class McpClientGatewayTest {
 
   @Test
   void close_deletesOpenSessions() {
+    gateway.start();
+    assertThat(gateway.isRunning()).isTrue();
     gateway.call(spec("ping"), () -> {}).block();
-    gateway.close();
-    gateway.close();
+    final java.util.concurrent.CountDownLatch ended = new java.util.concurrent.CountDownLatch(1);
+    gateway.stop(ended::countDown);
+    await().atMost(Duration.ofSeconds(5)).until(() -> ended.getCount() == 0);
+    gateway.stop();
+    assertThat(gateway.isRunning()).isFalse();
+    // the open session was ended on the server (a DELETE request, which the fake records as "")
+    assertThat(methods).contains("");
     gateway.call(spec("ping"), () -> {}).block();
     assertThat(methods).filteredOn("initialize"::equals).hasSize(2);
   }
@@ -580,7 +587,7 @@ class McpClientGatewayTest {
     expireNext.set(1);
     StepVerifier.create(gateway.call(spec("ping"), () -> {}))
         .verifyError(McpClientGateway.McpHttpException.class);
-    gateway.close();
+    gateway.stop();
   }
 
   private static String rpc(final String id, final String body) {
