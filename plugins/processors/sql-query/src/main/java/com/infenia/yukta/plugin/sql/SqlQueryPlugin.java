@@ -19,6 +19,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,6 +50,8 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
 
   /** Seconds a statement may run unless {@code timeoutSeconds} says otherwise. */
   private static final int DEFAULT_TIMEOUT_SECONDS = 30;
+
+  private static final long MARGIN_SECONDS = 5L;
 
   /** Config key. */
   private static final String SQL = "sql";
@@ -158,6 +161,16 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
     return FailureMode.from(config.get(FAILURE_MODE)) == FailureMode.CONTINUE
         ? List.of("default", PluginGuard.ERROR_PORT)
         : getOutputPorts();
+  }
+
+  /** The node timeout follows {@code timeoutSeconds}, plus a margin to connect and read rows. */
+  @Override
+  public Duration getDefaultTimeout(final Map<String, Object> config) {
+    final long seconds =
+        config.get("timeoutSeconds") instanceof final Number number && number.longValue() > 0
+            ? number.longValue()
+            : DEFAULT_TIMEOUT_SECONDS;
+    return Duration.ofSeconds(seconds + MARGIN_SECONDS);
   }
 
   @Override
