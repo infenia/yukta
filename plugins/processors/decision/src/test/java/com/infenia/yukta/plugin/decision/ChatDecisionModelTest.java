@@ -55,6 +55,37 @@ class ChatDecisionModelTest {
   }
 
   @Test
+  void answer_budgetCountsEveryCallOfTheRunAndRefusesOnceUsedUp() {
+    final LlmGateway gateway =
+        replying(
+            "{\"pick\":{\"choice\":\"a\",\"probability\":1},\"yes\":{\"probability\":0},"
+                + "\"rate\":{\"score\":0}}");
+    final ModelSpec spec =
+        new ModelSpec(
+            ModelSpec.Backend.LLM,
+            "ollama",
+            "llama",
+            "http://x",
+            "key",
+            Duration.ofSeconds(5),
+            null,
+            null,
+            Map.of("maxTokens", 3, "agent", "budget-test"));
+    final ChatDecisionModel model = new ChatDecisionModel(gateway);
+    final java.util.function.Supplier<Map<String, Answer>> ask =
+        () ->
+            model
+                .answer(spec, "s", questions())
+                .contextWrite(ctx -> ctx.put("executionId", "run-budget"))
+                .block();
+
+    assertThat(ask.get()).isNotNull(); // 2 tokens used
+    assertThat(ask.get()).isNotNull(); // 4 tokens used: the budget is now spent
+    assertThatThrownBy(ask::get).hasMessageContaining("LLM budget exceeded");
+    verify(gateway, org.mockito.Mockito.times(2)).call(any());
+  }
+
+  @Test
   void answer_fencedJson_parsedAndPromptDescribesQuestions() {
     final LlmGateway gateway =
         replying(

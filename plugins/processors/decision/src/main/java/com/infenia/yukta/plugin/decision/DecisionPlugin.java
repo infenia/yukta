@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.MapUtils;
+import com.infenia.yukta.plugin.util.RunBudgets;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
@@ -131,6 +132,7 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
       if (backend(config) == ModelSpec.Backend.LLM) {
         require(config, "provider");
       }
+      RunBudgets.validate(config);
       check(config);
     });
   }
@@ -211,6 +213,12 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
             "fail"),
         ConfigField.optional(INTO, ConfigField.Type.STRING, into, "Metadata key for the result"),
         ConfigField.optional(
+            "budget",
+            ConfigField.Type.MAP,
+            null,
+            "LLM backend: {maxTokens, maxCalls, agent, hardStop} for all calls of one run, counted"
+                + " with LLM_CALL and MCP_TOOL_CALL in the run's shared budget"),
+        ConfigField.optional(
             ConfigValidation.CONCURRENCY_KEY,
             ConfigField.Type.NUMBER,
             DEFAULT_CONCURRENCY,
@@ -246,7 +254,8 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
                     blankToNull(t.getT3()),
                     seconds(config),
                     blankToNull(t.getT4()),
-                    numCtx(config)),
+                    numCtx(config),
+                    config.get("budget") instanceof final Map<?, ?> budget ? budget : null),
                 state,
                 questions))
         .onErrorMap(error ->

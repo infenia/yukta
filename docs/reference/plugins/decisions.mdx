@@ -27,6 +27,7 @@ A decision plugin asks a model a constrained question about a message and writes
 | `stateKeep` | `head`, `tail` or `headTail` | `head` | no | Which part of a state over the cap is kept. |
 | `onOverflow` | `truncate` or `fail` | `truncate` | no | `fail` rejects a state over `maxStateChars`. |
 | `into` | string | per plugin | no | Metadata key for the result. |
+| `budget` | map | none | no | `backend: LLM` only: `{maxTokens, maxCalls, agent, hardStop}` for all calls of one run. It is the same ledger `LLM_CALL` and `MCP_TOOL_CALL` use, so a decision that asks a chat model counts against the node that wrote the text. Over budget fails the message (`hardStop: true` ends the run). `maxCost` is not supported (no `prices`). |
 | `concurrency` | number | `16` | no | Model calls in flight at once. |
 
 - **Default node timeout:** `timeout` plus 5 seconds.
