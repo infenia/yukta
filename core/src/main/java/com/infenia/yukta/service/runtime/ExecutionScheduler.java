@@ -77,10 +77,10 @@ public class ExecutionScheduler implements SmartLifecycle {
   /** How many starts of one workflow may wait; 0 means only the overall capacity applies. */
   private final int workflowQueueCapacity;
 
-  /** Starts refused, by reason. */
   /** Holds on admitting runs (see {@link #holdStarts()}). */
   private final AtomicInteger startHolds = new AtomicInteger();
 
+  /** Starts refused, by reason. */
   private final Map<RejectReason, LongAdder> rejections = new ConcurrentHashMap<>();
 
   /** Counts new starts per workflow; limit 0 means off. */
