@@ -14,6 +14,7 @@ dependencies {
     testImplementation(testFixtures(project(":core")))
     testImplementation(project(":test-support"))
     testImplementation(libs.awaitility)
+    testImplementation("org.junit.jupiter:junit-jupiter-params") // the Spring Boot BOM names the version
     testImplementation(libs.jackson.databind)
     testImplementation(libs.spring.boot.starter.webflux)
     testImplementation(libs.spring.boot.starter.webflux.test)
