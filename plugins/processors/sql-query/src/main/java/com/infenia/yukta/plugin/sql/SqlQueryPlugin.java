@@ -50,6 +50,10 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
   /** Seconds a statement may run unless {@code timeoutSeconds} says otherwise. */
   private static final int DEFAULT_TIMEOUT_SECONDS = 30;
 
+  private static final long MARGIN_SECONDS = 5L;
+
+  private static final String TIMEOUT_SECONDS = "timeoutSeconds";
+
   /** Config key. */
   private static final String SQL = "sql";
 
@@ -135,7 +139,7 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
             "Payload fields bound to the placeholders, in order"),
         ConfigField.optional("maxRows", ConfigField.Type.NUMBER, 1000, "Most rows returned"),
         ConfigField.optional(
-            "timeoutSeconds", ConfigField.Type.NUMBER, 30, "Statement timeout in seconds"));
+            TIMEOUT_SECONDS, ConfigField.Type.NUMBER, 30, "Statement timeout in seconds"));
   }
 
   @Override
@@ -160,6 +164,16 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
         : getOutputPorts();
   }
 
+  /** The node timeout follows {@code timeoutSeconds}, plus a margin to connect and read rows. */
+  @Override
+  public java.time.Duration getDefaultTimeout(final Map<String, Object> config) {
+    final long seconds =
+        config.get(TIMEOUT_SECONDS) instanceof final Number number && number.longValue() > 0
+            ? number.longValue()
+            : DEFAULT_TIMEOUT_SECONDS;
+    return java.time.Duration.ofSeconds(seconds + MARGIN_SECONDS);
+  }
+
   @Override
   public boolean isBlocking() {
     return true;
@@ -171,7 +185,7 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
       ConfigValidation.requiredString(config, "url");
       ConfigValidation.requiredString(config, SQL);
       ConfigValidation.positiveInt(config, "maxRows", DEFAULT_MAX_ROWS);
-      ConfigValidation.positiveInt(config, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS);
+      ConfigValidation.positiveInt(config, TIMEOUT_SECONDS, DEFAULT_TIMEOUT_SECONDS);
       FailureMode.from(config.get(FAILURE_MODE));
     });
   }
@@ -227,7 +241,7 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
             connection.prepareStatement(String.valueOf(config.get(SQL)))) {
       statement.setMaxRows(ConfigValidation.positiveInt(config, "maxRows", DEFAULT_MAX_ROWS));
       statement.setQueryTimeout(
-          ConfigValidation.positiveInt(config, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS));
+          ConfigValidation.positiveInt(config, TIMEOUT_SECONDS, DEFAULT_TIMEOUT_SECONDS));
       final List<?> params = config.get("params") instanceof List<?> list ? list : List.of();
       for (int i = 0; i < params.size(); i++) {
         statement.setObject(i + 1, payload.get(String.valueOf(params.get(i))));
