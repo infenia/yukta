@@ -84,18 +84,19 @@ public class WorkerRegistry {
       throw new IllegalArgumentException("capacity must be at least 1");
     }
     final Instant now = clock.instant();
+    workers.values().removeIf(old -> old.leaseUntil().isBefore(now));
+    // A re-registering worker keeps its used slots: its attempts are still running.
+    final WorkerInfo previous = workers.get(registration.workerId());
     final WorkerInfo info =
         new WorkerInfo(
             registration.workerId(),
             registration.pools(),
             registration.pluginTypes(),
             registration.capacity(),
-            0,
+            previous == null ? 0 : Math.min(previous.usedSlots(), registration.capacity()),
             false,
             now,
             now.plus(leaseTime));
-    final Instant current = clock.instant();
-    workers.values().removeIf(old -> old.leaseUntil().isBefore(current));
     workers.put(info.workerId(), info);
     return info;
   }

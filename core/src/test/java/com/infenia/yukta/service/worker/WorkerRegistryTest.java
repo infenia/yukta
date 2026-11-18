@@ -98,11 +98,15 @@ class WorkerRegistryTest {
     registry.register(worker("w1", 2));
     registry.heartbeat("w1", 2);
     registry.register(worker("w1", 8));
-    assertThat(registry.find("w1")).hasValueSatisfying(w -> assertThat(w.usedSlots()).isZero());
+    assertThat(registry.find("w1")).hasValueSatisfying(w -> assertThat(w.usedSlots()).isEqualTo(2));
+    registry.register(worker("w1", 1));
+    assertThat(registry.find("w1")).hasValueSatisfying(w -> assertThat(w.usedSlots()).isEqualTo(1));
 
     registry.remove("w1");
 
     assertThat(registry.list()).isEmpty();
+    registry.register(worker("w1", 2));
+    assertThat(registry.find("w1")).hasValueSatisfying(w -> assertThat(w.usedSlots()).isZero());
   }
 
   @Test
