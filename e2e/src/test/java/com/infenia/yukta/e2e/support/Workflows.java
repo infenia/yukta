@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.e2e.lifecycle;
+package com.infenia.yukta.e2e.support;
 
 import java.util.List;
 import java.util.Map;
@@ -8,10 +8,10 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Small sessions for the lifecycle tests: one workflow {@code w}, built from maps. */
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
-final class Workflows {
+public final class Workflows {
 
   /** The workflow id of every session built here. */
-  /* default */ static final String WORKFLOW = "w";
+  public static final String WORKFLOW = "w";
 
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -30,7 +30,7 @@ final class Workflows {
   }
 
   /** {@code trigger -> step -> terminal} in session {@code id}. */
-  /* default */ static String session(
+  public static String session(
       final String id, final String description, final Map<String, Object> step) {
     final Map<String, Object> workflow =
         Map.of(
@@ -64,22 +64,22 @@ final class Workflows {
   }
 
   /** A run that prints {@code text} and ends. */
-  /* default */ static String echo(final String id, final String text) {
+  public static String echo(final String id, final String text) {
     return session(id, "echo", shell("p", "echo " + text));
   }
 
   /** A run that stays RUNNING for {@code seconds} (or until it is stopped). */
-  /* default */ static String sleeper(final String id, final int seconds) {
+  public static String sleeper(final String id, final int seconds) {
     return session(id, "sleeper", shell("s", "sleep " + seconds));
   }
 
   /** A run whose step fails. */
-  /* default */ static String failing(final String id) {
+  public static String failing(final String id) {
     return session(id, "failing", shell("f", "exit 3"));
   }
 
   /** A run that asks for an approval and waits. */
-  /* default */ static String asking(final String id) {
+  public static String asking(final String id) {
     return session(
         id,
         "asking",
@@ -87,7 +87,7 @@ final class Workflows {
   }
 
   /** A workflow started by a webhook at {@code path}, signed with {@code E2E_HOOK}. */
-  /* default */ static String hooked(final String id, final String path) {
+  public static String hooked(final String id, final String path) {
     final Map<String, Object> workflow =
         Map.of(
             "workflowId",
@@ -117,7 +117,7 @@ final class Workflows {
   }
 
   /** {@code trigger -> terminal}: for a terminal plugin such as NOTIFY_TERMINAL. */
-  /* default */ static String ending(
+  public static String ending(
       final String id, final String description, final Map<String, Object> end) {
     final Map<String, Object> workflow =
         Map.of(

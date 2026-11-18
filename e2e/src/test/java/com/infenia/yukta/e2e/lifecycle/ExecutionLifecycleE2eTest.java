@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.e2e.support.Api;
 import com.infenia.yukta.e2e.support.E2eTest;
 import com.infenia.yukta.e2e.support.Scenarios;
+import com.infenia.yukta.e2e.support.Workflows;
 import java.time.Duration;
 import java.util.Map;
 import lombok.NoArgsConstructor;

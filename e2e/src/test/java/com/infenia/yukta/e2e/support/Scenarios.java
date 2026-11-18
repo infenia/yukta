@@ -64,19 +64,40 @@ public final class Scenarios implements ExtensionContext.Store.CloseableResource
   }
 
   /**
+   * Deletes a session that something else created (for example an MCP tool) when the test ends.
+   *
+   * @param session the session id
+   */
+  public void track(final String session) {
+    sessions.add(session);
+  }
+
+  /**
    * Creates a supervisor and removes it (and what it owns) when the test ends.
    *
    * @param json the supervisor, with its {@code id} from {@link #unique}
    */
   public void createSupervisor(final String json) {
+    createSupervisor(json, true);
+  }
+
+  /**
+   * Removes a supervisor when the test ends, and creates it first only when asked.
+   *
+   * @param json the supervisor, with its {@code id}
+   * @param create false when the test creates it itself (through MCP, for example)
+   */
+  public void createSupervisor(final String json, final boolean create) {
     final String id = JSON.readTree(json).path("id").asString();
-    api.data(
-        api.client()
-            .post()
-            .uri("/api/supervisors")
-            .header("Content-Type", "application/json")
-            .bodyValue(json)
-            .exchange());
+    if (create) {
+      api.data(
+          api.client()
+              .post()
+              .uri("/api/supervisors")
+              .header("Content-Type", "application/json")
+              .bodyValue(json)
+              .exchange());
+    }
     supervisors.add(id);
   }
 
