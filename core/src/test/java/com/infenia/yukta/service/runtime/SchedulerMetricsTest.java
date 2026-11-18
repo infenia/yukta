@@ -22,7 +22,7 @@ class SchedulerMetricsTest {
 
     final var running = scheduler.acquire("s", "w", 0, null);
     final var waiting = scheduler.acquire("s", "w", 0, null);
-    waiting.permit().subscribe();
+    waiting.permit().subscribe(_ -> {}, _ -> {});
 
     assertThat(registry.get("yukta.executions.running").gauge().value()).isEqualTo(1.0);
     assertThat(registry.get("yukta.executions.queued").gauge().value()).isEqualTo(1.0);
