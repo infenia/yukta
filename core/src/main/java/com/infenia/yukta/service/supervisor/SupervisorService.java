@@ -406,7 +406,6 @@ public class SupervisorService {
                 .flatMap(events -> replayOn(stored, id, draft, executionId, events)));
   }
 
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
   private Mono<List<ReplayDecision>> replayOn(
       final Supervisor stored,
       final String id,

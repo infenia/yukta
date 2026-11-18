@@ -559,7 +559,7 @@ class InputBrokerTest {
     final String everything =
         store.findById(request.id()).blockOptional().orElseThrow().toString()
             + events
-            + log.readAll().collectList().block().stream()
+            + log.readAll().collectList().blockOptional().orElseThrow().stream()
                 .map(ExecutionLogEvent::toString)
                 .toList();
     assertThat(everything)
@@ -575,7 +575,7 @@ class InputBrokerTest {
     inputBroker.answer(request.id(), null, answer(request, "ann")).block();
 
     final List<ExecutionLogEvent> entries =
-        log.readAll().collectList().block().stream()
+        log.readAll().collectList().blockOptional().orElseThrow().stream()
             .filter(e -> e.type() == ExecutionLogEvent.Type.INPUT)
             .toList();
     assertThat(entries)
@@ -592,7 +592,7 @@ class InputBrokerTest {
     inputBroker.logDelivery(request, "INPUT_DELIVERED", Map.of("channel", "webhook:ops"));
 
     assertThat(
-            log.readAll().collectList().block().stream()
+            log.readAll().collectList().blockOptional().orElseThrow().stream()
                 .filter(e -> e.type() == ExecutionLogEvent.Type.INPUT)
                 .map(
                     e -> Objects.requireNonNull(e.payload()).get(ExecutionLogEvent.INPUT_EVENT_KEY))

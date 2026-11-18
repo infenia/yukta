@@ -295,7 +295,8 @@ class ExecutionResumerTest {
   @Test
   void runResumedBeforeRestart_isRefusedFromTheLog() {
     abortedRun(DefinitionVersion.of(prepared), "a");
-    final ExecutionLogEvent started = log.readAll().collectList().block().getFirst();
+    final ExecutionLogEvent started =
+        log.readAll().collectList().blockOptional().orElseThrow().getFirst();
     log.append(ExecutionLogEvent.resumed(started, "new-run"));
 
     StepVerifier.create(resumer.resume("old"))

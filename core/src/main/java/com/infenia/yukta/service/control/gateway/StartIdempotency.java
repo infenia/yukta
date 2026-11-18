@@ -74,9 +74,11 @@ public class StartIdempotency implements SmartInitializingSingleton {
   @Override
   public void afterSingletonsInstantiated() {
     reload()
-        .subscribe(
-            _ -> {},
-            error -> log.atError().setCause(error).log("Could not reload the idempotency keys"));
+        .onErrorResume(error -> {
+          log.atError().setCause(error).log("Could not reload the idempotency keys");
+          return Mono.empty();
+        })
+        .subscribe();
   }
 
   /**
