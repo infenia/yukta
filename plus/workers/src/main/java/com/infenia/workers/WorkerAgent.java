@@ -5,10 +5,12 @@ package com.infenia.workers;
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import io.rsocket.RSocket;
 import java.time.Duration;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
@@ -22,7 +24,7 @@ import reactor.util.retry.Retry;
  * open port, so they work behind NAT.
  */
 @Slf4j
-public class WorkerAgent {
+public class WorkerAgent implements SmartLifecycle {
 
   /** How often a draining worker looks at its running attempts. */
   private static final long DRAIN_POLL_MILLIS = 50;
@@ -87,6 +89,7 @@ public class WorkerAgent {
   }
 
   /** Starts connecting; the agent keeps reconnecting until {@link #stop()}. */
+  @Override
   public void start() {
     connection =
         session()
@@ -101,13 +104,37 @@ public class WorkerAgent {
   }
 
   /**
-   * Drains, then stops connecting and closes the connection. The control plane is told at once that
-   * the worker takes no new attempts; the attempts that run are given up to the drain timeout to
-   * finish. What is still running after that is failed when the connection closes, and the engine
-   * retries it on another worker.
+   * Drains, then stops connecting and closes the connection, without parking a thread: the control
+   * plane is told at once that the worker takes no new attempts, the attempts that run are given up
+   * to the drain timeout to finish, and only then {@code callback} runs. What is still running
+   * after that is failed when the connection closes, and the engine retries it on another worker.
+   * Spring waits for the callback (up to {@code spring.lifecycle.timeout-per-shutdown-phase}, 30s
+   * by default: raise it with the drain timeout).
+   *
+   * @param callback runs when the connection is closed
    */
+  @Override
+  public void stop(final Runnable callback) {
+    drain()
+        .doFinally(_ -> {
+          close();
+          callback.run();
+        })
+        .subscribe();
+  }
+
+  /** Same as {@link #stop(Runnable)}, for a caller that does not wait. */
+  @Override
   public void stop() {
-    drain();
+    stop(() -> {});
+  }
+
+  @Override
+  public boolean isRunning() {
+    return connection != null && !connection.isDisposed();
+  }
+
+  private void close() {
     if (connection != null) {
       connection.dispose();
     }
@@ -118,20 +145,23 @@ public class WorkerAgent {
     }
   }
 
-  /** Tells the control plane to send nothing more and waits for the running attempts. */
-  private void drain() {
-    if (draining.compareAndSet(false, true) && current.get() != null) {
-      urgent.tryEmitNext(WorkerFrame.lease(usedSlots.getAsInt(), true));
-      final long deadline = System.nanoTime() + drainTimeout.toNanos();
-      while (usedSlots.getAsInt() > 0 && System.nanoTime() - deadline < 0) {
-        try {
-          Thread.sleep(DRAIN_POLL_MILLIS);
-        } catch (final InterruptedException e) {
-          Thread.currentThread().interrupt();
-          return;
-        }
-      }
+  /**
+   * Tells the control plane to send nothing more; ends when the attempts are done or it is late.
+   */
+  private Mono<Void> drain() {
+    if (!draining.compareAndSet(false, true) || current.get() == null) {
+      return Mono.empty();
     }
+    urgent.tryEmitNext(WorkerFrame.lease(usedSlots.getAsInt(), true));
+    if (usedSlots.getAsInt() == 0) {
+      return Mono.empty();
+    }
+    return Flux.interval(Duration.ofMillis(DRAIN_POLL_MILLIS))
+        .filter(_ -> usedSlots.getAsInt() == 0)
+        .next()
+        .timeout(drainTimeout)
+        .onErrorResume(TimeoutException.class, _ -> Mono.empty())
+        .then();
   }
 
   /* default */ void connected(final RSocketRequester requester) {
