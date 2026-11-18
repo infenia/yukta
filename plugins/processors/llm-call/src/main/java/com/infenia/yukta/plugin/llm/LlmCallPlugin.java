@@ -383,7 +383,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
       final Mono<LlmResponse> call) {
     return config.get(BUDGET) instanceof final Map<?, ?> budget
         ? budgets
-            .exceeded(RunBudgets.key(runId, budget), budget)
+            .reserve(RunBudgets.key(runId, budget), budget)
             .<Mono<LlmResponse>>map(why -> {
               reporter.increment(nodeId, "llm.budget.exceeded", "llm");
               return Mono.error(

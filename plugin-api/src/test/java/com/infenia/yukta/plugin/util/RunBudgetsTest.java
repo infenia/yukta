@@ -107,4 +107,16 @@ class RunBudgetsTest {
           .isInstanceOf(IllegalArgumentException.class);
     }
   }
+
+  @Test
+  void reserveLetsOnlyTheLimitThroughWhenCallsStartTogether() {
+    final RunBudgets budgets = new RunBudgets();
+    final Map<String, Object> budget = Map.of("maxCalls", 5);
+    final long allowed =
+        java.util.stream.IntStream.range(0, 200)
+            .parallel()
+            .filter(i -> budgets.reserve("r", budget).isEmpty())
+            .count();
+    assertThat(allowed).isEqualTo(5);
+  }
 }
