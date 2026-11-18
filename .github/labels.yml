@@ -72,6 +72,9 @@
 - name: ci:full
   color: 5319e7
   description: Build every module on this PR, not only the changed ones
+- name: ci:e2e
+  color: 5319e7
+  description: Run the CLI and real-server end-to-end tests on this PR (e2e-nightly.yml)
 
 # --- Areas: modules (also applied to PRs by .github/labeler.yml) --------------------------------
 - name: boot

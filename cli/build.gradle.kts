@@ -26,6 +26,8 @@ makeTask("goBuild", "build", "build", "Build the CLI for the current OS and arch
 makeTask("goBuildAll", "build-all", "build", "Build the CLI for all supported platforms")
 makeTask("goTest", "test", "verification", "Run Go tests")
 // Always regenerates coverage.out, so stale results can never pass.
+// Needs a server (YUKTA_E2E_URL, YUKTA_E2E_KEY; release/e2e-server.sh starts one), so it is not part of check.
+makeTask("goE2e", "e2e", "verification", "Run the CLI end-to-end tests against a running server")
 makeTask("goTestCoverage", "cover", "verification", "Run tests with a fresh coverage profile")
 makeTask("goCoverageCheck", "cover-check", "verification", "Verify per-function coverage minimums")
 

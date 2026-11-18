@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: sync-skills sync-schemas help build build-all test cover cover-check fmt fmt-check mod-tidy mod-verify vet lint sec vuln check clean
+.PHONY: sync-skills sync-schemas help build build-all test e2e cover cover-check fmt fmt-check mod-tidy mod-verify vet lint sec vuln check clean
 
 # Release binaries are reproducible: no cgo, no build time, and -trimpath keeps the checkout path out, so
 # the same commit, VERSION and Go toolchain (go.mod) give the same bytes anywhere. release.yml's verify
@@ -34,7 +34,7 @@ GOVULNCHECK := golang.org/x/vuln/cmd/govulncheck@v1.8.0
 
 # Minimum per-function coverage (%), with per-file overrides as path=min.
 COVER_MIN := 100
-COVER_OVERRIDES := internal/commands/conversations/tty_windows.go=0 cmd/yukta/main.go=0 internal/testutil/testutil.go=0 test/integration_test.go=0
+COVER_OVERRIDES := internal/commands/conversations/tty_windows.go=0 cmd/yukta/main.go=0 internal/testutil/testutil.go=0
 
 # Build targets for build-all
 TARGETS := \
@@ -75,6 +75,9 @@ sync-schemas: ## Copy the plugin wire schemas from plugin-api (embedded by plugi
 
 test: ## Run Go tests
 	@go test ./...
+
+e2e: ## Run the end-to-end tests against a server: YUKTA_E2E_URL and YUKTA_E2E_KEY (see release/e2e-server.sh)
+	@go test -count=1 -tags e2e ./e2e/...
 
 cover: ## Run tests with a fresh coverage profile
 	@go test -coverprofile=coverage.out ./...

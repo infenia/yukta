@@ -460,3 +460,30 @@ func TestAPIError_messageAndStatus(t *testing.T) {
 		t.Error("plain error has no status")
 	}
 }
+
+// The base URL is kept as given, minus trailing slashes, whatever its host or path (moved from
+// test/integration_test.go).
+func TestNewClient_normalisesTheBaseURL(t *testing.T) {
+	for in, want := range map[string]string{
+		"http://127.0.0.1:9858/":           "http://127.0.0.1:9858",
+		"http://api.example.com/v1/":       "http://api.example.com/v1",
+		"https://api.staging.example.com/": "https://api.staging.example.com",
+		"https://secure.example.com/":      "https://secure.example.com",
+		"http://localhost:9858":            "http://localhost:9858",
+	} {
+		if got := NewClient(in).BaseURL; got != want {
+			t.Errorf("NewClient(%q).BaseURL = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// Clients do not share state: each has its own URL and its own HTTP client.
+func TestNewClient_instancesAreIndependent(t *testing.T) {
+	a, b := NewClient("http://localhost:9858"), NewClient("http://example.com:9090")
+	if a.BaseURL == b.BaseURL || a.HTTPClient == b.HTTPClient {
+		t.Errorf("clients share state: %q %q", a.BaseURL, b.BaseURL)
+	}
+	if a.HTTPClient.Timeout != 0 {
+		t.Errorf("the HTTP client has a timeout of %v: requests set their own", a.HTTPClient.Timeout)
+	}
+}
