@@ -13,13 +13,13 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -130,11 +130,17 @@ public class ExecutionResumer {
     }
     // The store's durable marker decides, not the log: the log record of a node end is only queued
     // for the writer and can be lost in a crash.
-    final Set<String> finished = new HashSet<>();
-    prepared.topologicalOrder().stream()
+    return Flux.fromIterable(prepared.topologicalOrder())
         .map(WorkflowNode::nodeId)
-        .filter(node -> checkpointStore.isFinished(started.executionId(), node))
-        .forEach(finished::add);
+        .filterWhen(node -> checkpointStore.finishedAsync(started.executionId(), node))
+        .collect(Collectors.toSet())
+        .flatMap(finished -> resumeFrom(started, prepared, finished));
+  }
+
+  private Mono<String> resumeFrom(
+      final ExecutionLogEvent started,
+      final PreparedWorkflow prepared,
+      final Set<String> finished) {
     final RestartPlan plan = RestartPlan.resuming(prepared, finished);
     if (plan.rerun().isEmpty()) {
       return Mono.error(

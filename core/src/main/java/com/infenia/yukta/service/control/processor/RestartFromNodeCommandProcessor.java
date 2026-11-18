@@ -81,25 +81,45 @@ public class RestartFromNodeCommandProcessor {
                     "Execution not found or no longer restartable: " + restart.executionId()));
     final RestartPlan plan = RestartPlan.compute(archived.prepared(), restart.fromNodeId());
     final boolean live = registry.findByExecutionId(restart.executionId()).isPresent();
-    for (final String nodeId : plan.boundary()) {
-      if (live && !checkpointStore.isFinished(restart.executionId(), nodeId)) {
-        throw new IllegalArgumentException(
-            "Cannot restart from '"
-                + restart.fromNodeId()
-                + "': node '"
-                + nodeId
-                + "' has not finished yet, so its output is still being recorded");
-      }
-      if (!checkpointStore.isComplete(restart.executionId(), nodeId)) {
-        throw new IllegalArgumentException(
-            "Cannot restart from '"
-                + restart.fromNodeId()
-                + "': the recorded output of node '"
-                + nodeId
-                + "' was larger than the retention limit and is incomplete");
-      }
-    }
+    return Flux.fromIterable(plan.boundary())
+        .concatMap(nodeId -> checkBoundary(restart, live, nodeId))
+        .then(Mono.defer(() -> startFrom(restart, archived, plan)));
+  }
 
+  private Mono<Void> checkBoundary(
+      final RestartFromNodeCommand restart, final boolean live, final String nodeId) {
+    final Mono<Boolean> unfinished =
+        live
+            ? checkpointStore.finishedAsync(restart.executionId(), nodeId).map(done -> !done)
+            : Mono.just(false);
+    return unfinished.flatMap(notDone -> {
+      if (notDone) {
+        return Mono.error(
+            new IllegalArgumentException(
+                "Cannot restart from '"
+                    + restart.fromNodeId()
+                    + "': node '"
+                    + nodeId
+                    + "' has not finished yet, so its output is still being recorded"));
+      }
+      return checkpointStore
+          .completeAsync(restart.executionId(), nodeId)
+          .filter(complete -> !complete)
+          .flatMap(_ ->
+              Mono.<Void>error(
+                  new IllegalArgumentException(
+                      "Cannot restart from '"
+                          + restart.fromNodeId()
+                          + "': the recorded output of node '"
+                          + nodeId
+                          + "' was larger than the retention limit and is incomplete")));
+    });
+  }
+
+  private Mono<Void> startFrom(
+      final RestartFromNodeCommand restart,
+      final ArchivedExecution archived,
+      final RestartPlan plan) {
     return Flux.fromIterable(plan.boundary())
         .concatMap(nodeId ->
             checkpointStore
