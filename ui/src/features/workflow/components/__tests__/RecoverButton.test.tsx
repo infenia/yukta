@@ -86,13 +86,17 @@ describe('RecoverButton', () => {
     const user = userEvent.setup();
     const onRecovered = vi.fn();
     mutate.mockImplementation(
-      (_id: string, options: { onSuccess: (r: { executionId: string }) => void }) =>
-        options.onSuccess({ executionId: 'e2' })
+      (
+        _id: string,
+        options: { onSuccess: (r: { executionId: string }) => void }
+      ) => options.onSuccess({ executionId: 'e2' })
     );
     render(<RecoverButton {...props} onRecovered={onRecovered} />);
     await user.click(screen.getByRole('button', { name: 'Recover' }));
-    const confirm = screen.getAllByRole('button', { name: 'Recover' }).at(-1);
-    await user.click(confirm!);
+    const [confirm] = screen
+      .getAllByRole('button', { name: 'Recover' })
+      .slice(-1);
+    await user.click(confirm);
     expect(mutate).toHaveBeenCalledWith('e1', expect.any(Object));
     expect(onRecovered).toHaveBeenCalledWith('e2');
   });
