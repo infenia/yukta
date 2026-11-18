@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { randomUUID } from 'node:crypto';
+
 import { expect, type APIRequestContext } from '@playwright/test';
 
 /** A name no other test (or run) shares; every resource a spec creates carries it. */
 export const unique = (test: string): string =>
-  `e2e-${test}-${Math.random().toString(36).slice(2, 10)}`;
+  `e2e-${test}-${randomUUID().slice(0, 8)}`;
 
 type Json = Record<string, unknown>;
 
