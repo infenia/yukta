@@ -162,6 +162,8 @@ public record WorkflowDefinition(
           @NotNull(message = "Target node ID cannot be null")
           @NotBlank(message = "Target node ID cannot be blank")
           String target,
-      @Schema(description = "Source port name (optional; omit to route all messages)")
-          String sourcePort) {}
+      @Schema(
+              description = "Source port name (optional; omit to route all messages)",
+              nullable = true)
+          @Nullable String sourcePort) {}
 }

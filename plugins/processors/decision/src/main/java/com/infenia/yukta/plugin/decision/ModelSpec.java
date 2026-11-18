@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.decision;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -18,7 +20,10 @@ import org.jspecify.annotations.Nullable;
  *     {@code 30m} or {@code -1}, or {@code null} to leave it to Ollama
  * @param numCtx for {@link Backend#SYSTEMONE}: the context size to load the model with, or {@code
  *     null} to leave it to Ollama
+ * @param budget for {@link Backend#LLM}: the node's {@code budget} option, counted in the shared
+ *     run ledger, or {@code null} for none
  */
+@SuppressFBWarnings("EI_EXPOSE_REP") // the budget map is read-only config
 public record ModelSpec(
     Backend backend,
     @Nullable String provider,
@@ -27,7 +32,21 @@ public record ModelSpec(
     @Nullable String apiKey,
     Duration timeout,
     @Nullable String keepAlive,
-    @Nullable Integer numCtx) {
+    @Nullable Integer numCtx,
+    @Nullable Map<?, ?> budget) {
+
+  /** A spec with no budget. */
+  public ModelSpec(
+      final Backend backend,
+      final @Nullable String provider,
+      final String model,
+      final @Nullable String baseUrl,
+      final @Nullable String apiKey,
+      final Duration timeout,
+      final @Nullable String keepAlive,
+      final @Nullable Integer numCtx) {
+    this(backend, provider, model, baseUrl, apiKey, timeout, keepAlive, numCtx, null);
+  }
 
   /**
    * A spec with Ollama left to decide how long the model stays loaded and how big its context is.

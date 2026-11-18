@@ -179,6 +179,7 @@ class ClassifyPluginTest {
             "stateKeep",
             "onOverflow",
             "into",
+            "budget",
             "concurrency");
     assertThat(schema.stream().filter(ConfigField::required).map(ConfigField::name))
         .containsExactly("labels", "model");

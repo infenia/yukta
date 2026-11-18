@@ -10,3 +10,16 @@ coverage:
     patch:
       default:
         target: 100%
+
+# The e2e flag is the integration coverage from the nightly e2e-coverage job (the e2e tiers against one
+# server with the JaCoCo agent). It is informational: it never fails a status, and it is carried forward
+# between nightly uploads so a pull request's report is not missing it.
+flag_management:
+  individual_flags:
+    - name: e2e
+      carryforward: true
+      statuses:
+        - type: project
+          informational: true
+        - type: patch
+          informational: true

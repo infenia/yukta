@@ -2,14 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.e2e.support;
 
-import com.infenia.yukta.YuktaApplication;
 import com.infenia.yukta.security.ApiRole;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Objects;
 import lombok.NoArgsConstructor;
 import lombok.experimental.UtilityClass;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -17,14 +11,12 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
-import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.context.ConfigurableApplicationContext;
 
 /**
  * The server every e2e test talks to, and the injector of {@link Api} and {@link Scenarios}.
  *
  * <p>With {@code -Pyukta.e2e.url} (and {@code -Pyukta.e2e.key}, an ADMIN key) it targets that
- * server. Otherwise it starts {@link YuktaApplication} once per JVM on a random port with every
+ * server. Otherwise it starts {@code YuktaApplication} once per JVM on a random port with every
  * plugin, the commands {@code sh} and {@code echo}, in-memory stores and one key per role; the
  * JVM's shutdown hook stops it.
  */
@@ -33,9 +25,6 @@ public final class YuktaServer implements BeforeAllCallback, ParameterResolver {
 
   private static final String URL_PROPERTY = "yukta.e2e.url";
   private static final String KEY_PROPERTY = "yukta.e2e.key";
-
-  /** What every test talks to: the URL and the key of each role the server was given. */
-  private record Target(String url, Map<ApiRole, String> keys) {}
 
   /**
    * Whether the server is an external URL rather than the app started in this JVM.
@@ -54,7 +43,7 @@ public final class YuktaServer implements BeforeAllCallback, ParameterResolver {
    * @return the URL without a trailing slash
    */
   public static String baseUrl() {
-    return target().url();
+    return Holder.SERVER.baseUrl();
   }
 
   /**
@@ -65,58 +54,34 @@ public final class YuktaServer implements BeforeAllCallback, ParameterResolver {
    * @throws IllegalStateException for another role on an external server (use {@link InJvmOnly})
    */
   public static String key(final ApiRole role) {
-    final String key = target().keys().get(role);
-    if (key == null) {
-      throw new IllegalStateException(
-          "No " + role + " key for the external server; annotate the test with @InJvmOnly");
-    }
-    return key;
+    return Holder.SERVER.key(role);
+  }
+
+  /**
+   * An OPERATOR key limited to {@link DedicatedServer#SCOPED_SESSION}.
+   *
+   * @return the key
+   * @throws IllegalStateException on an external server (use {@link InJvmOnly})
+   */
+  public static String scopedKey() {
+    return Holder.SERVER.scopedKey();
   }
 
   /** Starts the server on first use; class initialization makes that once per JVM. */
   @UtilityClass
   private static final class Holder {
-    private static final Target TARGET = external() ? externalTarget() : start();
-  }
-
-  private static Target target() {
-    return Holder.TARGET;
-  }
-
-  private static Target externalTarget() {
-    final String key = System.getProperty(KEY_PROPERTY);
-    final Map<ApiRole, String> keys =
-        key == null || key.isBlank() ? Map.of() : Map.of(ApiRole.ADMIN, key);
-    return new Target(System.getProperty(URL_PROPERTY).replaceAll("/+$", ""), keys);
-  }
-
-  @SuppressWarnings("PMD.CloseResource") // lives until the JVM's shutdown hook stops it
-  private static Target start() {
-    final List<String> args =
-        new ArrayList<>(
-            List.of(
-                "--server.port=0", "--server.address=127.0.0.1", "--yukta.plugins.enabled=all"));
-    final Map<ApiRole, String> keys = new ConcurrentHashMap<>();
-    for (final ApiRole role : ApiRole.values()) {
-      final String name = "e2e-" + role.name().toLowerCase(Locale.ROOT);
-      final String prefix = "--yukta.api-keys[" + keys.size() + "].";
-      keys.put(role, name + "-" + UUID.randomUUID());
-      args.add(prefix + "name=" + name);
-      args.add(prefix + "key=" + keys.get(role));
-      args.add(prefix + "sessions=*");
-      args.add(prefix + "role=" + role.name());
-    }
-    final ConfigurableApplicationContext context =
-        new SpringApplicationBuilder(YuktaApplication.class)
-            .properties("yukta.process.allowed-commands=sh,echo")
-            .run(args.toArray(String[]::new));
-    return new Target(
-        "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port"), keys);
+    // never closed: SpringApplication's shutdown hook stops the in-JVM server with the JVM
+    private static final DedicatedServer SERVER =
+        external()
+            ? DedicatedServer.external(
+                System.getProperty(URL_PROPERTY), System.getProperty(KEY_PROPERTY))
+            : DedicatedServer.start(true);
   }
 
   @Override
   public void beforeAll(final ExtensionContext context) {
-    target();
+    // starts the in-JVM server before the first test, so its start-up is not timed as a test
+    Objects.requireNonNull(baseUrl());
   }
 
   @Override

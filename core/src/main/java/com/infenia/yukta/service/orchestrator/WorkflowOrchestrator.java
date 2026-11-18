@@ -503,7 +503,19 @@ public class WorkflowOrchestrator {
   }
 
   private void clearCheckpoints(final String executionId) {
-    checkpointStore.clear(executionId);
+    clear(executionId);
+  }
+
+  private void clear(final String executionId) {
+    checkpointStore
+        .clearAsync(executionId)
+        .subscribe(
+            null,
+            error ->
+                log.atWarn()
+                    .addKeyValue("executionId", executionId)
+                    .setCause(error)
+                    .log("Could not clear the checkpoints of a run"));
   }
 
   /**
@@ -539,7 +551,7 @@ public class WorkflowOrchestrator {
 
   private void clearIfPending(final String executionId) {
     if (clearWhenDone.asMap().remove(executionId) != null) {
-      checkpointStore.clear(executionId);
+      clear(executionId);
     }
   }
 

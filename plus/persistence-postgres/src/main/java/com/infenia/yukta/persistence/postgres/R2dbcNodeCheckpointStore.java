@@ -8,7 +8,6 @@ import com.infenia.yukta.service.store.ByteCounted;
 import com.infenia.yukta.service.store.CheckpointJson;
 import com.infenia.yukta.service.store.RunOutputSweep;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -28,27 +27,12 @@ import tools.jackson.databind.ObjectMapper;
  * <p>One row per message (JSONB; PostgreSQL stores large values out of line, so output is not
  * capped) and one state row per node with the end marker. Like the file store, a message that
  * cannot be written marks the node incomplete, so a restart that needs it is refused instead of
- * replaying part of it. {@link #isFinished} and {@link #isComplete} are blocking in the interface;
- * they wait for the query on a separate thread and treat a database that does not answer as "not
- * finished", so a resume runs the node again.
+ * replaying part of it. {@link #finishedAsync} and {@link #completeAsync} do not block (the
+ * deprecated blocking ones wait for them). A database that does not answer reads as "not finished",
+ * so a resume runs the node again.
  */
 @Slf4j
 public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounted, RunOutputSweep {
-
-  /** Longest a blocking question may wait for the database. */
-  private static final Duration QUESTION_TIMEOUT = Duration.ofSeconds(30);
-
-  /** Column: the node's output could not be recorded completely. */
-  private static final String INCOMPLETE = "incomplete";
-
-  /** Column: the node ended normally. */
-  private static final String DONE = "done";
-
-  /** Execution id parameter. */
-  private static final String EXECUTION = "e";
-
-  /** Node id parameter. */
-  private static final String NODE = "n";
 
   /** The table of messages. */
   private static final String MESSAGES = "node_checkpoint";
@@ -64,6 +48,9 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
 
   /** The size of the message table, the same on every server sharing the database. */
   private final TableSizes size;
+
+  /** The statements that write messages and the node state flags. */
+  private final CheckpointRows rows;
 
   /**
    * Creates the store.
@@ -94,13 +81,14 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
     this.mapper = mapper;
     this.fencing = new Fencing(fencingToken, meters, "node_checkpoint");
     this.size = new TableSizes(client, List.of(MESSAGES));
+    this.rows = new CheckpointRows(client, fencing);
   }
 
   @Override
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
     return Mono.fromCallable(() -> CheckpointJson.write(mapper, message))
         .flatMap(json ->
-            insert(executionId, nodeId, json)
+            rows.insert(executionId, nodeId, json)
                 .doOnNext(written -> {
                   if (written == 0) {
                     fencing.refused(1);
@@ -112,25 +100,9 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
               .addKeyValue("nodeId", nodeId)
               .setCause(error)
               .log("Could not record node output, the node cannot be restarted from");
-          return state(executionId, nodeId, INCOMPLETE).then(Mono.empty());
+          return rows.state(executionId, nodeId, CheckpointRows.INCOMPLETE).then(Mono.empty());
         })
         .then();
-  }
-
-  /** Inserts one message row, in the same statement as the fencing check when there is one. */
-  private Mono<Long> insert(final String executionId, final String nodeId, final String json) {
-    return fencing
-        .bind(
-            client
-                .sql(
-                    "INSERT INTO node_checkpoint (execution_id, node_id, message)"
-                        + " SELECT :e, :n, CAST(:m AS jsonb) WHERE "
-                        + Fencing.NOT_STALE)
-                .bind(EXECUTION, executionId)
-                .bind(NODE, nodeId)
-                .bind("m", json))
-        .fetch()
-        .rowsUpdated();
   }
 
   @Override
@@ -139,8 +111,8 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
         .sql(
             "SELECT CAST(message AS text) AS message FROM node_checkpoint"
                 + " WHERE execution_id = :e AND node_id = :n ORDER BY seq DESC LIMIT 1")
-        .bind(EXECUTION, executionId)
-        .bind(NODE, nodeId)
+        .bind(CheckpointRows.EXECUTION, executionId)
+        .bind(CheckpointRows.NODE, nodeId)
         .map(row -> row.get("message", String.class))
         .one()
         .map(json -> CheckpointJson.read(mapper, json));
@@ -152,61 +124,80 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
         .sql(
             "SELECT CAST(message AS text) AS message FROM node_checkpoint"
                 + " WHERE execution_id = :e AND node_id = :n ORDER BY seq")
-        .bind(EXECUTION, executionId)
-        .bind(NODE, nodeId)
+        .bind(CheckpointRows.EXECUTION, executionId)
+        .bind(CheckpointRows.NODE, nodeId)
         .map(row -> row.get("message", String.class))
         .all()
         .map(json -> CheckpointJson.read(mapper, json));
   }
 
   @Override
+  public Mono<Void> clearAsync(final String executionId) {
+    return client
+        .sql("DELETE FROM node_checkpoint WHERE execution_id = :e")
+        .bind(CheckpointRows.EXECUTION, executionId)
+        .fetch()
+        .rowsUpdated()
+        .then(
+            client
+                .sql("DELETE FROM node_checkpoint_state WHERE execution_id = :e")
+                .bind(CheckpointRows.EXECUTION, executionId)
+                .fetch()
+                .rowsUpdated()
+                .then())
+        .timeout(CheckpointRows.QUESTION_TIMEOUT)
+        .onErrorResume(error -> {
+          log.atWarn()
+              .addKeyValue("executionId", executionId)
+              .setCause(error)
+              .log("Could not clear the checkpoints of a run");
+          return Mono.empty();
+        });
+  }
+
+  @Override
+  @SuppressWarnings("deprecation")
   public void clear(final String executionId) {
-    try {
-      client
-          .sql("DELETE FROM node_checkpoint WHERE execution_id = :e")
-          .bind(EXECUTION, executionId)
-          .fetch()
-          .rowsUpdated()
-          .then(
-              client
-                  .sql("DELETE FROM node_checkpoint_state WHERE execution_id = :e")
-                  .bind(EXECUTION, executionId)
-                  .fetch()
-                  .rowsUpdated()
-                  .then())
-          .toFuture()
-          .get(QUESTION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    } catch (final ExecutionException | TimeoutException e) {
-      log.atWarn()
-          .addKeyValue("executionId", executionId)
-          .setCause(e)
-          .log("Could not clear the checkpoints of a run");
-    }
+    CheckpointRows.await(clearAsync(executionId), null);
   }
 
   @Override
   public Mono<Void> markComplete(final String executionId, final String nodeId) {
-    return state(executionId, nodeId, DONE)
+    return rows.state(executionId, nodeId, CheckpointRows.DONE)
         .onErrorResume(error -> {
           log.atError()
               .addKeyValue("executionId", executionId)
               .addKeyValue("nodeId", nodeId)
               .setCause(error)
               .log("Could not make the end of a node durable, a resume will run it again");
-          return state(executionId, nodeId, INCOMPLETE).onErrorResume(_ -> Mono.empty());
+          return rows.state(executionId, nodeId, CheckpointRows.INCOMPLETE)
+              .onErrorResume(_ -> Mono.empty());
         });
   }
 
   @Override
-  public boolean isComplete(final String executionId, final String nodeId) {
-    return !flag(executionId, nodeId, INCOMPLETE);
+  public Mono<Boolean> completeAsync(final String executionId, final String nodeId) {
+    return rows.flag(executionId, nodeId, CheckpointRows.INCOMPLETE).map(incomplete -> !incomplete);
   }
 
   @Override
+  public Mono<Boolean> finishedAsync(final String executionId, final String nodeId) {
+    return Mono.zip(
+            rows.flag(executionId, nodeId, CheckpointRows.DONE),
+            rows.flag(executionId, nodeId, CheckpointRows.INCOMPLETE))
+        .map(t -> t.getT1() && !t.getT2());
+  }
+
+  @Override
+  @SuppressWarnings("deprecation")
+  public boolean isComplete(final String executionId, final String nodeId) {
+    return CheckpointRows.await(completeAsync(executionId, nodeId), false);
+  }
+
+  @Override
+  @SuppressWarnings("deprecation")
   public boolean isFinished(final String executionId, final String nodeId) {
-    return flag(executionId, nodeId, DONE) && !flag(executionId, nodeId, INCOMPLETE);
+    return CheckpointRows.await(finishedAsync(executionId, nodeId), false);
   }
 
   /**
@@ -241,52 +232,11 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
                           .rowsUpdated()
                           .then()))
           .toFuture()
-          .get(QUESTION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+          .get(CheckpointRows.QUESTION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     } catch (final ExecutionException | TimeoutException e) {
       log.atWarn().setCause(e).log("Could not remove the output of runs that are gone");
-    }
-  }
-
-  /** Sets one flag of the node's state row, creating the row if needed. */
-  private Mono<Void> state(final String executionId, final String nodeId, final String column) {
-    return client
-        .sql(
-            "INSERT INTO node_checkpoint_state (execution_id, node_id, "
-                + column
-                + ") VALUES (:e, :n, TRUE) ON CONFLICT (execution_id, node_id) DO UPDATE SET "
-                + column
-                + " = TRUE")
-        .bind(EXECUTION, executionId)
-        .bind(NODE, nodeId)
-        .fetch()
-        .rowsUpdated()
-        .then();
-  }
-
-  /** Reads one flag, waiting for the database off the caller's reactor thread. */
-  private boolean flag(final String executionId, final String nodeId, final String column) {
-    try {
-      return Boolean.TRUE.equals(
-          client
-              .sql(
-                  "SELECT "
-                      + column
-                      + " AS flag FROM node_checkpoint_state"
-                      + " WHERE execution_id = :e AND node_id = :n")
-              .bind(EXECUTION, executionId)
-              .bind(NODE, nodeId)
-              .map(row -> row.get("flag", Boolean.class))
-              .one()
-              .toFuture()
-              .get(QUESTION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS));
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return INCOMPLETE.equals(column);
-    } catch (final ExecutionException | TimeoutException e) {
-      log.atWarn().setCause(e).log("Could not read the checkpoint state, treating as unfinished");
-      return INCOMPLETE.equals(column);
     }
   }
 }

@@ -552,9 +552,27 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.<Void>fromRunnable(() -> checkConfig(config))
+    return Mono.<Void>fromRunnable(
+            () -> {
+              checkConfig(config);
+              if (unguarded(config)) {
+                log.atWarn()
+                    .log(
+                        "MCP_TOOL_CALL takes its tool from the message but sets neither"
+                            + " allowedTools nor requireApproval: any tool on the server can be"
+                            + " called");
+              }
+            })
         .doOnError(e ->
             log.atWarn().log("MCP tool call configuration validation failed: {}", e.getMessage()));
+  }
+
+  /** True when the tool name comes from the message and no allow-list or approval limits it. */
+  /* default */ static boolean unguarded(final Map<String, Object> config) {
+    return String.valueOf(config.get(TOOL)).contains("${")
+        && !(config.get(ALLOWED_TOOLS) instanceof final List<?> allowed && !allowed.isEmpty())
+        && !(config.get("requireApproval") instanceof final List<?> approval
+            && !approval.isEmpty());
   }
 
   private static void checkConfig(final Map<String, Object> config) {

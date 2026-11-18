@@ -88,6 +88,7 @@ class WorkflowOrchestratorTest {
   @BeforeEach
   void setUp() {
     lenient().when(checkpointStore.save(anyString(), anyString(), any())).thenReturn(Mono.empty());
+    lenient().when(checkpointStore.clearAsync(anyString())).thenReturn(Mono.empty());
     lenient()
         .when(tracker.finishWorkflow(anyString(), any(TaskStatus.class)))
         .thenReturn(Mono.empty());
@@ -197,7 +198,7 @@ class WorkflowOrchestratorTest {
     verify(executionControlStore).save(executionControl);
     verify(tracker).startWorkflow(executionId, sessionId, workflowId, List.of("node-a"));
     verify(executionControlStore, timeout(5000)).remove(executionId);
-    verify(checkpointStore, never()).clear(executionId);
+    verify(checkpointStore, never()).clearAsync(executionId);
   }
 
   @Test
@@ -298,7 +299,7 @@ class WorkflowOrchestratorTest {
         .verify();
 
     verify(executionControlStore, timeout(5000)).remove(executionId);
-    verify(checkpointStore, never()).clear(executionId);
+    verify(checkpointStore, never()).clearAsync(executionId);
   }
 
   @Test
@@ -367,7 +368,7 @@ class WorkflowOrchestratorTest {
     verify(tracker, never()).finishWorkflow(executionId, TaskStatus.SUCCESS);
 
     verify(executionControlStore, timeout(5000)).remove(executionId);
-    verify(checkpointStore, never()).clear(executionId);
+    verify(checkpointStore, never()).clearAsync(executionId);
   }
 
   @Test
@@ -429,7 +430,7 @@ class WorkflowOrchestratorTest {
         .executeTemplate(
             eq(newExecId), any(), eq(2), any(), eq(sessionId), eq(workflowId), anyList());
     verify(executionControlStore, timeout(5000)).remove(newExecId);
-    verify(checkpointStore, never()).clear(newExecId);
+    verify(checkpointStore, never()).clearAsync(newExecId);
     verify(tracker).recordLineage(newExecId, null, prevExecId);
   }
 
@@ -506,7 +507,7 @@ class WorkflowOrchestratorTest {
         .verify();
 
     verify(executionControlStore, timeout(5000)).remove(newExecId);
-    verify(checkpointStore, never()).clear(newExecId);
+    verify(checkpointStore, never()).clearAsync(newExecId);
   }
 
   @Test
@@ -560,7 +561,7 @@ class WorkflowOrchestratorTest {
     verify(tracker, never()).finishWorkflow(newExecId, TaskStatus.SUCCESS);
 
     verify(executionControlStore, timeout(5000)).remove(newExecId);
-    verify(checkpointStore, never()).clear(newExecId);
+    verify(checkpointStore, never()).clearAsync(newExecId);
   }
 
   @Test
@@ -665,7 +666,7 @@ class WorkflowOrchestratorTest {
     assertThat(logged.getValue().type()).isEqualTo(ExecutionLogEvent.Type.RUN_STARTED);
     assertThat(logged.getValue().executionId()).isEqualTo("e1");
     assertThat(logged.getValue().definitionVersion()).isEqualTo(archived.definitionVersion());
-    verify(checkpointStore, never()).clear("e1");
+    verify(checkpointStore, never()).clearAsync("e1");
   }
 
   @Test
@@ -696,8 +697,8 @@ class WorkflowOrchestratorTest {
     StepVerifier.create(small.execute("s", "w", "e1", prepared, Map.of())).verifyComplete();
     StepVerifier.create(small.execute("s", "w", "e2", prepared, Map.of())).verifyComplete();
 
-    verify(checkpointStore).clear("e1");
-    verify(checkpointStore, never()).clear("e2");
+    verify(checkpointStore).clearAsync("e1");
+    verify(checkpointStore, never()).clearAsync("e2");
   }
 
   @Test
@@ -847,12 +848,12 @@ class WorkflowOrchestratorTest {
     StepVerifier.create(small.execute("s", "w", "e2", prepared, Map.of())).verifyComplete();
 
     // e1 fell out of the archive while still running: its checkpoints must stay.
-    verify(checkpointStore, never()).clear("e1");
+    verify(checkpointStore, never()).clearAsync("e1");
 
     e1Body.tryEmitEmpty();
 
     // The body runs on boundedElastic, so the clear lands asynchronously.
-    verify(checkpointStore, timeout(5000)).clear("e1");
+    verify(checkpointStore, timeout(5000)).clearAsync("e1");
   }
 
   @Test
@@ -882,7 +883,7 @@ class WorkflowOrchestratorTest {
     StepVerifier.create(small.execute("s", "w", "old", prepared, Map.of())).verifyComplete();
     StepVerifier.create(small.execute("s", "w", "new", prepared, Map.of())).verifyComplete();
 
-    verify(checkpointStore).clear("old");
+    verify(checkpointStore).clearAsync("old");
   }
 
   private PreparedWorkflow reservedSetUp() {
@@ -1062,14 +1063,24 @@ class WorkflowOrchestratorTest {
   void pendingCleanupOfAnEvictedRunClearsItsCheckpoints() {
     orchestrator.onPendingRemoved("evicted-while-running", RemovalCause.SIZE);
 
-    verify(checkpointStore).clear("evicted-while-running");
+    verify(checkpointStore).clearAsync("evicted-while-running");
   }
 
   @Test
   void pendingCleanupThatWasNotAnEvictionLeavesCheckpointsAlone() {
     orchestrator.onPendingRemoved("cleaned-up", RemovalCause.EXPLICIT);
 
-    verify(checkpointStore, never()).clear("cleaned-up");
+    verify(checkpointStore, never()).clearAsync("cleaned-up");
+  }
+
+  @Test
+  void pendingCleanupWhoseCheckpointsCannotBeClearedDoesNotFail() {
+    when(checkpointStore.clearAsync("evicted"))
+        .thenReturn(Mono.error(new IllegalStateException("database down")));
+
+    orchestrator.onPendingRemoved("evicted", RemovalCause.SIZE);
+
+    verify(checkpointStore).clearAsync("evicted");
   }
 
   private void setupRestartControl(

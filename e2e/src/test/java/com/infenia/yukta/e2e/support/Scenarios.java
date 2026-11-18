@@ -28,6 +28,7 @@ public final class Scenarios implements ExtensionContext.Store.CloseableResource
 
   private final Api api;
   private final List<String> sessions = Collections.synchronizedList(new ArrayList<>());
+  private final List<String> supervisors = Collections.synchronizedList(new ArrayList<>());
 
   /* default */ Scenarios(final Api api) {
     this.api = api;
@@ -63,6 +64,44 @@ public final class Scenarios implements ExtensionContext.Store.CloseableResource
   }
 
   /**
+   * Deletes a session that something else created (for example an MCP tool) when the test ends.
+   *
+   * @param session the session id
+   */
+  public void track(final String session) {
+    sessions.add(session);
+  }
+
+  /**
+   * Creates a supervisor and removes it (and what it owns) when the test ends.
+   *
+   * @param json the supervisor, with its {@code id} from {@link #unique}
+   */
+  public void createSupervisor(final String json) {
+    createSupervisor(json, true);
+  }
+
+  /**
+   * Removes a supervisor when the test ends, and creates it first only when asked.
+   *
+   * @param json the supervisor, with its {@code id}
+   * @param create false when the test creates it itself (through MCP, for example)
+   */
+  public void createSupervisor(final String json, final boolean create) {
+    final String id = JSON.readTree(json).path("id").asString();
+    if (create) {
+      api.data(
+          api.client()
+              .post()
+              .uri("/api/supervisors")
+              .header("Content-Type", "application/json")
+              .bodyValue(json)
+              .exchange());
+    }
+    supervisors.add(id);
+  }
+
+  /**
    * Starts a workflow.
    *
    * @param session the session id
@@ -93,7 +132,7 @@ public final class Scenarios implements ExtensionContext.Store.CloseableResource
     final JsonNode[] last = new JsonNode[1];
     await()
         .atMost(timeout)
-        .pollInterval(Duration.ofMillis(100))
+        .pollInterval(Duration.ofMillis(250))
         .until(() -> {
           // the execution can be unknown for a moment right after the start
           final var response = api.client().get().uri("/api/executions/{id}", execution).exchange();
@@ -125,7 +164,11 @@ public final class Scenarios implements ExtensionContext.Store.CloseableResource
   public void close() {
     for (final String session : List.copyOf(sessions)) {
       // best effort: a test may have deleted it already
-      api.client().delete().uri("/api/sessions/{id}", session).exchange().returnResult(Void.class);
+      api.call("DELETE", "/api/sessions/" + session, null);
+    }
+    for (final String supervisor : List.copyOf(supervisors)) {
+      api.call("PUT", "/api/supervisors/" + supervisor + "/assignments?unlock=true", "[]");
+      api.call("DELETE", "/api/supervisors/" + supervisor, null);
     }
   }
 }

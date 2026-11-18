@@ -3,10 +3,12 @@
 package com.infenia.yukta.plugin.decision;
 
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.llm.ChatTurn;
 import com.infenia.yukta.plugin.llm.LlmGateway;
 import com.infenia.yukta.plugin.llm.LlmRequest;
 import com.infenia.yukta.plugin.llm.Provider;
+import com.infenia.yukta.plugin.util.RunBudgets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,9 @@ public final class ChatDecisionModel implements DecisionBackend {
   /** Shared JSON mapper. */
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
+  /** The run ledger shared with LLM_CALL and MCP_TOOL_CALL. */
+  private static final RunBudgets BUDGETS = RunBudgets.shared();
+
   /** Calls the chat models. */
   private final LlmGateway gateway;
 
@@ -72,21 +77,43 @@ public final class ChatDecisionModel implements DecisionBackend {
   @Override
   public Mono<Map<String, Answer>> answer(
       final ModelSpec spec, final String state, final Map<String, Question> questions) {
-    return Mono.fromCallable(() ->
-            gateway.call(
-                new LlmRequest(
-                    Provider.from(spec.provider()),
-                    spec.baseUrl(),
-                    spec.apiKey(),
-                    spec.model(),
-                    0.0,
-                    null,
-                    spec.timeout(),
-                    SYSTEM,
-                    List.of(new ChatTurn("user", prompt(state, questions))))))
-        .subscribeOn(Schedulers.boundedElastic())
-        .timeout(spec.timeout().plusSeconds(1))
-        .map(response -> parse(response.text(), questions));
+    return Mono.deferContextual(ctx -> {
+      final String key =
+          RunBudgets.key(String.valueOf(ctx.getOrDefault("executionId", "unknown")), spec.budget());
+      final Mono<Map<String, Answer>> call =
+          Mono.fromCallable(() ->
+                  gateway.call(
+                      new LlmRequest(
+                          Provider.from(spec.provider()),
+                          spec.baseUrl(),
+                          spec.apiKey(),
+                          spec.model(),
+                          0.0,
+                          null,
+                          spec.timeout(),
+                          SYSTEM,
+                          List.of(new ChatTurn("user", prompt(state, questions))))))
+              .subscribeOn(Schedulers.boundedElastic())
+              .timeout(spec.timeout().plusSeconds(1))
+              .doOnNext(response -> {
+                BUDGETS.add(key, response.inputTokens() + response.outputTokens(), 0.0);
+                BUDGETS.addCall(key);
+              })
+              .map(response -> parse(response.text(), questions));
+      final Map<?, ?> budget = spec.budget();
+      return budget == null
+          ? call
+          : BUDGETS
+              .exceeded(key, budget)
+              .<Mono<Map<String, Answer>>>map(why -> {
+                final String message = "LLM budget exceeded: " + why;
+                return Mono.error(
+                    Boolean.TRUE.equals(budget.get("hardStop"))
+                        ? new RunAbortedException(message)
+                        : new IllegalStateException(message));
+              })
+              .orElse(call);
+    });
   }
 
   private static String prompt(final String state, final Map<String, Question> questions) {
