@@ -8,14 +8,17 @@ import com.github.benmanes.caffeine.cache.Ticker;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Makes workflow starts safe to retry.
@@ -25,13 +28,17 @@ import reactor.core.publisher.Mono;
  * so retrying it runs again.
  */
 @Component
+@Slf4j
 public class StartIdempotency implements SmartInitializingSingleton {
 
   /** Execution id by scope and key; entries expire a fixed time after they were written. */
   private final Cache<String, Mono<String>> entries;
 
   /** Where keys are written and read back after a restart. */
-  private final ExecutionLogStore log;
+  private final ExecutionLogStore logStore;
+
+  /** Holds back new runs while the keys load; null when there is no scheduler. */
+  private ExecutionScheduler scheduler;
 
   /** How long a key remembers its execution. */
   private final Duration ttl;
@@ -54,7 +61,7 @@ public class StartIdempotency implements SmartInitializingSingleton {
   /* default */ StartIdempotency(
       final Duration ttl, final Ticker ticker, final ExecutionLogStore log, final long maxKeys) {
     this.ttl = ttl;
-    this.log = log;
+    this.logStore = log;
     this.entries =
         Caffeine.newBuilder()
             .expireAfterWrite(ttl)
@@ -67,11 +74,45 @@ public class StartIdempotency implements SmartInitializingSingleton {
   /** Reloads the keys written before the last restart that have not expired yet. */
   @Override
   public void afterSingletonsInstantiated() {
-    final Instant oldest = Instant.now().minus(ttl);
-    for (final ExecutionLogEvent event :
-        log.ofType(ExecutionLogEvent.Type.IDEMPOTENCY_KEY, oldest)) {
-      entries.put(event.status(), Mono.just(event.executionId()));
-    }
+    reload()
+        .subscribe(
+            _ -> {},
+            error -> log.atError().setCause(error).log("Could not reload the idempotency keys"));
+  }
+
+  /**
+   * Reads the stored keys; no run is admitted until it is done ({@link
+   * ExecutionScheduler#holdStarts()}), or a repeated start could slip past a key from before the
+   * restart.
+   *
+   * @return completes when the keys are loaded
+   */
+  /* default */ Mono<Void> reload() {
+    return Mono.defer(() -> {
+      final ExecutionScheduler gate = scheduler;
+      final Runnable release = gate == null ? () -> {} : gate.holdStarts();
+      final Instant oldest = Instant.now().minus(ttl);
+      return Mono.fromRunnable(
+              () -> {
+                for (final ExecutionLogEvent event :
+                    logStore.ofType(ExecutionLogEvent.Type.IDEMPOTENCY_KEY, oldest)) {
+                  entries.put(event.status(), Mono.just(event.executionId()));
+                }
+              })
+          .subscribeOn(Schedulers.boundedElastic())
+          .then()
+          .doFinally(_ -> release.run());
+    });
+  }
+
+  /**
+   * Lets the reload hold back new runs while it works.
+   *
+   * @param executionScheduler the scheduler
+   */
+  @Autowired(required = false)
+  public void setExecutionScheduler(final ExecutionScheduler executionScheduler) {
+    this.scheduler = executionScheduler;
   }
 
   /**
@@ -126,7 +167,7 @@ public class StartIdempotency implements SmartInitializingSingleton {
                 start
                     .get()
                     .doOnNext(executionId ->
-                        log.append(ExecutionLogEvent.idempotencyKey(executionId, mapKey)))
+                        logStore.append(ExecutionLogEvent.idempotencyKey(executionId, mapKey)))
                     .cache());
     // A failed start is not remembered, so the client can retry with the same key.
     return result.doOnError(_ -> entries.asMap().remove(mapKey, result));

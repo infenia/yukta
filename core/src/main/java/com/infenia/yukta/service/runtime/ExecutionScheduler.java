@@ -78,6 +78,9 @@ public class ExecutionScheduler implements SmartLifecycle {
   private final int workflowQueueCapacity;
 
   /** Starts refused, by reason. */
+  /** Holds on admitting runs (see {@link #holdStarts()}). */
+  private final AtomicInteger startHolds = new AtomicInteger();
+
   private final Map<RejectReason, LongAdder> rejections = new ConcurrentHashMap<>();
 
   /** Counts new starts per workflow; limit 0 means off. */
@@ -444,11 +447,32 @@ public class ExecutionScheduler implements SmartLifecycle {
     return sessionId + "\0" + workflowId;
   }
 
+  /**
+   * Refuses every start, restart and resume until the returned handle is run: for a step that must
+   * finish before any run is admitted, such as recovering the run history or reloading the
+   * idempotency keys at start-up (a run admitted earlier could be marked aborted, or a repeated
+   * start get through). Holds add up; each handle works once.
+   *
+   * @return releases the hold
+   */
+  public Runnable holdStarts() {
+    startHolds.incrementAndGet();
+    final AtomicBoolean released = new AtomicBoolean();
+    return () -> {
+      if (released.compareAndSet(false, true)) {
+        startHolds.decrementAndGet();
+      }
+    };
+  }
+
   /** The refusal for every start while the server shuts down or drains, or null when it admits. */
   @Nullable
   private ExecutionRejectedException unavailable() {
     if (closed) {
       return refusal(RejectReason.SHUTDOWN, "The server is shutting down");
+    }
+    if (startHolds.get() > 0) {
+      return refusal(RejectReason.RECOVERING, "The server is recovering, try again shortly");
     }
     return draining ? refusal(RejectReason.DRAINING, DRAINING_MESSAGE) : null;
   }
@@ -688,7 +712,8 @@ public class ExecutionScheduler implements SmartLifecycle {
     QUEUE_TIMEOUT,
     NOT_LEADER,
     RATE_LIMIT,
-    DRAINING
+    DRAINING,
+    RECOVERING
   }
 
   /** A claim on one execution slot; release it when the execution ends. */
