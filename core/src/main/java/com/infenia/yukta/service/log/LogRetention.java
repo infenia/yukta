@@ -13,15 +13,27 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class LogRetention {
 
+  /** The default of {@code yukta.execution-log.min-runs-per-session}. */
+  public static final int DEFAULT_MIN_PER_SESSION = 10;
+
   /**
    * The newest runs of every session that are kept even when a busier session has pushed them out
-   * of the global limit. ponytail: a constant; make it a setting if sessions need different values.
+   * of the global limit; set once at startup from {@code yukta.execution-log.min-runs-per-session}.
    */
-  /* default */ static final int MIN_PER_SESSION = 10;
+  private static volatile int minPerSession = DEFAULT_MIN_PER_SESSION;
+
+  /**
+   * Sets how many of its newest runs every session keeps.
+   *
+   * @param runs the floor per session, at least 0
+   */
+  public static void minPerSession(final int runs) {
+    minPerSession = Math.max(0, runs);
+  }
 
   /**
    * Which runs to keep: the newest {@code retainedRuns} overall, plus the newest {@link
-   * #MIN_PER_SESSION} of each session, so one busy session cannot push out the others' history.
+   * #minPerSession} of each session, so one busy session cannot push out the others' history.
    *
    * @param runs the run ids, oldest first
    * @param sessionOf the session of a run
@@ -35,7 +47,7 @@ public class LogRetention {
     final Set<String> keep =
         new LinkedHashSet<>(runs.subList(Math.max(0, runs.size() - retainedRuns), runs.size()));
     // Half the global limit at most, so a small limit still means what it says for one session.
-    final int floor = Math.min(MIN_PER_SESSION, retainedRuns / 2);
+    final int floor = Math.min(minPerSession, retainedRuns / 2);
     final java.util.Map<String, Integer> perSession = new ConcurrentHashMap<>();
     for (final String run : runs.reversed()) {
       if (perSession.merge(String.valueOf(sessionOf.apply(run)), 1, Integer::sum) <= floor) {
