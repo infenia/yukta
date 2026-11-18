@@ -33,7 +33,7 @@ need curl
 need jq
 
 allow_skip=" ${SMOKE_ALLOW_SKIP:-15-input-pull 16-supervisor-profiles 17-supervisor-workflow 19-agent-session} "
-[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || allow_skip+="02-agent-verification "
+[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || allow_skip+="02-agent-verification 21-agent-console "
 
 # run-all.sh ends with one line per example: "PASS  name", "SKIP  name" or "FAIL  name (exit N)".
 log "running the examples against $YUKTA_URL"
@@ -55,7 +55,10 @@ echo "$summary"
 failed=0
 while read -r state name _; do
   case "$state" in
-    FAIL) echo "examples smoke: $name failed" >&2; failed=1 ;;
+    FAIL)
+      echo "examples smoke: $name failed; its output:" >&2
+      awk -v h="=================== $name" '/^=================== /{p=($0==h)} p' <<< "$output" | tail -40 >&2
+      failed=1 ;;
     SKIP)
       if [[ "$allow_skip" != *" $name "* && " ${EXAMPLES_SKIP:-} " != *" $name "* ]]; then
         echo "examples smoke: $name was skipped, which this server must not do" >&2

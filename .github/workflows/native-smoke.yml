@@ -72,6 +72,8 @@ jobs:
           YUKTA_API_KEYS_0_KEY: native-smoke-key
           YUKTA_API_KEYS_0_ROLE: ADMIN
           YUKTA_API_KEYS_0_SESSIONS_0: '*'
+          # example 21 runs two scripted agents from its harness presets
+          YUKTA_AI_PRESETS_DIR: ${{ github.workspace }}/examples/21-agent-console/agent-harnesses
         run: |
           dist/linux-amd64/yukta -Dyukta.rate-limit-per-minute=100000 &
           pid=$!
