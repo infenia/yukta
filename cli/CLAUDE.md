@@ -25,6 +25,7 @@ yk gradle :cli:check
 make build     # Build for current OS/arch
 make build-all # Build for all platforms
 make test      # Run Go tests
+make e2e       # Run yukta-cli against a real server (YUKTA_E2E_URL, YUKTA_E2E_KEY; release/e2e-server.sh start); see "Testing tiers" in the root CLAUDE.md
 make lint      # Run Go linters
 make fmt       # Format code
 ```
