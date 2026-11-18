@@ -7,6 +7,8 @@
 # the rest of the basics: supervisors, approvals, sub-workflows, file and key-value steps, the
 # schedule trigger and MCP. A native image fails here where a JVM test does not (reflection data).
 #
+# The examples ExamplesE2eTest runs (01, 04, 05, 20) are skipped here; set EXAMPLES_SKIP to run them anyway.
+#
 # Fails when an example fails, or when one is skipped that is not named in SMOKE_ALLOW_SKIP.
 #
 # Usage: release/examples-smoke.sh <base-url> [api-key]
@@ -31,12 +33,14 @@ need curl
 need jq
 
 allow_skip=" ${SMOKE_ALLOW_SKIP:-15-input-pull 16-supervisor-profiles 17-supervisor-workflow 19-agent-session} "
-[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || allow_skip+="02-agent-verification "
+[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || allow_skip+="02-agent-verification 21-agent-console "
 
 # run-all.sh ends with one line per example: "PASS  name", "SKIP  name" or "FAIL  name (exit N)".
 log "running the examples against $YUKTA_URL"
 set +e
-[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || : "${EXAMPLES_SKIP:=08-alert-triage}"
+# 01, 04, 05 and 20 are run by ExamplesE2eTest (the e2e suite); the rest need the run.sh scripts.
+EXAMPLES_SKIP="${EXAMPLES_SKIP:-01-hello-world 04-pr-risk-gate 05-dependency-updates 20-inbox-notification}"
+[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || EXAMPLES_SKIP+=" 08-alert-triage"
 output="$(EXAMPLES_SKIP="${EXAMPLES_SKIP:-}" bash "$REPO_ROOT/examples/run-all.sh" 2>&1)"
 code=$?
 set -e
@@ -51,7 +55,10 @@ echo "$summary"
 failed=0
 while read -r state name _; do
   case "$state" in
-    FAIL) echo "examples smoke: $name failed" >&2; failed=1 ;;
+    FAIL)
+      echo "examples smoke: $name failed; its output:" >&2
+      awk -v h="=================== $name" '/^=================== /{p=($0==h)} p' <<< "$output" | tail -40 >&2
+      failed=1 ;;
     SKIP)
       if [[ "$allow_skip" != *" $name "* && " ${EXAMPLES_SKIP:-} " != *" $name "* ]]; then
         echo "examples smoke: $name was skipped, which this server must not do" >&2

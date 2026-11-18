@@ -4,9 +4,10 @@
 name: Native smoke
 
 # Builds the native server with -Ob (NATIVE_QUICK=1) and runs the Quickstart workflow against it
-# (release/smoke-test.sh), so missing reflection or resource entries show up between releases and not
-# when the release build fails. The real release build (release.yml) runs the same smoke test, and
-# release/console-smoke.sh checks the daemon commands and the console.
+# (release/smoke-test.sh) and then the e2e suite (:e2e:test against the binary), so missing reflection
+# or resource entries show up between releases and not when the release build fails. The real release
+# build (release.yml) runs the same checks, and release/console-smoke.sh checks the daemon commands and
+# the console.
 on:
   schedule:
     - cron: '43 2 * * *' # daily, 8:13 AM IST (02:43 UTC)
@@ -50,18 +51,9 @@ jobs:
           NATIVE_HEAP: 12g
         run: release/build-server.sh
 
-      # The UI test drives a real browser against the native server: Node, pnpm, the UI's dependencies and Chromium.
-      - name: Set up pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          package_json_file: ui/package.json
-
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: '24'
-          cache: pnpm
-          cache-dependency-path: ui/pnpm-lock.yaml
+      # JDK, Gradle, Node and pnpm. The e2e suite is Gradle; boot (a dependency of the e2e module) builds the
+      # UI, and the UI test drives a real browser against the native server (Chromium, below).
+      - uses: ./.github/actions/setup-build
 
       - name: Install the UI test dependencies
         working-directory: ui
@@ -70,17 +62,34 @@ jobs:
           pnpm exec playwright install --with-deps chromium
 
       # The examples run commands (sh, echo) and a Python pager stand-in, which a default server refuses.
-      - name: Smoke test, examples and UI
+      # The server has an ADMIN key, which the e2e suite needs, and a high /api rate limit (a system
+      # property: the suite sends more than the 1200 requests a minute one key may).
+      - name: Smoke test, e2e suite, examples and UI
         env:
           YUKTA_PLUGINS_ENABLED: all
           YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,python3
+          YUKTA_API_KEYS_0_NAME: e2e
+          YUKTA_API_KEYS_0_KEY: native-smoke-key
+          YUKTA_API_KEYS_0_ROLE: ADMIN
+          YUKTA_API_KEYS_0_SESSIONS_0: '*'
+          # example 21 runs two scripted agents from its harness presets
+          YUKTA_AI_PRESETS_DIR: ${{ github.workspace }}/examples/21-agent-console/agent-harnesses
         run: |
-          dist/linux-amd64/yukta &
+          dist/linux-amd64/yukta -Dyukta.rate-limit-per-minute=100000 &
           pid=$!
           trap 'kill "$pid" || true' EXIT
-          release/smoke-test.sh http://127.0.0.1:9858
-          release/examples-smoke.sh http://127.0.0.1:9858
-          release/ui-smoke.sh http://127.0.0.1:9858
+          release/smoke-test.sh http://127.0.0.1:9858 native-smoke-key
+          ./gradlew :e2e:test -Pyukta.e2e.url=http://127.0.0.1:9858 -Pyukta.e2e.key=native-smoke-key
+          release/examples-smoke.sh http://127.0.0.1:9858 native-smoke-key
+          YUKTA_API_KEY=native-smoke-key release/ui-smoke.sh http://127.0.0.1:9858
+
+      - name: Upload the e2e report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-smoke-e2e-report
+          path: e2e/build/reports/tests/test
+          retention-days: 7
 
       # Run modes of the same binary: daemon commands and the console on a pseudo-terminal. Here and
       # not on pull requests, because it needs the native build above.
