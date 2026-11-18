@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.workflow.store;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.model.workflow.WorkflowKey;
 import com.infenia.yukta.util.CommandSequencer;
 import java.util.Optional;
 import java.util.function.Function;
@@ -41,7 +42,8 @@ public class SaveAndPrepare {
       final WorkflowDefinition definition,
       final Function<WorkflowDefinition, Mono<Void>> prepare) {
     return SEQUENCE.sequence(
-        sessionId + "\0" + definition.workflowId(), apply(store, sessionId, definition, prepare));
+        new WorkflowKey(sessionId, definition.workflowId()),
+        apply(store, sessionId, definition, prepare));
   }
 
   private static Mono<Void> apply(

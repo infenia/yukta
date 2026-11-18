@@ -9,6 +9,7 @@ import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.model.workflow.WorkflowKey;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PreDestroy;
@@ -30,7 +31,6 @@ import org.springframework.stereotype.Component;
 public class PreparedWorkflowCache {
 
   /** Separator for composite key construction. */
-  private static final String COMPOSITE_KEY_SEPARATOR = "\0";
 
   /** Property key for session ID. */
   private static final String SESSION_ID_KEY = "sessionId";
@@ -39,10 +39,15 @@ public class PreparedWorkflowCache {
   private static final String WORKFLOW_ID_KEY = "workflowId";
 
   /** The Caffeine cache for prepared workflows. */
-  private final Cache<String, Entry> cache;
+  private final Cache<WorkflowKey, Entry> cache;
 
-  /** Sessions ({@code id}) and workflows ({@code id\0workflow}) that are being deleted. */
-  private final java.util.Set<String> deleting = java.util.concurrent.ConcurrentHashMap.newKeySet();
+  /** Sessions that are being deleted. */
+  private final java.util.Set<String> deletingSessions =
+      java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+  /** Workflows that are being deleted. */
+  private final java.util.Set<WorkflowKey> deletingWorkflows =
+      java.util.concurrent.ConcurrentHashMap.newKeySet();
 
   /**
    * Spring-managed constructor.
@@ -125,7 +130,7 @@ public class PreparedWorkflowCache {
       final String workflowId,
       final PreparedWorkflow prepared,
       @Nullable final WorkflowDefinition definition) {
-    final String compositeKey = key(sessionId, workflowId);
+    final WorkflowKey compositeKey = new WorkflowKey(sessionId, workflowId);
     final boolean isReplacement = cache.getIfPresent(compositeKey) != null;
     cache.put(compositeKey, new Entry(definition, prepared));
     log.atDebug()
@@ -144,7 +149,8 @@ public class PreparedWorkflowCache {
    */
   public Optional<PreparedWorkflow> get(final String sessionId, final String workflowId) {
     final Optional<PreparedWorkflow> result =
-        Optional.ofNullable(cache.getIfPresent(key(sessionId, workflowId))).map(Entry::prepared);
+        Optional.ofNullable(cache.getIfPresent(new WorkflowKey(sessionId, workflowId)))
+            .map(Entry::prepared);
     if (result.isEmpty()) {
       log.atDebug()
           .addKeyValue(SESSION_ID_KEY, sessionId)
@@ -170,7 +176,7 @@ public class PreparedWorkflowCache {
    */
   public Optional<PreparedWorkflow> get(
       final String sessionId, final String workflowId, final WorkflowDefinition definition) {
-    return Optional.ofNullable(cache.getIfPresent(key(sessionId, workflowId)))
+    return Optional.ofNullable(cache.getIfPresent(new WorkflowKey(sessionId, workflowId)))
         .filter(entry -> definition.equals(entry.definition()))
         .map(Entry::prepared);
   }
@@ -183,7 +189,11 @@ public class PreparedWorkflowCache {
    * @param workflowId the workflow, or null for the whole session
    */
   public void beginDelete(final String sessionId, @Nullable final String workflowId) {
-    deleting.add(workflowId == null ? sessionId : key(sessionId, workflowId));
+    if (workflowId == null) {
+      deletingSessions.add(sessionId);
+    } else {
+      deletingWorkflows.add(new WorkflowKey(sessionId, workflowId));
+    }
   }
 
   /**
@@ -193,7 +203,11 @@ public class PreparedWorkflowCache {
    * @param workflowId the workflow, or null for the whole session
    */
   public void endDelete(final String sessionId, @Nullable final String workflowId) {
-    deleting.remove(workflowId == null ? sessionId : key(sessionId, workflowId));
+    if (workflowId == null) {
+      deletingSessions.remove(sessionId);
+    } else {
+      deletingWorkflows.remove(new WorkflowKey(sessionId, workflowId));
+    }
   }
 
   /**
@@ -204,7 +218,8 @@ public class PreparedWorkflowCache {
    * @return true if a delete is in progress
    */
   public boolean isDeleting(final String sessionId, final String workflowId) {
-    return deleting.contains(sessionId) || deleting.contains(key(sessionId, workflowId));
+    return deletingSessions.contains(sessionId)
+        || deletingWorkflows.contains(new WorkflowKey(sessionId, workflowId));
   }
 
   /**
@@ -214,7 +229,7 @@ public class PreparedWorkflowCache {
    * @param workflowId the workflow identifier
    */
   public void invalidate(final String sessionId, final String workflowId) {
-    final String compositeKey = key(sessionId, workflowId);
+    final WorkflowKey compositeKey = new WorkflowKey(sessionId, workflowId);
     cache.invalidate(compositeKey);
     log.atDebug()
         .addKeyValue(SESSION_ID_KEY, sessionId)
@@ -228,9 +243,8 @@ public class PreparedWorkflowCache {
    * @param sessionId the session identifier
    */
   public void invalidateAll(final String sessionId) {
-    final String prefix = sessionId + COMPOSITE_KEY_SEPARATOR;
     final int initialSize = cache.asMap().size();
-    cache.asMap().keySet().removeIf(k -> k.startsWith(prefix));
+    cache.asMap().keySet().removeIf(k -> k.sessionId().equals(sessionId));
     final int removed = initialSize - cache.asMap().size();
     log.atInfo()
         .addKeyValue(SESSION_ID_KEY, sessionId)
@@ -250,10 +264,6 @@ public class PreparedWorkflowCache {
    */
   /* default */ CacheStats getStats() {
     return cache.stats();
-  }
-
-  private static String key(final String sessionId, final String workflowId) {
-    return sessionId + COMPOSITE_KEY_SEPARATOR + workflowId;
   }
 
   /** A prepared workflow and the definition it was built from (null when not known). */

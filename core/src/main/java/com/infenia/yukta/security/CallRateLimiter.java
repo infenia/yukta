@@ -29,7 +29,7 @@ public final class CallRateLimiter {
   private final LongSupplier nanos;
 
   /** Counts per caller; a caller idle for two windows is forgotten. */
-  private final Cache<String, Window> windows =
+  private final Cache<Object, Window> windows =
       Caffeine.newBuilder()
           .maximumSize(MAX_CALLERS)
           .expireAfterAccess(Duration.ofNanos(2 * WINDOW_NANOS))
@@ -114,7 +114,7 @@ public final class CallRateLimiter {
    * @param caller who makes it (the key name)
    * @return true if it is within the limit
    */
-  public boolean tryAcquire(final String caller) {
+  public boolean tryAcquire(final Object caller) {
     if (perMinute <= 0) {
       return true;
     }
@@ -128,7 +128,7 @@ public final class CallRateLimiter {
    * @param caller who is asking
    * @return true if the caller is at or over the limit
    */
-  public boolean exceeded(final String caller) {
+  public boolean exceeded(final Object caller) {
     final Window window = windows.getIfPresent(caller);
     return perMinute > 0 && window != null && window.seen(nanos.getAsLong()) >= perMinute;
   }
