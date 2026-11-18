@@ -147,6 +147,18 @@ public class StreamTopologyDecorator {
     return routeEdge(streams, edge, _ -> {});
   }
 
+  /**
+   * A dead letter of an earlier node that a handler node passed on is a normal message of that
+   * handler: it goes back to the default port, or the flow behind the handler would end.
+   */
+  private static Message<?> fromHandler(final Message<?> msg, final String sourceNodeId) {
+    return NodePolicy.ERROR_PORT.equals(msg.sourcePort())
+            && msg.origDest() != null
+            && !msg.origDest().equals(sourceNodeId)
+        ? msg.withSourcePort(NodePolicy.DEFAULT_PORT)
+        : msg;
+  }
+
   private Flux<Message<?>> routeEdge(
       final Flux<Message<?>>[] streams,
       final ParentEdgeInfo edge,
@@ -164,7 +176,8 @@ public class StreamTopologyDecorator {
         parent.transformDeferredContextual((flux, ctx) ->
             flux.map(msg -> {
               final Message<?> own =
-                  EngineOwned.reassert(msg).withSourceNodeId(edge.sourceNodeId());
+                  fromHandler(EngineOwned.reassert(msg), edge.sourceNodeId())
+                      .withSourceNodeId(edge.sourceNodeId());
               // The run's workflow id, so a plugin cannot claim another workflow's.
               return ctx.hasKey(ExecutionContextBuilder.CTX_WORKFLOW_ID)
                   ? own.withWorkflowId(ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID))
