@@ -142,7 +142,9 @@ jobs:
 
       - name: Run the three tiers against it
         run: |
-          export YUKTA_E2E_URL=$(release/e2e-server.sh url) YUKTA_E2E_KEY=$(release/e2e-server.sh key)
+          YUKTA_E2E_URL=$(release/e2e-server.sh url)
+          YUKTA_E2E_KEY=$(release/e2e-server.sh key)
+          export YUKTA_E2E_URL YUKTA_E2E_KEY
           ./gradlew :e2e:test -Pyukta.e2e.url="$YUKTA_E2E_URL" -Pyukta.e2e.key="$YUKTA_E2E_KEY"
           make -C cli e2e
           YUKTA_URL="$YUKTA_E2E_URL" YUKTA_API_KEY="$YUKTA_E2E_KEY" \
