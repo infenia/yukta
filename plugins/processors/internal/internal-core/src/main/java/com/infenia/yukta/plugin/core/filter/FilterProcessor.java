@@ -250,6 +250,7 @@ public final class FilterProcessor implements ProcessorPlugin {
   }
 
   @Override
+  @SuppressWarnings("removal")
   public boolean suppressOptimizationHint(final Map<String, Object> config) {
     final Object allowAfterHeavy = config.get(CONFIG_ALLOW_AFTER_HEAVY);
     return Boolean.TRUE.equals(allowAfterHeavy);
