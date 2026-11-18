@@ -4,10 +4,17 @@ package com.infenia.yukta.startup;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.config.SessionConfigProperties;
+import com.infenia.yukta.config.YuktaProperties;
+import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
+import com.infenia.yukta.service.store.CheckpointJson;
 import java.time.Duration;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -17,6 +24,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.test.StepVerifier;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Tests for {@link AppConfiguration}. */
 @NoArgsConstructor
@@ -95,6 +103,24 @@ class AppConfigurationTest {
           .verify(Duration.ofSeconds(5));
     } finally {
       scheduler.dispose();
+    }
+  }
+
+  @Test
+  void applyPayloadPackages_handsTheSettingToTheCheckpointReader() {
+    final YuktaProperties properties = mock(YuktaProperties.class);
+    final YuktaProperties.Restart restart =
+        new YuktaProperties.Restart(1, 1L, "", false, 1, List.of("java.util.concurrent.atomic."));
+    when(properties.restart()).thenReturn(restart);
+    try {
+      new AppConfiguration().applyPayloadPackages(properties);
+      final JsonMapper json = JsonMapper.builder().build();
+      final String line =
+          CheckpointJson.write(
+              json, DefaultMessage.create(UUID.randomUUID(), new AtomicInteger(5)));
+      assertThat(CheckpointJson.read(json, line).payload()).isInstanceOf(AtomicInteger.class);
+    } finally {
+      CheckpointJson.allowPackages(List.of());
     }
   }
 }

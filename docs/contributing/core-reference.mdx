@@ -1131,6 +1131,7 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.restart.store-type` | file/memory | [DUR-04](#dur-04-postgresql-stores) | `postgres` for checkpoints (module: persistence-postgres) |
 | `yukta.agents.store-type` | memory | [DUR-04](#dur-04-postgresql-stores) | `memory` \| `postgres` for agent conversations; an unknown value stops start-up |
 | `yukta.restart.retained-executions` | 10 | [CTL-04](#ctl-04-restart-restart-from-node-and-retry-node), [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Finished runs kept restartable |
+| `yukta.restart.payload-packages` | empty | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Extra class name prefixes whose payloads a resume restores with their type |
 | `yukta.restart.messages-per-node` | 200 | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Memory cap per node |
 | `yukta.restart.bytes-per-node` | 4194304 (4 MiB) | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Memory cap per node, bytes |
 | `yukta.restart.auto-resume` | false | [DUR-03](#dur-03-resume-and-recovery), [SCL-02](#scl-02-active/standby-high-availability) | Resume interrupted runs after recovery |
