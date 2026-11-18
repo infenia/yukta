@@ -24,6 +24,10 @@ dependencies {
 }
 
 tasks.withType<Test>().configureEach {
+    // the whole suite sends more than the 1200 requests a minute one key may; the in-JVM server reads this
+    systemProperty("yukta.rate-limit-per-minute", "100000")
+    // WebhookE2eTest: a webhook secret is read from the environment of the server process
+    environment("YUKTA_SECRET_E2E_HOOK", "e2e-hook-secret")
     providers.gradleProperty("yukta.e2e.url").orNull?.let { systemProperty("yukta.e2e.url", it) }
     providers.gradleProperty("yukta.e2e.key").orNull?.let { systemProperty("yukta.e2e.key", it) }
     // BoundaryFuzzE2eTest: -PfuzzTries=<cases per entry point>, -PfuzzSeed=<number>|random (nightly)

@@ -120,6 +120,28 @@ public final class Api {
   }
 
   /**
+   * Reads a server-sent event stream until the server ends it.
+   *
+   * @param request the GET request of the stream
+   * @param limit how long to wait for the end; a stream that never ends fails the test
+   * @return the events, one per line
+   */
+  public static String eventsUntilEnd(
+      final WebTestClient.RequestHeadersSpec<?> request, final Duration limit) {
+    final List<String> received =
+        request
+            .accept(MediaType.TEXT_EVENT_STREAM)
+            .exchange()
+            .expectStatus()
+            .isOk()
+            .returnResult(String.class)
+            .getResponseBody()
+            .collectList()
+            .block(limit);
+    return received == null ? "" : String.join("\n", received);
+  }
+
+  /**
    * Reads an answer as text, whatever its status.
    *
    * @param response the response to a request built on {@link #client()}
