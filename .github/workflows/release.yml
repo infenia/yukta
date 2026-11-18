@@ -251,8 +251,9 @@ jobs:
           YUKTA_API_KEYS_0_KEY: release-e2e-key
           YUKTA_API_KEYS_0_ROLE: ADMIN
           YUKTA_API_KEYS_0_SESSIONS_0: '*'
+          PLATFORM: ${{ matrix.platform }}
         run: |
-          dist/${{ matrix.platform }}/yukta -Dyukta.rate-limit-per-minute=100000 &
+          "dist/$PLATFORM/yukta" -Dyukta.rate-limit-per-minute=100000 &
           pid=$!
           trap 'kill "$pid" || true' EXIT
           ./gradlew :e2e:test -Pyukta.e2e.url=http://127.0.0.1:9858 -Pyukta.e2e.key=release-e2e-key
