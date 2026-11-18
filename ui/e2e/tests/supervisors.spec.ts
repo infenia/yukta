@@ -3,22 +3,11 @@
 
 import type { Page, TestInfo } from '@playwright/test';
 import { test, expect } from '../fixtures';
+import { envelope } from '../api-envelope';
 
 // Scenarios of the view-first supervisors UI (design/plans/supervisor-framework.md, S8d). Each
 // attaches screenshots to the report instead of comparing pixels: the committed snapshots are
 // rendered in CI, and a local render differs.
-
-const envelope = (path: string, data: unknown, status = 200) => ({
-  status,
-  contentType: 'application/json',
-  body: JSON.stringify({
-    timestamp: new Date().toISOString(),
-    status,
-    message: status < 400 ? 'OK' : 'connection refused',
-    path,
-    data,
-  }),
-});
 
 const shot = async (page: Page, info: TestInfo, name: string) =>
   info.attach(name, {

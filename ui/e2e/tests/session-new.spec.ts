@@ -2,18 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { test, expect } from '../fixtures';
-
-const envelope = (path: string, data: unknown) => ({
-  status: 200,
-  contentType: 'application/json',
-  body: JSON.stringify({
-    timestamp: '2026-07-26T14:23:23',
-    status: 200,
-    message: 'OK',
-    path,
-    data,
-  }),
-});
+import { envelope } from '../api-envelope';
 
 const template = {
   id: '01-hello-world',
