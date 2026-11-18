@@ -114,6 +114,21 @@ leaves only `docs`, `design` and `.github` out, a few MB.
 - Quality gates (Checkstyle, PMD, SpotBugs, OpenGrep) are enforced via `build-logic` — see `.claude/rules/coding-standards.md` for details.
 - Minimum coverage thresholds are module-specific.
 
+### Testing tiers
+Unit tests keep a 100% floor per class (Java), per function (Go) and in Vitest. Above them, tests that drive a **real server**
+(plan: `design/plans/integration-e2e-testing.md`). Start the server for the non-JVM tiers with `release/e2e-server.sh start`
+(`url`, `key`, `viewer-key` print its details; `stop` ends it).
+
+| Tier | Where | Server | Command | Runs on |
+|---|---|---|---|---|
+| Web and MCP integration | `e2e` module (`e2e/CLAUDE.md`) | in-JVM, random port | `yk gradle :e2e:test` | PRs that change platform modules |
+| The same suite against a binary | `e2e` | jar, native, Docker | `yk gradle :e2e:test -Pyukta.e2e.url=<url> -Pyukta.e2e.key=<key>` | nightly, release |
+| CLI e2e | `cli/e2e` (`//go:build e2e`) | `release/e2e-server.sh` | `YUKTA_E2E_URL=<url> YUKTA_E2E_KEY=<key> yk tool -C cli go test -tags e2e ./e2e/...` | nightly, `ci:e2e` label |
+| UI, mocked | `ui/e2e/tests` | none (`page.route`) | `yk tool -C ui npx --no-install playwright test` | PRs that change `ui` |
+| UI, real server | `ui/e2e/real` | `release/e2e-server.sh` | `yk tool -C ui env YUKTA_URL=<url> YUKTA_API_KEY=<key> YUKTA_VIEWER_KEY=<viewer-key> npx --no-install playwright test -c playwright.real.config.ts` | nightly, `ci:e2e` label |
+
+The nightly tiers are the `e2e-nightly.yml` workflow. Load the `playwright` skill before writing a UI spec.
+
 ### Test Execution Policy (speed)
 Waiting on tests is the main development bottleneck. **Run the smallest scope that covers your change.**
 

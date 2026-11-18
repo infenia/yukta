@@ -391,6 +391,7 @@ public class MapperProcessor implements ProcessorPlugin {
   }
 
   @Override
+  @SuppressWarnings("removal")
   public boolean isComputationallyHeavy(final Map<String, Object> config) {
     final String mode = (String) config.get(CONFIG_MODE);
     return MODE_SCRIPT.equals(mode);

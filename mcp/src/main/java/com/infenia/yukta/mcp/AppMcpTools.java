@@ -69,6 +69,7 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -77,6 +78,8 @@ import reactor.core.publisher.Mono;
  * sessions, and plugins by delegating to specialized provider classes.
  */
 @Component
+// create_session binds its config argument by record components, which a native image needs hinted
+@RegisterReflectionForBinding(SessionConfigData.class)
 @RequiredArgsConstructor
 @SuppressWarnings({
   "PMD.CouplingBetweenObjects",
