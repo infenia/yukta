@@ -134,11 +134,11 @@ jobs:
         run: pnpm --dir ui exec playwright install --with-deps chromium
 
       - name: Start the server with the JaCoCo agent
-        env:
-          JAVA_TOOL_OPTIONS: |-
-            -javaagent:${{ github.workspace }}/e2e/build/jacoco-agent/jacocoagent.jar=destfile=${{ github.workspace }}/build/e2e-server/jacoco.exec,includes=com.infenia.yukta.*
         run: |
           mkdir -p build/e2e-server
+          agent="$GITHUB_WORKSPACE/e2e/build/jacoco-agent/jacocoagent.jar"
+          dest="$GITHUB_WORKSPACE/build/e2e-server/jacoco.exec"
+          export JAVA_TOOL_OPTIONS="-javaagent:$agent=destfile=$dest,includes=com.infenia.yukta.*"
           release/e2e-server.sh start
 
       - name: Run the three tiers against it
