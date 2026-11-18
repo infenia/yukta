@@ -141,7 +141,7 @@ function Commands({
             {can.map(({ key, label, via }) => (
               <li
                 key={key}
-                className="border-success/30 bg-success/10 text-label-md text-success inline-flex items-center gap-1 rounded-full border py-1 pr-2.5 pl-2"
+                className="border-success/30 bg-success/10 text-label-sm text-success inline-flex h-[22px] items-center gap-1 rounded-full border pr-2.5 pl-2"
               >
                 <span
                   aria-hidden="true"

@@ -466,11 +466,13 @@ describe('WorkflowDetailsPage', () => {
   it('finds a node from the canvas toolbar', async () => {
     const user = userEvent.setup();
     renderPage();
-    const find = await screen.findByRole('searchbox', {
-      name: 'Find node on canvas',
-    });
+    await user.click(await screen.findByRole('button', { name: 'Find nodes' }));
+    const find = screen.getByRole('searchbox', { name: 'Find nodes' });
     await user.type(find, 'vector');
     expect(find).toHaveValue('vector');
+    expect(
+      await screen.findByRole('list', { name: 'Matching nodes' })
+    ).toHaveTextContent('vectorize-batch');
   });
 
   it('shows a loading state before data arrives', () => {
