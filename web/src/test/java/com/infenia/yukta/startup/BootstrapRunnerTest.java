@@ -35,7 +35,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /** Tests for {@link BootstrapRunner}. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyStaticImports")
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.TooManyMethods"})
 class BootstrapRunnerTest {
 
   private static final String VALID =
@@ -209,7 +209,7 @@ class BootstrapRunnerTest {
   }
 
   @Test
-  void readiness_inARealContext_isRefusedAgainWhileTheFirstPassRuns_andOpenedAfterwards()
+  void readiness_inRealContext_isRefusedAgainWhileTheFirstPassRuns_andOpenedAfterwards()
       throws IOException {
     Files.writeString(dir.resolve(A_JSON), VALID);
     final Sinks.One<Void> slow = Sinks.one();

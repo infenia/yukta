@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
@@ -55,6 +56,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Slf4j
 @Component
+@SuppressWarnings("PMD.ExcessiveImports")
 @ConditionalOnExpression("!'${yukta.bootstrap.dir:}'.isEmpty()")
 public class BootstrapRunner implements ApplicationRunner {
 
@@ -86,6 +88,8 @@ public class BootstrapRunner implements ApplicationRunner {
   private final Map<Path, FileTime> seen = new ConcurrentHashMap<>();
 
   /** The running watch, or null. */
+  private final ReentrantLock lock = new ReentrantLock();
+
   private Disposable watcher;
 
   /** Publishes the readiness state. */
@@ -131,8 +135,11 @@ public class BootstrapRunner implements ApplicationRunner {
 
   @Override
   public void run(final ApplicationArguments args) {
-    synchronized (this) {
+    lock.lock();
+    try {
       pending = true;
+    } finally {
+      lock.unlock();
     }
     final Mono<Integer> first =
         apply()
@@ -149,18 +156,28 @@ public class BootstrapRunner implements ApplicationRunner {
 
   /** Keeps the readiness probe waiting while the first pass runs. */
   @EventListener
-  /* default */ synchronized void onReadiness(final AvailabilityChangeEvent<ReadinessState> event) {
-    if (pending && event.getState() == ReadinessState.ACCEPTING_TRAFFIC) {
-      refused = true;
-      AvailabilityChangeEvent.publish(events, this, ReadinessState.REFUSING_TRAFFIC);
+  /* default */ void onReadiness(final AvailabilityChangeEvent<ReadinessState> event) {
+    lock.lock();
+    try {
+      if (pending && event.getState() == ReadinessState.ACCEPTING_TRAFFIC) {
+        refused = true;
+        AvailabilityChangeEvent.publish(events, this, ReadinessState.REFUSING_TRAFFIC);
+      }
+    } finally {
+      lock.unlock();
     }
   }
 
-  private synchronized void firstPassDone() {
-    pending = false;
-    if (refused) {
-      refused = false;
-      AvailabilityChangeEvent.publish(events, this, ReadinessState.ACCEPTING_TRAFFIC);
+  private void firstPassDone() {
+    lock.lock();
+    try {
+      pending = false;
+      if (refused) {
+        refused = false;
+        AvailabilityChangeEvent.publish(events, this, ReadinessState.ACCEPTING_TRAFFIC);
+      }
+    } finally {
+      lock.unlock();
     }
   }
 
