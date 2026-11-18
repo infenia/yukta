@@ -61,7 +61,7 @@ A workflow run is logged, each node leaves its output, the server crashes, and a
 
 <Steps>
 <Step title="Run starts">
-**What happens.** Core appends `RUN_STARTED` with the start payload. `append` only queues the event; the single writer thread inserts it, together with other waiting events, into `execution_log`.
+**What happens.** Core appends `RUN_STARTED` with the start payload. `append` only queues the event; the serial write pipeline inserts it, together with other waiting events, into `execution_log`.
 
 **Why it works this way.** The start is logged before the run does any work, so a crash right after still leaves a trace that the run existed and what its input was.
 
@@ -89,7 +89,7 @@ A workflow run is logged, each node leaves its output, the server crashes, and a
 
 **Why it works this way.** Trimming keeps the table from growing without limit, and it never removes a run that has a start and no end.
 
-**Can go wrong.** The trim groups the whole table by execution id each time; on a large log it is a heavy statement on the single writer thread.
+**Can go wrong.** The trim groups the whole table by execution id each time; on a large log it is a heavy statement that holds the write pipeline.
 
 </Step>
 <Step title="Server crashes">
@@ -222,15 +222,15 @@ Stores the workflow definitions of each session with their newest 20 versions, a
 
 Records the start and end of runs, node ends, control commands and idempotency keys, so a restart can mark interrupted runs ABORTED and resume them.
 
-- `append` puts an event in a queue (10,000 events) and asks one writer thread to drain it. The writer inserts up to 100 events per statement; if a batch fails it writes the events one by one and logs the ones that still fail. When the queue is full the event is dropped and an error is logged.
-- Reads (`readAll`) and rewrites (`replaceAll`) run on the same writer thread, after the pending events, so they see everything appended before them. `readAll` loads every row into memory and skips rows it cannot parse.
+- `append` puts an event in a queue (10,000 events) and schedules a drain on the serial write pipeline (one task at a time, no thread parked). The drain inserts up to 100 events per statement; if a batch fails it writes the events one by one and logs the ones that still fail. When the queue is full the event is dropped and an error is logged.
+- Reads (`readAll`, `forExecution`, `header`, `ofType`) return a `Flux`/`Mono` and `replaceAll` a `Mono<Void>`; they run in the same pipeline, after the pending events, so they see everything appended before they are subscribed. A cancelled read is skipped. After the store stops they answer empty. `readAll` loads every row into memory and skips rows it cannot parse.
 - `replaceAll` is used by startup and takeover recovery to rewrite the log without the oldest runs. It deletes every row and then inserts the kept events one at a time, each with its own statement and a 30 s wait, with no transaction.
 - After every `compact-after` (10,000) appended events the writer trims the table to the newest `retained-runs` (500) runs by their last event, never dropping a run that has a start but no end, and keeps the newest 500 scheduler entries (execution id `scheduler`).
 - If an event's payload cannot be written as JSON, the event is stored without the payload and a warning says that the run cannot be resumed.
 
 - **Guarantees.** Events of one run keep their order (the sequence column); a run without an end is never trimmed.
 - **State.** Table `execution_log`: a sequence number, the execution id and the event as JSONB. In memory: the queue and a counter since the last compaction.
-- **Ceiling.** One writer thread, one statement at a time. Every 10,000 events the trim reads only the run ends through the partial index `execution_log_run_edge` (about 0.15 s for 500 runs of 2,000 events) and keeps the newest `retained-runs` ended runs plus every open run. `yukta.execution.log.queue` shows the events waiting.
+- **Ceiling.** One write pipeline, one statement at a time. Every 10,000 events the trim reads only the run ends through the partial index `execution_log_run_edge` (about 0.15 s for 500 runs of 2,000 events) and keeps the newest `retained-runs` ended runs plus every open run. `yukta.execution.log.queue` shows the events waiting.
 - **On failure.** A full queue or a failing insert loses events silently as far as the run is concerned; a crash inside `replaceAll` loses the log.
 
 **Settings:** `yukta.execution-log.retained-runs`, `yukta.execution-log.compact-after`
@@ -298,7 +298,7 @@ One run from the saved design to the trimmed log, in the order the statements ru
 An operator applies a session. The session row is upserted, then each workflow is saved in its own statement: a new version row unless the definition is identical, the current row replaced, and all but the newest 20 versions pruned in a second statement.
 </Step>
 <Step title="The run is logged">
-Core appends `RUN_STARTED`. The event waits in the queue, and the writer thread inserts it with its neighbours in one batched statement.
+Core appends `RUN_STARTED`. The event waits in the queue, and the write pipeline inserts it with its neighbours in one batched statement.
 </Step>
 <Step title="Nodes leave output">
 Each message is inserted into `node_checkpoint`. When the node ends, a second statement stamps it done.
@@ -409,7 +409,7 @@ What this module does, how, what it guarantees and where the guarantee stops.
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Batched execution log | Run starts, node ends and control commands in PostgreSQL. | One writer thread; up to 100 events per insert. | Runs interrupted by a crash can be found and resumed. | 10,000-event queue; events are dropped when it is full. |
+| Batched execution log | Run starts, node ends and control commands in PostgreSQL. | One write pipeline; up to 100 events per insert. | Runs interrupted by a crash can be found and resumed. | 10,000-event queue; events are dropped when it is full. |
 | Bounded log | The table is trimmed to the newest 500 runs. | A delete every 10,000 appended events; open runs are never removed. | The table does not grow without limit. | The trim scans the whole table. |
 | Unserialisable payloads tolerated | A run whose start payload cannot be written as JSON is still logged. | The event is stored without the payload and a warning is logged. | A bad payload does not break the run. | Such a run cannot be resumed. |
 
@@ -453,7 +453,7 @@ Each rule is applied in a statement or in the store's code and is covered by a t
 | Schema exists before use | \*\*Yes.\*\* Flyway migrates at start; the application does not start if a migration fails. |
 | Identical definition adds no version | \*\*Yes.\*\* The insert of a version is skipped when the stored definition is equal as JSONB. |
 | At most 20 versions per workflow | \*\*Yes.\*\* A second statement prunes after every save; between the two statements 21 can exist. |
-| Log order within a run | \*\*Yes.\*\* A sequence column orders reads; one writer thread inserts in queue order. |
+| Log order within a run | \*\*Yes.\*\* A sequence column orders reads; the write pipeline inserts in queue order. |
 | A run without an end is never trimmed | \*\*Yes.\*\* The compaction statement excludes executions that have a start and no end. |
 | Counter atomicity | \*\*Yes.\*\* `incr` adds inside one statement. |
 | KV size cap | \*\*Partly.\*\* Checked inside the insert, but not serialised against concurrent inserts. |
@@ -496,7 +496,7 @@ Nine tables from six migrations. 'Cleaned by' says what removes rows; 'nothing' 
 | workflow_definition | V1 | Definition store (save) | find, findAll | remove, removeAll (no caller in core) |
 | workflow_definition_revision | V1, V2 (note) | save, saveNote | revisions, findRevision | prune to 20 after each save; remove |
 | session_config | V1 | Session config store | getAllConfigs, getSessionIds | removeSession |
-| execution_log | V1, V5 (index of run starts and ends) | Log writer thread | readAll at recovery and resume | compaction; replaceAll |
+| execution_log | V1, V5 (index of run starts and ends) | Log write pipeline | readAll at recovery and resume | compaction; replaceAll |
 | node_checkpoint | V3 | Checkpoint save | get, getAll | clear when the run leaves the archive of retained executions; recovery (startup, takeover): every run no longer in the log |
 | node_checkpoint_state | V3 | markComplete, failed saves | isComplete, isFinished | clear |
 | leader_lease | V4 | Every server, every 5 s | The same statement | nothing (one row) |
@@ -577,10 +577,10 @@ Short rules that follow from the guarantees.
 **Revisit when.** a stale leader is observed writing, or the lease needs sub-second failover.
 
 </Accordion>
-<Accordion title="One writer thread for the execution log">
+<Accordion title="One serial write pipeline for the execution log">
 **Context.** Events must keep their order and must not slow down the engine.
 
-**Decision.** A queue and one thread that inserts in batches and also does reads, rewrites and trims.
+**Decision.** A queue and a serial reactive pipeline (one task at a time) that inserts in batches and also does reads, rewrites and trims. It is a `SmartLifecycle` that stops after the runs have ended and flushes what is queued.
 
 **Consequences.** Ordered, cheap and simple to reason about; one slow statement (a trim, a rewrite) delays all appends and can overflow the queue.
 
@@ -589,16 +589,16 @@ Short rules that follow from the guarantees.
 **Revisit when.** the queue overflows in normal operation.
 
 </Accordion>
-<Accordion title="Blocking waits behind the blocking interfaces">
-**Context.** NodeCheckpointStore.isFinished and the log store are plain methods in their interfaces.
+<Accordion title="Reactive reads on the log store, a blocking checkpoint check">
+**Context.** `NodeCheckpointStore.isFinished` is a plain method in its interface; the execution log store used to be one too.
 
-**Decision.** Implement them by waiting on the reactive statement with a timeout, and fall back to a safe value.
+**Decision.** The log store's reads (`readAll`, `forExecution`, `header`, `ofType`) and `replaceAll` are reactive, so nothing parks a thread. `append` stays fire-and-forget. Start-up recovery and the idempotency reload hold new starts back (HTTP 503, `reason=recovering`) until they are done.
 
-**Consequences.** Works with callers that are not reactive; occupies the calling thread and hides a slow database behind 'unfinished' or 'empty'.
+**Consequences.** The store has no blocking call and no exemption in the architecture rules; the history can look empty for a moment after start-up. The checkpoint store's check still waits on the statement with a timeout and falls back to 'unfinished'.
 
-**Alternatives considered.** Make the interfaces reactive: cleaner, a change in core and plugin-api.
+**Alternatives considered.** Keep the blocking interface with a writer thread: simpler for callers, but a parked thread.
 
-**Revisit when.** the waits show up in latency, or a caller runs on an event-loop thread.
+**Revisit when.** the checkpoint store's check shows up in latency.
 
 </Accordion>
 <Accordion title="Store checkpoints one row per message, no size cap">

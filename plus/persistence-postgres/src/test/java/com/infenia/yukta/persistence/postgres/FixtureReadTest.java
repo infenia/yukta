@@ -72,7 +72,7 @@ class FixtureReadTest extends PostgresTestSupport {
       assertThat(events.readAll().collectList().block())
           .extracting(ExecutionLogEvent::type)
           .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
-      events.close();
+      events.stop();
 
       final Message<?> checkpoint =
           new R2dbcNodeCheckpointStore(db, mapper).get("r1", "n1").block();
