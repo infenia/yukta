@@ -47,7 +47,8 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap",
-  "PMD.CouplingBetweenObjects"
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports"
 })
 public class McpClientGateway implements SmartLifecycle {
 
@@ -69,6 +70,9 @@ public class McpClientGateway implements SmartLifecycle {
 
   /** Key of a tool name. */
   private static final String NAME = "name";
+
+  /** Whether the gateway is started, so Spring calls {@link #stop(Runnable)} on shutdown. */
+  private final AtomicBoolean running = new AtomicBoolean();
 
   private static final ParameterizedTypeReference<ServerSentEvent<String>> SSE =
       new ParameterizedTypeReference<>() {};
@@ -400,9 +404,6 @@ public class McpClientGateway implements SmartLifecycle {
     sessions.cleanUp();
     return sessions.estimatedSize();
   }
-
-  /** Whether the gateway is started, so Spring calls {@link #stop(Runnable)} on shutdown. */
-  private final AtomicBoolean running = new AtomicBoolean();
 
   @Override
   public void start() {
