@@ -213,8 +213,11 @@ describe('the edit form', () => {
       parents: ['lead', 'ops'],
       settings: {},
     });
-    expect(await screen.findByLabelText('where')).toHaveTextContent(
-      '/supervisors?supervisor=fresh'
+    // findByLabelText resolves at once on the old path, so wait for the navigation itself.
+    await waitFor(() =>
+      expect(screen.getByLabelText('where')).toHaveTextContent(
+        '/supervisors?supervisor=fresh'
+      )
     );
   });
 
