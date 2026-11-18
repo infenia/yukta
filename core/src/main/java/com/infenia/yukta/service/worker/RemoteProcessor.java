@@ -107,6 +107,7 @@ public class RemoteProcessor implements ProcessorPlugin {
   }
 
   @Override
+  @SuppressWarnings("removal")
   public Mono<Void> shutdown(final Map<String, Object> config) {
     return local.shutdown(config);
   }
@@ -128,11 +129,13 @@ public class RemoteProcessor implements ProcessorPlugin {
   }
 
   @Override
+  @SuppressWarnings("removal")
   public boolean isComputationallyHeavy(final Map<String, Object> config) {
     return local.isComputationallyHeavy(config);
   }
 
   @Override
+  @SuppressWarnings("removal")
   public boolean suppressOptimizationHint(final Map<String, Object> config) {
     return local.suppressOptimizationHint(config);
   }

@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.orchestrator.assembly.NodeAssembler;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
+import com.infenia.yukta.service.orchestrator.stream.NodeInputs;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.runtime.store.ActivePluginRegistry;
@@ -102,6 +103,7 @@ public class TriggerNodeAssemblerStrategy implements NodeAssemblerStrategy {
       // A trigger has no upstream: its clock starts as soon as it is subscribed.
       final NodeActivity activity = new NodeActivity();
       stream = stream.doOnSubscribe(_ -> activity.touch());
+      stream = NodeInputs.recordStartPayload(stream, tracker, context.executionId(), node);
 
       Flux<Message<?>> built =
           StreamAssemblyHelper.buildStreamWithContext(

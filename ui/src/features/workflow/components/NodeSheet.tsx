@@ -84,6 +84,15 @@ function Config({
   );
 }
 
+/** The server sends the input as JSON text (cut when long); a cut or plain text stays as it is. */
+function prettyJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
 function Results({
   sessionId,
   executionId,
@@ -264,7 +273,7 @@ export function NodeSheet({
 
             {actions.length > 0 && (
               <Section title="Actions">
-                <div className="flex flex-wrap gap-1.5">
+                <div className="grid grid-cols-[repeat(auto-fill,2rem)] gap-1.5">
                   {actions.map((item) => (
                     <RequireControl
                       key={item.command}
@@ -275,7 +284,9 @@ export function NodeSheet({
                       <Button
                         type="button"
                         variant="outline"
-                        size="sm"
+                        size="icon"
+                        aria-label={item.label}
+                        title={item.label}
                         onClick={() => onCommand(node.nodeId, item.command)}
                       >
                         <span
@@ -284,11 +295,19 @@ export function NodeSheet({
                         >
                           {ACTION_ICONS[item.command]}
                         </span>
-                        {item.label}
                       </Button>
                     </RequireControl>
                   ))}
                 </div>
+              </Section>
+            )}
+
+            {typeof task?.metadata?.input === 'string' && (
+              <Section title="Started with">
+                <CodeBlock
+                  code={prettyJson(task.metadata.input)}
+                  label="input"
+                />
               </Section>
             )}
 

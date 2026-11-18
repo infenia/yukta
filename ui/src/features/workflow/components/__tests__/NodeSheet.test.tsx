@@ -94,6 +94,46 @@ describe('NodeSheet', () => {
     expect(screen.queryByText('hello')).not.toBeInTheDocument();
   });
 
+  it('shows what the node started with, as formatted JSON, and falls back to the raw text', () => {
+    const task = {
+      nodeId: 'work',
+      module: 'T',
+      status: 'RUNNING',
+      startTime: '2026-01-01T10:00:00',
+      endTime: null,
+      metadata: { input: '{"branch":"main"}' },
+    };
+    const { unmount } = render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <NodeSheet
+          node={node('work', 'PROCESSOR')}
+          task={task}
+          sessionId="s"
+          workflowId="w"
+          executionId="e1"
+          entries={[]}
+          tab="node"
+          onTab={vi.fn()}
+          onCommand={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </QueryClientProvider>
+    );
+    expect(screen.getByText('Started with')).toBeInTheDocument();
+    expect(document.body).toHaveTextContent('"branch": "main"');
+    unmount();
+
+    open({
+      task: { ...task, metadata: { input: '{"cut": "tru... [truncated' } },
+    });
+    expect(document.body).toHaveTextContent('[truncated');
+  });
+
+  it('has no Started with section when the node reported no input', () => {
+    open();
+    expect(screen.queryByText('Started with')).not.toBeInTheDocument();
+  });
+
   it("shows only this node's log lines and its config", async () => {
     open();
     expect(screen.getByText('hello')).toBeInTheDocument();

@@ -90,12 +90,12 @@ Every operation has a default; override only what the plugin needs.
 | `initialize(config)` | One-time setup; runs many times, with different configs, on a shared instance, so it must be idempotent and limited to warming caches | does nothing |
 | `prepare(config)` | Pre-execution step run for every node right after `initialize`, typically to pre-parse expressions | does nothing |
 | `forNode(config)` | Returns the object that serves one node. Called once per node when a run is assembled; per-node state lives in that object's fields | returns `this`; `null` also means `this` |
-| `shutdown(config)` | Releases resources. The engine does not call it, because instances are shared | does nothing |
+| `shutdown(config)` | Deprecated, will be removed. Releases resources. The engine does not call it, because instances are shared | does nothing |
 | `isBlocking()` | The plugin does blocking I/O or long synchronous work and needs a dedicated thread pool | `false` |
 | `requiresControlPlane()` | The plugin keeps state in the server process or calls back into it, so a node of this type cannot be placed on a worker | `false` |
 | `onControlSignal(message)` | Handles a control-bus command addressed to this node; returns `Mono<Message<?>>` | empty |
-| `isComputationallyHeavy(config)` | Hint for the workflow validator | `false` |
-| `suppressOptimizationHint(config)` | Placement is intentional; suppresses the validator's optimization hints | `false` |
+| `isComputationallyHeavy(config)` | Deprecated, will be removed. No validator reads it | `false` |
+| `suppressOptimizationHint(config)` | Deprecated, will be removed. No validator reads it | `false` |
 
 Order for one node: `validateConfig` and `validateInContext` at validation, `initialize` and `prepare` at compile, `forNode` when the run is assembled, then `start`, `process` or `consume`.
 

@@ -200,7 +200,10 @@ public interface Plugin {
    *
    * @param config the plugin configuration
    * @return a Mono that completes when cleanup is done
+   * @deprecated never called by the engine; release resources with the owning container's
+   *     lifecycle. To be removed in the next major SPI version.
    */
+  @Deprecated(forRemoval = true)
   default Mono<Void> shutdown(Map<String, Object> config) {
     return Mono.empty();
   }
@@ -239,11 +242,13 @@ public interface Plugin {
 
   /**
    * Indicates whether this plugin performs computationally heavy operations for the given
-   * configuration. Used by validators to detect performance optimization opportunities.
+   * configuration. The engine does not call it.
    *
    * @param config the plugin configuration
    * @return true if the plugin is computationally heavy, false otherwise
+   * @deprecated no validator reads it; to be removed in the next major SPI version.
    */
+  @Deprecated(forRemoval = true)
   default boolean isComputationallyHeavy(Map<String, Object> config) {
     return false;
   }
@@ -255,7 +260,10 @@ public interface Plugin {
    *
    * @param config the plugin configuration
    * @return true if placement is intentional and optimization warnings should be suppressed
+   * @deprecated no validator reads it (FILTER checks its own config); to be removed in the next
+   *     major SPI version.
    */
+  @Deprecated(forRemoval = true)
   default boolean suppressOptimizationHint(Map<String, Object> config) {
     return false;
   }

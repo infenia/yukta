@@ -16,6 +16,7 @@ import com.infenia.yukta.plugin.util.VariableResolver;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.assembly.NodeAssembler;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
+import com.infenia.yukta.service.orchestrator.stream.NodeInputs;
 import com.infenia.yukta.service.orchestrator.stream.NodeStreams;
 import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
@@ -133,7 +134,12 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
           activity
               .guard(
                   NodeTimeouts.retimeOnFirstInput(
-                      safeInput.doOnNext(_ -> activity.touch()).onErrorMap(UpstreamFailure::mark),
+                      NodeInputs.recordFirst(
+                              safeInput.doOnNext(_ -> activity.touch()),
+                              tracker,
+                              context.executionId(),
+                              node)
+                          .onErrorMap(UpstreamFailure::mark),
                       node,
                       plugin,
                       variableResolver,
