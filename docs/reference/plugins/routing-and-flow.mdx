@@ -142,7 +142,7 @@ Run a target processor repeatedly until a condition is met. `LOOP_PREDICATE` emi
 | `delayInterval` | string | `PT0S` | no | ISO-8601 wait between iterations. |
 | `failureStrategy` | `ABORT`, `RETRY`, `SKIP` or `ESCALATE` | `ABORT` | no | What a failing iteration does. |
 
-`failureStrategy`: `ABORT` aborts the run; `RETRY` repeats the iteration with the same input; `SKIP` drops the failed iteration and goes on; `ESCALATE` ends the whole run with a `RunAbortedException` that nothing retries or routes. `RETRY` and `SKIP` each use up an iteration, so `maxIterations` and `maxDuration` bound them.
+`failureStrategy`: `ABORT` aborts the run; `RETRY` repeats the iteration with the same input; `SKIP` ends the loop and emits the last good message (the input if no round has passed); `ESCALATE` ends the whole run with a `RunAbortedException` that nothing retries or routes. `RETRY` uses up an iteration, so `maxIterations` and `maxDuration` bound it.
 
 - **Output port:** `default`.
 - **Errors:** `Target plugin not found: <id>`; `Target plugin must be a ProcessorPlugin: <id>`.

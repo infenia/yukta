@@ -59,7 +59,8 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
             + "- maxDuration: ISO-8601 duration string (default: PT1M).\n"
             + "- delayInterval: ISO-8601 duration string to wait between iterations (default:"
             + " PT0S).\n"
-            + "- failureStrategy: 'ABORT', 'RETRY', 'SKIP', or 'ESCALATE'. Default is 'ABORT'.",
+            + "- failureStrategy: 'ABORT', 'RETRY' (repeat the round), 'SKIP' (end the loop with"
+            + " the last good message), or 'ESCALATE'. Default is 'ABORT'.",
         Optional.of(new UiDesign("slate", "loop", "Loop", 140, 80)));
   }
 
@@ -226,7 +227,7 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
     return switch (strategy) {
       case ABORT -> Mono.error(error);
       case RETRY -> Mono.just(state.retry()).delayElement(delay);
-      case SKIP -> Mono.just(state.next(state.message(), false)).delayElement(delay);
+      case SKIP -> Mono.just(state.withTerminated(true));
       case ESCALATE ->
           Mono.error(
               new RunAbortedException("Loop execution failed: " + error.getMessage(), error));

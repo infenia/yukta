@@ -321,6 +321,21 @@ class LoopPredicateProcessorTest {
   }
 
   @Test
+  void skipEndsTheLoopWithoutRunningTheRemainingRounds() {
+    when(registry.find(TARGET)).thenReturn(Optional.<Plugin>of(targetPlugin));
+    when(targetPlugin.process(any(), any())).thenReturn(Flux.error(new RuntimeException("fail")));
+    final Map<String, Object> config =
+        Map.of(TARGETPLUGINID, TARGET, FAILURESTRATEGY, "SKIP", MAXITERATIONS, 5);
+
+    StepVerifier.create(
+            processor.process(Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)), config))
+        .expectNextMatches(m -> TEST.equals(m.payload()))
+        .verifyComplete();
+
+    verify(targetPlugin, times(1)).process(any(), any());
+  }
+
+  @Test
   void testFailureStrategies() {
     final String targetId = TARGET;
     when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
