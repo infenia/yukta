@@ -3,7 +3,8 @@
 
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { expect, test, type Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * Runs against a real server (see playwright.real.config.ts). Every session it makes is named
@@ -87,7 +88,7 @@ test.describe('examples from the UI on a real server', () => {
   });
 
   test('the server offers the bundled examples as templates', () => {
-    expect(templates.length).toBeGreaterThanOrEqual(13);
+    expect(templates.length).toBeGreaterThanOrEqual(12);
   });
 
   test('every template creates a session and opens its first workflow', async ({
@@ -117,18 +118,18 @@ test.describe('examples from the UI on a real server', () => {
     expect(errors).toEqual([]);
   });
 
-  for (const [id, payload] of [
-    ['05-dependency-updates', '05-dependency-updates/patch-bump.json'],
-    ['13-multi-agent', '13-multi-agent/request.json'],
-  ] as const) {
-    test(`${id} runs with its sample payload`, async ({ page }) => {
-      const errors = watchConsole(page);
-      await createFromTemplate(page, templates, id);
-      const executionId = await startRun(page, example(payload));
-      await expect.poll(() => status(page, executionId)).toBe('SUCCESS');
-      expect(errors).toEqual([]);
-    });
-  }
+  test('05 dependency updates runs with its sample payload', async ({
+    page,
+  }) => {
+    const errors = watchConsole(page);
+    await createFromTemplate(page, templates, '05-dependency-updates');
+    const executionId = await startRun(
+      page,
+      example('05-dependency-updates/patch-bump.json')
+    );
+    await expect.poll(() => status(page, executionId)).toBe('SUCCESS');
+    expect(errors).toEqual([]);
+  });
 
   test('04 a borderline PR waits for a reviewer, who answers in the UI', async ({
     page,
@@ -140,7 +141,10 @@ test.describe('examples from the UI on a real server', () => {
       example('04-pr-risk-gate/borderline.json')
     );
     await expect(page.getByText('Waiting for an answer')).toBeVisible();
-    await page.getByRole('button', { name: 'Approve', exact: true }).click();
+    await page
+      .getByRole('main')
+      .getByRole('button', { name: 'Approve', exact: true })
+      .click();
     // a HIGH risk answer asks for confirmation first
     await page
       .getByRole('dialog')

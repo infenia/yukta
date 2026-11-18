@@ -19,10 +19,13 @@ export class RunsPage {
     await this.page.goto('/runs');
   }
 
-  async gotoHistory(status?: string): Promise<void> {
-    await this.page.goto(
-      status ? `/history?status=${encodeURIComponent(status)}` : '/history'
-    );
+  /** Opens the history, filtered by status and/or by text (an execution id, a session or a workflow). */
+  async gotoHistory(status?: string, text?: string): Promise<void> {
+    const query = new URLSearchParams();
+    if (status) query.set('status', status);
+    if (text) query.set('text', text);
+    const qs = query.toString();
+    await this.page.goto(qs ? `/history?${qs}` : '/history');
   }
 
   /** The link of a run by the start of its execution id. */

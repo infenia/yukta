@@ -27,6 +27,24 @@ export class WorkflowDetailsPage {
     );
   }
 
+  /** Opens a workflow with one of its runs selected (the exec query of the URL). */
+  async gotoRun(
+    sessionId: string,
+    workflowId: string,
+    executionId: string
+  ): Promise<void> {
+    await this.page.goto(
+      `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}?exec=${encodeURIComponent(executionId)}`
+    );
+  }
+
+  /** A button of the run controls: Run, Pause, Resume, ... */
+  runControl(name: string): Locator {
+    return this.page
+      .getByRole('group', { name: 'Run controls' })
+      .getByRole('button', { name });
+  }
+
   /** A node of the graph, by its id with spaces as underscores as the page names it. */
   node(nodeId: string): Locator {
     return this.page.getByTestId(`workflow-node-${nodeId}`);

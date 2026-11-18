@@ -6,13 +6,15 @@
 # real-server Playwright tests and the examples. It is the boot jar on a free loopback port with an
 # ADMIN key, every plugin and the process commands `sh` and `echo`.
 #
-# Usage: release/e2e-server.sh start|stop|url|key
+# Usage: release/e2e-server.sh start|stop|url|key|viewer-key
 #   start  build the jar if there is none, start it, wait for /actuator/health, write build/e2e-server/
 #   stop   stop it; if it had already died, print the tail of its log
 #   url    print the base URL of the running server
 #   key    print the ADMIN API key
+#   viewer-key  print the VIEWER API key (reads only; for the role tests)
 # Env:   YUKTA_E2E_PORT        port to use (default: a free one)
 #        YUKTA_E2E_KEY         ADMIN key to use (default: a random one)
+#        YUKTA_E2E_VIEWER_KEY  VIEWER key to use (default: a random one)
 #        YUKTA_E2E_ALLOW_ANY   true to let workflows run any executable (the examples need it)
 #        JAVA_TOOL_OPTIONS     passed to the JVM (for example the JaCoCo agent)
 #        JAVA                  the java binary (default: java)
@@ -66,6 +68,7 @@ start() {
   mkdir -p "$dir"
   local port=${YUKTA_E2E_PORT:-$(free_port)}
   local key=${YUKTA_E2E_KEY:-e2e-$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')}
+  local viewer=${YUKTA_E2E_VIEWER_KEY:-e2e-$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')}
   local process=YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo
   if [ "${YUKTA_E2E_ALLOW_ANY:-false}" = true ]; then
     process=YUKTA_PROCESS_ALLOW_ANY=true
@@ -80,12 +83,17 @@ start() {
     YUKTA_API_KEYS_0_KEY="$key" \
     YUKTA_API_KEYS_0_ROLE=ADMIN \
     "YUKTA_API_KEYS_0_SESSIONS_0=*" \
+    YUKTA_API_KEYS_1_NAME=e2e-viewer \
+    YUKTA_API_KEYS_1_KEY="$viewer" \
+    YUKTA_API_KEYS_1_ROLE=VIEWER \
+    "YUKTA_API_KEYS_1_SESSIONS_0=*" \
     JAVA_TOOL_OPTIONS="$options" \
     nohup "$java_bin" -jar "$found" >"$dir/server.log" 2>&1 &
   echo $! >"$dir/pid"
   echo "http://127.0.0.1:$port" >"$dir/url"
   printf '%s' "$key" >"$dir/key"
-  chmod 600 "$dir/key"
+  printf '%s' "$viewer" >"$dir/viewer-key"
+  chmod 600 "$dir/key" "$dir/viewer-key"
   local i
   for ((i = 0; i < 90; i++)); do
     if curl -fsS "$(cat "$dir/url")/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
@@ -128,8 +136,9 @@ case ${1:-} in
   stop) stop ;;
   url) cat "$dir/url" ;;
   key) cat "$dir/key" ;;
+  viewer-key) cat "$dir/viewer-key" ;;
   *)
-    echo "usage: $0 start|stop|url|key" >&2
+    echo "usage: $0 start|stop|url|key|viewer-key" >&2
     exit 2
     ;;
 esac
