@@ -13,8 +13,9 @@ import java.util.Optional;
  * What the model and tool calls of each run have used so far, so a node can stop a run that loops
  * on a model. One ledger ({@link #shared()}) serves every plugin, so a budget spans {@code
  * LLM_CALL} and {@code MCP_TOOL_CALL}; a budget with an {@code agent} counts that agent apart from
- * the rest of the run. The newest {@value #MAX_RUNS} keys are remembered; an older one starts again
- * from zero.
+ * the rest of the run. A limit on calls is exact ({@link #reserve}); tokens and cost are an
+ * estimate that in-flight calls can pass. The newest {@value #MAX_RUNS} keys are remembered; an
+ * older one starts again from zero.
  */
 @SuppressFBWarnings(
     value = "MS_EXPOSE_REP",
@@ -139,6 +140,25 @@ public final class RunBudgets {
         budget.get(MAX_CALLS) == null
             ? null
             : (long) Math.ceil(limit(budget, MAX_CALLS).doubleValue()));
+  }
+
+  /**
+   * Checks the run and, if it may call, counts the call in one step, so calls that start together
+   * cannot all pass the check. Tokens and cost are known only after a call, so they stay an
+   * estimate: the run can pass its limit by the calls already in flight.
+   *
+   * @param runId the run
+   * @param budget the option of the node
+   * @return why the run may not call, or empty if the call is counted and may go on
+   */
+  public Optional<String> reserve(final String runId, final Map<?, ?> budget) {
+    synchronized (byRun) {
+      final Optional<String> why = exceeded(runId, budget);
+      if (why.isEmpty()) {
+        addCall(runId);
+      }
+      return why;
+    }
   }
 
   /**

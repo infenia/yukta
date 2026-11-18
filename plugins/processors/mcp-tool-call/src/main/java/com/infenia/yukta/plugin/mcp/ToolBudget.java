@@ -41,7 +41,7 @@ class ToolBudget {
     Mono<Void> result = Mono.empty();
     if (config.get(BUDGET) instanceof final Map<?, ?> budget) {
       final String key = RunBudgets.key(runId, budget);
-      final Optional<String> why = LEDGER.exceeded(key, budget);
+      final Optional<String> why = LEDGER.reserve(key, budget);
       if (why.isPresent()) {
         reporter.increment(nodeId, "mcp.budget.exceeded", "mcp");
         result =
@@ -49,8 +49,6 @@ class ToolBudget {
                 Boolean.TRUE.equals(budget.get("hardStop"))
                     ? new RunAbortedException("MCP budget exceeded: " + why.get())
                     : new IllegalStateException("MCP budget exceeded: " + why.get()));
-      } else {
-        LEDGER.addCall(key);
       }
     }
     return result;
