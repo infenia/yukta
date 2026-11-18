@@ -41,8 +41,10 @@ import com.infenia.yukta.service.runtime.store.ActivePluginRegistry;
 import com.infenia.yukta.service.runtime.valve.ReactiveControlValve;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -700,15 +702,176 @@ class TerminalNodeAssemblerStrategyTest {
     verify(channel, never()).outbound(any(), any(), any());
   }
 
+  // ── mutation baseline (#1124) ─────────────────────────────────────────────
+
+  private List<String> nodeEndStatuses(final String runStatus) {
+    resultService.complete(EXECUTION_ID, runStatus);
+    return resultService.stream(EXECUTION_ID)
+        .filter(event -> NODE_ID.equals(event.nodeId()) && event.status() != null)
+        .map(event -> event.status())
+        .collectList()
+        .block();
+  }
+
+  @Test
+  void createAssembler_terminalNotReached_reportsSkippedNodeEnd() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any())).thenReturn(Mono.empty());
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final AssemblyContext context = buildContext(Flux.empty());
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(Flux.empty());
+
+    strategy
+        .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+    StepVerifier.create(context.terminals().getFirst()).verifyComplete();
+
+    assertThat(nodeEndStatuses("SUCCESS")).containsExactly("SKIPPED");
+  }
+
+  @Test
+  void createAssembler_terminalError_reportsFailureNodeEnd() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any())).thenReturn(Mono.error(new RuntimeException("boom")));
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Flux<Message<?>> one = Flux.just(DefaultMessage.create(UUID.randomUUID(), "data"));
+    final AssemblyContext context = buildContext(one);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(one);
+
+    strategy
+        .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+    StepVerifier.create(context.terminals().getFirst()).verifyError(RuntimeException.class);
+
+    assertThat(nodeEndStatuses("FAILURE")).contains("FAILURE");
+  }
+
+  @Test
+  void createAssembler_cancelledTerminal_reportsCancelledNodeEnd() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(inv -> ((Flux<Message<?>>) inv.getArgument(0)).then());
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Flux<Message<?>> waiting = Flux.never();
+    final AssemblyContext context = buildContext(waiting);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(waiting);
+    strategy
+        .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.terminals().getFirst()).expectSubscription().thenCancel().verify();
+
+    assertThat(nodeEndStatuses("CANCELLED")).contains("CANCELLED");
+  }
+
+  @Test
+  void createAssembler_pausedAfterFirstInput_doesNotTimeOut() {
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(inv -> ((Flux<Message<?>>) inv.getArgument(0)).then());
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Sinks.Many<Message<?>> source = Sinks.many().unicast().onBackpressureBuffer();
+    final Flux<Message<?>> input = source.asFlux();
+    final ReactiveControlValve valve = new ReactiveControlValve();
+    final AssemblyContext context = buildContext(input, valve);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(input);
+    strategy
+        .createAssembler(node, terminal, Duration.ofMillis(100), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.terminals().getFirst())
+        .expectSubscription()
+        .then(() -> source.tryEmitNext(DefaultMessage.create(UUID.randomUUID(), "data")))
+        .then(valve::pause)
+        .expectNoEvent(Duration.ofMillis(500))
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void createAssembler_pausedAfterItsLastInput_doesNotTimeOut() {
+    final ReactiveControlValve valve = new ReactiveControlValve();
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(inv ->
+            ((Flux<Message<?>>) inv.getArgument(0))
+                .then(Mono.fromRunnable(valve::pause))
+                .then(Mono.never()));
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Flux<Message<?>> one = Flux.just(DefaultMessage.create(UUID.randomUUID(), "data"));
+    final AssemblyContext context = buildContext(one, valve);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(one);
+    strategy
+        .createAssembler(node, terminal, Duration.ofMillis(100), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+
+    StepVerifier.create(context.terminals().getFirst())
+        .expectSubscription()
+        .expectNoEvent(Duration.ofMillis(500))
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void createAssembler_blockingTerminal_takesInputAndSubscribesOnTheScheduler() {
+    assertThat(runThreads(true)).allMatch(name -> name.startsWith("boundedElastic"));
+  }
+
+  @Test
+  void createAssembler_nonBlockingTerminal_staysOnTheSubscribingThread() {
+    assertThat(runThreads(false)).noneMatch(name -> name.startsWith("boundedElastic"));
+  }
+
+  /** The threads that the terminal subscribes on and receives its input on. */
+  private List<String> runThreads(final boolean blocking) {
+    final List<String> threads = new CopyOnWriteArrayList<>();
+    final TerminalPlugin terminal = mock(TerminalPlugin.class);
+    when(terminal.isBlocking()).thenReturn(blocking);
+    when(terminal.consume(any(), any()))
+        .thenAnswer(inv ->
+            Mono.defer(() -> {
+              threads.add(Thread.currentThread().getName());
+              return ((Flux<Message<?>>) inv.getArgument(0))
+                  .doOnNext(_ -> threads.add(Thread.currentThread().getName()))
+                  .then();
+            }));
+    final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
+    final Flux<Message<?>> one = Flux.just(DefaultMessage.create(UUID.randomUUID(), "data"));
+    final AssemblyContext context = buildContext(one);
+    when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
+        .thenReturn(one);
+    strategy
+        .createAssembler(node, terminal, Duration.ofSeconds(5), 0, 1024, new ParentEdgeInfo[0])
+        .assemble(context);
+    StepVerifier.create(context.terminals().getFirst()).verifyComplete();
+    assertThat(threads).hasSize(2);
+    return threads;
+  }
+
   // ── helpers ───────────────────────────────────────────────────────────────
 
-  @SuppressWarnings("unchecked")
   private AssemblyContext buildContext(final Flux<Message<?>> parentStream) {
+    return buildContext(parentStream, new ReactiveControlValve());
+  }
+
+  @SuppressWarnings("unchecked")
+  private AssemblyContext buildContext(
+      final Flux<Message<?>> parentStream, final ReactiveControlValve runValve) {
     final Flux<Message<?>>[] streams = new Flux[] {parentStream};
-    return buildContextWithStreams(streams);
+    return buildContextWithStreams(streams, runValve);
   }
 
   private AssemblyContext buildContextWithStreams(final Flux<Message<?>>[] streams) {
+    return buildContextWithStreams(streams, new ReactiveControlValve());
+  }
+
+  private AssemblyContext buildContextWithStreams(
+      final Flux<Message<?>>[] streams, final ReactiveControlValve runValve) {
     final ExecutionControl control =
         new ExecutionControl(
             SESSION_ID,
@@ -717,7 +880,7 @@ class TerminalNodeAssemblerStrategyTest {
             null,
             Map.of(),
             Sinks.one(),
-            new ReactiveControlValve(),
+            runValve,
             Map.of(),
             Map.of(),
             Map.of(),
