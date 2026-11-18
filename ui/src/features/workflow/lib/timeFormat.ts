@@ -20,17 +20,35 @@ export function formatClockTime(iso: string | null | undefined): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
-const DATE_TIME = new Intl.DateTimeFormat(undefined, {
-  dateStyle: 'short',
-  timeStyle: 'medium',
-});
+const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
-/** Format an ISO timestamp as a local date and clock time, or the placeholder when absent. */
-export function formatDateTime(iso: string | null | undefined): string {
+/** Format an ISO timestamp as a local DD-MMM-YYYY date, e.g. "18-Nov-2026", or the placeholder. */
+export function formatDate(iso: string | null | undefined): string {
   const date = iso ? new Date(iso) : null;
   return date && !Number.isNaN(date.getTime())
-    ? DATE_TIME.format(date)
+    ? `${pad(date.getDate())}-${MONTHS[date.getMonth()]}-${date.getFullYear()}`
     : TIME_PLACEHOLDER;
+}
+
+/** Format an ISO timestamp as "DD-MMM-YYYY HH:MM:SS" local time, or the placeholder when absent. */
+export function formatDateTime(iso: string | null | undefined): string {
+  const date = formatDate(iso);
+  return date === TIME_PLACEHOLDER
+    ? TIME_PLACEHOLDER
+    : `${date} ${formatClockTime(iso)}`;
 }
 
 /** Format the duration between two ISO timestamps as e.g. "1m 12s". */
@@ -59,9 +77,9 @@ export function formatDuration(
   return `${seconds}s`;
 }
 
-/** Format an ISO timestamp as a bracketed log prefix, e.g. "[14:22:15]". */
+/** Format an ISO timestamp as a bracketed log prefix, e.g. "[18-Nov-2026 14:22:15]". */
 export function formatLogTimestamp(iso: string | null | undefined): string {
-  return `[${formatClockTime(iso)}]`;
+  return `[${formatDateTime(iso)}]`;
 }
 
 const RELATIVE = new Intl.RelativeTimeFormat('en', {

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
+import { formatDateTime } from '@/features/workflow/lib/timeFormat';
 import { useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -120,7 +121,7 @@ export function ControlAuditPanel() {
               {audit.data.map((entry, index) => (
                 <TableRow key={keys[index]}>
                   <TableCell className="text-on-surface-variant">
-                    {new Date(entry.time).toLocaleString()}
+                    {formatDateTime(entry.time)}
                   </TableCell>
                   <TableCell className="text-code-sm">
                     {entry.actor ?? 'api'}

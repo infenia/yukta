@@ -11,7 +11,7 @@ import { getWorkflowDefinition } from '../api/getWorkflowDefinition';
 import { useExecutionResults } from '../hooks/useExecutionResults';
 import { categoryAccent } from '../lib/categoryAccent';
 import { toNodeUiStatus } from '../lib/statusMapper';
-import { formatClockTime, formatDuration } from '../lib/timeFormat';
+import { formatDateTime, formatDuration } from '../lib/timeFormat';
 import type {
   LogEntry,
   TaskProgress,
@@ -254,8 +254,8 @@ export function NodeSheet({
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <StatusPill status={task?.status} scope="node" iconOnly />
                 <span className="text-body-sm num text-on-surface-variant">
-                  {formatClockTime(task?.startTime)} to{' '}
-                  {formatClockTime(task?.endTime)}
+                  {formatDateTime(task?.startTime)} to{' '}
+                  {formatDateTime(task?.endTime)}
                   {' · '}
                   {formatDuration(task?.startTime, task?.endTime)}
                 </span>
