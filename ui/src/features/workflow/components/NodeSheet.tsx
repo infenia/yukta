@@ -84,6 +84,15 @@ function Config({
   );
 }
 
+/** The server sends the input as JSON text (cut when long); a cut or plain text stays as it is. */
+function prettyJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
 function Results({
   sessionId,
   executionId,
@@ -289,6 +298,15 @@ export function NodeSheet({
                     </RequireControl>
                   ))}
                 </div>
+              </Section>
+            )}
+
+            {typeof task?.metadata?.input === 'string' && (
+              <Section title="Started with">
+                <CodeBlock
+                  code={prettyJson(task.metadata.input)}
+                  label="input"
+                />
               </Section>
             )}
 

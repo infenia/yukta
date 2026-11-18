@@ -10,6 +10,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -257,9 +258,17 @@ class TerminalNodeAssemblerStrategyTest {
         .assemble(context);
     StepVerifier.create(context.terminals().getFirst()).verifyComplete();
 
-    verify(tracker)
+    // RUNNING at the first activity, then once more carrying what the node started with
+    verify(tracker, times(2))
         .emitTaskStatusEvent(
             eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.RUNNING), any());
+    verify(tracker)
+        .emitTaskStatusEvent(
+            eq(EXECUTION_ID),
+            eq(NODE_ID),
+            anyString(),
+            eq(TaskStatus.RUNNING),
+            eq(Map.of("input", "data")));
   }
 
   @Test
