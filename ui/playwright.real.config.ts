@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
  * The UI against a REAL Yukta server (the native binary, the Docker image or bootRun): no MSW, no
  * mocked API. It creates sessions from the bundled templates and runs the examples from the browser.
  *
- *   YUKTA_URL=http://127.0.0.1:9858 pnpm test:e2e:real      (release/ui-smoke.sh does the same)
+ *   YUKTA_URL=http://127.0.0.1:9858 YUKTA_API_KEY=<key> pnpm test:e2e:real      (release/ui-smoke.sh does the same)
  *
  * The server needs what the examples need: YUKTA_PLUGINS_ENABLED=all and
  * YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 (see examples/README.md). A Docker server also needs
@@ -24,6 +24,10 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: process.env['YUKTA_URL'] || 'http://127.0.0.1:9858',
+    // the ADMIN key of a server that has keys (release/e2e-server.sh key); none for an open server
+    extraHTTPHeaders: process.env['YUKTA_API_KEY']
+      ? { Authorization: `Bearer ${process.env['YUKTA_API_KEY']}` }
+      : {},
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
