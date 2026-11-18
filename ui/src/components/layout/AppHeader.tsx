@@ -6,6 +6,7 @@ import HeaderLogo from './HeaderLogo';
 import IdentityChip from './IdentityChip';
 import AccountMenu from './AccountMenu';
 import ThemeToggle from './ThemeToggle';
+import DensityToggle from './DensityToggle';
 import { Tip } from '@/components/ui/tooltip';
 import { NotificationBell } from '@/features/inbox/NotificationBell';
 import { openCommandPalette } from './CommandPalette.helpers';
@@ -138,6 +139,7 @@ export default function AppHeader() {
         <NotificationBell />
         <div className="hidden items-center sm:flex">
           <IdentityChip />
+          <DensityToggle />
           <ThemeToggle />
         </div>
         <AccountMenu />

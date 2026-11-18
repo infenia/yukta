@@ -200,24 +200,31 @@ export function GroupingSwitch({
     >
       {(
         [
-          [true, 'Group by stage'],
-          [false, 'All nodes'],
+          [true, 'Group by stage', 'stacks'],
+          [false, 'All nodes', 'hub'],
         ] as const
-      ).map(([value, label]) => (
+      ).map(([value, label, icon]) => (
         <button
           key={label}
           type="button"
           role="radio"
           aria-checked={grouped === value}
+          aria-label={label}
+          title={label}
           onClick={() => onChange(value)}
           className={cn(
-            'text-label-sm rounded-md px-2.5 py-1',
+            'flex size-7 items-center justify-center rounded-md',
             grouped === value
               ? 'bg-muted text-on-surface'
               : 'text-on-surface-variant hover:text-on-surface'
           )}
         >
-          {label}
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
+            {icon}
+          </span>
         </button>
       ))}
     </div>

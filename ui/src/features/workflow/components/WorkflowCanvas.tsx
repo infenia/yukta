@@ -16,6 +16,7 @@ import type { StageData, WorkflowFlowNode } from '../lib/layout';
 import '@xyflow/react/dist/style.css';
 import { WorkflowNodeCard } from './nodes/WorkflowNodeCard';
 import { StageFrame, StageNodeCard } from './nodes/StageNodes';
+import { findNodes } from '../lib/findNodes';
 import { layoutGraph } from '../lib/layout';
 import type { TaskProgress, WorkflowGraph } from '../types/workflow';
 
@@ -74,7 +75,7 @@ export function WorkflowCanvas({
   onNodeClick?: (nodeId: string) => void;
   /** Keep the running nodes in view as the run moves on. */
   follow?: boolean;
-  /** Bring the nodes whose ID contains this into view (it wins over follow). */
+  /** Bring the nodes this matches (ID, type, stage, description, edge) into view (it wins over follow). */
   find?: string;
 }) {
   const connectable = onConnect !== undefined;
@@ -89,13 +90,11 @@ export function WorkflowCanvas({
   const running = nodes.filter(
     (node) => node.type !== 'stageFrame' && node.data.status === 'running'
   );
-  const needle = find.trim().toLowerCase();
-  const found = needle
-    ? nodes
-        .filter((node) => node.id.toLowerCase().includes(needle))
-        .map((node) => node.id)
-        .join('\n')
-    : '';
+  const matched = new Set(findNodes(graph, find).map((match) => match.nodeId));
+  const found = nodes
+    .filter((node) => matched.has(node.id))
+    .map((node) => node.id)
+    .join('\n');
   const focus = focusOn
     ? focusOn.map((id) => ({ id }))
     : nodes.length <= LARGE_GRAPH

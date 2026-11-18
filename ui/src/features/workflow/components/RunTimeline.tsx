@@ -61,24 +61,31 @@ export function ViewSwitch({
     >
       {(
         [
-          ['graph', 'Graph'],
-          ['timeline', 'Timeline'],
+          ['graph', 'Graph', 'account_tree'],
+          ['timeline', 'Timeline', 'timeline'],
         ] as const
-      ).map(([value, label]) => (
+      ).map(([value, label, icon]) => (
         <button
           key={value}
           type="button"
           role="radio"
           aria-checked={view === value}
+          aria-label={label}
+          title={label}
           onClick={() => onChange(value)}
           className={cn(
-            'text-label-sm rounded-md px-2.5 py-1',
+            'flex size-7 items-center justify-center rounded-md',
             view === value
               ? 'bg-muted text-on-surface'
               : 'text-on-surface-variant hover:text-on-surface'
           )}
         >
-          {label}
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
+            {icon}
+          </span>
         </button>
       ))}
     </div>

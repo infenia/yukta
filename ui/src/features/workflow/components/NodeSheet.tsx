@@ -264,7 +264,7 @@ export function NodeSheet({
 
             {actions.length > 0 && (
               <Section title="Actions">
-                <div className="flex flex-wrap gap-1.5">
+                <div className="grid grid-cols-[repeat(auto-fill,2rem)] gap-1.5">
                   {actions.map((item) => (
                     <RequireControl
                       key={item.command}
@@ -275,7 +275,9 @@ export function NodeSheet({
                       <Button
                         type="button"
                         variant="outline"
-                        size="sm"
+                        size="icon"
+                        aria-label={item.label}
+                        title={item.label}
                         onClick={() => onCommand(node.nodeId, item.command)}
                       >
                         <span
@@ -284,7 +286,6 @@ export function NodeSheet({
                         >
                           {ACTION_ICONS[item.command]}
                         </span>
-                        {item.label}
                       </Button>
                     </RequireControl>
                   ))}
