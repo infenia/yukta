@@ -19,6 +19,8 @@ import {
 } from '../hooks/useExecutionControl';
 import type { NodeCommand } from './NodeControlsMenu';
 import { RunControls } from './RunControls';
+import { FindNodes } from './FindNodes';
+import { IconButton } from '@/components/common/IconButton';
 import { LogsPanel } from './LogsPanel';
 import { AgentsPanel } from './agents/AgentsPanel';
 import { useAgentStream } from '../hooks/useAgentStream';
@@ -454,14 +456,6 @@ export function WorkflowDetailsPage() {
                         onChange={setView}
                         className="pointer-events-auto"
                       />
-                      <input
-                        type="search"
-                        aria-label="Find node on canvas"
-                        placeholder="Find node"
-                        value={findQuery}
-                        onChange={(event) => setFindQuery(event.target.value)}
-                        className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
-                      />
                       {stages.hasStages && (
                         <GroupingSwitch
                           grouped={stages.grouped}
@@ -469,20 +463,25 @@ export function WorkflowDetailsPage() {
                           className="pointer-events-auto"
                         />
                       )}
+                      <FindNodes
+                        graph={graph}
+                        query={findQuery}
+                        onQuery={setFindQuery}
+                        onPick={(nodeId) => setOpenNode(nodeId)}
+                        className="pointer-events-auto"
+                      />
                       {followable && (
-                        <button
-                          type="button"
+                        <IconButton
+                          icon="my_location"
+                          label="Follow running nodes"
                           aria-pressed={follow}
                           onClick={() => setFollow((value) => !value)}
+                          tone={follow ? 'primary' : 'neutral'}
                           className={cn(
-                            'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
-                            follow
-                              ? 'bg-accent text-accent-foreground'
-                              : 'text-on-surface-variant hover:text-on-surface'
+                            'pointer-events-auto ml-auto size-8',
+                            follow && 'bg-accent'
                           )}
-                        >
-                          Follow running nodes
-                        </button>
+                        />
                       )}
                     </div>
                   )}

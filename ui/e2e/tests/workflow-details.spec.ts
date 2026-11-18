@@ -368,7 +368,7 @@ test.describe('Workflow Details Page', () => {
     page,
   }) => {
     await page.goto(WORKFLOW_URL);
-    const find = page.getByLabel('Find node on canvas');
+    const find = page.getByRole('button', { name: 'Find nodes' });
     await expect(find).toBeVisible();
 
     await page.getByRole('button', { name: 'Maximize the logs' }).click();
