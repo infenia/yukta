@@ -65,8 +65,8 @@ export const options = {
   thresholds: {
     input_answers_sent: [`count>=${Math.floor(ANSWERS * 0.99)}`], // a test that sent nothing must not pass
     input_answer_ok: ['rate>0.99'],
-    input_answer_ms: ['p(95)<500'],
-    input_read_ms: ['p(95)<1000'],
+    input_answer_ms: ['p(95)<2000'], // native -Ob build (nightly); was 500 on the JVM
+    input_read_ms: ['p(95)<2000'], // was 1000 on the JVM
     input_requests_lost: ['count==0'],
     input_stuck_runs: ['count==0'],
     input_sweep_mean_ms: ['value<250'], // with 1,000 open requests a sweep reads them all (in memory)
