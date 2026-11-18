@@ -35,7 +35,7 @@ yk gradle :ui:pnpmTest
 yk gradle :ui:pnpmTestE2e -PrunE2e=true
 ```
 
-Before writing or changing any `e2e/**/*.spec.ts` (MSW-mocked), load the `playwright` skill.
+Before writing or changing any `e2e/**/*.spec.ts` (mocked with `page.route`, or the real-server tier in `e2e/real`), load the `playwright` skill; the tiers are in "Testing tiers" in the root `CLAUDE.md`.
 
 ### E2E against a real server
 `e2e/real/examples.spec.ts` (config `playwright.real.config.ts`, no MSW) drives the UI of a running server: it creates a session from
