@@ -733,4 +733,24 @@ class ExecutionSchedulerTest {
     scheduler.setDraining(false);
     assertThat(scheduler.acquire("s", "w", 0, null).refused()).isFalse();
   }
+
+  @Test
+  void holdStarts_refusesEveryStartUntilAllHoldsAreReleased_butNotChildren() {
+    final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
+    final Runnable first = scheduler.holdStarts();
+    final Runnable second = scheduler.holdStarts();
+
+    assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
+        .isInstanceOf(ExecutionRejectedException.class)
+        .hasMessageContaining("recovering");
+    assertThat(scheduler.acquire("s", "w", 0, null).refused()).isTrue();
+    assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.RECOVERING)).isEqualTo(2);
+    assertThat(scheduler.borrowed().refused()).isFalse();
+
+    first.run();
+    first.run(); // a handle works once
+    assertThat(scheduler.acquire("s", "w", 0, null).refused()).isTrue();
+    second.run();
+    assertThat(scheduler.acquire("s", "w", 0, null).refused()).isFalse();
+  }
 }

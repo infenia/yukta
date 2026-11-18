@@ -46,6 +46,7 @@ class TakeoverRecoveryTest {
 
   @Test
   void onTakeover_theLogIsRecovered() {
+    when(recovery.recover()).thenReturn(Mono.just(List.of()));
     new TakeoverRecovery(election, recovery, resumer, false).afterSingletonsInstantiated();
 
     final ArgumentCaptor<Runnable> action = ArgumentCaptor.forClass(Runnable.class);

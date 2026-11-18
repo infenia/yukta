@@ -22,6 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Rebuilds run history from the execution log when the server starts.
@@ -122,7 +124,12 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     // With several servers a standby must not mark a living leader's runs aborted: recovery then
     // happens on takeover (TakeoverRecovery).
     if (election == null || !election.recoversOnTakeover()) {
-      recover();
+      // The hold starts here, before the server takes requests, and ends when recovery has.
+      recover()
+          .subscribe(
+              _ -> {},
+              error ->
+                  log.atError().setCause(error).log("Could not recover the execution history"));
     }
   }
 
@@ -132,9 +139,27 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    * log trimmed since), which nothing else would. It runs at startup or when this server takes over
    * (a standby runs nothing), so no run of this server is going yet.
    *
+   * <p>No run is admitted while it works ({@link ExecutionScheduler#holdStarts()}; a start gets
+   * HTTP 503), so a run that begins now cannot be marked aborted. The hold ends before the listener
+   * of {@link #onRecovered} is told, so it can resume runs.
+   *
    * @return the ids of the runs that were interrupted and are now marked aborted
    */
-  public List<String> recover() {
+  public Mono<List<String>> recover() {
+    return Mono.defer(() -> {
+      final ExecutionScheduler gate = executionScheduler;
+      final Runnable release = gate == null ? () -> {} : gate.holdStarts();
+      return Mono.fromCallable(this::recoverNow)
+          .subscribeOn(Schedulers.boundedElastic())
+          .doOnNext(aborted -> {
+            release.run();
+            afterRecovery.accept(aborted);
+          })
+          .doFinally(_ -> release.run());
+    });
+  }
+
+  private List<String> recoverNow() {
     final List<ExecutionLogEvent> all = store.readAll();
     final List<ExecutionLogEvent> scheduler =
         all.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).toList();
@@ -200,7 +225,6 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
         .addKeyValue("aborted", abortedIds.size())
         .addKeyValue("dropped", skip)
         .log("Recovered execution history");
-    afterRecovery.accept(abortedIds);
     return abortedIds;
   }
 
