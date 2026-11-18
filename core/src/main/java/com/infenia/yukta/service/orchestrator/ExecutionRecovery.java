@@ -39,6 +39,9 @@ import org.springframework.stereotype.Component;
 })
 public class ExecutionRecovery implements SmartInitializingSingleton {
 
+  /** Longest recovery waits for one run's checkpoints to be cleared. */
+  private static final java.time.Duration CLEAR_TIMEOUT = java.time.Duration.ofSeconds(30);
+
   /** The execution log. */
   private final ExecutionLogStore store;
 
@@ -160,15 +163,14 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     for (final List<ExecutionLogEvent> run : runs) {
       if (!keep.contains(run.getFirst().executionId())) {
         final String gone = run.getFirst().executionId();
-        checkpoints
-            .clearAsync(gone)
-            .subscribe(
-                null,
-                error ->
-                    log.atWarn()
-                        .addKeyValue("executionId", gone)
-                        .setCause(error)
-                        .log("Could not clear the checkpoints of a run"));
+        try {
+          checkpoints.clearAsync(gone).block(CLEAR_TIMEOUT);
+        } catch (RuntimeException e) {
+          log.atWarn()
+              .addKeyValue("executionId", gone)
+              .setCause(e)
+              .log("Could not clear the checkpoints of a run");
+        }
         skip++;
         continue;
       }
