@@ -19,7 +19,6 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
-import com.infenia.yukta.service.log.LogRetention;
 import com.infenia.yukta.service.notify.InMemoryNotificationStore;
 import com.infenia.yukta.service.notify.NotificationStore;
 import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
@@ -31,7 +30,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
@@ -218,16 +216,5 @@ public class DefaultsAutoConfiguration {
   @ConditionalOnMissingBean
   public ExecutionControlStore executionControlStore() {
     return new InMemoryExecutionControlStore();
-  }
-
-  /**
-   * Applies {@code yukta.execution-log.min-runs-per-session} to the log retention.
-   *
-   * @param properties the settings
-   * @return the hook that sets it at start-up
-   */
-  @Bean
-  public InitializingBean logRetentionFloor(final YuktaProperties properties) {
-    return () -> LogRetention.minPerSession(properties.executionLog().minRunsPerSession());
   }
 }

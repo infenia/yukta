@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.service.log.LogRetention;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.store.CheckpointJson;
 import java.time.Duration;
@@ -121,6 +122,24 @@ class AppConfigurationTest {
       assertThat(CheckpointJson.read(json, line).payload()).isInstanceOf(AtomicInteger.class);
     } finally {
       CheckpointJson.allowPackages(List.of());
+    }
+  }
+
+  @Test
+  void applyLogRetentionFloor_handsTheSettingToTheLogRetention() {
+    final YuktaProperties properties = mock(YuktaProperties.class);
+    when(properties.executionLog()).thenReturn(new YuktaProperties.ExecutionLog(20, 100, 1));
+    final List<String> runs = new java.util.ArrayList<>(List.of("quiet-1", "quiet-2"));
+    for (int i = 0; i < 50; i++) {
+      runs.add("busy-" + i);
+    }
+    try {
+      new AppConfiguration().applyLogRetentionFloor(properties);
+      assertThat(LogRetention.keep(runs, id -> id.startsWith("busy") ? "busy" : "quiet", 20))
+          .contains("quiet-2")
+          .doesNotContain("quiet-1");
+    } finally {
+      LogRetention.minPerSession(LogRetention.DEFAULT_MIN_PER_SESSION);
     }
   }
 }

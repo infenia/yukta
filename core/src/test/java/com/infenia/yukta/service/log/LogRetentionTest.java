@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class LogRetentionTest {
 
   private static final String NEWEST = "newest";
@@ -133,7 +134,7 @@ class LogRetentionTest {
   }
 
   @Test
-  void keepFloorPerSessionIsASetting() {
+  void keepFloorPerSessionIsConfigurable() {
     final List<String> runs = new java.util.ArrayList<>();
     runs.add("quiet-1");
     runs.add("quiet-2");
