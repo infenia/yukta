@@ -225,9 +225,8 @@ class StartIdempotencyTest {
     final InMemoryExecutionLogStore slowLog =
         new InMemoryExecutionLogStore() {
           @Override
-          public java.util.List<com.infenia.yukta.service.log.ExecutionLogEvent> ofType(
-              final com.infenia.yukta.service.log.ExecutionLogEvent.Type type,
-              final java.time.Instant since) {
+          public java.util.List<ExecutionLogEvent> ofType(
+              final ExecutionLogEvent.Type type, final java.time.Instant since) {
             reading.countDown();
             try {
               go.await();
@@ -238,8 +237,7 @@ class StartIdempotencyTest {
           }
         };
     final com.infenia.yukta.service.runtime.ExecutionScheduler scheduler =
-        new com.infenia.yukta.service.runtime.ExecutionScheduler(
-            com.infenia.yukta.testsupport.YuktaSettings.bind(Map.of()));
+        new com.infenia.yukta.service.runtime.ExecutionScheduler(YuktaSettings.bind(Map.of()));
     final StartIdempotency idempotency =
         StartIdempotencyFixture.create(Duration.ofMinutes(10), slowLog);
     idempotency.setExecutionScheduler(scheduler);

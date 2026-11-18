@@ -98,6 +98,7 @@ class ExecutionRecoveryTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void startupRemovesTheDurableOutputOfRunsThatAreNoLongerInTheLog(
       @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws java.io.IOException {
     final var files =
@@ -121,7 +122,7 @@ class ExecutionRecoveryTest {
     startup.afterSingletonsInstantiated();
 
     org.awaitility.Awaitility.await()
-        .atMost(java.time.Duration.ofSeconds(5))
+        .atMost(Duration.ofSeconds(5))
         .untilAsserted(() -> {
           try (var left = java.nio.file.Files.list(dir)) {
             assertThat(left.map(path -> dir.relativize(path).toString()).toList())
@@ -449,7 +450,7 @@ class ExecutionRecoveryTest {
     recovery.afterSingletonsInstantiated();
 
     org.awaitility.Awaitility.await()
-        .atMost(java.time.Duration.ofSeconds(5))
+        .atMost(Duration.ofSeconds(5))
         .untilAsserted(() -> assertThat(store.readAll()).hasSize(2));
   }
 
@@ -491,8 +492,8 @@ class ExecutionRecoveryTest {
       throws InterruptedException {
     final java.util.concurrent.CountDownLatch reading = new java.util.concurrent.CountDownLatch(1);
     final java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
-    final com.infenia.yukta.service.log.InMemoryExecutionLogStore slowLog =
-        new com.infenia.yukta.service.log.InMemoryExecutionLogStore() {
+    final InMemoryExecutionLogStore slowLog =
+        new InMemoryExecutionLogStore() {
           @Override
           public List<ExecutionLogEvent> readAll() {
             reading.countDown();
@@ -504,9 +505,7 @@ class ExecutionRecoveryTest {
             return super.readAll();
           }
         };
-    final com.infenia.yukta.service.runtime.ExecutionScheduler scheduler =
-        new com.infenia.yukta.service.runtime.ExecutionScheduler(
-            com.infenia.yukta.testsupport.YuktaSettings.bind(Map.of()));
+    final ExecutionScheduler scheduler = new ExecutionScheduler(YuktaSettings.bind(Map.of()));
     final ExecutionRecovery recovery = ExecutionRecoveryFixture.create(slowLog, tracker, 100);
     recovery.setExecutionScheduler(scheduler);
     final java.util.concurrent.atomic.AtomicBoolean refusedWhenTold =
@@ -525,13 +524,11 @@ class ExecutionRecoveryTest {
   }
 
   @Test
-  void aFailedRecovery_stillOpensStarts() {
-    final com.infenia.yukta.service.runtime.ExecutionScheduler scheduler =
-        new com.infenia.yukta.service.runtime.ExecutionScheduler(
-            com.infenia.yukta.testsupport.YuktaSettings.bind(Map.of()));
+  void failedRecovery_stillOpensStarts() {
+    final ExecutionScheduler scheduler = new ExecutionScheduler(YuktaSettings.bind(Map.of()));
     final ExecutionRecovery recovery =
         ExecutionRecoveryFixture.create(
-            new com.infenia.yukta.service.log.InMemoryExecutionLogStore() {
+            new InMemoryExecutionLogStore() {
               @Override
               public List<ExecutionLogEvent> readAll() {
                 throw new IllegalStateException("unreadable");

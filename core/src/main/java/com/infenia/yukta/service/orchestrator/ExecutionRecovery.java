@@ -37,7 +37,8 @@ import reactor.core.scheduler.Schedulers;
 @SuppressWarnings({
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.AvoidCatchingGenericException"
+  "PMD.AvoidCatchingGenericException",
+  "PMD.TooManyMethods"
 })
 public class ExecutionRecovery implements SmartInitializingSingleton {
 
@@ -155,6 +156,7 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
             release.run();
             afterRecovery.accept(aborted);
           })
+          .doOnError(_ -> release.run())
           .doFinally(_ -> release.run());
     });
   }
