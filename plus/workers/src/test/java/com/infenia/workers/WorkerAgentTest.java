@@ -80,59 +80,51 @@ class WorkerAgentTest {
   }
 
   @Test
-  void drain_waitsForRunningAttempts_untilTheyEnd_orTheTimeoutOrAnInterrupt() {
+  void stop_waitsForRunningAttempts_untilTheyEnd_orTheTimeout_withoutParkingTheCaller() {
     final java.util.concurrent.atomic.AtomicInteger running =
         new java.util.concurrent.atomic.AtomicInteger(2);
-    final WorkerAgent waiting =
-        new WorkerAgent(
-            reactor.core.publisher.Mono.just(mock(RSocketRequester.class)),
-            "secret",
-            new WorkerRegistration("w", Set.of(), Set.of(), 1),
-            Duration.ofSeconds(1),
-            running::get,
-            Duration.ofSeconds(5));
+    final WorkerAgent waiting = agent(running::get, Duration.ofSeconds(5));
     waiting.connected(mock(RSocketRequester.class));
-    new Thread(
-            () -> {
-              try {
-                // a delayed release of the last running job
-                Thread.sleep(300); // nosem: yukta-test-thread-sleep
-              } catch (final InterruptedException e) {
-                Thread.currentThread().interrupt();
-              }
-              running.set(0);
-            })
-        .start();
-    final long before = System.nanoTime();
-    waiting.stop();
-    assertThat(System.nanoTime() - before).isGreaterThan(Duration.ofMillis(200).toNanos());
+    final java.util.concurrent.CountDownLatch closed = new java.util.concurrent.CountDownLatch(1);
 
-    final WorkerAgent impatient =
-        new WorkerAgent(
-            reactor.core.publisher.Mono.just(mock(RSocketRequester.class)),
-            "secret",
-            new WorkerRegistration("w", Set.of(), Set.of(), 1),
-            Duration.ofSeconds(1),
-            () -> 3,
-            Duration.ofMillis(200));
+    waiting.stop(closed::countDown);
+
+    // stop returned at once and the attempts still run, so nothing is closed yet
+    assertThat(closed.getCount()).isEqualTo(1);
+    running.set(0);
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .until(() -> closed.getCount() == 0);
+
+    final java.util.concurrent.CountDownLatch late = new java.util.concurrent.CountDownLatch(1);
+    final WorkerAgent impatient = agent(() -> 3, Duration.ofMillis(200));
     impatient.connected(mock(RSocketRequester.class));
-    impatient.stop();
+    impatient.stop(late::countDown);
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .until(() -> late.getCount() == 0);
+  }
 
-    final WorkerAgent interrupted =
-        new WorkerAgent(
-            reactor.core.publisher.Mono.just(mock(RSocketRequester.class)),
-            "secret",
-            new WorkerRegistration("w", Set.of(), Set.of(), 1),
-            Duration.ofSeconds(1),
-            () -> 3,
-            Duration.ofSeconds(30));
-    interrupted.connected(mock(RSocketRequester.class));
-    Thread.currentThread().interrupt();
-    try {
-      interrupted.stop();
-      assertThat(Thread.currentThread().isInterrupted()).isTrue();
-    } finally {
-      Thread.interrupted();
-    }
+  @Test
+  void isRunning_isTrueFromStartUntilStop() {
+    final WorkerAgent agent = agent(() -> 0, Duration.ofSeconds(1));
+    assertThat(agent.isRunning()).isFalse();
+
+    agent.start();
+    assertThat(agent.isRunning()).isTrue();
+    agent.stop();
+
+    assertThat(agent.isRunning()).isFalse();
+  }
+
+  private static WorkerAgent agent(
+      final java.util.function.IntSupplier used, final Duration drainTimeout) {
+    return new WorkerAgent(
+        reactor.core.publisher.Mono.just(mock(RSocketRequester.class)),
+        "secret",
+        new WorkerRegistration("w", Set.of(), Set.of(), 1),
+        Duration.ofSeconds(1),
+        used,
+        drainTimeout);
   }
 }

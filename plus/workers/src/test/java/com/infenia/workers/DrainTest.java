@@ -91,8 +91,8 @@ class DrainTest {
             .atMost(Duration.ofSeconds(10))
             .until(() -> first.getBean(NodeRunner.class).running() == 1);
 
-        final CompletableFuture<Void> stopping =
-            CompletableFuture.runAsync(() -> first.getBean(WorkerAgent.class).stop());
+        final CompletableFuture<Void> stopping = new CompletableFuture<>();
+        first.getBean(WorkerAgent.class).stop(() -> stopping.complete(null));
         await()
             .atMost(Duration.ofSeconds(10))
             .until(() -> registry.find("w1").map(WorkerInfo::draining).orElse(false));
