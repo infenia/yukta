@@ -557,6 +557,15 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
             log.atWarn().log("MCP tool call configuration validation failed: {}", e.getMessage()));
   }
 
+  /** True when the tool name comes from the message and no allow-list or approval limits it. */
+  /* default */ static boolean unguarded(final Map<String, Object> config) {
+    return config.get(TOOL) instanceof final String tool
+        && tool.contains("${")
+        && !(config.get(ALLOWED_TOOLS) instanceof final List<?> allowed && !allowed.isEmpty())
+        && !(config.get("requireApproval") instanceof final List<?> approval
+            && !approval.isEmpty());
+  }
+
   private static void checkConfig(final Map<String, Object> config) {
     if (config.get(URL) == null || config.get(TOOL) == null) {
       throw new IllegalArgumentException("url and tool are mandatory");
@@ -579,6 +588,12 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
     ToolApproval.validate(config);
     AskInputTool.validate(config);
     ToolBudget.validate(config);
+    if (unguarded(config)) {
+      log.atWarn()
+          .log(
+              "MCP_TOOL_CALL takes its tool from the message but sets neither allowedTools nor"
+                  + " requireApproval: any tool on the server can be called");
+    }
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     if (routeByStatus(config) && failureMode != FailureMode.CONTINUE) {
       throw new IllegalArgumentException("routeByStatus requires failureMode: CONTINUE");
