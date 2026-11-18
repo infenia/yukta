@@ -23,7 +23,6 @@ import com.infenia.yukta.service.notify.InMemoryNotificationStore;
 import com.infenia.yukta.service.notify.NotificationStore;
 import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import com.infenia.yukta.service.runtime.store.InMemoryExecutionControlStore;
-import com.infenia.yukta.service.store.CheckpointJson;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import com.infenia.yukta.service.supervisor.InMemorySupervisorStore;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
@@ -31,7 +30,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
@@ -89,17 +87,6 @@ public class DefaultsAutoConfiguration {
     final YuktaProperties.Restart restart = properties.restart();
     return new InMemoryNodeCheckpointStore(
         restart.messagesPerNode(), restart.bytesPerNode(), restart.spillDir(), mapper);
-  }
-
-  /**
-   * Applies {@code yukta.restart.payload-packages} to the checkpoint JSON reader.
-   *
-   * @param properties the settings
-   * @return the hook that sets them at start-up
-   */
-  @Bean
-  public InitializingBean checkpointPayloadPackages(final YuktaProperties properties) {
-    return () -> CheckpointJson.allowPackages(properties.restart().payloadPackages());
   }
 
   /**

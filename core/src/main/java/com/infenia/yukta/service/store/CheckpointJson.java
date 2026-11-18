@@ -5,6 +5,7 @@ package com.infenia.yukta.service.store;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.core.JacksonException;
@@ -43,7 +44,7 @@ public class CheckpointJson {
           "[B");
 
   /** Extra class name prefixes from the settings; set once at startup. */
-  private static volatile List<String> extra = List.of();
+  private static final AtomicReference<List<String>> EXTRA = new AtomicReference<>(List.of());
 
   /**
    * Allows the payload classes of more packages (a third-party plugin's own types).
@@ -51,7 +52,7 @@ public class CheckpointJson {
    * @param prefixes class name prefixes such as {@code com.acme.plugin.}
    */
   public static void allowPackages(final List<String> prefixes) {
-    extra = List.copyOf(prefixes);
+    EXTRA.set(List.copyOf(prefixes));
   }
 
   /**
@@ -83,7 +84,7 @@ public class CheckpointJson {
     Message<?> result = message;
     if (type != null) {
       if (ALLOWED.stream().noneMatch(type::startsWith)
-          && extra.stream().noneMatch(type::startsWith)) {
+          && EXTRA.get().stream().noneMatch(type::startsWith)) {
         log.atWarn().addKeyValue("type", type).log("Payload type not allowed, restored as JSON");
       } else {
         try {

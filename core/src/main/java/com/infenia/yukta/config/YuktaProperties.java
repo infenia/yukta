@@ -139,7 +139,13 @@ public record YuktaProperties(
       @DefaultValue("") String spillDir,
       @DefaultValue("false") boolean autoResume,
       @Min(1) @DefaultValue("10") int retainedExecutions,
-      @DefaultValue List<String> payloadPackages) {}
+      @NotNull @DefaultValue List<String> payloadPackages) {
+
+    /** Keeps an unmodifiable copy of the payload packages. */
+    public Restart {
+      payloadPackages = List.copyOf(payloadPackages);
+    }
+  }
 
   /**
    * The status history of live streams.
