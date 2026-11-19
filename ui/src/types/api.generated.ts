@@ -1026,6 +1026,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/executions/{executionId}/start-payload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get what an execution was started with
+         * @description The start payload that ${start...} in a node's config reads, from the run's start in the execution log, with secrets masked and the engine's yukta.* entries left out. payload is null when the log no longer holds it
+         */
+        get: operations["getStartPayload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/executions/{executionId}/status/stream": {
         parameters: {
             query?: never;
@@ -4831,6 +4851,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseStartPayloadResponse: {
+            /** @description The response data */
+            data?: components["schemas"]["StartPayloadResponse"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseSummary: {
             /** @description The response data */
             data?: components["schemas"]["Summary"];
@@ -6512,6 +6565,19 @@ export interface components {
             /** Format: int32 */
             priority?: number;
             version?: string;
+        };
+        /** @description What a run was started with, as ${start...} in a node's config reads it */
+        StartPayloadResponse: {
+            /**
+             * @description The start payload, secrets masked and the engine's yukta.* entries left out; null when the execution log no longer holds it (see yukta.execution-log.retained-runs)
+             * @example {
+             *       "command": "./gradlew test",
+             *       "label": "gradle"
+             *     }
+             */
+            payload?: {
+                [key: string]: unknown;
+            } | null;
         };
         StartWorkflowCommand: components["schemas"]["ExecutionControlCommand"] & {
             idempotencyKey?: string | null;
@@ -8506,6 +8572,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
+                };
+            };
+        };
+    };
+    getStartPayload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseStartPayloadResponse"];
                 };
             };
         };

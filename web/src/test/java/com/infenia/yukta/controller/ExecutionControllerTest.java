@@ -18,11 +18,14 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,11 +43,17 @@ import reactor.core.publisher.Mono;
 @ExpectedErrorLog("ERROR com.infenia.yukta.exception.GlobalExceptionHandler - ")
 class ExecutionControllerTest {
 
+  /** A label value that several tests read back. */
+  private static final String GRADLE = "gradle";
+
   /** The control bus. */
   private ControlBusGateway controlBus;
 
   /** The tracker, which knows the runs of a tree. */
   private TaskTrackerService tracker;
+
+  /** The run log. */
+  private InMemoryExecutionLogStore executionLog;
 
   /** The client. */
   private WebTestClient client;
@@ -58,6 +67,7 @@ class ExecutionControllerTest {
   void setUp() {
     controlBus = mock(ControlBusGateway.class);
     tracker = mock(TaskTrackerService.class);
+    executionLog = new InMemoryExecutionLogStore();
     client =
         WebTestClient.bindToController(
                 new ExecutionController(
@@ -65,7 +75,8 @@ class ExecutionControllerTest {
                     new SupervisedControl(controlBus, null, null, null),
                     new ExecutionAccess(controlBus),
                     new TreeControl(tracker),
-                    tracker))
+                    tracker,
+                    executionLog))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
   }
@@ -97,6 +108,84 @@ class ExecutionControllerTest {
 
     verify(controlBus).stopExecution("e1", "Stopped via REST API", StopMode.DRAIN);
     verify(controlBus).stopExecution("c1", "Stopped via REST API", StopMode.DRAIN);
+  }
+
+  @Test
+  void startPayload_masksSecretsAndLeavesOutEngineEntries() {
+    when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
+    executionLog.append(
+        ExecutionLogEvent.started(
+            "e1",
+            "s1",
+            "wf",
+            "v1",
+            Map.of(
+                "label",
+                GRADLE,
+                "apiToken",
+                "abc",
+                "nested",
+                Map.of("password", "pw", "path", "/x"),
+                "yukta.initiator",
+                "key:ops")));
+
+    client
+        .get()
+        .uri("/api/executions/e1/start-payload")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.payload.label")
+        .isEqualTo(GRADLE)
+        .jsonPath("$.data.payload.apiToken")
+        .isEqualTo("******")
+        .jsonPath("$.data.payload.nested.password")
+        .isEqualTo("******")
+        .jsonPath("$.data.payload.nested.path")
+        .isEqualTo("/x")
+        .jsonPath("$.data.payload['yukta.initiator']")
+        .doesNotExist();
+  }
+
+  @Test
+  void startPayload_isNullWhenTheLogHoldsNoPayload() {
+    when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", TaskStatus.SUCCESS));
+    executionLog.append(ExecutionLogEvent.started("e1", "s1", "wf", "v1"));
+
+    client
+        .get()
+        .uri("/api/executions/e1/start-payload")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.payload")
+        .doesNotExist();
+  }
+
+  @Test
+  void startPayload_skipsOtherLogEntriesToFindTheStart() {
+    when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
+    executionLog.append(ExecutionLogEvent.idempotencyKey("e1", "scoped-key"));
+    executionLog.append(ExecutionLogEvent.started("e1", "s1", "wf", "v1", Map.of("label", GRADLE)));
+
+    client
+        .get()
+        .uri("/api/executions/e1/start-payload")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.payload.label")
+        .isEqualTo(GRADLE);
+  }
+
+  @Test
+  void startPayload_ofAnUnknownRun_isNotFound() {
+    when(controlBus.getCurrentProgress("nope")).thenReturn(null);
+
+    client.get().uri("/api/executions/nope/start-payload").exchange().expectStatus().isNotFound();
   }
 
   @Test

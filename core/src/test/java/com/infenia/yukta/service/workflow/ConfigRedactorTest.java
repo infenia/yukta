@@ -201,4 +201,31 @@ class ConfigRedactorTest {
                 .supervisors())
         .containsExactly(ref);
   }
+
+  @Test
+  void redactPayload_masksSecretsAtAnyDepth_andLeavesOutEngineEntries() {
+    final var payload = new java.util.TreeMap<String, Object>();
+    payload.put("label", "gradle");
+    payload.put("token", "abc");
+    payload.put("ref", "decrypted:x");
+    payload.put("empty", null);
+    payload.put("nested", Map.of("password", "pw", "items", List.of(Map.of("apiKey", "k"))));
+    payload.put("yukta.priority", 5);
+
+    final Map<String, Object> redacted = ConfigRedactor.redactPayload(payload);
+
+    assertThat(redacted)
+        .containsEntry("label", "gradle")
+        .containsEntry("token", ConfigRedactor.PLACEHOLDER)
+        .containsEntry("ref", "decrypted:x")
+        .containsEntry("empty", null)
+        .doesNotContainKey("yukta.priority");
+    assertThat(redacted.get("nested"))
+        .isEqualTo(
+            Map.of(
+                "password",
+                ConfigRedactor.PLACEHOLDER,
+                "items",
+                List.of(Map.of("apiKey", ConfigRedactor.PLACEHOLDER))));
+  }
 }

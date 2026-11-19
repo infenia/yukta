@@ -19,6 +19,10 @@ const getDefinition = vi.fn();
 vi.mock('../../api/getWorkflowDefinition', () => ({
   getWorkflowDefinition: (...args: unknown[]) => getDefinition(...args),
 }));
+const getStart = vi.fn();
+vi.mock('../../api/getStartPayload', () => ({
+  getStartPayload: (...args: unknown[]) => getStart(...args),
+}));
 let resultEvents: { nodeId: string; sequence: number; payload: unknown }[] = [];
 vi.mock('../../hooks/useExecutionResults', () => ({
   useExecutionResults: () => ({ results: resultEvents }),
@@ -62,6 +66,7 @@ beforeEach(() => {
     { nodeId: 'other', sequence: 2, payload: { no: 1 } },
   ];
   getDefinition.mockReset();
+  getStart.mockReset();
   getDefinition.mockResolvedValue({
     workflowId: 'w',
     nodes: [{ nodeId: 'work', type: 'T', config: { a: 1 } }],
@@ -224,5 +229,72 @@ describe('NodeSheet', () => {
   it('has no Result section for a processor', () => {
     open();
     expect(screen.queryByText('Result')).not.toBeInTheDocument();
+  });
+
+  describe('start values', () => {
+    const withStartRefs = () =>
+      getDefinition.mockResolvedValue({
+        workflowId: 'w',
+        nodes: [
+          {
+            nodeId: 'work',
+            type: 'T',
+            config: {
+              env: { L: '${start.label}', N: '${start.opts.n:int}' },
+              args: ['${start.label}', '${start.missing}'],
+            },
+          },
+        ],
+      });
+
+    it('shows what each ${start.…} of the config got on this run', async () => {
+      withStartRefs();
+      getStart.mockResolvedValue({
+        payload: { label: 'lint', opts: { n: 3 } },
+      });
+      open();
+      const values = await screen.findByLabelText('Start values');
+      expect(values).toHaveTextContent('start.labellint');
+      expect(values).toHaveTextContent('start.opts.n3');
+      expect(values).toHaveTextContent('start.missingnot set');
+      expect(getStart).toHaveBeenCalledWith('e1');
+    });
+
+    it('says so when the server no longer holds the start payload', async () => {
+      withStartRefs();
+      getStart.mockResolvedValue({ payload: null });
+      open();
+      expect(
+        await screen.findByText(
+          'The server no longer holds what this run was started with.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('says so when the start payload cannot be loaded', async () => {
+      withStartRefs();
+      getStart.mockRejectedValue(new Error('boom'));
+      open();
+      expect(
+        await screen.findByText(
+          'What this run was started with could not be loaded.'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('asks for nothing without a run', async () => {
+      withStartRefs();
+      open({ executionId: null });
+      expect(
+        await screen.findByText(preText(/start\.label/))
+      ).toBeInTheDocument();
+      expect(getStart).not.toHaveBeenCalled();
+    });
+
+    it('asks for nothing when the config has no ${start.…}', async () => {
+      open();
+      expect(await screen.findByText(preText(/"a": 1/))).toBeInTheDocument();
+      expect(getStart).not.toHaveBeenCalled();
+    });
   });
 });
