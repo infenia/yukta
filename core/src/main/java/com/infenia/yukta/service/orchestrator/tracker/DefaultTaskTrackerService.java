@@ -139,6 +139,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Finished executions remembered for each session. */
   private final ExecutionHistory history;
 
+  /** Whether this server leads; a server without an election always does. */
+  private final java.util.concurrent.atomic.AtomicReference<java.util.function.BooleanSupplier>
+      leadership = new java.util.concurrent.atomic.AtomicReference<>(() -> true);
+
   /** Applies queued events to the execution states. */
   private final TrackerEventApplier applier;
 
@@ -190,7 +194,18 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
             eventFeed,
             streams,
             pendingLogs,
-            this::scheduleCleanup);
+            this::scheduleCleanup,
+            () -> leadership.get().getAsBoolean());
+  }
+
+  /**
+   * Lets a server that lost the leader lease skip the run-end events of its stopped runs.
+   *
+   * @param election the election
+   */
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  public void setLeaderElection(final com.infenia.yukta.service.leader.LeaderElection election) {
+    leadership.set(election::isLeader);
   }
 
   /** Replace the clock of the session times (nanoseconds); call before {@link #init()}. */

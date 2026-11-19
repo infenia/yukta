@@ -93,6 +93,41 @@ class TrackerEventFeedTest {
   }
 
   @Test
+  void deposedLeader_endOfRunIsSkippedNotWritten() {
+    final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
+    final java.util.concurrent.atomic.AtomicBoolean leader =
+        new java.util.concurrent.atomic.AtomicBoolean(true);
+    final DefaultTaskTrackerService tracker =
+        TrackerFactory.tracker(
+            Duration.ofSeconds(5),
+            mock(StatusHistoryCache.class),
+            log,
+            new SimpleMeterRegistry(),
+            ObservationRegistry.NOOP,
+            new ExecutionEventFeed());
+    tracker.setLeaderElection(
+        new com.infenia.yukta.service.leader.LeaderElection() {
+          @Override
+          public boolean isLeader() {
+            return leader.get();
+          }
+        });
+    tracker.init();
+    StepVerifier.create(tracker.startWorkflow("e3", "s1", "wf1", List.of("a"))).verifyComplete();
+
+    leader.set(false);
+    tracker.emitWorkflowStatusEvent("e3", TaskStatus.STOPPED);
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(() ->
+            assertThat(tracker.getProgressByExecutionId("e3").status().isTerminal()).isTrue());
+    assertThat(log.forExecution("e3").collectList().block())
+        .extracting(ExecutionLogEvent::type)
+        .doesNotContain(ExecutionLogEvent.Type.RUN_FINISHED);
+  }
+
+  @Test
   void pausingRun_publishesNothingToTheFeed_soSupervisorNeverSeesItsOwnPause() {
     final ExecutionEventFeed feed = new ExecutionEventFeed();
     final DefaultTaskTrackerService tracker =
