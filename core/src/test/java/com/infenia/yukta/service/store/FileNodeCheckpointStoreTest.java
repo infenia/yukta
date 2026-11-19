@@ -254,7 +254,7 @@ class FileNodeCheckpointStoreTest {
   }
 
   @Test
-  void failedWriteOfARemovedRun_isForgottenWithTheRun() {
+  void failedWriteOfRemovedRun_isForgottenWithTheRun() {
     final FileNodeCheckpointStore store = store();
     store.save("gone", "n1", message(new Broken())).block();
 
@@ -482,7 +482,7 @@ class FileNodeCheckpointStoreTest {
   }
 
   @Test
-  void clearTwiceInAMinute_pruneRunsOnlyOnce() throws IOException {
+  void clearTwiceInOneMinute_pruneRunsOnlyOnce() throws IOException {
     final FileNodeCheckpointStore store = store();
     store.clear("first");
     final Path marker =
@@ -494,7 +494,7 @@ class FileNodeCheckpointStoreTest {
   }
 
   @Test
-  void prune_keepsAClearedRunThatHasOtherFiles() throws IOException {
+  void prune_keepsClearedRunThatHasOtherFiles() throws IOException {
     final FileNodeCheckpointStore store = store();
     store.clear("busy");
     final Path extra = Files.writeString(dir.resolve("e-busy").resolve("extra.jsonl"), "x\n");
@@ -506,7 +506,7 @@ class FileNodeCheckpointStoreTest {
   }
 
   @Test
-  void prune_keepsADirectoryWhoseOnlyFileIsNotAMarker() throws IOException {
+  void prune_keepsDirectoryWhoseOnlyFileIsNotMarker() throws IOException {
     final FileNodeCheckpointStore store = store();
     final Path solo = Files.createDirectories(dir.resolve("e-solo"));
     Files.writeString(solo.resolve("output.jsonl"), "x\n");
@@ -515,7 +515,7 @@ class FileNodeCheckpointStoreTest {
   }
 
   @Test
-  void clearWhereTheRootIsAFile_isLoggedNotThrown() throws IOException {
+  void clearWhereRootIsFile_isLoggedNotThrown() throws IOException {
     final Path root = Files.writeString(dir.resolve("not-a-dir"), "x");
     final FileNodeCheckpointStore store =
         new FileNodeCheckpointStore(root.toString(), JsonMapper.builder().build());

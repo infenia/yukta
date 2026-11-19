@@ -69,6 +69,8 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   /** Suffix of the marker that says the node ended normally and its output is durable. */
   private static final String DONE = ".done";
 
+  private static final long PRUNE_INTERVAL_MS = 60_000L;
+
   /** Log key of the run. */
   private static final String EXECUTION_ID = "executionId";
 
@@ -313,7 +315,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   /** Once a minute, removes the directories that hold only a cleared marker older than the TTL. */
   private void pruneMarkers() {
     final long now = System.currentTimeMillis();
-    if (now - lastPrune.get() < 60_000L) {
+    if (now - lastPrune.get() < PRUNE_INTERVAL_MS) {
       return;
     }
     // a racing prune of the same markers is harmless: each one is deleted only once it is old
