@@ -471,60 +471,62 @@ export function WorkflowDetailsPage() {
                         follow={follow && followable}
                         find={findQuery}
                         centerOn={centerOn}
+                        tools={
+                          <div
+                            role="toolbar"
+                            aria-orientation="vertical"
+                            aria-label="Canvas tools"
+                            className="border-border bg-card/80 shadow-card pointer-events-auto flex flex-col items-center gap-1 rounded-full border p-1 backdrop-blur-sm"
+                          >
+                            <FindNodes
+                              graph={graph}
+                              query={findQuery}
+                              onQuery={setFindQuery}
+                              onPick={(nodeId) => {
+                                setOpenNode(
+                                  nodeId,
+                                  'node',
+                                  stages.revealParams(nodeId)
+                                );
+                                setCenterOn((held) => ({
+                                  id: nodeId,
+                                  nonce: (held?.nonce ?? 0) + 1,
+                                }));
+                              }}
+                            />
+                            <span
+                              aria-hidden="true"
+                              className="bg-border h-px w-5"
+                            />
+                            <ViewSwitch
+                              view={view}
+                              onChange={setView}
+                              className={BARE_COLUMN}
+                            />
+                            {stages.hasStages && (
+                              <GroupingSwitch
+                                grouped={stages.grouped}
+                                onChange={stages.setGrouped}
+                                className={BARE_COLUMN}
+                              />
+                            )}
+                            {followable && (
+                              <IconButton
+                                icon="my_location"
+                                label="Follow running nodes"
+                                aria-pressed={follow}
+                                onClick={() => setFollow((value) => !value)}
+                                tone={follow ? 'primary' : 'neutral'}
+                                className={cn(
+                                  'size-8 rounded-full border-0',
+                                  follow && 'bg-primary/10'
+                                )}
+                              />
+                            )}
+                          </div>
+                        }
                       />
                     </AgentsByNode.Provider>
-                  )}
-                  {/* One vertical tool panel, top left: search first. Its gaps pass the pointer through */}
-                  {view === 'graph' && (
-                    <div
-                      role="toolbar"
-                      aria-orientation="vertical"
-                      aria-label="Canvas tools"
-                      className="border-border bg-card/80 shadow-card absolute top-3 left-3 z-10 flex flex-col items-center gap-1 rounded-full border p-1 backdrop-blur-sm"
-                    >
-                      <FindNodes
-                        graph={graph}
-                        query={findQuery}
-                        onQuery={setFindQuery}
-                        onPick={(nodeId) => {
-                          setOpenNode(
-                            nodeId,
-                            'node',
-                            stages.revealParams(nodeId)
-                          );
-                          setCenterOn((held) => ({
-                            id: nodeId,
-                            nonce: (held?.nonce ?? 0) + 1,
-                          }));
-                        }}
-                      />
-                      <span aria-hidden="true" className="bg-border h-px w-5" />
-                      <ViewSwitch
-                        view={view}
-                        onChange={setView}
-                        className={BARE_COLUMN}
-                      />
-                      {stages.hasStages && (
-                        <GroupingSwitch
-                          grouped={stages.grouped}
-                          onChange={stages.setGrouped}
-                          className={BARE_COLUMN}
-                        />
-                      )}
-                      {followable && (
-                        <IconButton
-                          icon="my_location"
-                          label="Follow running nodes"
-                          aria-pressed={follow}
-                          onClick={() => setFollow((value) => !value)}
-                          tone={follow ? 'primary' : 'neutral'}
-                          className={cn(
-                            'size-8 rounded-full border-0',
-                            follow && 'bg-primary/10'
-                          )}
-                        />
-                      )}
-                    </div>
                   )}
                 </div>
                 <LogsPanel

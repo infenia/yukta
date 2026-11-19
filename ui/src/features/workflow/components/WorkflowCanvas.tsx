@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import {
   Background,
   BackgroundVariant,
-  ControlButton,
-  Controls,
+  Panel,
   MiniMap,
   ReactFlow,
   useReactFlow,
@@ -21,7 +20,7 @@ import { findNodes } from '../lib/findNodes';
 import { layoutGraph } from '../lib/layout';
 import type { TaskProgress, WorkflowGraph } from '../types/workflow';
 
-import { Tip } from '@/components/ui/tooltip';
+import { IconButton } from '@/components/common/IconButton';
 
 const NODE_TYPES = {
   workflowNode: WorkflowNodeCard,
@@ -77,7 +76,7 @@ function CenterNode({ target }: { target?: { id: string; nonce: number } }) {
   return null;
 }
 
-/** Zoom in, zoom out and fit, with the app's tooltips instead of the browser's `title` ones. */
+/** Zoom in, zoom out and fit: one more vertical pill, as the canvas tools above it. */
 function ZoomControls() {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const buttons: [string, string, () => void][] = [
@@ -86,20 +85,23 @@ function ZoomControls() {
     ['fullscreen', 'Fit view', () => void fitView({ duration: 300 })],
   ];
   return (
-    <Controls showZoom={false} showFitView={false} showInteractive={false}>
+    <div
+      role="toolbar"
+      aria-orientation="vertical"
+      aria-label="Zoom"
+      className="border-border bg-card/80 shadow-card pointer-events-auto flex flex-col items-center gap-1 rounded-full border p-1 backdrop-blur-sm"
+    >
       {buttons.map(([icon, label, onClick]) => (
-        <Tip key={label} label={label} side="right">
-          <ControlButton aria-label={label} onClick={onClick}>
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-base"
-            >
-              {icon}
-            </span>
-          </ControlButton>
-        </Tip>
+        <IconButton
+          key={label}
+          icon={icon}
+          label={label}
+          onClick={onClick}
+          tone="neutral"
+          className="size-8 rounded-full border-0"
+        />
       ))}
-    </Controls>
+    </div>
   );
 }
 
@@ -114,6 +116,7 @@ export function WorkflowCanvas({
   follow = false,
   find = '',
   centerOn,
+  tools,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
@@ -135,6 +138,8 @@ export function WorkflowCanvas({
   find?: string;
   /** Pan to this node (a new nonce centres it again). */
   centerOn?: { id: string; nonce: number };
+  /** Tool buttons for the top left of the canvas (the page's, such as search and views). */
+  tools?: ReactNode;
 }) {
   const connectable = onConnect !== undefined;
   const { nodes, edges } = useMemo(() => {
@@ -197,7 +202,15 @@ export function WorkflowCanvas({
         )}
         <CenterNode target={centerOn} />
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
-        <ZoomControls />
+        {/* One column on the left: the page's tools at the top, zoom at the bottom, so the two can
+            never overlap; it is inside the flow, which clips it when the canvas is covered */}
+        <Panel
+          position="top-left"
+          className="pointer-events-none m-3! flex h-[calc(100%-1.5rem)] flex-col justify-between gap-2"
+        >
+          <div>{tools}</div>
+          <ZoomControls />
+        </Panel>
         <MiniMap
           // No room for a minimap on a phone-sized canvas (! beats xyflow's unlayered CSS)
           className="max-md:hidden!"

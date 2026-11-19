@@ -3,8 +3,17 @@
 
 import { lazy, Suspense, useState } from 'react';
 import type { Conversation } from '@/types/conversations';
+import { cn } from '@/lib/utils';
+import { Tip } from '@/components/ui/tooltip';
 import { stateWords } from '../../lib/agentLabels';
+import { capabilityLook, modeLook, stateLook } from '../../lib/agentLook';
 import type { AgentItem } from '../../lib/agentItems';
+import { IconTile } from './IconTile';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { AgentComposer } from './AgentComposer';
 import { AgentList } from './AgentList';
 import { AgentTimeline } from './AgentTimeline';
@@ -16,39 +25,136 @@ const AgentTerminal = lazy(() =>
   }))
 );
 
-const chip =
-  'bg-surface-variant text-label-sm text-on-surface-variant rounded-full px-2.5 py-0.5';
-
-/** The title row of the timeline: which agent it shows, or that it shows all. */
-function Heading({ chosen }: { chosen: Conversation | undefined }) {
+/** What this agent is and what a person can do with it, in plain words (the header's info button). */
+function AgentDetails({ conversation }: { conversation: Conversation }) {
+  const look = stateLook(conversation);
+  const mode = modeLook(conversation.protocol);
   return (
-    <div className="border-border flex flex-wrap items-center gap-2 border-b px-4 py-2">
-      {chosen ? (
-        <>
-          <h3 className="text-label-md font-semibold">{chosen.nodeId}</h3>
-          <span className={chip}>{chosen.harness}</span>
-          <span className={chip}>{chosen.protocol.toLowerCase()}</span>
-          <span className="bg-accent text-label-sm text-accent-foreground rounded-full px-2.5 py-0.5">
-            {stateWords(chosen)}
-          </span>
-          <span className="ml-auto flex flex-wrap gap-1.5">
-            {chosen.capabilities.map((capability) => (
-              <span key={capability} className={chip}>
-                {capability}
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <IconTile
+          icon={look.icon}
+          iconClassName={cn('text-lg', look.live && 'animate-spin')}
+          className={cn('size-8 rounded-lg', look.tile)}
+        />
+        <div className="min-w-0">
+          <p className="text-label-md truncate font-semibold">
+            {conversation.nodeId}
+          </p>
+          <p className="text-body-sm text-muted-foreground">
+            {conversation.harness} · {stateWords(conversation)}
+          </p>
+        </div>
+      </div>
+      <div>
+        <h4 className="text-overline text-on-surface-variant mb-1">
+          How you talk to it
+        </h4>
+        <p className="text-body-sm">
+          <span className="font-medium">{mode.label}.</span> {mode.hint}.
+        </p>
+      </div>
+      <div>
+        <h4 className="text-overline text-on-surface-variant mb-1">
+          What you can do
+        </h4>
+        {conversation.capabilities.length === 0 ? (
+          <p className="text-body-sm text-muted-foreground">
+            Nothing: this agent only reports what it does.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1.5">
+            {conversation.capabilities.map((capability) => {
+              const info = capabilityLook(capability);
+              return (
+                <li key={capability} className="flex items-center gap-2">
+                  <IconTile
+                    icon={info.icon}
+                    iconClassName="text-base"
+                    className="bg-muted text-on-surface-variant size-7 rounded-lg"
+                  />
+                  <span className="text-body-sm">
+                    <span className="font-medium">{info.label}.</span>{' '}
+                    {info.hint}.
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The title row of the timeline: which agent it shows and what state it is in, or that it shows all. */
+function Heading({
+  chosen,
+  count,
+}: {
+  chosen: Conversation | undefined;
+  count: number;
+}) {
+  const look = chosen ? stateLook(chosen) : null;
+  return (
+    <div className="border-border flex flex-wrap items-center gap-3 border-b px-4 py-2">
+      <Tip label={chosen ? stateWords(chosen) : ''}>
+        <span className="flex">
+          <IconTile
+            icon={look ? look.icon : 'auto_awesome'}
+            iconClassName={cn('text-xl', look?.live && 'animate-spin')}
+            className={cn(
+              'size-9 rounded-xl',
+              look ? look.tile : 'bg-muted text-muted-foreground'
+            )}
+          />
+        </span>
+      </Tip>
+      <div className="min-w-0">
+        <h3 className="text-label-md truncate font-semibold">
+          {chosen ? chosen.nodeId : 'All agents of this run'}
+        </h3>
+        <p className="text-body-sm text-muted-foreground">
+          {chosen && look ? (
+            <>
+              {chosen.harness} · <span>{modeLook(chosen.protocol).label}</span>
+              {/* the icon says the rest; only a call for the person is spelled out */}
+              <span
+                className={cn(
+                  look.needsYou ? cn('font-medium', look.text) : 'sr-only'
+                )}
+              >
+                {' · '}
+                {stateWords(chosen)}
               </span>
-            ))}
-          </span>
-        </>
-      ) : (
-        <>
-          <h3 className="text-label-md font-semibold">
-            All agents of this run
-          </h3>
-          <span className={chip}>includes child runs</span>
-          <span className={`${chip} ml-auto`}>
-            pick an agent to send a message
-          </span>
-        </>
+            </>
+          ) : (
+            `${count} ${count === 1 ? 'agent' : 'agents'}, child runs included`
+          )}
+        </p>
+      </div>
+      {chosen && look && (
+        <Popover>
+          <PopoverTrigger
+            aria-label="About this agent"
+            className="text-on-surface-variant hover:bg-muted hover:text-on-surface transition-standard ml-auto flex size-8 shrink-0 items-center justify-center rounded-full"
+          >
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-xl"
+            >
+              info
+            </span>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80">
+            <AgentDetails conversation={chosen} />
+          </PopoverContent>
+        </Popover>
+      )}
+      {!chosen && (
+        <p className="text-body-sm text-muted-foreground ml-auto">
+          Pick an agent to message it
+        </p>
       )}
     </div>
   );
@@ -113,7 +219,7 @@ export function AgentsPanel({
         onSelect={setSelected}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <Heading chosen={chosen} />
+        <Heading chosen={chosen} count={conversations.length} />
         {chosen?.protocol === 'PTY' ? (
           <Suspense
             fallback={
