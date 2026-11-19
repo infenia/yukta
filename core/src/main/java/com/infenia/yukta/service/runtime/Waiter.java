@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.runtime;
 
+import com.infenia.yukta.model.workflow.WorkflowKey;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
@@ -9,7 +10,7 @@ import reactor.core.publisher.Sinks;
 
 /** A start waiting for a slot. */
 record Waiter(
-    String key,
+    WorkflowKey key,
     @Nullable String executionId,
     AtomicInteger priority,
     Sinks.One<ExecutionScheduler.Permit> grant,

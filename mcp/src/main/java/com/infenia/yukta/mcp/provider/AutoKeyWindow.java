@@ -16,7 +16,7 @@ import reactor.core.publisher.Mono;
 final class AutoKeyWindow {
 
   private final Duration window;
-  private final Map<String, Entry> entries = new ConcurrentHashMap<>();
+  private final Map<Object, Entry> entries = new ConcurrentHashMap<>();
 
   private record Entry(Mono<String> execution, Instant until) {}
 
@@ -36,7 +36,7 @@ final class AutoKeyWindow {
    * @param start starts a new execution and returns its id
    * @return the id of the first start inside the window, or of a new one
    */
-  /* default */ Mono<String> once(final String scope, final Supplier<Mono<String>> start) {
+  /* default */ Mono<String> once(final Object scope, final Supplier<Mono<String>> start) {
     if (window.isZero() || window.isNegative()) {
       return start.get();
     }

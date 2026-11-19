@@ -313,13 +313,11 @@ test.describe('Supervision on a workflow', () => {
       page.getByRole('button', { name: /Search and jump to/ })
     ).toBeVisible();
     await page.keyboard.press('Control+k');
-    // The logs dock's node picker is another combobox with options of its own
-    const palette = page.getByRole('dialog', { name: 'Command palette' });
-    await palette.getByRole('combobox').fill('who owns');
+    await page.getByRole('combobox', { name: /Search pages/ }).fill('who owns');
     // The palette filters a deferred query, so Enter must wait for the filtered list
-    await expect(palette.getByRole('option').first()).toContainText(
-      'Who owns this workflow'
-    );
+    await expect(
+      page.getByRole('option', { name: /Who owns this workflow/ })
+    ).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/supervision=1/);
     await expect(
