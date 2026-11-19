@@ -43,10 +43,10 @@ final class DecisionWindow<T> {
   private static final String NONE = "none";
 
   /** Shared windows by plugin type, scope and key, in access order. */
-  private static final Map<String, DecisionWindow<?>> SHARED =
+  private static final Map<WindowKey, DecisionWindow<?>> SHARED =
       new LinkedHashMap<>(16, 0.75f, true) {
         @Override
-        protected boolean removeEldestEntry(final Map.Entry<String, DecisionWindow<?>> eldest) {
+        protected boolean removeEldestEntry(final Map.Entry<WindowKey, DecisionWindow<?>> eldest) {
           return size() > MAX_WINDOWS;
         }
       };
@@ -118,9 +118,12 @@ final class DecisionWindow<T> {
     synchronized (SHARED) {
       return (DecisionWindow<T>)
           SHARED.computeIfAbsent(
-              type + '\0' + persist + '\0' + scope + '\0' + key, _ -> new DecisionWindow<>());
+              new WindowKey(type, persist, scope, key), _ -> new DecisionWindow<>());
     }
   }
+
+  /** What a shared window is kept under. */
+  private record WindowKey(String type, String persist, String scope, String key) {}
 
   private static String persist(final Map<String, Object> config) {
     final Object value = config.get(PERSIST);

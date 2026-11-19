@@ -97,13 +97,13 @@ class AskInputTool {
   private static final int COUNTED_RUNS = 10_000;
 
   /** Questions asked so far by each node run. */
-  private static final Map<String, AtomicInteger> ASKED =
+  private static final Map<NodeRun, AtomicInteger> ASKED =
       Collections.synchronizedMap(
           new LinkedHashMap<>() {
             private static final long serialVersionUID = 1L;
 
             @Override
-            protected boolean removeEldestEntry(final Map.Entry<String, AtomicInteger> eldest) {
+            protected boolean removeEldestEntry(final Map.Entry<NodeRun, AtomicInteger> eldest) {
               return size() > COUNTED_RUNS;
             }
           });
@@ -277,10 +277,14 @@ class AskInputTool {
     return McpCallResult.transportFailure(message);
   }
 
+  /** One node of one run. */
+  private record NodeRun(String executionId, String nodeId) {}
+
   /** Counts a question; false when the node run has used its share. */
   /* default */ boolean countAsk(final InputIdentity who, final int max) {
     final AtomicInteger asked =
-        ASKED.computeIfAbsent(who.executionId() + '\0' + who.nodeId(), _ -> new AtomicInteger());
+        ASKED.computeIfAbsent(
+            new NodeRun(who.executionId(), who.nodeId()), _ -> new AtomicInteger());
     return asked.incrementAndGet() <= max;
   }
 

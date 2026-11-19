@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.workflow.store;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.model.workflow.WorkflowKey;
 import com.infenia.yukta.service.NotFoundException;
 import jakarta.annotation.PostConstruct;
 import java.time.Instant;
@@ -36,13 +37,16 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
   private final Map<String, Map<String, WorkflowDefinition>> store = new ConcurrentHashMap<>();
 
   /** Saved versions by session and workflow, oldest first; the newest {@value #MAX_REVISIONS}. */
-  private final Map<String, Deque<Revision>> history = new ConcurrentHashMap<>();
+  private final Map<WorkflowKey, Deque<Revision>> history = new ConcurrentHashMap<>();
 
   /** Most versions kept per workflow. */
   public static final int MAX_REVISIONS = 20;
 
   /** Notes by session, workflow and version. */
-  private final Map<String, String> notes = new ConcurrentHashMap<>();
+  private final Map<NoteKey, String> notes = new ConcurrentHashMap<>();
+
+  /** The note of one saved version. */
+  private record NoteKey(String sessionId, String workflowId, String revisionId) {}
 
   /** A saved version. */
   private record Revision(DefinitionRevision info, WorkflowDefinition definition) {}
@@ -72,7 +76,8 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
   private void remember(final String sessionId, final WorkflowDefinition definition) {
     final Deque<Revision> revisions =
         history.computeIfAbsent(
-            sessionId + "\0" + definition.workflowId(), _ -> new ConcurrentLinkedDeque<>());
+            new WorkflowKey(sessionId, definition.workflowId()),
+            _ -> new ConcurrentLinkedDeque<>());
     final Instant now = Instant.now();
     revisions.addLast(
         new Revision(
@@ -91,7 +96,7 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
     return Flux.defer(() -> {
       final List<DefinitionRevision> newestFirst =
           history
-              .getOrDefault(sessionId + "\0" + workflowId, new ConcurrentLinkedDeque<>())
+              .getOrDefault(new WorkflowKey(sessionId, workflowId), new ConcurrentLinkedDeque<>())
               .stream()
               .map(Revision::info)
               .map(info -> info.withNote(notes.get(noteKey(sessionId, workflowId, info.id()))))
@@ -101,9 +106,9 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
     });
   }
 
-  private static String noteKey(
+  private static NoteKey noteKey(
       final String sessionId, final String workflowId, final String revisionId) {
-    return sessionId + "\0" + workflowId + "\0" + revisionId;
+    return new NoteKey(sessionId, workflowId, revisionId);
   }
 
   @Override
@@ -113,7 +118,7 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
     return findRevision(sessionId, workflowId, revisionId)
         .switchIfEmpty(Mono.error(() -> new NotFoundException("Version not found: " + revisionId)))
         .doOnNext(_ -> {
-          final String key = noteKey(sessionId, workflowId, revisionId);
+          final NoteKey key = noteKey(sessionId, workflowId, revisionId);
           if (note == null || note.isBlank()) {
             notes.remove(key);
           } else {
@@ -129,7 +134,7 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
     return Mono.defer(() ->
         Mono.justOrEmpty(
             history
-                .getOrDefault(sessionId + "\0" + workflowId, new ConcurrentLinkedDeque<>())
+                .getOrDefault(new WorkflowKey(sessionId, workflowId), new ConcurrentLinkedDeque<>())
                 .stream()
                 .filter(revision -> revision.info().id().equals(revisionId))
                 .map(Revision::definition)
@@ -163,9 +168,12 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
       if (session != null) {
         session.remove(workflowId);
       }
-      history.remove(sessionId + "\0" + workflowId);
+      history.remove(new WorkflowKey(sessionId, workflowId));
       // the notes of its versions go with them
-      notes.keySet().removeIf(key -> key.startsWith(sessionId + "\0" + workflowId + "\0"));
+      notes
+          .keySet()
+          .removeIf(
+              key -> key.sessionId().equals(sessionId) && key.workflowId().equals(workflowId));
     });
   }
 
@@ -173,8 +181,8 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
   public Mono<Void> removeAll(final String sessionId) {
     return Mono.fromRunnable(() -> {
       store.remove(sessionId);
-      history.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
-      notes.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
+      history.keySet().removeIf(key -> key.sessionId().equals(sessionId));
+      notes.keySet().removeIf(key -> key.sessionId().equals(sessionId));
     });
   }
 }

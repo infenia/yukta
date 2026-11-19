@@ -21,18 +21,18 @@ import reactor.core.publisher.Sinks;
 public final class CommandSequencer {
 
   /** The completion signal of the most recently submitted job, per key. */
-  private final Map<String, Sinks.One<Void>> tails = new ConcurrentHashMap<>();
+  private final Map<Object, Sinks.One<Void>> tails = new ConcurrentHashMap<>();
 
   /**
    * Orders {@code work} after everything previously sequenced under {@code key}.
    *
    * <p>Position in the queue is fixed when the returned Mono is subscribed.
    *
-   * @param key what must be serialised, for example an execution id
+   * @param key what must be serialised, for example an execution id or a {@code WorkflowKey}
    * @param work the job
    * @return a Mono that runs {@code work} after its predecessors and mirrors its result
    */
-  public Mono<Void> sequence(final String key, final Mono<Void> work) {
+  public Mono<Void> sequence(final Object key, final Mono<Void> work) {
     return Mono.defer(() -> {
       final Sinks.One<Void> mine = Sinks.one();
       final Sinks.One<Void> previous = tails.put(key, mine);
@@ -52,7 +52,7 @@ public final class CommandSequencer {
     });
   }
 
-  private void release(final String key, final Sinks.One<Void> mine) {
+  private void release(final Object key, final Sinks.One<Void> mine) {
     mine.tryEmitEmpty();
     tails.remove(key, mine);
   }

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.runtime;
 
+import com.infenia.yukta.model.workflow.WorkflowKey;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -21,7 +22,7 @@ import org.jspecify.annotations.Nullable;
 final class WaitQueue {
   private final ConcurrentNavigableMap<Integer, Set<Waiter>> byPriority =
       new ConcurrentSkipListMap<>(Comparator.reverseOrder());
-  private final Map<String, Integer> perKey = new ConcurrentHashMap<>();
+  private final Map<WorkflowKey, Integer> perKey = new ConcurrentHashMap<>();
   private final Map<String, Waiter> waitersById = new ConcurrentHashMap<>();
   private int total;
 
@@ -40,7 +41,7 @@ final class WaitQueue {
    * @param key the workflow key
    * @return the count
    */
-  /* default */ int count(final String key) {
+  /* default */ int count(final WorkflowKey key) {
     return perKey.getOrDefault(key, 0);
   }
 
