@@ -7,9 +7,11 @@ import { CodeBlock } from '@/components/common/CodeBlock';
 import { cn } from '@/lib/utils';
 import { NodeSupervisorTab } from '@/features/supervisors/components/NodeSupervisorTab';
 import { RequireControl } from '@/features/supervisors/components/RequireControl';
+import { getStartPayload } from '../api/getStartPayload';
 import { getWorkflowDefinition } from '../api/getWorkflowDefinition';
 import { useExecutionResults } from '../hooks/useExecutionResults';
 import { categoryAccent } from '../lib/categoryAccent';
+import { startPaths, startValue } from '../lib/startValues';
 import { toNodeUiStatus } from '../lib/statusMapper';
 import { formatDateTime, formatDuration } from '../lib/timeFormat';
 import type { TaskProgress, WorkflowGraphNode } from '../types/workflow';
@@ -60,14 +62,72 @@ const Empty = ({ children }: { children: ReactNode }) => (
   <p className="text-body-sm text-on-surface-variant">{children}</p>
 );
 
+/** A start value as the config gets it: text as it is, anything else as JSON. */
+const shown = (value: unknown) =>
+  typeof value === 'string' ? value : JSON.stringify(value);
+
+/** What each `${start.…}` of the config resolved to on this run. */
+function StartValues({
+  executionId,
+  paths,
+}: {
+  executionId: string;
+  paths: string[];
+}) {
+  const start = useQuery({
+    queryKey: ['executions', executionId, 'start-payload'],
+    queryFn: () => getStartPayload(executionId),
+    // a run's start payload never changes
+    staleTime: Infinity,
+  });
+  if (start.isError) {
+    return <Empty>What this run was started with could not be loaded.</Empty>;
+  }
+  if (!start.data) {
+    return <Empty>Loading…</Empty>;
+  }
+  const payload = start.data.payload;
+  if (payload === null) {
+    return (
+      <Empty>The server no longer holds what this run was started with.</Empty>
+    );
+  }
+  return (
+    <dl
+      aria-label="Start values"
+      className="border-border bg-surface-container-low grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-xl border p-2"
+    >
+      {paths.map((path) => {
+        const value = startValue(payload, path);
+        return (
+          <div key={path} className="contents">
+            <dt className="text-code-sm text-on-surface-variant">
+              start.{path}
+            </dt>
+            <dd className="text-code-sm text-on-surface min-w-0 break-all">
+              {value === undefined ? (
+                <span className="text-on-surface-variant italic">not set</span>
+              ) : (
+                shown(value)
+              )}
+            </dd>
+          </div>
+        );
+      })}
+    </dl>
+  );
+}
+
 function Config({
   sessionId,
   workflowId,
   nodeId,
+  executionId,
 }: {
   sessionId: string;
   workflowId: string;
   nodeId: string;
+  executionId: string | null;
 }) {
   const definition = useQuery({
     queryKey: ['sessions', sessionId, 'workflows', workflowId, 'definition'],
@@ -80,10 +140,17 @@ function Config({
     return <Empty>Loading…</Empty>;
   }
   const config = definition.data.nodes.find((n) => n.nodeId === nodeId)?.config;
-  return config && Object.keys(config).length > 0 ? (
-    <CodeBlock code={JSON.stringify(config, null, 2)} label="configuration" />
-  ) : (
-    <Empty>No configuration.</Empty>
+  if (!config || Object.keys(config).length === 0) {
+    return <Empty>No configuration.</Empty>;
+  }
+  const paths = startPaths(config);
+  return (
+    <>
+      <CodeBlock code={JSON.stringify(config, null, 2)} label="configuration" />
+      {executionId && paths.length > 0 && (
+        <StartValues executionId={executionId} paths={paths} />
+      )}
+    </>
   );
 }
 
@@ -195,7 +262,7 @@ export function NodeSheet({
       className={cn(
         'border-border bg-background absolute inset-0 z-10 flex flex-col gap-3 overflow-y-auto border-l p-4 duration-150',
         closing
-          ? 'animate-out fade-out-0 slide-out-to-right-4 fill-mode-forwards'
+          ? 'animate-out fade-out-0 fill-mode-forwards slide-out-to-right-4'
           : 'animate-in fade-in-0 slide-in-from-right-4'
       )}
     >
@@ -342,6 +409,7 @@ export function NodeSheet({
                 sessionId={sessionId}
                 workflowId={workflowId}
                 nodeId={node.nodeId}
+                executionId={executionId}
               />
             </Section>
 
