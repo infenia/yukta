@@ -2,16 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { cn } from '@/lib/utils';
-import type { Conversation, ConversationState } from '@/types/conversations';
+import type { Conversation } from '@/types/conversations';
+import { stateLook } from '../../lib/agentLook';
 import { stateWords } from '../../lib/agentLabels';
-
-const DOT: Record<ConversationState, string> = {
-  STARTING: 'bg-muted-foreground',
-  RUNNING: 'bg-primary',
-  WAITING: 'bg-warning',
-  IDLE: 'bg-on-surface-variant',
-  ENDED: 'bg-success',
-};
+import { IconTile } from './IconTile';
+import { Tip } from '@/components/ui/tooltip';
 
 /** The agents of the run: "All" and one row for each conversation (chips on a narrow screen). */
 export function AgentList({
@@ -29,7 +24,7 @@ export function AgentList({
     cn(
       'text-label-md flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-left md:w-full md:rounded-lg md:border-transparent md:px-2.5',
       active
-        ? 'border-primary/40 bg-accent text-accent-foreground'
+        ? 'border-border bg-muted text-on-surface'
         : 'border-border text-on-surface-variant hover:bg-surface-variant'
     );
   return (
@@ -44,9 +39,9 @@ export function AgentList({
           onClick={() => onSelect(null)}
           className={row(selected === null)}
         >
-          <span
-            aria-hidden="true"
-            className="bg-muted-foreground size-2 shrink-0 rounded-full"
+          <IconTile
+            icon="auto_awesome"
+            className="bg-muted text-muted-foreground size-7 rounded-lg"
           />
           <span className="min-w-0 flex-1">
             <span className="block font-semibold">All</span>
@@ -66,21 +61,52 @@ export function AgentList({
             onClick={() => onSelect(c.id)}
             className={row(selected === c.id)}
           >
-            <span
-              aria-hidden="true"
-              className={cn('size-2 shrink-0 rounded-full', DOT[c.state])}
-            />
+            <Tip label={stateWords(c)}>
+              <span className="flex">
+                <IconTile
+                  icon={stateLook(c).icon}
+                  iconClassName={cn(
+                    'text-lg',
+                    stateLook(c).live && 'animate-spin'
+                  )}
+                  className={cn('size-7 rounded-lg', stateLook(c).tile)}
+                />
+              </span>
+            </Tip>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold">{c.nodeId}</span>
               <span className="text-body-sm text-muted-foreground truncate max-md:sr-only md:block">
                 {c.harness}
-                {c.protocol === 'ACP' ? ' · acp' : ''} · {stateWords(c)}
+                {/* the icon says the rest; only a call for the person is spelled out */}
+                <span
+                  className={cn(
+                    stateLook(c).needsYou
+                      ? cn('font-medium', stateLook(c).text)
+                      : 'sr-only'
+                  )}
+                >
+                  {' · '}
+                  {stateWords(c)}
+                </span>
               </span>
             </span>
             {c.queued > 0 && (
-              <span className="text-body-sm text-muted-foreground shrink-0">
-                {c.queued} queued
-              </span>
+              <Tip
+                label={`${c.queued} queued ${c.queued === 1 ? 'message' : 'messages'}`}
+              >
+                <span className="bg-primary/10 text-primary text-label-sm flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-0.5 tabular-nums">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-sm"
+                  >
+                    schedule
+                  </span>
+                  <span aria-hidden="true" className="tabular-nums">
+                    {c.queued}
+                  </span>
+                  <span className="sr-only">{c.queued} queued</span>
+                </span>
+              </Tip>
             )}
           </button>
         </li>

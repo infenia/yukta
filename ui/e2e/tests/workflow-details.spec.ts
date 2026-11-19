@@ -54,7 +54,10 @@ test.describe('Workflow Details Page', () => {
       page.getByTestId('workflow-node-Sink_Storage')
     ).toHaveAttribute('data-status', 'pending');
 
-    await expect(page.getByTestId('task-sequence')).toContainText('Succeeded');
+    // the status filters are icon buttons named by status and count
+    await expect(
+      page.getByRole('button', { name: 'Succeeded 1' })
+    ).toBeVisible();
     await expect(page.getByTestId('task-sequence')).toContainText(
       'module: vector-engine-v2'
     );
