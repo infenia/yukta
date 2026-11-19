@@ -313,7 +313,7 @@ test.describe('Supervision on a workflow', () => {
       page.getByRole('button', { name: /Search and jump to/ })
     ).toBeVisible();
     await page.keyboard.press('Control+k');
-    await page.getByRole('combobox').fill('who owns');
+    await page.getByRole('combobox', { name: /Search pages/ }).fill('who owns');
     // The palette filters a deferred query, so Enter must wait for the filtered list
     await expect(page.getByRole('option').first()).toContainText(
       'Who owns this workflow'
