@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class LogRetentionTest {
 
   private static final String NEWEST = "newest";
@@ -130,6 +131,27 @@ class LogRetentionTest {
     assertThat(keep).doesNotContain("busy-29");
     // the global 20 newest (all busy) plus the quiet session's 2
     assertThat(keep).hasSize(22);
+  }
+
+  @Test
+  void keepFloorPerSessionIsConfigurable() {
+    final List<String> runs = new java.util.ArrayList<>();
+    runs.add("quiet-1");
+    runs.add("quiet-2");
+    for (int i = 0; i < 50; i++) {
+      runs.add("busy-" + i);
+    }
+    try {
+      LogRetention.minPerSession(1);
+      assertThat(LogRetention.keep(runs, id -> id.startsWith("busy") ? "busy" : "quiet", 20))
+          .contains("quiet-2")
+          .doesNotContain("quiet-1");
+      LogRetention.minPerSession(-5);
+      assertThat(LogRetention.keep(runs, id -> id.startsWith("busy") ? "busy" : "quiet", 20))
+          .hasSize(20);
+    } finally {
+      LogRetention.minPerSession(LogRetention.DEFAULT_MIN_PER_SESSION);
+    }
   }
 
   @Test

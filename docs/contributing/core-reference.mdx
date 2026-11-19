@@ -821,7 +821,7 @@ An append-only record of run starts (with the input payload), ends, control comm
 - File access runs on one background writer thread. Events are **not fsynced** unless `yukta.execution-log.fsync=true`; a rewritten file (compaction, session config) is forced to disk before it replaces the old one.
 - **Boot recovery** (`ExecutionRecovery`): runs that never finished are marked `ABORTED`, the newest `retained-runs` are restored into history, and the log is rewritten without older ones.
 
-**Configure:** `yukta.execution-log.dir` · `…retained-runs` (500) · `…compact-after` (10000) · `…fsync` (false)
+**Configure:** `yukta.execution-log.dir` · `…retained-runs` (500) · `…compact-after` (10000) · `…min-runs-per-session` (10) · `…fsync` (false)
 
 **Source:** `ExecutionLogStore` `InMemoryExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionLogEvent` `ExecutionRecovery`
 

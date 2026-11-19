@@ -117,10 +117,13 @@ public record YuktaProperties(
    *
    * @param retainedRuns runs kept when the log is trimmed
    * @param compactAfter appended events after which the log is trimmed
+   * @param minRunsPerSession newest runs each session keeps even when a busier one pushes them out
+   *     of {@code retainedRuns} (at most half of it)
    */
   public record ExecutionLog(
       @Min(1) @DefaultValue("500") int retainedRuns,
-      @Min(1) @DefaultValue("10000") int compactAfter) {}
+      @Min(1) @DefaultValue("10000") int compactAfter,
+      @Min(0) @DefaultValue("10") int minRunsPerSession) {}
 
   /**
    * Checkpoints kept for restarts.

@@ -4,6 +4,7 @@ package com.infenia.yukta.startup;
 
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.config.YuktaProperties;
+import com.infenia.yukta.service.log.LogRetention;
 import com.infenia.yukta.service.store.CheckpointJson;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,5 +57,15 @@ public class AppConfiguration {
   @Autowired
   /* default */ void applyPayloadPackages(final YuktaProperties properties) {
     CheckpointJson.allowPackages(properties.restart().payloadPackages());
+  }
+
+  /**
+   * Applies {@code yukta.execution-log.min-runs-per-session} to the log retention.
+   *
+   * @param properties the settings
+   */
+  @Autowired
+  /* default */ void applyLogRetentionFloor(final YuktaProperties properties) {
+    LogRetention.minPerSession(properties.executionLog().minRunsPerSession());
   }
 }
