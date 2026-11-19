@@ -73,7 +73,15 @@ public class TakeoverRecovery implements SmartInitializingSingleton {
 
   @Override
   public void afterSingletonsInstantiated() {
-    election.onTakeover(recovery::recover);
+    election.onTakeover(() ->
+        recovery
+            .recover()
+            .subscribe(
+                _ -> {},
+                error ->
+                    log.atError()
+                        .setCause(error)
+                        .log("Could not recover the execution history on takeover")));
   }
 
   /** Resumes the interrupted runs one after the other; one that cannot be resumed is skipped. */

@@ -88,38 +88,40 @@ public class ExecutionResumer {
   }
 
   private Mono<String> doResume(final String executionId) {
-    return Mono.defer(() -> {
-      final List<ExecutionLogEvent> events = executionLog.forExecution(executionId);
-      final ExecutionLogEvent started = first(events, ExecutionLogEvent.Type.RUN_STARTED);
-      if (started == null) {
-        return Mono.error(new NotFoundException("Execution not found: " + executionId));
-      }
-      final ExecutionLogEvent resumed = first(events, ExecutionLogEvent.Type.RUN_RESUMED);
-      if (resumed != null) {
-        return Mono.error(
-            new ConflictException(
-                "Execution " + executionId + " was already resumed as " + resumed.status()));
-      }
-      if (first(events, ExecutionLogEvent.Type.RUN_ABORTED) == null) {
-        return Mono.error(
-            new ConflictException("Only an aborted run can be resumed: " + executionId));
-      }
-      if (started.payload() == null) {
-        return Mono.error(
-            new ConflictException("The payload of " + executionId + " was not recorded"));
-      }
-      return workflowDefinitionStore
-          .find(started.sessionId(), started.workflowId())
-          .switchIfEmpty(
-              Mono.error(
-                  new NotFoundException(
-                      "Workflow no longer exists: "
-                          + started.sessionId()
-                          + "/"
-                          + started.workflowId())))
-          .flatMap(orchestrator::prepareWorkflow)
-          .flatMap(prepared -> start(started, prepared));
-    });
+    return executionLog
+        .forExecution(executionId)
+        .collectList()
+        .flatMap(events -> {
+          final ExecutionLogEvent started = first(events, ExecutionLogEvent.Type.RUN_STARTED);
+          if (started == null) {
+            return Mono.error(new NotFoundException("Execution not found: " + executionId));
+          }
+          final ExecutionLogEvent resumed = first(events, ExecutionLogEvent.Type.RUN_RESUMED);
+          if (resumed != null) {
+            return Mono.error(
+                new ConflictException(
+                    "Execution " + executionId + " was already resumed as " + resumed.status()));
+          }
+          if (first(events, ExecutionLogEvent.Type.RUN_ABORTED) == null) {
+            return Mono.error(
+                new ConflictException("Only an aborted run can be resumed: " + executionId));
+          }
+          if (started.payload() == null) {
+            return Mono.error(
+                new ConflictException("The payload of " + executionId + " was not recorded"));
+          }
+          return workflowDefinitionStore
+              .find(started.sessionId(), started.workflowId())
+              .switchIfEmpty(
+                  Mono.error(
+                      new NotFoundException(
+                          "Workflow no longer exists: "
+                              + started.sessionId()
+                              + "/"
+                              + started.workflowId())))
+              .flatMap(orchestrator::prepareWorkflow)
+              .flatMap(prepared -> start(started, prepared));
+        });
   }
 
   private Mono<String> start(final ExecutionLogEvent started, final PreparedWorkflow prepared) {

@@ -4,7 +4,8 @@ package com.infenia.yukta.service.log;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Append-only record of execution lifecycle events, kept so runs survive a restart of the server.
@@ -21,18 +22,20 @@ public interface ExecutionLogStore {
   void append(ExecutionLogEvent event);
 
   /**
-   * Reads every stored event, oldest first. Unreadable entries are skipped.
+   * Reads every stored event, oldest first, as seen when it is subscribed: every event appended
+   * before that is in it. Unreadable entries are skipped.
    *
    * @return the events
    */
-  List<ExecutionLogEvent> readAll();
+  Flux<ExecutionLogEvent> readAll();
 
   /**
    * Replaces the whole log, used to drop old runs after recovery.
    *
    * @param events the events to keep, oldest first
+   * @return completes when the log has been replaced
    */
-  void replaceAll(List<ExecutionLogEvent> events);
+  Mono<Void> replaceAll(List<ExecutionLogEvent> events);
 
   /**
    * Reads the events of one run, oldest first. The default filters {@link #readAll()}; stores
@@ -41,8 +44,8 @@ public interface ExecutionLogStore {
    * @param executionId the run
    * @return its events, empty if unknown
    */
-  default List<ExecutionLogEvent> forExecution(final String executionId) {
-    return readAll().stream().filter(event -> executionId.equals(event.executionId())).toList();
+  default Flux<ExecutionLogEvent> forExecution(final String executionId) {
+    return readAll().filter(event -> executionId.equals(event.executionId()));
   }
 
   /**
@@ -51,10 +54,10 @@ public interface ExecutionLogStore {
    * @param executionId the run
    * @return its header, empty if the log has no start for it
    */
-  default Optional<RunHeader> header(final String executionId) {
-    return forExecution(executionId).stream()
+  default Mono<RunHeader> header(final String executionId) {
+    return forExecution(executionId)
         .filter(event -> event.type() == ExecutionLogEvent.Type.RUN_STARTED)
-        .findFirst()
+        .next()
         .map(event -> new RunHeader(event.sessionId(), event.workflowId()));
   }
 
@@ -65,10 +68,8 @@ public interface ExecutionLogStore {
    * @param since only events after this instant
    * @return the events
    */
-  default List<ExecutionLogEvent> ofType(final ExecutionLogEvent.Type type, final Instant since) {
-    return readAll().stream()
-        .filter(event -> event.type() == type && event.timestamp().isAfter(since))
-        .toList();
+  default Flux<ExecutionLogEvent> ofType(final ExecutionLogEvent.Type type, final Instant since) {
+    return readAll().filter(event -> event.type() == type && event.timestamp().isAfter(since));
   }
 
   /**

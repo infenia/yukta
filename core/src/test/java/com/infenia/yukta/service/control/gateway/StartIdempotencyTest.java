@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.Map;
@@ -129,11 +130,11 @@ class StartIdempotencyTest {
   void keys_surviveRestart_whenLogIsKept() {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final StartIdempotency before = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
-    before.afterSingletonsInstantiated();
+    before.reload().block();
     assertThat(before.once("s/w", "k1", this::start).block()).isEqualTo("exec-1");
 
     final StartIdempotency after = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
-    after.afterSingletonsInstantiated();
+    after.reload().block();
 
     assertThat(after.once("s/w", "k1", this::start).block()).isEqualTo("exec-1");
     assertThat(after.once("s/w", "k2", this::start).block()).isEqualTo("exec-2");
@@ -151,19 +152,38 @@ class StartIdempotencyTest {
     first.once("s/w", "old", this::start).block();
 
     final StartIdempotency tiny = StartIdempotencyFixture.create(Duration.ofNanos(1), log);
-    tiny.afterSingletonsInstantiated();
+    tiny.reload().block();
     final StartIdempotency normal = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
-    normal.afterSingletonsInstantiated();
+    normal.reload().block();
 
-    assertThat(log.readAll()).hasSize(1);
+    assertThat(log.readAll().collectList().block()).hasSize(1);
     assertThat(tiny.once("s/w", "old", this::start).block()).isEqualTo("exec-2");
     assertThat(normal.once("s/w", "failed", this::start).block()).isEqualTo("exec-3");
   }
 
   @Test
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.gateway.StartIdempotency - ")
+  void reloadThatFails_isLoggedAndStartsStillWork() {
+    final InMemoryExecutionLogStore unreadable =
+        new InMemoryExecutionLogStore() {
+          @Override
+          public reactor.core.publisher.Flux<ExecutionLogEvent> ofType(
+              final ExecutionLogEvent.Type type, final java.time.Instant since) {
+            return reactor.core.publisher.Flux.error(new IllegalStateException("unreadable"));
+          }
+        };
+    final StartIdempotency broken =
+        StartIdempotencyFixture.create(Duration.ofMinutes(10), unreadable);
+
+    broken.afterSingletonsInstantiated();
+
+    assertThat(broken.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
+  }
+
+  @Test
   void withoutLog_reloadingDoesNothing() {
     final StartIdempotency idle = StartIdempotencyFixture.create(Duration.ofMinutes(1));
-    idle.afterSingletonsInstantiated();
+    idle.reload().block();
 
     assertThat(idle.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
   }
@@ -173,7 +193,7 @@ class StartIdempotencyTest {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     log.append(ExecutionLogEvent.started("e", "s", "w", "v", Map.of()));
     final StartIdempotency reloaded = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
-    reloaded.afterSingletonsInstantiated();
+    reloaded.reload().block();
 
     assertThat(reloaded.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
   }
@@ -216,5 +236,42 @@ class StartIdempotencyTest {
 
     assertThatCode(reloaded::afterSingletonsInstantiated).doesNotThrowAnyException();
     assertThat(starts.get()).isZero();
+  }
+
+  @Test
+  void reload_holdsStartsBackUntilTheKeysAreLoaded() throws InterruptedException {
+    final java.util.concurrent.CountDownLatch reading = new java.util.concurrent.CountDownLatch(1);
+    final java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+    final InMemoryExecutionLogStore slowLog =
+        new InMemoryExecutionLogStore() {
+          @Override
+          public reactor.core.publisher.Flux<ExecutionLogEvent> ofType(
+              final ExecutionLogEvent.Type type, final java.time.Instant since) {
+            return reactor.core.publisher.Flux.defer(
+                    () -> {
+                      reading.countDown();
+                      try {
+                        go.await();
+                      } catch (final InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                      }
+                      return super.ofType(type, since);
+                    })
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+          }
+        };
+    final com.infenia.yukta.service.runtime.ExecutionScheduler scheduler =
+        new com.infenia.yukta.service.runtime.ExecutionScheduler(YuktaSettings.bind(Map.of()));
+    final StartIdempotency idempotency =
+        StartIdempotencyFixture.create(Duration.ofMinutes(10), slowLog);
+    idempotency.setExecutionScheduler(scheduler);
+
+    final var done = idempotency.reload().toFuture();
+    assertThat(reading.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+    assertThat(scheduler.acquire("s", "w", 0, null).refused()).isTrue();
+    go.countDown();
+    done.join();
+
+    assertThat(scheduler.acquire("s", "w", 0, null).refused()).isFalse();
   }
 }

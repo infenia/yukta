@@ -96,7 +96,7 @@ class DirectiveDispatcherChannelTest {
     StepVerifier.create(dispatcher.dispatchOrdered(pause)).verifyComplete();
 
     assertThat(sunk).extracting(AuditRecord::channel).containsExactly(OPERATOR, ENGINE, SYSTEM);
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .extracting(e -> Objects.requireNonNull(e.payload()).get(ExecutionLogEvent.CHANNEL_KEY))
         .containsExactly(OPERATOR, ENGINE, SYSTEM);
     org.awaitility.Awaitility.await()

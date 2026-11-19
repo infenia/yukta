@@ -52,10 +52,10 @@ class InMemoryExecutionLogStoreTest {
 
     store.append(first);
     store.append(second);
-    assertThat(store.readAll()).containsExactly(first, second);
+    assertThat(store.readAll().collectList().block()).containsExactly(first, second);
 
-    store.replaceAll(List.of(second));
-    assertThat(store.readAll()).containsExactly(second);
+    store.replaceAll(List.of(second)).block();
+    assertThat(store.readAll().collectList().block()).containsExactly(second);
   }
 
   @Test
@@ -66,7 +66,9 @@ class InMemoryExecutionLogStoreTest {
       store.append(ExecutionLogEvent.finished(run, "s", "w", "SUCCESS", Map.of()));
     }
 
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsOnly("r3", "r4");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsOnly("r3", "r4");
   }
 
   @Test
@@ -79,7 +81,7 @@ class InMemoryExecutionLogStoreTest {
     }
     store.append(ExecutionLogEvent.started("r5", "s", "w", "v"));
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
         .contains("long", "r4", "r5")
         .doesNotContain("r2");
@@ -97,7 +99,9 @@ class InMemoryExecutionLogStoreTest {
     store.append(ExecutionLogEvent.started("b", "s", "w", "v"));
     store.append(ExecutionLogEvent.finished("b", "s", "w", "SUCCESS", Map.of()));
 
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsOnly("b");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsOnly("b");
   }
 
   @Test
@@ -106,7 +110,9 @@ class InMemoryExecutionLogStoreTest {
     store.append(ExecutionLogEvent.started("r1", "s", "w", "v"));
     store.append(ExecutionLogEvent.started("r2", "s", "w", "v"));
 
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).contains("r1", "r2");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .contains("r1", "r2");
   }
 
   @Test
@@ -122,11 +128,13 @@ class InMemoryExecutionLogStoreTest {
       store.append(ExecutionLogEvent.finished(run, "s", "w", "SUCCESS", Map.of()));
     }
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .filteredOn(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId()))
         .extracting(ExecutionLogEvent::status)
         .containsExactly("SetLimits(1)", "SetLimits(2)");
-    assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).doesNotContain("r1");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .doesNotContain("r1");
   }
 
   @Test
