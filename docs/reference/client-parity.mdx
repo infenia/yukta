@@ -117,6 +117,7 @@ Roles apply to every client: a key without the needed role gets `403` from REST,
 | Metrics | `GET /api/metrics/snapshot`, `/series`, `/heatmap`, `/modules`, `/annotations`, `/runs/live`, `/catalog`, `/stream` | `get_metrics_snapshot` | – | Control › Overview (panels, scope filter, kiosk) |
 | Who am I | `GET /api/me` | `whoami` | `whoami` | Identity chip in the header |
 | Edition | `GET /api/edition` | – | – | – |
+| Effective settings (ADMIN) | `GET /api/config?key=…` | – | – | – (shown on Configuration, once C5 lands) |
 
 ## Related
 
