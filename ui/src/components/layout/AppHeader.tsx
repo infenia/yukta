@@ -24,6 +24,12 @@ const NAV = [
     icon: 'shield_person',
   },
   { to: '/control', section: '/control', label: 'Control', icon: 'hub' },
+  {
+    to: '/config',
+    section: '/config',
+    label: 'Config',
+    icon: 'settings',
+  },
 ];
 
 const isCurrent = (pathname: string, to: string, section: string) =>
@@ -35,7 +41,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Primary"
-      className="border-border bg-card fixed inset-x-0 bottom-0 z-50 grid h-16 grid-cols-5 border-t pb-[env(safe-area-inset-bottom)] sm:hidden"
+      className="border-border bg-card fixed inset-x-0 bottom-0 z-50 grid h-16 grid-cols-6 border-t pb-[env(safe-area-inset-bottom)] sm:hidden"
     >
       {NAV.map(({ to, section, label, icon }) => {
         const active = isCurrent(pathname, to, section);

@@ -80,9 +80,9 @@ describe('router', () => {
   });
 
   describe('route paths', () => {
-    it('should have 18 child routes', () => {
+    it('should have 19 child routes', () => {
       const rootRoute = router.routes[0];
-      expect(rootRoute.children?.length).toBe(18);
+      expect(rootRoute.children?.length).toBe(19);
     });
 
     it('should have correct number of parameterized routes', () => {
@@ -144,6 +144,7 @@ describe('router', () => {
       expect(await load('sessions/import')).toBe('SessionImportPage');
       expect(await load('sessions/:sessionId/edit')).toBe('SessionFormPage');
       expect(await load('plugins')).toBe('PluginsPage');
+      expect(await load('config')).toBe('ConfigPage');
       expect(await load('supervisors')).toBe('SupervisorsPage');
       expect(await load('supervisors/new')).toBe('SupervisorEditPage');
       expect(await load('supervisors/:supervisorId/edit')).toBe(
