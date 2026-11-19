@@ -200,7 +200,7 @@ class WorkflowTestRunnerTest {
   }
 
   @Test
-  void anEmptyExpectationAndANullStubPayloadStillRun() {
+  void emptyExpectationAndNullStubPayloadStillRun() {
     engine(TaskStatus.SUCCESS, Mono.empty());
     final var spec =
         new WorkflowTestSpec(
