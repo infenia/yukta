@@ -118,4 +118,16 @@ describe('ConfigPage', () => {
     expect(screen.getByTestId('search')).toHaveTextContent(/^$/);
     expect(screen.getByLabelText('Search options')).toBeInTheDocument();
   });
+
+  it('opens the Packaging tab', async () => {
+    setup();
+    await userEvent.click(screen.getByRole('tab', { name: 'Packaging' }));
+    expect(screen.getByTestId('search')).toHaveTextContent('?tab=packaging');
+    expect(
+      screen.getByRole('heading', {
+        name: 'JVM jar, native binary and Docker image',
+      })
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Search options')).toBeNull();
+  });
 });

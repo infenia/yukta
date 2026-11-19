@@ -77,4 +77,24 @@ test.describe('Configuration page', () => {
     ).toBeVisible();
     await expect(page.getByText('2 of 4')).toBeVisible();
   });
+
+  test('the Packaging tab compares JVM, native and Docker', async ({
+    page,
+  }) => {
+    await page.goto('/config');
+    await page.getByRole('tab', { name: 'Packaging' }).click();
+
+    await expect(page).toHaveURL(/\/config\?tab=packaging$/);
+    await expect(
+      page.getByRole('heading', {
+        name: 'JVM jar, native binary and Docker image',
+      })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('row', { name: /JAVA_TOOL_OPTIONS/ })
+    ).toContainText('Ignored.');
+    await expect(
+      page.getByRole('heading', { name: 'Running the Docker image' })
+    ).toBeVisible();
+  });
 });
