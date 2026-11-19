@@ -81,6 +81,11 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
   /** Log key of the run an event belongs to. */
   private static final String EXECUTION_ID = "executionId";
 
+  private static final String EVENT = "event";
+
+  private static final String NEWEST_SQL =
+      "SELECT CAST(event AS text) AS event FROM execution_log WHERE event->>'type' IN (";
+
   /** Longest one statement may take. */
   private static final Duration STATEMENT_TIMEOUT = Duration.ofSeconds(30);
 
@@ -364,10 +369,46 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
                         "SELECT CAST(event AS text) AS event FROM execution_log"
                             + " WHERE execution_id = :id ORDER BY seq")
                     .bind("id", executionId)
-                    .map(row -> row.get("event", String.class))
+                    .map(row -> row.get(EVENT, String.class))
                     .all()
                     .collectList()
                     .timeout(STATEMENT_TIMEOUT))));
+  }
+
+  /** One bounded query, newest first, so the audit does not read the table. */
+  @Override
+  public Flux<ExecutionLogEvent> newest(
+      final java.util.Set<ExecutionLogEvent.Type> types,
+      final String executionId,
+      final int limit) {
+    final List<ExecutionLogEvent.Type> wanted = List.copyOf(types);
+    if (wanted.isEmpty() || limit < 1) {
+      return Flux.empty();
+    }
+    return reading(
+        Mono.defer(() -> {
+          final String sql =
+              NEWEST_SQL
+                  + java.util.stream.IntStream.range(0, wanted.size())
+                      .mapToObj(i -> ":t" + i)
+                      .collect(java.util.stream.Collectors.joining(", "))
+                  + ")"
+                  + (executionId == null ? "" : " AND execution_id = :id")
+                  + " ORDER BY seq DESC LIMIT :limit";
+          DatabaseClient.GenericExecuteSpec spec = client.sql(sql);
+          for (int i = 0; i < wanted.size(); i++) {
+            spec = spec.bind("t" + i, wanted.get(i).name());
+          }
+          if (executionId != null) {
+            spec = spec.bind("id", executionId);
+          }
+          return parse(
+              spec.bind("limit", limit)
+                  .map(row -> row.get(EVENT, String.class))
+                  .all()
+                  .collectList()
+                  .timeout(STATEMENT_TIMEOUT));
+        }));
   }
 
   @Override
@@ -381,7 +422,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
                             "SELECT CAST(event AS text) AS event FROM execution_log"
                                 + " WHERE event->>'type' = :type ORDER BY seq")
                         .bind("type", type.name())
-                        .map(row -> row.get("event", String.class))
+                        .map(row -> row.get(EVENT, String.class))
                         .all()
                         .collectList()
                         .timeout(STATEMENT_TIMEOUT))
@@ -396,7 +437,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
             parse(
                 client
                     .sql("SELECT CAST(event AS text) AS event FROM execution_log ORDER BY seq")
-                    .map(row -> row.get("event", String.class))
+                    .map(row -> row.get(EVENT, String.class))
                     .all()
                     .collectList()
                     .timeout(STATEMENT_TIMEOUT))));

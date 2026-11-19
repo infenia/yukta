@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -104,6 +105,27 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
       lock.lock();
       try {
         return Flux.fromIterable(List.copyOf(byRun.getOrDefault(executionId, List.of())));
+      } finally {
+        lock.unlock();
+      }
+    });
+  }
+
+  @Override
+  public Flux<ExecutionLogEvent> newest(
+      final Set<ExecutionLogEvent.Type> types, final String executionId, final int limit) {
+    return Flux.defer(() -> {
+      lock.lock();
+      try {
+        final List<ExecutionLogEvent> source =
+            executionId == null ? events : byRun.getOrDefault(executionId, List.of());
+        final List<ExecutionLogEvent> found = new ArrayList<>();
+        for (int i = source.size() - 1; i >= 0 && found.size() < limit; i--) {
+          if (ExecutionLogStore.matches(source.get(i), types, executionId)) {
+            found.add(source.get(i));
+          }
+        }
+        return Flux.fromIterable(found);
       } finally {
         lock.unlock();
       }

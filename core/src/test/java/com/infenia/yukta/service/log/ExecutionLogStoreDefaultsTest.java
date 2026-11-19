@@ -15,6 +15,8 @@ import reactor.core.publisher.Mono;
 /** The default lookups of {@link ExecutionLogStore}, run over a plain list. */
 class ExecutionLogStoreDefaultsTest {
 
+  private static final String SUCCESS = "SUCCESS";
+
   private static ExecutionLogStore listBacked(final List<ExecutionLogEvent> events) {
     return new ExecutionLogStore() {
       @Override
@@ -43,7 +45,7 @@ class ExecutionLogStoreDefaultsTest {
     final ExecutionLogStore store = listBacked(events);
     store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
     store.append(ExecutionLogEvent.started("e2", "s2", "w2", "v1"));
-    store.append(ExecutionLogEvent.finished("e1", "s1", "w1", "SUCCESS", Map.of()));
+    store.append(ExecutionLogEvent.finished("e1", "s1", "w1", SUCCESS, Map.of()));
 
     assertThat(store.forExecution("e1").collectList().block()).hasSize(2);
     assertThat(store.forExecution("unknown").collectList().block()).isEmpty();
@@ -54,7 +56,7 @@ class ExecutionLogStoreDefaultsTest {
     final List<ExecutionLogEvent> events = new ArrayList<>();
     final ExecutionLogStore store = listBacked(events);
     store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
-    store.append(ExecutionLogEvent.finished("e2", "s2", "w2", "SUCCESS", Map.of()));
+    store.append(ExecutionLogEvent.finished("e2", "s2", "w2", SUCCESS, Map.of()));
 
     assertThat(store.header("e1").blockOptional())
         .contains(new ExecutionLogStore.RunHeader("s1", "w1"));
@@ -66,7 +68,7 @@ class ExecutionLogStoreDefaultsTest {
     final List<ExecutionLogEvent> events = new ArrayList<>();
     final ExecutionLogStore store = listBacked(events);
     store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
-    store.append(ExecutionLogEvent.finished("e1", "s1", "w1", "SUCCESS", Map.of()));
+    store.append(ExecutionLogEvent.finished("e1", "s1", "w1", SUCCESS, Map.of()));
 
     assertThat(
             store.ofType(ExecutionLogEvent.Type.RUN_STARTED, Instant.EPOCH).collectList().block())
@@ -77,5 +79,31 @@ class ExecutionLogStoreDefaultsTest {
                 .collectList()
                 .block())
         .isEmpty();
+  }
+
+  @Test
+  void newest_returnsTheNewestOfTheTypesFirstUpToTheLimit() {
+    final var store = listBacked(new ArrayList<>());
+    store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
+    store.append(ExecutionLogEvent.started("e2", "s1", "w1", "v1"));
+    store.append(ExecutionLogEvent.finished("e1", "s1", "w1", SUCCESS, Map.of()));
+    store.append(ExecutionLogEvent.started("e3", "s1", "w1", "v1"));
+    final var started = java.util.Set.of(ExecutionLogEvent.Type.RUN_STARTED);
+
+    assertThat(
+            store
+                .newest(started, null, 2)
+                .map(ExecutionLogEvent::executionId)
+                .collectList()
+                .block())
+        .containsExactly("e3", "e2");
+    assertThat(
+            store
+                .newest(started, "e1", 5)
+                .map(ExecutionLogEvent::executionId)
+                .collectList()
+                .block())
+        .containsExactly("e1");
+    assertThat(store.newest(started, "none", 5).collectList().block()).isEmpty();
   }
 }

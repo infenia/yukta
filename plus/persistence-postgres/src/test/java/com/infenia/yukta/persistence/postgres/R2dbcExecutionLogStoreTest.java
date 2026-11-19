@@ -604,4 +604,42 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
                 .block())
         .isEmpty();
   }
+
+  @Test
+  void newest_isOneBoundedQueryNewestFirst() {
+    store = new R2dbcExecutionLogStore(db, new ObjectMapper(), 1_000, 100_000, 5_000);
+    store.append(started("r1"));
+    store.append(started("r2"));
+    store.append(finished("r1"));
+    store.append(started("r3"));
+    final var started = java.util.Set.of(ExecutionLogEvent.Type.RUN_STARTED);
+
+    assertThat(
+            store
+                .newest(started, null, 2)
+                .map(ExecutionLogEvent::executionId)
+                .collectList()
+                .block())
+        .containsExactly("r3", "r2");
+    assertThat(
+            store
+                .newest(started, "r1", 5)
+                .map(ExecutionLogEvent::executionId)
+                .collectList()
+                .block())
+        .containsExactly("r1");
+    assertThat(
+            store
+                .newest(
+                    java.util.Set.of(
+                        ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED),
+                    "r1",
+                    5)
+                .map(ExecutionLogEvent::type)
+                .collectList()
+                .block())
+        .containsExactly(ExecutionLogEvent.Type.RUN_FINISHED, ExecutionLogEvent.Type.RUN_STARTED);
+    assertThat(store.newest(java.util.Set.of(), null, 5).collectList().block()).isEmpty();
+    assertThat(store.newest(started, null, 0).collectList().block()).isEmpty();
+  }
 }
