@@ -117,10 +117,13 @@ public record YuktaProperties(
    *
    * @param retainedRuns runs kept when the log is trimmed
    * @param compactAfter appended events after which the log is trimmed
+   * @param minRunsPerSession newest runs each session keeps even when a busier one pushes them out
+   *     of {@code retainedRuns} (at most half of it)
    */
   public record ExecutionLog(
       @Min(1) @DefaultValue("500") int retainedRuns,
-      @Min(1) @DefaultValue("10000") int compactAfter) {}
+      @Min(1) @DefaultValue("10000") int compactAfter,
+      @Min(0) @DefaultValue("10") int minRunsPerSession) {}
 
   /**
    * Checkpoints kept for restarts.
@@ -130,13 +133,22 @@ public record YuktaProperties(
    * @param spillDir directory for output beyond the caps; empty to refuse such restarts
    * @param autoResume whether interrupted runs are resumed on their own
    * @param retainedExecutions executions whose outputs are kept
+   * @param payloadPackages extra class name prefixes whose payloads a resume restores with their
+   *     type (a third-party plugin's own classes); others come back as JSON
    */
   public record Restart(
       @Min(1) @DefaultValue(DEFAULT_CAP) int messagesPerNode,
       @Min(1) @DefaultValue("4194304") long bytesPerNode,
       @DefaultValue("") String spillDir,
       @DefaultValue("false") boolean autoResume,
-      @Min(1) @DefaultValue("10") int retainedExecutions) {}
+      @Min(1) @DefaultValue("10") int retainedExecutions,
+      @NotNull @DefaultValue List<String> payloadPackages) {
+
+    /** Keeps an unmodifiable copy of the payload packages. */
+    public Restart {
+      payloadPackages = List.copyOf(payloadPackages);
+    }
+  }
 
   /**
    * The status history of live streams.

@@ -179,9 +179,9 @@ public class WorkersAutoConfiguration {
    * @param maxPayloadBytes {@code yukta.messaging.max-payload-bytes}, which limits the size of a
    *     message from the control plane
    * @param bundles the SSL bundles of the application
-   * @return the agent, started and stopped with the application
+   * @return the agent, started and stopped (drained, without blocking) with the application
    */
-  @Bean(initMethod = "start", destroyMethod = "stop")
+  @Bean(destroyMethod = "")
   @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.ExcessiveParameterList"})
   @ConditionalOnExpression("!'${yukta.workers.control-plane:}'.isEmpty()")
   public WorkerAgent workerAgent(

@@ -821,7 +821,7 @@ An append-only record of run starts (with the input payload), ends, control comm
 - File access runs on one background writer thread. Events are **not fsynced** unless `yukta.execution-log.fsync=true`; a rewritten file (compaction, session config) is forced to disk before it replaces the old one.
 - **Boot recovery** (`ExecutionRecovery`): runs that never finished are marked `ABORTED`, the newest `retained-runs` are restored into history, and the log is rewritten without older ones.
 
-**Configure:** `yukta.execution-log.dir` · `…retained-runs` (500) · `…compact-after` (10000) · `…fsync` (false)
+**Configure:** `yukta.execution-log.dir` · `…retained-runs` (500) · `…compact-after` (10000) · `…min-runs-per-session` (10) · `…fsync` (false)
 
 **Source:** `ExecutionLogStore` `InMemoryExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionLogEvent` `ExecutionRecovery`
 
@@ -1131,6 +1131,7 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.restart.store-type` | file/memory | [DUR-04](#dur-04-postgresql-stores) | `postgres` for checkpoints (module: persistence-postgres) |
 | `yukta.agents.store-type` | memory | [DUR-04](#dur-04-postgresql-stores) | `memory` \| `postgres` for agent conversations; an unknown value stops start-up |
 | `yukta.restart.retained-executions` | 10 | [CTL-04](#ctl-04-restart-restart-from-node-and-retry-node), [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Finished runs kept restartable |
+| `yukta.restart.payload-packages` | empty | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Extra class name prefixes whose payloads a resume restores with their type |
 | `yukta.restart.messages-per-node` | 200 | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Memory cap per node |
 | `yukta.restart.bytes-per-node` | 4194304 (4 MiB) | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Memory cap per node, bytes |
 | `yukta.restart.auto-resume` | false | [DUR-03](#dur-03-resume-and-recovery), [SCL-02](#scl-02-active/standby-high-availability) | Resume interrupted runs after recovery |
@@ -1173,6 +1174,7 @@ All meters are Micrometer. Tags in braces.
 | `yukta.edge.dropped` `{type, node}` | counter | [ENG-01](#eng-01-streaming-dag-and-back-pressure) | Messages dropped by an `edgeBuffer` |
 | `yukta.checkpoint.bytes` | gauge | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Node output held by the checkpoint store |
 | `yukta.checkpoint.errors` | counter | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | End markers that failed to write |
+| `yukta.checkpoint.io.pending` | gauge | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Checkpoint file operations queued or running |
 | `yukta.plugin.events` `{plugin, outcome}` | counter | [EXT-01](#ext-01-plugin-contract-and-registry) | Counters a plugin reports through the metrics reporter |
 | `yukta.supervisor.commands` `{id, outcome}` | counter | [CTL-07](#ctl-07-supervisors) | Commands issued by supervisors (outcomes include `forbidden`: not in the supervisor's `allowedCommands`; `out-of-scope`: the target is outside the supervisor's scope) |
 | `yukta.input.requests` `{kind, risk, outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Input requests: asked, answered, defaulted, escalated, expired, cancelled |

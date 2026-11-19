@@ -13,12 +13,16 @@ class ControlKeyTest {
 
   @Test
   void keyWithoutRunIsTheTwoPartKey() {
-    assertThat(ControlKey.forNode("wf", null, "n")).isEqualTo("wf\0n");
-    assertThat(ControlKey.forNode("wf", "", "n")).isEqualTo("wf\0n");
+    assertThat(ControlKey.forNode("wf", null, "n")).isEqualTo(new ControlKey("wf", null, "n"));
+    assertThat(ControlKey.forNode("wf", "", "n")).isEqualTo(new ControlKey("wf", null, "n"));
   }
 
   @Test
-  void keyWithRunHasThreeParts() {
-    assertThat(ControlKey.forNode("wf", "run-1", "n")).isEqualTo("wf\0run-1\0n");
+  void keyWithRunKeepsItsExecution() {
+    assertThat(ControlKey.forNode("wf", "run-1", "n"))
+        .isEqualTo(new ControlKey("wf", "run-1", "n"));
+    // a node id that holds the old separator can no longer collide with another key
+    assertThat(ControlKey.forNode("wf", null, "a\0b"))
+        .isNotEqualTo(ControlKey.forNode("wf\0a", null, "b"));
   }
 }

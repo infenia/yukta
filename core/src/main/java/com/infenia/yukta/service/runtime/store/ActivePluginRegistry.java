@@ -40,7 +40,7 @@ import org.springframework.validation.annotation.Validated;
 public class ActivePluginRegistry {
 
   /** Map of active plugin registrations by {@link ControlKey}. */
-  private final Map<String, Registration> activePlugins = new ConcurrentHashMap<>();
+  private final Map<ControlKey, Registration> activePlugins = new ConcurrentHashMap<>();
 
   /** A registered plugin instance with a count of outstanding registrations for its key. */
   private record Registration(Plugin plugin, AtomicInteger refCount) {}
@@ -109,7 +109,7 @@ public class ActivePluginRegistry {
       @NotBlank final String workflowId,
       final @Nullable String executionId,
       @NotBlank final String nodeId) {
-    final String key = ControlKey.forNode(workflowId, executionId, nodeId);
+    final ControlKey key = ControlKey.forNode(workflowId, executionId, nodeId);
     final boolean[] fullyReleased = {false};
     activePlugins.computeIfPresent(
         key,

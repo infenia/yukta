@@ -19,14 +19,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.boot.availability.AvailabilityChangeEvent;
+import org.springframework.boot.availability.ReadinessState;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import tools.jackson.databind.ObjectMapper;
 
@@ -42,9 +49,14 @@ import tools.jackson.databind.ObjectMapper;
  * definition changed in git reaches the running server. A file removed from the folder is kept as a
  * session. Polling, not a file-system watch, so it also works on network mounts and after a {@code
  * git pull}.
+ *
+ * <p>Nothing here blocks a thread: the files are applied reactively, and until the first pass is
+ * done the readiness state is held at {@code REFUSING_TRAFFIC} (Spring Boot opens it when the
+ * runners return, which is now earlier), so a readiness probe still waits for the sessions.
  */
 @Slf4j
 @Component
+@SuppressWarnings("PMD.ExcessiveImports")
 @ConditionalOnExpression("!'${yukta.bootstrap.dir:}'.isEmpty()")
 public class BootstrapRunner implements ApplicationRunner {
 
@@ -76,7 +88,18 @@ public class BootstrapRunner implements ApplicationRunner {
   private final Map<Path, FileTime> seen = new ConcurrentHashMap<>();
 
   /** The running watch, or null. */
+  private final ReentrantLock lock = new ReentrantLock();
+
   private Disposable watcher;
+
+  /** Publishes the readiness state. */
+  private final ApplicationEventPublisher events;
+
+  /** True from the start of the first pass until it is done. */
+  private boolean pending;
+
+  /** True if the readiness state was held back while the first pass ran. */
+  private boolean refused;
 
   /**
    * Create the runner.
@@ -88,6 +111,7 @@ public class BootstrapRunner implements ApplicationRunner {
    * @param sessionService applies the sessions
    * @param watch whether to keep watching the folder
    * @param interval how often to check the folder
+   * @param events publishes the readiness state
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2") // all are shared Spring beans
   public BootstrapRunner(
@@ -97,7 +121,8 @@ public class BootstrapRunner implements ApplicationRunner {
       final SessionMapper sessionMapper,
       final SessionService sessionService,
       @Value("${yukta.bootstrap.watch:false}") final boolean watch,
-      @Value("${yukta.bootstrap.watch-interval:5s}") final Duration interval) {
+      @Value("${yukta.bootstrap.watch-interval:5s}") final Duration interval,
+      final ApplicationEventPublisher events) {
     this.dir = Path.of(dir);
     this.mapper = mapper;
     this.validator = validator;
@@ -105,16 +130,54 @@ public class BootstrapRunner implements ApplicationRunner {
     this.sessionService = sessionService;
     this.watch = watch;
     this.interval = interval;
+    this.events = events;
   }
 
   @Override
   public void run(final ApplicationArguments args) {
-    final int applied = apply();
-    log.atInfo().addKeyValue("dir", dir).addKeyValue("sessions", applied).log("Bootstrap done");
-    if (watch) {
-      watcher =
-          Flux.interval(interval, Schedulers.boundedElastic())
-              .subscribe(_ -> apply(), e -> log.atError().setCause(e).log("Bootstrap watch ended"));
+    lock.lock();
+    try {
+      pending = true;
+    } finally {
+      lock.unlock();
+    }
+    final Mono<Integer> first =
+        apply()
+            .doOnNext(applied ->
+                log.atInfo()
+                    .addKeyValue("dir", dir)
+                    .addKeyValue("sessions", applied)
+                    .log("Bootstrap done"))
+            .doFinally(_ -> firstPassDone());
+    final Flux<Integer> pipeline =
+        watch ? first.thenMany(Flux.interval(interval).concatMap(_ -> apply())) : first.flux();
+    watcher = pipeline.subscribe(_ -> {}, e -> log.atError().setCause(e).log("Bootstrap ended"));
+  }
+
+  /** Keeps the readiness probe waiting while the first pass runs. */
+  @EventListener
+  /* default */ void onReadiness(final AvailabilityChangeEvent<ReadinessState> event) {
+    lock.lock();
+    try {
+      if (pending && event.getState() == ReadinessState.ACCEPTING_TRAFFIC) {
+        refused = true;
+        AvailabilityChangeEvent.publish(events, this, ReadinessState.REFUSING_TRAFFIC);
+      }
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private void firstPassDone() {
+    lock.lock();
+    try {
+      pending = false;
+      if (refused) {
+        refused = false;
+        AvailabilityChangeEvent.publish(events, this, ReadinessState.ACCEPTING_TRAFFIC);
+      }
+    } finally {
+      lock.unlock();
     }
   }
 
@@ -127,18 +190,22 @@ public class BootstrapRunner implements ApplicationRunner {
   }
 
   /**
-   * Apply the files.
+   * Apply the files that are new or changed.
    *
    * @return how many sessions were applied
    */
-  /* default */ int apply() {
-    int applied = 0;
-    for (final Path file : files()) {
-      if (changed(file) && applyFile(file)) {
-        applied++;
-      }
-    }
-    return applied;
+  /* default */ Mono<Integer> apply() {
+    return Mono.fromCallable(this::changedFiles)
+        .subscribeOn(Schedulers.boundedElastic())
+        .flatMapMany(Flux::fromIterable)
+        .concatMap(this::applyFile)
+        .filter(applied -> applied)
+        .count()
+        .map(Long::intValue);
+  }
+
+  private List<Path> changedFiles() {
+    return files().stream().filter(this::changed).toList();
   }
 
   /** Whether the file is new or was modified since it was last looked at; records the time. */
@@ -170,23 +237,29 @@ public class BootstrapRunner implements ApplicationRunner {
     return files;
   }
 
-  @SuppressWarnings("PMD.AvoidCatchingGenericException")
-  private boolean applyFile(final Path file) {
-    boolean applied = false;
-    try {
-      final ConfigRequest request = mapper.readValue(Files.readString(file), ConfigRequest.class);
-      final Set<ConstraintViolation<ConfigRequest>> problems = validator.validate(request);
-      if (problems.isEmpty()) {
-        sessionService
-            .applyConfig(sessionMapper.configRequestToSessionConfigData(request))
-            .block(APPLY_TIMEOUT);
-        applied = true;
-      } else {
-        log.atWarn().addKeyValue("file", file).log("Skipped, invalid: {}", problems);
-      }
-    } catch (final IOException | RuntimeException e) {
-      log.atWarn().setCause(e).addKeyValue("file", file).log("Skipped, could not apply");
+  private Mono<Boolean> applyFile(final Path file) {
+    return Mono.fromCallable(() -> read(file))
+        .subscribeOn(Schedulers.boundedElastic())
+        .flatMap(request ->
+            sessionService
+                .applyConfig(sessionMapper.configRequestToSessionConfigData(request))
+                .timeout(APPLY_TIMEOUT)
+                .thenReturn(true))
+        .defaultIfEmpty(false)
+        .onErrorResume(e -> {
+          log.atWarn().setCause(e).addKeyValue("file", file).log("Skipped, could not apply");
+          return Mono.just(false);
+        });
+  }
+
+  /** The valid request in the file, or null (logged) if it is not valid. */
+  private @Nullable ConfigRequest read(final Path file) throws IOException {
+    final ConfigRequest request = mapper.readValue(Files.readString(file), ConfigRequest.class);
+    final Set<ConstraintViolation<ConfigRequest>> problems = validator.validate(request);
+    if (problems.isEmpty()) {
+      return request;
     }
-    return applied;
+    log.atWarn().addKeyValue("file", file).log("Skipped, invalid: {}", problems);
+    return null;
   }
 }

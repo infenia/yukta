@@ -97,10 +97,12 @@ Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execu
 | `yukta.execution-log.dir` | path | unset (memory) | Keeps the execution log as a file here; needed to recover and resume. Plus. |
 | `yukta.execution-log.retained-runs` | int | `500` | Newest runs kept and restored at start. |
 | `yukta.execution-log.compact-after` | int | `10000` | Log trimmed after this many appended events. |
+| `yukta.execution-log.min-runs-per-session` | int | `10` | Newest runs each session keeps in the log even when a busier session pushes them out of `retained-runs` (at most half of it; 0 turns the floor off). |
 | `yukta.execution-log.fsync` | boolean | `false` | Forces every event to disk (not re-checked). |
 | `yukta.restart.dir` | path | unset (memory) | Keeps node outputs on disk. Plus. |
 | `yukta.restart.spill-dir` | path | `""` (off) | Moves oversize in-memory checkpoints to files here. |
 | `yukta.restart.retained-executions` | int | `10` | Finished runs kept restartable. |
+| `yukta.restart.payload-packages` | list | empty | Extra class name prefixes (for example `com.acme.plugin.`) whose payloads a resume restores with their Java type; other classes come back as JSON. |
 | `yukta.restart.messages-per-node` | int | `200` | In-memory cap: messages per node and run. |
 | `yukta.restart.bytes-per-node` | long | `4194304` | In-memory cap: bytes per node and run. |
 | `yukta.restart.auto-resume` | boolean | `false` | Resumes each interrupted run after recovery or takeover, one after another. |

@@ -53,6 +53,19 @@ class CheckpointMetricsTest {
   }
 
   @Test
+  void fileStore_reportsPendingCheckpointIo() {
+    final FileNodeCheckpointStore store =
+        new FileNodeCheckpointStore(dir.toString(), JsonMapper.builder().build());
+    final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    new CheckpointMetrics(store).bindTo(registry);
+
+    store.save("e1", "n1", DefaultMessage.create(UUID.randomUUID(), "x")).block();
+
+    assertThat(registry.get("yukta.checkpoint.io.pending").gauge().value()).isZero();
+    assertThat(FileNodeCheckpointStore.pendingIo()).isZero();
+  }
+
+  @Test
   void storeThatCannotTellItsSize_isNotPublished() {
     final SimpleMeterRegistry registry = new SimpleMeterRegistry();
 

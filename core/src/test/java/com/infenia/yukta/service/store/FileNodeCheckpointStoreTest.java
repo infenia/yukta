@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -101,6 +102,16 @@ class FileNodeCheckpointStoreTest {
   @Test
   void payloadOfDisallowedType_comesBackAsJson() {
     assertThat(roundTrip(new AtomicInteger(5)).payload()).isEqualTo(5);
+  }
+
+  @Test
+  void payloadOfConfiguredPackage_isRestoredWithItsType() {
+    CheckpointJson.allowPackages(List.of("java.util.concurrent.atomic."));
+    try {
+      assertThat(roundTrip(new AtomicInteger(5)).payload()).isInstanceOf(AtomicInteger.class);
+    } finally {
+      CheckpointJson.allowPackages(List.of());
+    }
   }
 
   @Test

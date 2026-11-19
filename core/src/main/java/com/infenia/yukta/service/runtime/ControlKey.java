@@ -2,22 +2,20 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.runtime;
 
-import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Keys of the control bus: one node of one run of one workflow.
+ * Key of the control bus: one node of one run of one workflow.
  *
- * <p>A key is {@code workflowId NUL executionId NUL nodeId}. Two runs of the same workflow have the
- * same node ids, so without the execution id their plugin registrations would overwrite each other.
- * A key made without an execution id ({@code workflowId NUL nodeId}) is for a plugin that does not
- * belong to a run.
+ * <p>Two runs of the same workflow have the same node ids, so without the execution id their plugin
+ * registrations would overwrite each other. A key made without an execution id is for a plugin that
+ * does not belong to a run.
+ *
+ * @param workflowId the workflow
+ * @param executionId the run, or null if the key does not belong to a run
+ * @param nodeId the node
  */
-@UtilityClass
-public class ControlKey {
-
-  /** Separates the parts of a key; no id can contain it. */
-  private static final char SEPARATOR = '\0';
+public record ControlKey(String workflowId, @Nullable String executionId, String nodeId) {
 
   /**
    * Builds the key of a node.
@@ -27,10 +25,9 @@ public class ControlKey {
    * @param nodeId the node
    * @return the key
    */
-  public static String forNode(
+  public static ControlKey forNode(
       final String workflowId, final @Nullable String executionId, final String nodeId) {
-    return executionId == null || executionId.isEmpty()
-        ? workflowId + SEPARATOR + nodeId
-        : workflowId + SEPARATOR + executionId + SEPARATOR + nodeId;
+    return new ControlKey(
+        workflowId, executionId == null || executionId.isEmpty() ? null : executionId, nodeId);
   }
 }
