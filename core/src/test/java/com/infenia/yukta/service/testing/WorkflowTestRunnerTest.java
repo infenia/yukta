@@ -164,7 +164,7 @@ class WorkflowTestRunnerTest {
   }
 
   @Test
-  void aTriggerWithoutStubEmitsTheInput_anAllowedProcessorRuns_andARunErrorIsReported() {
+  void triggerWithoutStubEmitsTheInput_allowedProcessorRuns_andRunErrorIsReported() {
     engine(TaskStatus.FAILURE, Mono.error(new IllegalStateException("boom")));
     final var spec = new WorkflowTestSpec(Map.of("env", "prod"), Map.of(), null, List.of("p"), 5);
 
@@ -177,7 +177,7 @@ class WorkflowTestRunnerTest {
   }
 
   @Test
-  void aProcessorWithoutStubAndNoAllowListRunsForReal() {
+  void processorWithoutStubAndNoAllowListRunsForReal() {
     engine(TaskStatus.SUCCESS, Mono.empty());
     final var spec = new WorkflowTestSpec(null, null, null, null, null);
 
@@ -186,7 +186,7 @@ class WorkflowTestRunnerTest {
   }
 
   @Test
-  void aProcessorNeitherStubbedNorAllowedIsRefused() {
+  void processorNeitherStubbedNorAllowedIsRefused() {
     final var spec = new WorkflowTestSpec(null, Map.of(), null, List.of("other"), null);
 
     assertThatThrownBy(() -> runner.run("s", definition(), spec).block())

@@ -21,6 +21,7 @@ import org.springframework.test.context.aot.DisabledInAotMode;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @NoArgsConstructor
 @DisabledInAotMode
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class WorkflowTestRunnerAcceptanceTest {
 
   @Autowired private WorkflowTestRunner runner;

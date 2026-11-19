@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -53,5 +54,17 @@ class StubPluginsTest {
 
     assertThat(plugins.stubTerminal().getType()).isEqualTo(StubPlugins.TERMINAL);
     assertThat(plugins.stubTrigger().getType()).isEqualTo(StubPlugins.TRIGGER);
+  }
+
+  @Test
+  void specAndReportCopyTheirCollections() {
+    final List<String> reached = new ArrayList<>(List.of("a"));
+    final var expect = new WorkflowTestSpec.Expect(null, reached, null, null);
+    final var spec = new WorkflowTestSpec(Map.of("k", "v"), Map.of(), expect, List.of(), 1);
+    reached.add("b");
+
+    assertThat(spec.expect().reached()).containsExactly("a");
+    assertThat(spec.input()).containsEntry("k", "v");
+    assertThat(new TestReport(true, "SUCCESS", List.of()).assertions()).isEmpty();
   }
 }

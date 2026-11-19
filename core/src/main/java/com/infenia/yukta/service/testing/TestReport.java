@@ -13,6 +13,11 @@ import java.util.List;
  */
 public record TestReport(boolean passed, String status, List<Check> assertions) {
 
+  /** Copies the list, so the report cannot be changed through it. */
+  public TestReport {
+    assertions = List.copyOf(assertions);
+  }
+
   /**
    * One assertion.
    *

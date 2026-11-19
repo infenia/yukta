@@ -308,4 +308,16 @@ class PluginRegistryTest {
         .hasMessageContaining("Plugin 'OLD'")
         .hasMessageContaining("built for SPI 0.9");
   }
+
+  @Test
+  void testStubsAreFoundButNotListed() {
+    final Plugin stub = mock(Plugin.class);
+    when(stub.getType()).thenReturn("TEST_STUB_X");
+    final Plugin real = mock(Plugin.class);
+    when(real.getType()).thenReturn("REAL");
+    final PluginRegistry withStub = new PluginRegistry(List.of(stub, real));
+
+    assertThat(withStub.get("TEST_STUB_X")).isSameAs(stub);
+    assertThat(withStub.listPlugins()).containsExactly(real);
+  }
 }
