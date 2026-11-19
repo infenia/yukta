@@ -118,6 +118,8 @@ class WorkflowTestRunnerTest {
                 3,
                 List.of(
                     new ResultEvent(
+                        ResultEvent.Kind.RESULT, "other", 0, "x", null, false, Instant.now()),
+                    new ResultEvent(
                         ResultEvent.Kind.RESULT, "end", 1, "text", null, false, Instant.now()),
                     new ResultEvent(
                         ResultEvent.Kind.NODE_END, "end", 2, null, "SUCCESS", false, Instant.now()),
@@ -132,7 +134,9 @@ class WorkflowTestRunnerTest {
     final var spec =
         new WorkflowTestSpec(
             null,
-            Map.of("p", List.of(new WorkflowTestSpec.Stub(Map.of("k", "v"), "success"))),
+            Map.of(
+                "p", List.of(new WorkflowTestSpec.Stub(Map.of("k", "v"), "success")),
+                "t", List.of(new WorkflowTestSpec.Stub("go", null))),
             expect(
                 "FAILURE",
                 List.of("t", "p"),
@@ -193,5 +197,22 @@ class WorkflowTestRunnerTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Node 'p' (PROC) has no stub");
     org.mockito.Mockito.verify(orchestrator, org.mockito.Mockito.never()).prepareWorkflow(any());
+  }
+
+  @Test
+  void anEmptyExpectationAndANullStubPayloadStillRun() {
+    engine(TaskStatus.SUCCESS, Mono.empty());
+    final var spec =
+        new WorkflowTestSpec(
+            null,
+            Map.of("p", List.of(new WorkflowTestSpec.Stub(null, null))),
+            expect(null, null, null, null),
+            null,
+            null);
+
+    final TestReport report = runner.run("s", definition(), spec).block();
+
+    assertThat(report.assertions()).isEmpty();
+    assertThat(prepared.getFirst().nodes().get(1).config().toString()).contains("payload={}");
   }
 }
