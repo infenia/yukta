@@ -60,7 +60,8 @@ test.describe('Edit session', () => {
     await session.save.click();
 
     await expect(page).toHaveURL(/\/sessions\/session-1/);
-    expect(saved?.name).toBe('Build and release');
+    // the edit page's own URL matches too, so wait for the POST itself
+    await expect.poll(() => saved?.name).toBe('Build and release');
     expect(saved?.sessionId).toBe('session-1');
     expect(saved?.workflows.build.nodes).toHaveLength(2);
   });
