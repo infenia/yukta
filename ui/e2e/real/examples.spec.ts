@@ -122,10 +122,10 @@ test.describe('examples from the UI on a real server', () => {
     page,
   }) => {
     const errors = watchConsole(page);
-    await createFromTemplate(page, templates, '05-dependency-updates');
+    await createFromTemplate(page, templates, '04-dependency-updates');
     const executionId = await startRun(
       page,
-      example('05-dependency-updates/patch-bump.json')
+      example('1-standalone/04-dependency-updates/patch-bump.json')
     );
     await expect.poll(() => status(page, executionId)).toBe('SUCCESS');
     expect(errors).toEqual([]);
@@ -135,10 +135,10 @@ test.describe('examples from the UI on a real server', () => {
     page,
   }) => {
     const errors = watchConsole(page);
-    await createFromTemplate(page, templates, '04-pr-risk-gate');
+    await createFromTemplate(page, templates, '03-pr-risk-gate');
     const executionId = await startRun(
       page,
-      example('04-pr-risk-gate/borderline.json')
+      example('1-standalone/03-pr-risk-gate/borderline.json')
     );
     await expect(page.getByText('Waiting for an answer')).toBeVisible();
     await page

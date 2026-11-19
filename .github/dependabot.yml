@@ -106,7 +106,7 @@ updates:
       - "docker"
 
   - package-ecosystem: "gomod"
-    directory: "/examples/18-supervisor-agents/go"
+    directory: "/examples/2-free-deps/14-supervisor-agents/go"
     schedule:
       interval: "weekly"
     cooldown:
