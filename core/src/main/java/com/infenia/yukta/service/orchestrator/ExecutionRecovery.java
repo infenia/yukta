@@ -37,8 +37,7 @@ import reactor.core.scheduler.Schedulers;
 @SuppressWarnings({
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.AvoidCatchingGenericException",
-  "PMD.TooManyMethods"
+  "PMD.AvoidCatchingGenericException"
 })
 public class ExecutionRecovery implements SmartInitializingSingleton {
 
