@@ -8,7 +8,9 @@ test('the real server serves the single page app on a deep link and on an unknow
   page,
 }) => {
   await page.goto('/runs?status=SUCCESS');
-  await expect(page.getByRole('heading', { level: 1, name: 'Runs' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Runs' })
+  ).toBeVisible();
   await expect(page.getByLabel('Status')).toHaveValue('SUCCESS');
 
   await page.goto('/no/such/page');
@@ -31,15 +33,21 @@ test('old addresses redirect and the breadcrumb of a real workflow leads back', 
   await expect(trail.getByRole('link')).toHaveText(['Sessions', id]);
   await trail.getByRole('link', { name: id }).click();
   await expect(page).toHaveURL(new RegExp(`/sessions/${id}$`));
-  await expect(page.getByRole('contentinfo')).toContainText('Infenia Private Limited');
+  await expect(page.getByRole('contentinfo')).toContainText(
+    'Infenia Private Limited'
+  );
 });
 
-test('the header shows who the key is, and Sign out forgets it', async ({ page }) => {
+test('the header shows who the key is and offers to change or forget it', async ({
+  page,
+}) => {
   await page.goto('/sessions');
 
   const account = page.getByRole('button', { name: 'Account', exact: true });
   await expect(account).toContainText('ADMIN');
   await account.click();
-  await expect(page.getByRole('menuitem', { name: 'Change API key' })).toBeVisible();
+  await expect(
+    page.getByRole('menuitem', { name: 'Change API key' })
+  ).toBeVisible();
   await expect(page.getByRole('menuitem', { name: 'Sign out' })).toBeVisible();
 });
