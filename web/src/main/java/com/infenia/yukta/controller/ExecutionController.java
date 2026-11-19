@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import com.infenia.yukta.dto.response.StartPayloadResponse;
 import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
@@ -10,6 +11,7 @@ import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -56,6 +58,9 @@ public class ExecutionController {
 
   /** Knows the runs of a tree. */
   private final TaskTrackerService tracker;
+
+  /** The run log, whose start events hold what each run was started with. */
+  private final ExecutionLogStore executionLog;
 
   /**
    * Stop one execution.
@@ -104,6 +109,29 @@ public class ExecutionController {
     return access
         .require(null, executionId)
         .map(_ -> ApiResponse.success(200, "Tree retrieved", tracker.getTree(executionId)));
+  }
+
+  /**
+   * Get what an execution was started with.
+   *
+   * @param executionId the execution
+   * @return the start payload, secrets masked; its payload is null when no longer kept
+   */
+  @GetMapping("/executions/{executionId}/start-payload")
+  @Operation(
+      summary = "Get what an execution was started with",
+      description =
+          "The start payload that ${start...} in a node's config reads, from the run's start in"
+              + " the execution log, with secrets masked and the engine's yukta.* entries left"
+              + " out. payload is null when the log no longer holds it")
+  public Mono<ApiResponse<StartPayloadResponse>> getStartPayload(
+      @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
+    return access
+        .require(null, executionId)
+        .flatMap(_ -> executionLog.forExecution(executionId).collectList())
+        .map(events ->
+            ApiResponse.success(
+                200, "Start payload retrieved", StartPayloadResponse.fromLog(events)));
   }
 
   /**

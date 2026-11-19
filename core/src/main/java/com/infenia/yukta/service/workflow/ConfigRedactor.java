@@ -46,6 +46,9 @@ public class ConfigRedactor {
               + "|bearer).*",
           Pattern.CASE_INSENSITIVE);
 
+  /** Start payload keys the engine keeps for itself (initiator, priority, parent run). */
+  private static final String ENGINE_PREFIX = "yukta.";
+
   /** The plugins, to find which fields of a node are secret. */
   private final PluginRegistry plugins;
 
@@ -92,6 +95,24 @@ public class ConfigRedactor {
         session.projectPath(),
         workflows,
         session.supervisors());
+  }
+
+  /**
+   * Masks the secrets of a run's start payload for handing out: any text under a key whose name
+   * says it holds a secret, at any depth. The engine's own {@code yukta.*} entries are left out, as
+   * {@code ${start...}} does not read them either.
+   *
+   * @param payload what the run was started with
+   * @return a copy for handing out
+   */
+  public static Map<String, Object> redactPayload(final Map<String, Object> payload) {
+    final Map<String, Object> redacted = new LinkedHashMap<>();
+    payload.forEach((key, value) -> {
+      if (!key.startsWith(ENGINE_PREFIX)) {
+        redacted.put(key, redactValue(value, isSecretName(key)));
+      }
+    });
+    return redacted;
   }
 
   /**
@@ -161,7 +182,7 @@ public class ConfigRedactor {
         .collect(Collectors.toSet());
   }
 
-  private Object redactValue(final Object value, final boolean secret) {
+  private static Object redactValue(final Object value, final boolean secret) {
     if (value instanceof final Map<?, ?> map) {
       final Map<String, Object> redacted = new LinkedHashMap<>();
       map.forEach((key, inner) ->

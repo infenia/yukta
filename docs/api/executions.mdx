@@ -198,6 +198,12 @@ GET /api/sessions/demo/executions/550e8400-e29b-41d4-a716-446655440000/results
 
 The run and every run it started as a [sub-workflow](/concepts/sub-workflows), at any depth, oldest first. Each entry is a history entry: `executionId`, `workflowId`, `status`, `startTime`, `endTime`, `parentExecutionId`, `rootExecutionId` and `restartOf`. Answers `404` for an unknown run.
 
+## Read what a run was started with
+
+`GET /api/executions/{executionId}/start-payload`
+
+The start payload that `${start.…}` in a node's config reads, taken from the run's start in the execution log: `{"payload": {...}}`. Text under a key whose name says it holds a secret (password, token, API key and the like), at any depth, is replaced by `******`, and the engine's own `yukta.*` entries are left out. `payload` is `null` once the log no longer holds the run (`yukta.execution-log.retained-runs`). Answers `404` for an unknown run. The web UI uses it to show, under a node's config, what each `${start.…}` resolved to.
+
 ## Read part of a node's output
 
 `GET /api/executions/{executionId}/nodes/{nodeId}/output`

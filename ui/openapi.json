@@ -2961,6 +2961,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseStartPayloadResponse" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/StartPayloadResponse",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseSummary" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -6410,6 +6453,21 @@
           },
           "version" : {
             "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "StartPayloadResponse" : {
+        "description" : "What a run was started with, as ${start...} in a node's config reads it",
+        "properties" : {
+          "payload" : {
+            "additionalProperties" : { },
+            "description" : "The start payload, secrets masked and the engine's yukta.* entries left out; null when the execution log no longer holds it (see yukta.execution-log.retained-runs)",
+            "example" : {
+              "command" : "./gradlew test",
+              "label" : "gradle"
+            },
+            "type" : [ "object", "null" ]
           }
         },
         "type" : "object"
@@ -9907,6 +9965,35 @@
         },
         "summary" : "Resume a workflow execution",
         "tags" : [ "Execution Control API" ]
+      }
+    },
+    "/api/executions/{executionId}/start-payload" : {
+      "get" : {
+        "description" : "The start payload that ${start...} in a node's config reads, from the run's start in the execution log, with secrets masked and the engine's yukta.* entries left out. payload is null when the log no longer holds it",
+        "operationId" : "getStartPayload",
+        "parameters" : [ {
+          "description" : "Execution ID",
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseStartPayloadResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get what an execution was started with",
+        "tags" : [ "Execution API" ]
       }
     },
     "/api/executions/{executionId}/status/stream" : {
