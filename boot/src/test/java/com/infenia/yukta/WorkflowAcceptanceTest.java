@@ -113,7 +113,7 @@ class WorkflowAcceptanceTest {
     assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
     assertThat(progress.tasks())
         .allSatisfy(task -> assertThat(task.status()).isEqualTo(TaskStatus.SUCCESS));
-    assertThat(executionLog.readAll())
+    assertThat(executionLog.readAll().collectList().block())
         .filteredOn(event -> event.executionId().equals(executionId))
         .extracting(ExecutionLogEvent::type)
         .contains(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
@@ -136,7 +136,7 @@ class WorkflowAcceptanceTest {
     final WorkflowProgress progress = awaitTerminal(executionId);
     assertThat(progress.status()).isEqualTo(TaskStatus.STOPPED);
     assertThat(progress.tasks()).noneMatch(task -> TaskStatus.RUNNING == task.status());
-    assertThat(executionLog.readAll())
+    assertThat(executionLog.readAll().collectList().block())
         .filteredOn(event -> event.executionId().equals(executionId))
         .extracting(ExecutionLogEvent::type)
         .contains(ExecutionLogEvent.Type.CONTROL_APPLIED);

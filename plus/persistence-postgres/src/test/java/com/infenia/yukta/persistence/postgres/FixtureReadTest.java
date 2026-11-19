@@ -69,10 +69,10 @@ class FixtureReadTest extends PostgresTestSupport {
       assertThat(definitions.findRevision("s1", "w1", "r1").block()).isEqualTo(definition);
 
       final var events = new R2dbcExecutionLogStore(db, mapper, 2, 1_000, 5_000);
-      assertThat(events.readAll())
+      assertThat(events.readAll().collectList().block())
           .extracting(ExecutionLogEvent::type)
           .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
-      events.close();
+      events.stop();
 
       final Message<?> checkpoint =
           new R2dbcNodeCheckpointStore(db, mapper).get("r1", "n1").block();

@@ -96,7 +96,7 @@ class SupervisorAcceptanceTest {
     await()
         .atMost(WAIT)
         .untilAsserted(() ->
-            assertThat(executionLog.readAll())
+            assertThat(executionLog.readAll().collectList().block())
                 .filteredOn(event -> event.executionId().equals(executionId))
                 .anySatisfy(event -> {
                   assertThat(event.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);

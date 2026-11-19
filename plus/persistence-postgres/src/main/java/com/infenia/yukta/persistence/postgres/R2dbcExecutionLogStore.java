@@ -8,7 +8,6 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,42 +15,49 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.LongSupplier;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.r2dbc.connection.R2dbcTransactionManager;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
+import reactor.util.retry.Retry;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * Keeps the execution log in PostgreSQL.
  *
- * <p>The store interface is blocking, so all database access runs on one background thread, like
- * the file store: {@link #append} only queues the event; {@link #readAll} and {@link #replaceAll}
- * wait for the queued events first. After {@code compact-after} events the log is trimmed to the
- * newest {@code retained-runs} runs; a run without an end is never dropped.
+ * <p>All database work runs through one serial pipeline, so no thread is parked: {@link #append}
+ * only queues the event and schedules a drain; {@link #readAll} and {@link #replaceAll} are queued
+ * behind it, so they see every event appended before. After {@code compact-after} events the log is
+ * trimmed to the newest {@code retained-runs} runs; a run without an end is never dropped.
  *
  * <p>The events that start and end a run are never dropped for a full queue: they wait in a second,
- * unbounded queue (one entry per run, so it stays small) that the writer empties after the batches.
- * If their insert fails it is retried with a growing delay on the writer thread, which is not a
- * reactive thread. Only after the retries fail are they counted as lost.
+ * unbounded queue (one entry per run, so it stays small) that the drain empties after the batches.
+ * If their insert fails it is retried with a growing delay (the pipeline waits, nothing else
+ * writes); only after the retries fail are they counted as lost.
+ *
+ * <p>It is a {@link SmartLifecycle} that stops late (after the runs have ended), flushes what is
+ * queued and then closes; Spring waits for that.
  */
 @Slf4j
 @SuppressWarnings({
   "PMD.AvoidCatchingGenericException",
+  "PMD.GodClass",
   "PMD.TooManyMethods",
-  "PMD.CouplingBetweenObjects"
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports"
 })
-public class R2dbcExecutionLogStore implements ExecutionLogStore {
+public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle {
 
   /** Events that may wait for the writer. */
   private static final int QUEUE_CAPACITY = 10_000;
@@ -96,7 +102,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   /** Appended events after which the log is trimmed. */
   private final int compactAfter;
 
-  /** How long {@link #close()} waits for queued events, in milliseconds. */
+  /** How long {@link #stop(Runnable)} waits for queued events, in milliseconds. */
   private final long shutdownWaitMillis;
 
   /** Events that never reached the table: the queue was full. Alert on a rise. */
@@ -108,19 +114,18 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   /** Refuses writes once another server has taken over the lease. */
   private final Fencing fencing;
 
-  /** The one thread that touches the database. */
-  private final ThreadPoolExecutor writer =
-      new ThreadPoolExecutor(
-          1,
-          1,
-          0,
-          TimeUnit.SECONDS,
-          new ArrayBlockingQueue<>(QUEUE_CAPACITY),
-          task -> {
-            final Thread thread = new Thread(task, "execution-log-writer");
-            thread.setDaemon(true);
-            return thread;
-          });
+  /** The work to do, one task at a time and in order: drains, reads and rewrites. */
+  private final Sinks.Many<Mono<Void>> tasks =
+      Sinks.many().unicast().onBackpressureBuffer(new LinkedBlockingQueue<>());
+
+  /** Lets one thread at a time hand a task over. */
+  private final ReentrantLock emitLock = new ReentrantLock();
+
+  /** True while a drain is queued and has not started, so one is enough for many appends. */
+  private final AtomicBoolean drainQueued = new AtomicBoolean();
+
+  /** Set when the store stops: nothing new is queued, reads answer empty, no more retries. */
+  private final AtomicBoolean closed = new AtomicBoolean();
 
   /** Events waiting to be written; the writer takes them in batches. */
   private final BlockingQueue<ExecutionLogEvent> pending;
@@ -131,8 +136,8 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   /** Delay before the first retry of a run start or end. */
   private final long retryMillis;
 
-  /** Events appended since the last trim; only touched on the writer thread. */
-  private int sinceCompaction;
+  /** Events appended since the last trim; only touched by the pipeline. */
+  private final AtomicInteger sinceCompaction = new AtomicInteger();
 
   /**
    * Creates the store.
@@ -263,10 +268,25 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     this.retainedRuns = Math.max(1, retainedRuns);
     this.compactAfter = Math.max(1, compactAfter);
     this.shutdownWaitMillis = shutdownWaitMillis;
+    // one task at a time; the work of a task never fails the pipeline
+    tasks
+        .asFlux()
+        .concatMap(task ->
+            task.onErrorResume(error -> {
+              log.atError().setCause(error).log("Could not access the execution log");
+              return Mono.empty();
+            }))
+        .subscribe();
   }
 
   @Override
   public void append(final ExecutionLogEvent event) {
+    if (closed.get()) {
+      log.atError()
+          .addKeyValue(EXECUTION_ID, event.executionId())
+          .log("Execution log is stopped, event dropped");
+      return;
+    }
     if (!pending.offer(event)) {
       if (!critical(event)) {
         droppedFull.increment();
@@ -277,21 +297,67 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
       }
       urgent.add(event);
     }
-    try {
-      // one task per event, but the first one to run writes everything waiting, in batches
-      writer.execute(this::drainAll);
-    } catch (final RejectedExecutionException e) {
-      log.atError()
-          .setCause(e)
-          .log("Execution log writer is stopped or busy, the event waits for the next write");
+    scheduleDrain();
+  }
+
+  /** Queues a drain unless one is already waiting; it writes everything that is queued by then. */
+  private void scheduleDrain() {
+    if (drainQueued.compareAndSet(false, true)
+        && !enqueue(
+            Mono.defer(() -> {
+              drainQueued.set(false);
+              return drainAll();
+            }))) {
+      drainQueued.set(false);
+      log.atDebug().log("Execution log is stopped, the event waits for the next write");
     }
+  }
+
+  /** Adds a task to the pipeline; false if the store is stopped. */
+  /* default */ boolean enqueue(final Mono<Void> task) {
+    final boolean open = !closed.get();
+    if (open) {
+      emit(task);
+    }
+    return open;
+  }
+
+  /** Adds a task even while the store stops; false if the pipeline has ended. */
+  /* default */ boolean emit(final Mono<Void> task) {
+    // one emitter at a time (a sink refuses overlapping ones); the work of the task is not done
+    // here, so the lock is held only for the hand-over
+    emitLock.lock();
+    try {
+      return tasks.tryEmitNext(task).isSuccess();
+    } finally {
+      emitLock.unlock();
+    }
+  }
+
+  /**
+   * Runs {@code work} in the pipeline, after everything queued so far, and returns its result; an
+   * empty result if the store is stopped, the work fails or the caller has already gone.
+   */
+  private <T> Mono<T> serial(final Mono<T> work) {
+    return Mono.defer(() -> {
+      final Sinks.One<T> result = Sinks.one();
+      final AtomicBoolean cancelled = new AtomicBoolean();
+      final Mono<Void> task =
+          Mono.defer(() -> cancelled.get() ? Mono.<T>empty() : work.doOnNext(result::tryEmitValue))
+              .doOnError(error -> log.atError().setCause(error).log("Could not access the log"))
+              .onErrorResume(_ -> Mono.empty())
+              .doFinally(_ -> result.tryEmitEmpty())
+              .then();
+      // a caller that has gone before its turn comes costs the pipeline nothing
+      return enqueue(task) ? result.asMono().doOnCancel(() -> cancelled.set(true)) : Mono.empty();
+    });
   }
 
   /** Uses the {@code execution_id} index, so a lookup does not read the table. */
   @Override
-  public List<ExecutionLogEvent> forExecution(final String executionId) {
-    return onWriter(
-        () ->
+  public Flux<ExecutionLogEvent> forExecution(final String executionId) {
+    return reading(
+        Mono.defer(() ->
             parse(
                 client
                     .sql(
@@ -301,15 +367,14 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
                     .map(row -> row.get("event", String.class))
                     .all()
                     .collectList()
-                    .block(STATEMENT_TIMEOUT)),
-        List.of());
+                    .timeout(STATEMENT_TIMEOUT))));
   }
 
   @Override
-  public List<ExecutionLogEvent> ofType(
+  public Flux<ExecutionLogEvent> ofType(
       final ExecutionLogEvent.Type type, final java.time.Instant since) {
-    return onWriter(
-        () ->
+    return reading(
+        Mono.defer(() ->
             parse(
                     client
                         .sql(
@@ -319,16 +384,27 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
                         .map(row -> row.get("event", String.class))
                         .all()
                         .collectList()
-                        .block(STATEMENT_TIMEOUT))
-                .stream()
-                .filter(event -> event.timestamp().isAfter(since))
-                .toList(),
-        List.of());
+                        .timeout(STATEMENT_TIMEOUT))
+                .map(events ->
+                    events.stream().filter(event -> event.timestamp().isAfter(since)).toList())));
   }
 
   @Override
-  public List<ExecutionLogEvent> readAll() {
-    return onWriter(this::read, List.of());
+  public Flux<ExecutionLogEvent> readAll() {
+    return reading(
+        Mono.defer(() ->
+            parse(
+                client
+                    .sql("SELECT CAST(event AS text) AS event FROM execution_log ORDER BY seq")
+                    .map(row -> row.get("event", String.class))
+                    .all()
+                    .collectList()
+                    .timeout(STATEMENT_TIMEOUT))));
+  }
+
+  /** Runs a read behind the queued events, so it sees every earlier append. */
+  private Flux<ExecutionLogEvent> reading(final Mono<List<ExecutionLogEvent>> read) {
+    return serial(drainAll().then(read)).flatMapMany(Flux::fromIterable);
   }
 
   /**
@@ -336,67 +412,89 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
    * insert rolls everything back and leaves the old log, never an empty or partial one.
    */
   @Override
-  public void replaceAll(final List<ExecutionLogEvent> events) {
-    onWriter(
-        () -> {
-          final TransactionalOperator transaction =
-              TransactionalOperator.create(
-                  new R2dbcTransactionManager(client.getConnectionFactory()));
-          final List<String> json = events.stream().map(this::json).toList();
-          lockLease()
-              .then(client.sql("DELETE FROM execution_log").fetch().rowsUpdated())
-              .thenMany(
-                  Flux.range(0, (events.size() + BATCH_SIZE - 1) / BATCH_SIZE)
-                      .concatMap(chunk -> {
-                        final int start = chunk * BATCH_SIZE;
-                        final int end = Math.min(events.size(), start + BATCH_SIZE);
-                        return batchInsert(events.subList(start, end), json.subList(start, end))
-                            .fetch()
-                            .rowsUpdated();
-                      }))
-              .then()
-              .as(transaction::transactional)
-              .block(REWRITE_TIMEOUT);
-          return null;
-        },
-        null);
+  public Mono<Void> replaceAll(final List<ExecutionLogEvent> events) {
+    return serial(
+            drainAll()
+                .then(
+                    Mono.defer(() -> {
+                      final TransactionalOperator transaction =
+                          TransactionalOperator.create(
+                              new R2dbcTransactionManager(client.getConnectionFactory()));
+                      final List<String> json = events.stream().map(this::json).toList();
+                      return lockLease()
+                          .then(client.sql("DELETE FROM execution_log").fetch().rowsUpdated())
+                          .thenMany(
+                              Flux.range(0, (events.size() + BATCH_SIZE - 1) / BATCH_SIZE)
+                                  .concatMap(chunk -> {
+                                    final int start = chunk * BATCH_SIZE;
+                                    final int end = Math.min(events.size(), start + BATCH_SIZE);
+                                    return batchInsert(
+                                            events.subList(start, end), json.subList(start, end))
+                                        .fetch()
+                                        .rowsUpdated();
+                                  }))
+                          .then()
+                          .as(transaction::transactional)
+                          .timeout(REWRITE_TIMEOUT);
+                    }))
+                .then(Mono.just(Boolean.TRUE)))
+        .then();
   }
 
-  /** Waits for queued events, stops the writer, and does not accept more. */
-  @PreDestroy
-  public void close() {
-    writer.shutdown();
-    try {
-      if (!writer.awaitTermination(shutdownWaitMillis, TimeUnit.MILLISECONDS)) {
-        log.atWarn().log("Execution log writer did not finish in time");
-      }
-      for (ExecutionLogEvent event = urgent.poll(); event != null; event = urgent.poll()) {
-        droppedFailed.increment();
-        log.atError()
-            .addKeyValue(EXECUTION_ID, event.executionId())
-            .log("Run start or end not stored before shutdown");
-      }
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-    }
+  @Override
+  public boolean isRunning() {
+    return !closed.get();
   }
 
-  /** Runs {@code work} after everything queued so far, and returns {@code fallback} on failure. */
-  private <T> T onWriter(final Callable<T> work, final T fallback) {
-    try {
-      return writer
-          .submit(() -> {
-            drainAll();
-            return work.call();
-          })
-          .get();
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return fallback;
-    } catch (final ExecutionException | RejectedExecutionException e) {
-      log.atError().setCause(e).log("Could not access the execution log");
-      return fallback;
+  @Override
+  public void start() {
+    // the pipeline starts with the store
+  }
+
+  /** Stops after the runs have ended, so their last events are still written. */
+  @Override
+  public int getPhase() {
+    return Integer.MIN_VALUE + 100;
+  }
+
+  @Override
+  public void stop() {
+    stop(() -> {});
+  }
+
+  /**
+   * Writes what is queued, waits for it for at most the shutdown wait, then closes: nothing more is
+   * queued, reads answer empty, and a run start or end that still cannot be written is counted as
+   * lost. A task that is still running when the wait ends carries on, and the callback runs.
+   *
+   * @param callback runs when the store is closed
+   */
+  @Override
+  public void stop(final Runnable callback) {
+    if (!closed.compareAndSet(false, true)) {
+      callback.run();
+      return;
     }
+    final Sinks.One<Boolean> flushed = Sinks.one();
+    emit(drainAll().doFinally(_ -> flushed.tryEmitValue(Boolean.TRUE)));
+    tasks.tryEmitComplete();
+    flushed
+        .asMono()
+        .timeout(Duration.ofMillis(shutdownWaitMillis))
+        .onErrorResume(_ -> {
+          log.atWarn().log("Execution log writer did not finish in time");
+          return Mono.empty();
+        })
+        .doFinally(_ -> {
+          for (ExecutionLogEvent event = urgent.poll(); event != null; event = urgent.poll()) {
+            droppedFailed.increment();
+            log.atError()
+                .addKeyValue(EXECUTION_ID, event.executionId())
+                .log("Run start or end not stored before shutdown");
+          }
+          callback.run();
+        })
+        .subscribe();
   }
 
   /** Events waiting for the writer, in both queues. */
@@ -409,32 +507,44 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     return RUN_EDGES.contains(event.type());
   }
 
-  /** Writes the waiting events in batches of at most {@link #BATCH_SIZE}; writer thread only. */
-  private void drainAll() {
-    final List<ExecutionLogEvent> batch = new ArrayList<>(BATCH_SIZE);
-    while (pending.drainTo(batch, BATCH_SIZE) > 0) {
-      insertBatch(batch);
-      sinceCompaction += batch.size();
-      batch.clear();
-      if (sinceCompaction >= compactAfter) {
-        sinceCompaction = 0;
-        compact();
+  /** Writes the waiting events in batches of at most {@link #BATCH_SIZE}, then the urgent ones. */
+  private Mono<Void> drainAll() {
+    return drainPending()
+        .then(
+            Mono.defer(() ->
+                // only the events waiting now: a failed one goes back to the queue for a later
+                // drain
+                Flux.range(0, urgent.size())
+                    .concatMap(_ -> insert(urgent.remove())) // only the pipeline removes
+                    .then()));
+  }
+
+  private Mono<Void> drainPending() {
+    return Mono.defer(() -> {
+      final List<ExecutionLogEvent> batch = new ArrayList<>(BATCH_SIZE);
+      if (pending.drainTo(batch, BATCH_SIZE) == 0) {
+        return Mono.empty();
       }
-    }
-    // only the events waiting now: a failed one goes back to the queue for the next, later drain
-    for (int n = urgent.size(); n > 0; n--) {
-      insert(urgent.remove()); // only this thread removes, so the n entries are there
-    }
+      return insertBatch(batch)
+          .then(
+              Mono.defer(() ->
+                  sinceCompaction.addAndGet(batch.size()) >= compactAfter
+                      ? Mono.defer(() -> {
+                        sinceCompaction.set(0);
+                        return compact();
+                      })
+                      : Mono.<Void>empty()))
+          .then(Mono.defer(this::drainPending));
+    });
   }
 
   /** One multi-row insert; if it fails the events are tried one by one so none is lost. */
-  private void insertBatch(final List<ExecutionLogEvent> batch) {
-    try {
-      write(batch);
-    } catch (final RuntimeException e) {
-      log.atWarn().setCause(e).log("Batch insert failed, writing the events one by one");
-      batch.forEach(this::insert);
-    }
+  private Mono<Void> insertBatch(final List<ExecutionLogEvent> batch) {
+    return write(batch)
+        .onErrorResume(error -> {
+          log.atWarn().setCause(error).log("Batch insert failed, writing the events one by one");
+          return Flux.fromIterable(batch).concatMap(this::insert).then();
+        });
   }
 
   /** The statement that inserts {@code batch}, whose events are already written as {@code json}. */
@@ -478,38 +588,40 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   }
 
   /** Inserts {@code batch}; the statement writes nothing if another server holds the lease. */
-  private void write(final List<ExecutionLogEvent> batch) {
-    final Long written =
-        batchInsert(batch, batch.stream().map(this::json).toList())
-            .fetch()
-            .rowsUpdated()
-            .block(STATEMENT_TIMEOUT);
-    if (Objects.equals(written, 0L)) {
-      fencing.refused(batch.size());
-    }
+  private Mono<Void> write(final List<ExecutionLogEvent> batch) {
+    // the JSON of a batch is made off the database's thread
+    return Mono.fromCallable(() -> batch.stream().map(this::json).toList())
+        .subscribeOn(Schedulers.boundedElastic())
+        .flatMap(json -> batchInsert(batch, json).fetch().rowsUpdated().timeout(STATEMENT_TIMEOUT))
+        .doOnNext(written -> {
+          if (Objects.equals(written, 0L)) {
+            fencing.refused(batch.size());
+          }
+        })
+        .then();
   }
 
   /** Inserts one event; a run start or end is retried with a growing delay before it is lost. */
-  private void insert(final ExecutionLogEvent event) {
+  /* default */ Mono<Void> insert(final ExecutionLogEvent event) {
     final int retries = critical(event) ? CRITICAL_RETRIES : 0;
-    for (int attempt = 0; ; attempt++) {
-      try {
-        write(List.of(event));
-        return;
-      } catch (final RuntimeException e) {
-        if (attempt >= retries && requeue(event)) {
-          return;
-        }
-        if (attempt >= retries || !pause(retryMillis << attempt)) {
+    return Mono.defer(() -> write(List.of(event)))
+        .retryWhen(
+            Retry.from(signals ->
+                signals.concatMap(signal ->
+                    signal.totalRetries() < retries && !closed.get()
+                        ? Mono.delay(Duration.ofMillis(retryMillis << signal.totalRetries()))
+                        : Mono.<Long>error(signal.failure()))))
+        .onErrorResume(error -> {
+          if (requeue(event)) {
+            return Mono.empty();
+          }
           droppedFailed.increment();
           log.atError()
               .addKeyValue(EXECUTION_ID, event.executionId())
-              .setCause(e)
+              .setCause(error)
               .log("Could not append to the execution log");
-          return;
-        }
-      }
-    }
+          return Mono.empty();
+        });
   }
 
   /**
@@ -517,33 +629,15 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
    * database is back or the store shuts down. False if it cannot wait any longer.
    */
   private boolean requeue(final ExecutionLogEvent event) {
-    if (!critical(event) || writer.isShutdown()) {
+    if (!critical(event) || closed.get()) {
       return false;
     }
     urgent.add(event);
     log.atWarn()
         .addKeyValue(EXECUTION_ID, event.executionId())
         .log("Could not append a run start or end, trying again later");
-    CompletableFuture.delayedExecutor(retryMillis << REQUEUE_SHIFT, TimeUnit.MILLISECONDS)
-        .execute(() -> {
-          try {
-            writer.execute(this::drainAll);
-          } catch (final RejectedExecutionException e) {
-            log.atDebug().setCause(e).log("Execution log writer is stopped");
-          }
-        });
+    Mono.delay(Duration.ofMillis(retryMillis << REQUEUE_SHIFT)).subscribe(_ -> scheduleDrain());
     return true;
-  }
-
-  /** Sleeps on the writer thread; false if interrupted, so shutdown is not held up. */
-  private static boolean pause(final long millis) {
-    try {
-      Thread.sleep(millis);
-      return true;
-    } catch (final InterruptedException e) {
-      Thread.currentThread().interrupt();
-      return false;
-    }
   }
 
   /** Serialises an event; a payload that cannot be written is left out, not the whole event. */
@@ -561,26 +655,18 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
     }
   }
 
-  private List<ExecutionLogEvent> read() {
-    return parse(
-        client
-            .sql("SELECT CAST(event AS text) AS event FROM execution_log ORDER BY seq")
-            .map(row -> row.get("event", String.class))
-            .all()
-            .collectList()
-            .block(STATEMENT_TIMEOUT));
-  }
-
-  private List<ExecutionLogEvent> parse(final List<String> rows) {
-    final List<ExecutionLogEvent> events = new ArrayList<>();
-    for (final String row : Objects.requireNonNullElse(rows, List.<String>of())) {
-      try {
-        events.add(mapper.readValue(row, ExecutionLogEvent.class));
-      } catch (final RuntimeException e) {
-        log.atWarn().setCause(e).log("Skipping an unreadable execution log row");
+  private Mono<List<ExecutionLogEvent>> parse(final Mono<List<String>> rows) {
+    return rows.map(list -> {
+      final List<ExecutionLogEvent> events = new ArrayList<>();
+      for (final String row : list) {
+        try {
+          events.add(mapper.readValue(row, ExecutionLogEvent.class));
+        } catch (final RuntimeException e) {
+          log.atWarn().setCause(e).log("Skipping an unreadable execution log row");
+        }
       }
-    }
-    return events;
+      return events;
+    });
   }
 
   /**
@@ -589,36 +675,39 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
    * rows per run), not the whole log. ponytail: events of a run that has no start or end in the log
    * are not trimmed here; recovery drops them at the next start.
    */
-  private void compact() {
-    try {
-      client
-          .sql(
-              """
-              DELETE FROM execution_log WHERE execution_id IN (
-                SELECT execution_id FROM execution_log
-                WHERE event ->> 'type' IN ('RUN_FINISHED', 'RUN_ABORTED')
-                  AND execution_id <> :scheduler
-                GROUP BY execution_id ORDER BY max(seq) DESC OFFSET :runs)
-              """)
-          .bind("scheduler", SCHEDULER)
-          .bind("runs", retainedRuns)
-          .fetch()
-          .rowsUpdated()
-          .block(STATEMENT_TIMEOUT);
-      client
-          .sql(
-              """
-              DELETE FROM execution_log WHERE execution_id = :scheduler AND seq NOT IN (
-                SELECT seq FROM execution_log WHERE execution_id = :scheduler
-                ORDER BY seq DESC LIMIT :runs)
-              """)
-          .bind("scheduler", SCHEDULER)
-          .bind("runs", retainedRuns)
-          .fetch()
-          .rowsUpdated()
-          .block(STATEMENT_TIMEOUT);
-    } catch (final RuntimeException e) {
-      log.atError().setCause(e).log("Could not trim the execution log");
-    }
+  private Mono<Void> compact() {
+    return Mono.defer(() ->
+            client
+                .sql(
+                    """
+                    DELETE FROM execution_log WHERE execution_id IN (
+                      SELECT execution_id FROM execution_log
+                      WHERE event ->> 'type' IN ('RUN_FINISHED', 'RUN_ABORTED')
+                        AND execution_id <> :scheduler
+                      GROUP BY execution_id ORDER BY max(seq) DESC OFFSET :runs)
+                    """)
+                .bind("scheduler", SCHEDULER)
+                .bind("runs", retainedRuns)
+                .fetch()
+                .rowsUpdated()
+                .timeout(STATEMENT_TIMEOUT)
+                .then(
+                    client
+                        .sql(
+                            """
+                            DELETE FROM execution_log WHERE execution_id = :scheduler AND seq NOT IN (
+                              SELECT seq FROM execution_log WHERE execution_id = :scheduler
+                              ORDER BY seq DESC LIMIT :runs)
+                            """)
+                        .bind("scheduler", SCHEDULER)
+                        .bind("runs", retainedRuns)
+                        .fetch()
+                        .rowsUpdated()
+                        .timeout(STATEMENT_TIMEOUT))
+                .then())
+        .onErrorResume(error -> {
+          log.atError().setCause(error).log("Could not trim the execution log");
+          return Mono.empty();
+        });
   }
 }

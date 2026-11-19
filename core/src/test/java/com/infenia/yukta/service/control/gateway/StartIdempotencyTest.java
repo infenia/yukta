@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.Map;
@@ -155,9 +156,28 @@ class StartIdempotencyTest {
     final StartIdempotency normal = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
     normal.reload().block();
 
-    assertThat(log.readAll()).hasSize(1);
+    assertThat(log.readAll().collectList().block()).hasSize(1);
     assertThat(tiny.once("s/w", "old", this::start).block()).isEqualTo("exec-2");
     assertThat(normal.once("s/w", "failed", this::start).block()).isEqualTo("exec-3");
+  }
+
+  @Test
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.gateway.StartIdempotency - ")
+  void reloadThatFails_isLoggedAndStartsStillWork() {
+    final InMemoryExecutionLogStore unreadable =
+        new InMemoryExecutionLogStore() {
+          @Override
+          public reactor.core.publisher.Flux<ExecutionLogEvent> ofType(
+              final ExecutionLogEvent.Type type, final java.time.Instant since) {
+            return reactor.core.publisher.Flux.error(new IllegalStateException("unreadable"));
+          }
+        };
+    final StartIdempotency broken =
+        StartIdempotencyFixture.create(Duration.ofMinutes(10), unreadable);
+
+    broken.afterSingletonsInstantiated();
+
+    assertThat(broken.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
   }
 
   @Test
@@ -225,15 +245,19 @@ class StartIdempotencyTest {
     final InMemoryExecutionLogStore slowLog =
         new InMemoryExecutionLogStore() {
           @Override
-          public java.util.List<ExecutionLogEvent> ofType(
+          public reactor.core.publisher.Flux<ExecutionLogEvent> ofType(
               final ExecutionLogEvent.Type type, final java.time.Instant since) {
-            reading.countDown();
-            try {
-              go.await();
-            } catch (final InterruptedException e) {
-              Thread.currentThread().interrupt();
-            }
-            return super.ofType(type, since);
+            return reactor.core.publisher.Flux.defer(
+                    () -> {
+                      reading.countDown();
+                      try {
+                        go.await();
+                      } catch (final InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                      }
+                      return super.ofType(type, since);
+                    })
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
           }
         };
     final com.infenia.yukta.service.runtime.ExecutionScheduler scheduler =

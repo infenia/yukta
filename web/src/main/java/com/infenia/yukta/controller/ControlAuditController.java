@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /** Who sent which control command, from the execution log. */
 @RestController
@@ -52,8 +51,9 @@ public class ControlAuditController {
   public Mono<ApiResponse<List<ControlAuditEntry>>> list(
       @RequestParam(defaultValue = "100") final int limit,
       @RequestParam(required = false) final String executionId) {
-    return Mono.fromCallable(executionLog::readAll)
-        .subscribeOn(Schedulers.boundedElastic())
+    return executionLog
+        .readAll()
+        .collectList()
         .map(events -> {
           // newest first, without copying and reversing the whole list; stops at the limit
           final int max = Math.clamp(limit, 1, MAX_LIMIT);

@@ -94,7 +94,7 @@ class SubWorkflowAcceptanceTest {
     assertThat(result).isNotNull();
     assertThat(result.results()).isNotEmpty();
     assertThat(String.valueOf(result.results())).contains("from-child");
-    assertThat(executionLog.readAll())
+    assertThat(executionLog.readAll().collectList().block())
         .filteredOn(event ->
             event.executionId().equals(result.executionId())
                 && event.type() == ExecutionLogEvent.Type.RUN_STARTED)
@@ -256,7 +256,7 @@ class SubWorkflowAcceptanceTest {
         awaitTerminal(
             gateway.startWorkflow(session, "parent", Map.of("root", "/from/parent"), null).block());
     assertThat(parent.status()).isEqualTo(TaskStatus.SUCCESS);
-    assertThat(executionLog.readAll())
+    assertThat(executionLog.readAll().collectList().block())
         .filteredOn(event ->
             event.type() == ExecutionLogEvent.Type.RUN_STARTED
                 && "/from/parent"

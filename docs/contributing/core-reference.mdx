@@ -819,6 +819,7 @@ An append-only record of run starts (with the input payload), ends, control comm
 - Event types: `RUN_STARTED`, `RUN_FINISHED`, `RUN_ABORTED`, `CONTROL_APPLIED`, `CONTROL_REJECTED`, `NODE_FINISHED` (history only), `RUN_RESUMED`, `IDEMPOTENCY_KEY`.
 - Memory by default, trimmed like the file log (`LogRetention`: newest `retained-runs`, never a run without an end, every `compact-after` events). With `yukta.execution-log.dir` it is `executions.jsonl` on disk.
 - File access runs on one background writer thread. Events are **not fsynced** unless `yukta.execution-log.fsync=true`; a rewritten file (compaction, session config) is forced to disk before it replaces the old one.
+- **Store API**: `append` is fire-and-forget (it never fails a run); the reads (`readAll`, `forExecution`, `header`, `ofType`) return `Flux`/`Mono` and `replaceAll` a `Mono<Void>`, so no caller parks a thread. A read sees every event appended before it is subscribed.
 - **Boot recovery** (`ExecutionRecovery`): runs that never finished are marked `ABORTED`, the newest `retained-runs` are restored into history, and the log is rewritten without older ones.
 
 **Configure:** `yukta.execution-log.dir` · `…retained-runs` (500) · `…compact-after` (10000) · `…fsync` (false)

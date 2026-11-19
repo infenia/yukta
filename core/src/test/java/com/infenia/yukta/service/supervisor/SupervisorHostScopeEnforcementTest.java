@@ -158,7 +158,7 @@ class SupervisorHostScopeEnforcementTest {
     verify(dispatcher).dispatchOrdered(new PauseNodeCommand(MINE, "build.compile"));
     verify(dispatcher, never()).dispatchOrdered(new PauseWorkflowCommand(MINE));
     assertThat(counted("build", OUT_OF_SCOPE)).isEqualTo(4);
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .filteredOn(entry -> entry.type() == ExecutionLogEvent.Type.CONTROL_REJECTED)
         .hasSize(4);
   }
