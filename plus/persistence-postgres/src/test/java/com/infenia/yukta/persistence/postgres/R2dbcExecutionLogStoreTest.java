@@ -628,6 +628,17 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
                 .collectList()
                 .block())
         .containsExactly("r1");
+    assertThat(
+            store
+                .newest(
+                    java.util.Set.of(
+                        ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED),
+                    "r1",
+                    5)
+                .map(ExecutionLogEvent::type)
+                .collectList()
+                .block())
+        .containsExactly(ExecutionLogEvent.Type.RUN_FINISHED, ExecutionLogEvent.Type.RUN_STARTED);
     assertThat(store.newest(java.util.Set.of(), null, 5).collectList().block()).isEmpty();
     assertThat(store.newest(started, null, 0).collectList().block()).isEmpty();
   }
