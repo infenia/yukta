@@ -48,6 +48,27 @@ function FollowNodes({ ids }: { ids: string }) {
   return null;
 }
 
+/** Centres one node when asked (a search result picked), once the layout has settled. */
+function CenterNode({ target }: { target?: { id: string; nonce: number } }) {
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    if (!target) return undefined;
+    // a closed side panel opens with the pick and narrows the canvas; wait for that
+    const timer = setTimeout(
+      () =>
+        void fitView({
+          nodes: [{ id: target.id }],
+          padding: 0.5,
+          maxZoom: 1,
+          duration: 400,
+        }),
+      160
+    );
+    return () => clearTimeout(timer);
+  }, [target, fitView]);
+  return null;
+}
+
 /** The workflow DAG canvas: pan/zoom viewport of backend-driven node placeholders. */
 export function WorkflowCanvas({
   graph,
@@ -58,6 +79,7 @@ export function WorkflowCanvas({
   onNodeClick,
   follow = false,
   find = '',
+  centerOn,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
@@ -77,6 +99,8 @@ export function WorkflowCanvas({
   follow?: boolean;
   /** Bring the nodes this matches (ID, type, stage, description, edge) into view (it wins over follow). */
   find?: string;
+  /** Pan to this node (a new nonce centres it again). */
+  centerOn?: { id: string; nonce: number };
 }) {
   const connectable = onConnect !== undefined;
   const { nodes, edges } = useMemo(() => {
@@ -137,11 +161,13 @@ export function WorkflowCanvas({
             <FollowNodes ids={running.map((node) => node.id).join('\n')} />
           )
         )}
+        <CenterNode target={centerOn} />
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
         <Controls showInteractive={false} />
         <MiniMap
           // No room for a minimap on a phone-sized canvas (! beats xyflow's unlayered CSS)
           className="max-md:hidden!"
+          style={{ width: 120, height: 80 }}
           pannable
           zoomable
           nodeStrokeWidth={0}

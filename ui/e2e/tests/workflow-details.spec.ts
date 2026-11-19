@@ -23,7 +23,7 @@ const screenshotOptions = {
 test.describe('Workflow Details Page', () => {
   test.beforeEach(async ({ page, mockWorkflowApi }) => {
     // Freeze the clock just after the mocked execution start so live durations
-    // ("Dur: 1m 12s") render deterministically in assertions and screenshots.
+    // ("Dur1m 12s") render deterministically in assertions and screenshots.
     await page.clock.setFixedTime(new Date('2026-07-26T14:23:23'));
     await mockWorkflowApi(page);
   });
@@ -58,9 +58,7 @@ test.describe('Workflow Details Page', () => {
     await expect(page.getByTestId('task-sequence')).toContainText(
       'module: vector-engine-v2'
     );
-    await expect(page.getByTestId('task-sequence')).toContainText(
-      'Dur: 1m 12s'
-    );
+    await expect(page.getByTestId('task-sequence')).toContainText('Dur1m 12s');
 
     // the run's IDs and times sit on the Details tab
     await page.getByRole('tab', { name: 'Details' }).click();
