@@ -5,6 +5,7 @@ import { useEffect, useMemo } from 'react';
 import {
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   MiniMap,
   ReactFlow,
@@ -19,6 +20,8 @@ import { StageFrame, StageNodeCard } from './nodes/StageNodes';
 import { findNodes } from '../lib/findNodes';
 import { layoutGraph } from '../lib/layout';
 import type { TaskProgress, WorkflowGraph } from '../types/workflow';
+
+import { Tip } from '@/components/ui/tooltip';
 
 const NODE_TYPES = {
   workflowNode: WorkflowNodeCard,
@@ -48,25 +51,56 @@ function FollowNodes({ ids }: { ids: string }) {
   return null;
 }
 
-/** Centres one node when asked (a search result picked), once the layout has settled. */
+/**
+ * Centres one node when asked (a search result picked). The node may only appear after the layout
+ * settles (an opened stage, a side panel narrowing the canvas), so wait until it is measured.
+ */
 function CenterNode({ target }: { target?: { id: string; nonce: number } }) {
-  const { fitView } = useReactFlow();
+  const { fitView, getNode } = useReactFlow();
   useEffect(() => {
     if (!target) return undefined;
-    // a closed side panel opens with the pick and narrows the canvas; wait for that
-    const timer = setTimeout(
-      () =>
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (getNode(target.id)?.measured?.width || tries > 20) {
+        clearInterval(timer);
         void fitView({
           nodes: [{ id: target.id }],
           padding: 0.5,
           maxZoom: 1,
           duration: 400,
-        }),
-      160
-    );
-    return () => clearTimeout(timer);
-  }, [target, fitView]);
+        });
+      }
+    }, 100);
+    return () => clearInterval(timer);
+  }, [target, fitView, getNode]);
   return null;
+}
+
+/** Zoom in, zoom out and fit, with the app's tooltips instead of the browser's `title` ones. */
+function ZoomControls() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const buttons: [string, string, () => void][] = [
+    ['add', 'Zoom in', () => void zoomIn({ duration: 150 })],
+    ['remove', 'Zoom out', () => void zoomOut({ duration: 150 })],
+    ['fullscreen', 'Fit view', () => void fitView({ duration: 300 })],
+  ];
+  return (
+    <Controls showZoom={false} showFitView={false} showInteractive={false}>
+      {buttons.map(([icon, label, onClick]) => (
+        <Tip key={label} label={label} side="right">
+          <ControlButton aria-label={label} onClick={onClick}>
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-base"
+            >
+              {icon}
+            </span>
+          </ControlButton>
+        </Tip>
+      ))}
+    </Controls>
+  );
 }
 
 /** The workflow DAG canvas: pan/zoom viewport of backend-driven node placeholders. */
@@ -163,7 +197,7 @@ export function WorkflowCanvas({
         )}
         <CenterNode target={centerOn} />
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
-        <Controls showInteractive={false} />
+        <ZoomControls />
         <MiniMap
           // No room for a minimap on a phone-sized canvas (! beats xyflow's unlayered CSS)
           className="max-md:hidden!"

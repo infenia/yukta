@@ -58,6 +58,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getWorkflowProgress } from '../api/getWorkflowProgress';
 import type { TaskProgress } from '../types/workflow';
 import { NodeSheet, type SheetTab } from './NodeSheet';
+import { PanelResizer } from './PanelResizer';
 import { useExitValue } from '../hooks/useExitValue';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -77,6 +78,8 @@ export function WorkflowDetailsPage() {
     workflowId: string;
   }>();
   const [panelOpen, setPanelOpen] = useState(true);
+  // the right-hand panel's width, dragged by its left edge
+  const [panelWidth, setPanelWidth] = useState(380);
   const [deleting, setDeleting] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [stopping, setStopping] = useState<string | null>(null);
@@ -88,7 +91,11 @@ export function WorkflowDetailsPage() {
   // the drawer's tab is in the URL too: a node's owner icon opens it on the Supervisor tab
   const sheetTab: SheetTab =
     searchParams.get('tab') === 'supervisor' ? 'supervisor' : 'node';
-  const setOpenNode = (nodeId: string | null, tab: SheetTab = 'node') => {
+  const setOpenNode = (
+    nodeId: string | null,
+    tab: SheetTab = 'node',
+    also?: (next: URLSearchParams) => void
+  ) => {
     // the drawer lives in the progress panel: opening a node shows the panel again
     if (nodeId) setPanelOpen(true);
     setSearchParams(
@@ -104,6 +111,7 @@ export function WorkflowDetailsPage() {
         } else {
           next.delete('tab');
         }
+        also?.(next);
         return next;
       },
       { replace: true }
@@ -479,7 +487,11 @@ export function WorkflowDetailsPage() {
                         query={findQuery}
                         onQuery={setFindQuery}
                         onPick={(nodeId) => {
-                          setOpenNode(nodeId);
+                          setOpenNode(
+                            nodeId,
+                            'node',
+                            stages.revealParams(nodeId)
+                          );
                           setCenterOn((held) => ({
                             id: nodeId,
                             nonce: (held?.nonce ?? 0) + 1,
@@ -546,7 +558,14 @@ export function WorkflowDetailsPage() {
                     panel.closing &&
                       'animate-out fade-out-0 fill-mode-forwards slide-out-to-right-4'
                   )}
+                  style={{ width: panelWidth }}
                 >
+                  <PanelResizer
+                    width={panelWidth}
+                    min={320}
+                    max={Math.max(320, Math.round(window.innerWidth * 0.7))}
+                    onWidth={setPanelWidth}
+                  />
                   <ProgressPanel
                     graph={graph}
                     progress={progress}

@@ -12,9 +12,12 @@ import {
 export function DateTimeStamp({
   iso,
   className,
+  inline = false,
 }: {
   iso: string | null | undefined;
   className?: string;
+  /** Date and time side by side, dropping the time under the date only when there is no room. */
+  inline?: boolean;
 }) {
   const date = formatDate(iso);
   return !iso || date === TIME_PLACEHOLDER ? (
@@ -22,7 +25,11 @@ export function DateTimeStamp({
   ) : (
     <time
       dateTime={iso}
-      className={cn('num inline-flex flex-col leading-snug', className)}
+      className={cn(
+        'num inline-flex leading-snug',
+        inline ? 'flex-wrap gap-x-1.5' : 'flex-col',
+        className
+      )}
     >
       <span>{date}</span>
       <span>{formatClockTime(iso)}</span>
