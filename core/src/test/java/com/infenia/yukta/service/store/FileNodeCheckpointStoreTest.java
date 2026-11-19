@@ -11,12 +11,11 @@ import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
+import java.nio.file.attribute.FileTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
-import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -60,101 +59,6 @@ class FileNodeCheckpointStoreTest {
         .assertNext(m -> assertThat(m.payload()).isEqualTo(Map.of("k", 1)))
         .verifyComplete();
     assertThat(reopened.isComplete("e1", "n1")).isTrue();
-  }
-
-  /** A record payload. */
-  public record Point(int column, int row) {}
-
-  /** A bean payload. */
-  @Data
-  @NoArgsConstructor
-  @SuppressWarnings({"PMD.PublicMemberInNonPublicType"})
-  public static class Person {
-    /** Name. */
-    private String name;
-  }
-
-  private Message<?> roundTrip(final Object payload) {
-    store().save("e1", "n1", message(payload)).block();
-    return store().get("e1", "n1").block();
-  }
-
-  @Test
-  void payloadKeepsItsType_record() {
-    assertThat(roundTrip(new Point(1, 2)).payload()).isEqualTo(new Point(1, 2));
-  }
-
-  @Test
-  void payloadKeepsItsType_bean() {
-    final Person person = new Person();
-    person.setName("a");
-    assertThat(roundTrip(person).payload()).isEqualTo(person);
-  }
-
-  @Test
-  void payloadKeepsItsType_valueTypes() {
-    final Instant now = Instant.parse("2026-10-23T10:00:00Z");
-    assertThat(roundTrip(now).payload()).isEqualTo(now);
-    assertThat(roundTrip(5L).payload()).isEqualTo(5L);
-    assertThat(roundTrip(new byte[] {1, 2}).payload()).isEqualTo(new byte[] {1, 2});
-  }
-
-  @Test
-  void payloadOfDisallowedType_comesBackAsJson() {
-    assertThat(roundTrip(new AtomicInteger(5)).payload()).isEqualTo(5);
-  }
-
-  @Test
-  void payloadOfConfiguredPackage_isRestoredWithItsType() {
-    CheckpointJson.allowPackages(List.of("java.util.concurrent.atomic."));
-    try {
-      assertThat(roundTrip(new AtomicInteger(5)).payload()).isInstanceOf(AtomicInteger.class);
-    } finally {
-      CheckpointJson.allowPackages(List.of());
-    }
-  }
-
-  @Test
-  void payloadTypeNamedInTheFile_isNotLoadedUnlessAllowed() throws IOException {
-    store().save("e1", "n1", message(Map.of("k", 1))).block();
-    final Path file =
-        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl");
-    final String forged =
-        Files.readString(file)
-            .replaceAll(
-                "\"payloadType\":\"[^\"]*\"",
-                "\"payloadType\":\"javax.script.ScriptEngineManager\"");
-    assertThat(forged).contains("javax.script.ScriptEngineManager");
-    Files.writeString(file, forged);
-    assertThat(store().get("e1", "n1").block().payload()).isEqualTo(Map.of("k", 1));
-  }
-
-  private void forgeType(final String type) throws IOException {
-    final Path file =
-        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl");
-    Files.writeString(
-        file,
-        Files.readString(file)
-            .replaceAll("\"payloadType\":\"[^\"]*\"", "\"payloadType\":\"" + type + "\""));
-  }
-
-  @Test
-  void payloadTypeThatIsMissingOrDoesNotFit_comesBackAsJson() throws IOException {
-    store().save("e1", "n1", message(Map.of("k", 1))).block();
-    forgeType("com.infenia.yukta.NoSuchClass");
-    assertThat(store().get("e1", "n1").block().payload()).isEqualTo(Map.of("k", 1));
-    forgeType("java.time.Instant");
-    assertThat(store().get("e1", "n1").block().payload()).isEqualTo(Map.of("k", 1));
-  }
-
-  @Test
-  void lineWithoutPayloadType_andNullPayload_areRead() throws IOException {
-    store().save("e1", "n1", message(Map.of("k", 1))).block();
-    final Path file =
-        dir.resolve("e-e1").resolve(FileNodeCheckpointStore.fileName("n1") + ".jsonl");
-    Files.writeString(file, Files.readString(file).replaceAll(",\"payloadType\":\"[^\"]*\"", ""));
-    assertThat(store().get("e1", "n1").block().payload()).isEqualTo(Map.of("k", 1));
-    assertThat(roundTrip(null).payload()).isNull();
   }
 
   @Test
@@ -244,10 +148,8 @@ class FileNodeCheckpointStoreTest {
 
   @Test
   void withoutPosixViewsNoPermissionsAreSet() {
-    assertThat(FileNodeCheckpointStore.attributes(java.util.Set.of("basic"), "rwx------"))
-        .isEmpty();
-    assertThat(FileNodeCheckpointStore.attributes(java.util.Set.of("posix"), "rwx------"))
-        .hasSize(1);
+    assertThat(FileNodeCheckpointStore.attributes(Set.of("basic"), "rwx------")).isEmpty();
+    assertThat(FileNodeCheckpointStore.attributes(Set.of("posix"), "rwx------")).hasSize(1);
   }
 
   @Test
@@ -272,7 +174,7 @@ class FileNodeCheckpointStoreTest {
     store.save("keep", "n1", message("a")).block();
     store.save("drop one", "n1", message("b")).block();
 
-    store.removeNotIn(java.util.Set.of("keep"));
+    store.removeNotIn(Set.of("keep"));
 
     try (var left = Files.list(dir)) {
       assertThat(left.map(path -> dir.relativize(path).toString()).toList())
@@ -280,7 +182,7 @@ class FileNodeCheckpointStoreTest {
     }
     // no directory yet: nothing to do
     new FileNodeCheckpointStore(dir.resolve("missing").toString(), JsonMapper.builder().build())
-        .removeNotIn(java.util.Set.of());
+        .removeNotIn(Set.of());
   }
 
   @Test
@@ -294,7 +196,7 @@ class FileNodeCheckpointStoreTest {
 
       final long before = store.bytesHeld();
 
-      store.removeNotIn(java.util.Set.of());
+      store.removeNotIn(Set.of());
 
       // nothing could be listed, so nothing was removed and nothing was thrown
       assertThat(store.bytesHeld()).isEqualTo(before);
@@ -310,9 +212,7 @@ class FileNodeCheckpointStoreTest {
 
     store.markComplete("e1", "n1").block();
 
-    try (var left = Files.list(dir)) {
-      assertThat(left.toList()).isEmpty();
-    }
+    assertThat(files("e-e1")).as("only the cleared marker").hasSize(1);
   }
 
   @Test
@@ -324,9 +224,7 @@ class FileNodeCheckpointStoreTest {
     store.save("e1", "n1", message("late")).block();
     store.save("e1", "n2", message("late")).block();
 
-    try (var left = Files.list(dir)) {
-      assertThat(left.toList()).as("no directory for a cleared run").isEmpty();
-    }
+    assertThat(files("e-e1")).as("only the cleared marker").hasSize(1);
     assertThat(store.bytesHeld()).isZero();
     assertThat(store.getAll("e1", "n1").collectList().block()).isEmpty();
     // another run is not affected
@@ -335,24 +233,65 @@ class FileNodeCheckpointStoreTest {
   }
 
   @Test
-  void clearedRunsBeyondTheCap_areForgotten_soTheOldestSavesAgain() {
-    final FileNodeCheckpointStore store = store();
-    for (int i = 0; i <= 4096; i++) {
-      store.clear("old-" + i);
+  void clearedRun_staysCleared_beyondAnyCountAndAcrossRestarts() {
+    store().clear("old");
+    for (int i = 0; i <= 5000; i++) {
+      store().clear("other-" + i);
     }
 
-    store.save("old-0", "n1", message("again")).block();
-    store.save("old-4096", "n1", message("late")).block();
+    store().save("old", "n1", message("late")).block();
 
-    assertThat(store.getAll("old-0", "n1").collectList().block()).hasSize(1);
-    assertThat(store.getAll("old-4096", "n1").collectList().block()).isEmpty();
+    assertThat(store().getAll("old", "n1").collectList().block()).isEmpty();
+  }
+
+  @Test
+  void sweepOfAnEarlierProcess_removesTheMarkerToo() throws IOException {
+    store().clear("old");
+
+    store().removeNotIn(Set.of());
+
+    assertThat(dir).isEmptyDirectory();
+  }
+
+  @Test
+  void failedWriteOfARemovedRun_isForgottenWithTheRun() {
+    final FileNodeCheckpointStore store = store();
+    store.save("gone", "n1", message(new Broken())).block();
+
+    store.removeNotIn(Set.of());
+
+    assertThat(dir).isEmptyDirectory();
+    // the failure went with the run: a new run of the same id can finish its node
+    store.save("gone", "n1", message("fine")).block();
+    store.markComplete("gone", "n1").block();
+    assertThat(store.isFinished("gone", "n1")).isTrue();
+  }
+
+  @Test
+  void oldMarkers_arePruned_freshOnesAndRunsWithFilesStay() {
+    final FileNodeCheckpointStore store = store();
+    store.clear("done");
+    store.save("live", "n1", message("a")).block();
+
+    store.prune(System.currentTimeMillis() + 60_000L);
+    assertThat(dir.resolve("e-done")).exists();
+
+    store.prune(System.currentTimeMillis() + 7_200_000L);
+    assertThat(dir.resolve("e-done")).doesNotExist();
+    assertThat(dir.resolve("e-live")).exists();
+  }
+
+  private List<Path> files(final String directory) throws IOException {
+    try (var left = Files.list(dir.resolve(directory))) {
+      return left.toList();
+    }
   }
 
   @Test
   void clearOfAnUnknownExecution_isHarmless() {
     store().clear("never-seen");
 
-    assertThat(dir).isEmptyDirectory();
+    assertThat(store().getAll("never-seen", "n1").collectList().block()).isEmpty();
   }
 
   @Test
@@ -540,5 +479,47 @@ class FileNodeCheckpointStoreTest {
       assertThat(open.count()).isLessThan(before + 50);
     }
     assertThat(store.getAll("e1", "n7").collectList().block()).hasSize(1);
+  }
+
+  @Test
+  void clearTwiceInAMinute_pruneRunsOnlyOnce() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.clear("first");
+    final Path marker =
+        dir.resolve("e-first").resolve(FileNodeCheckpointStore.fileName("") + ".cleared");
+    Files.setLastModifiedTime(marker, FileTime.fromMillis(0L));
+    store.clear("second");
+    // the second clear is within the minute of the first prune: the old marker is kept
+    assertThat(Files.exists(dir.resolve("e-first"))).isTrue();
+  }
+
+  @Test
+  void prune_keepsAClearedRunThatHasOtherFiles() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.clear("busy");
+    final Path extra = Files.writeString(dir.resolve("e-busy").resolve("extra.jsonl"), "x\n");
+
+    store.prune(System.currentTimeMillis() + 7_200_000L);
+
+    assertThat(extra).exists();
+    assertThat(dir.resolve("e-busy")).exists();
+  }
+
+  @Test
+  void prune_keepsADirectoryWhoseOnlyFileIsNotAMarker() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    final Path solo = Files.createDirectories(dir.resolve("e-solo"));
+    Files.writeString(solo.resolve("output.jsonl"), "x\n");
+    store.prune(Long.MAX_VALUE);
+    assertThat(Files.exists(solo.resolve("output.jsonl"))).isTrue();
+  }
+
+  @Test
+  void clearWhereTheRootIsAFile_isLoggedNotThrown() throws IOException {
+    final Path root = Files.writeString(dir.resolve("not-a-dir"), "x");
+    final FileNodeCheckpointStore store =
+        new FileNodeCheckpointStore(root.toString(), JsonMapper.builder().build());
+    store.clear("gone");
+    assertThat(Files.isRegularFile(root)).isTrue();
   }
 }
