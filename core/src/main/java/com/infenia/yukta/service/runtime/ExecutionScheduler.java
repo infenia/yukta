@@ -699,7 +699,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       this(key, false);
     }
 
-    private Permit(final @Nullable WorkflowKey key, final boolean child) {
+    private Permit(final WorkflowKey key, final boolean child) {
       this.key = key;
       this.child = child;
     }

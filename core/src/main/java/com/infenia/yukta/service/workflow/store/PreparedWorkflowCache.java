@@ -30,8 +30,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class PreparedWorkflowCache {
 
-  /** Separator for composite key construction. */
-
   /** Property key for session ID. */
   private static final String SESSION_ID_KEY = "sessionId";
 
