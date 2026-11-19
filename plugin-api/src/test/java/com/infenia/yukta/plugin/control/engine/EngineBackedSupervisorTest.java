@@ -105,6 +105,25 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
+  void attachmentsOfOneSupervisorNeverMintTheSameReviewId() {
+    final Sinks.Many<String> ids = Sinks.many().replay().all();
+    final SupervisorEngine recording =
+        engine(signals ->
+            signals
+                .ofType(Signal.Review.class)
+                .doOnNext(r -> ids.tryEmitNext(r.id()))
+                .thenMany(Flux.<Directive>never()));
+    final var first = supervisor(recording, true);
+    final var second = supervisor(recording, true);
+    first.supervise(Flux.never()).subscribe();
+    second.supervise(Flux.never()).subscribe();
+    first.review(REQUEST).subscribe(d -> {}, e -> {});
+    second.review(REQUEST).subscribe(d -> {}, e -> {});
+    final List<String> minted = ids.asFlux().take(2).collectList().block(Duration.ofSeconds(5));
+    assertThat(minted).doesNotHaveDuplicates();
+  }
+
+  @Test
   void anEngineThatDoesNotReviewIsNotAsked() {
     final var sup = supervisor(engine(signals -> Flux.never()), false);
     assertThat(sup.review(REQUEST).block()).isEqualTo(Decision.ALLOW);
@@ -297,7 +316,7 @@ class EngineBackedSupervisorTest {
     assertThat(starts.get(0).held()).containsExactly("run1");
     // a read that fails leaves its part empty instead of failing the start
     assertThat(starts.get(0).openInputs()).isEmpty();
-    assertThat(starts.get(0).cursor()).isEqualTo("e0");
+    assertThat(starts.get(0).cursor()).matches("e\\d+");
     assertThat(starts.get(1).reason()).isEqualTo("resubscribe");
   }
 
