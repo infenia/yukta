@@ -3262,6 +3262,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseTestReport" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/TestReport",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseValidationView" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -3802,6 +3845,20 @@
               "type" : "string"
             },
             "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "Check" : {
+        "properties" : {
+          "detail" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "passed" : {
+            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -4595,6 +4652,33 @@
           },
           "truncated" : {
             "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "Expect" : {
+        "properties" : {
+          "nodes" : {
+            "additionalProperties" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            },
+            "type" : "object"
+          },
+          "notReached" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "reached" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "status" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -6604,6 +6688,15 @@
           "type" : "object"
         } ]
       },
+      "Stub" : {
+        "properties" : {
+          "payload" : { },
+          "port" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Summary" : {
         "properties" : {
           "unowned" : {
@@ -7080,6 +7173,23 @@
           },
           "text" : {
             "description" : "The screen as text, one line per row",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TestReport" : {
+        "properties" : {
+          "assertions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Check"
+            },
+            "type" : "array"
+          },
+          "passed" : {
+            "type" : "boolean"
+          },
+          "status" : {
             "type" : "string"
           }
         },
@@ -7786,6 +7896,37 @@
             "description" : "The workflow identifier",
             "example" : "wf-ingest-main",
             "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "WorkflowTestSpec" : {
+        "properties" : {
+          "allow" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "expect" : {
+            "$ref" : "#/components/schemas/Expect"
+          },
+          "input" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "stubs" : {
+            "additionalProperties" : {
+              "items" : {
+                "$ref" : "#/components/schemas/Stub"
+              },
+              "type" : "array"
+            },
+            "type" : "object"
+          },
+          "timeoutSeconds" : {
+            "format" : "int32",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -11611,6 +11752,51 @@
         "tags" : [ "Workflow Versions API" ]
       }
     },
+    "/api/sessions/{sessionId}/workflows/{workflowId}/test" : {
+      "post" : {
+        "description" : "Runs the saved workflow once. Triggers emit the input (or their stub), terminals do nothing and processors with a stub emit it instead of running; the others run for real, so stub every node with a side effect, or list the ones that may run in allow. Payload assertions name a terminal node. A failing assertion is a 200 with passed=false.",
+        "operationId" : "runTest",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "sessionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "workflowId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WorkflowTestSpec"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTestReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Test a workflow with stubbed nodes",
+        "tags" : [ "Workflow tests" ]
+      }
+    },
     "/api/sessions/{sessionId}/workflows/{workflowId}/versions" : {
       "get" : {
         "description" : "Newest first; the newest 20 saves are kept",
@@ -13684,6 +13870,9 @@
   }, {
     "description" : "Who is calling and what the key may do",
     "name" : "Session API"
+  }, {
+    "description" : "Run a workflow with stubbed nodes and assertions",
+    "name" : "Workflow tests"
   }, {
     "description" : "For an application that is the decision maker of a supervisor",
     "name" : "Agent API"

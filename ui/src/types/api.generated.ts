@@ -1828,6 +1828,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/workflows/{workflowId}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test a workflow with stubbed nodes
+         * @description Runs the saved workflow once. Triggers emit the input (or their stub), terminals do nothing and processors with a stub emit it instead of running; the others run for real, so stub every node with a side effect, or list the ones that may run in allow. Payload assertions name a terminal node. A failing assertion is a 200 with passed=false.
+         */
+        post: operations["runTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sessionId}/workflows/{workflowId}/versions": {
         parameters: {
             query?: never;
@@ -5082,6 +5102,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseTestReport: {
+            /** @description The response data */
+            data?: components["schemas"]["TestReport"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseValidationView: {
             /** @description The response data */
             data?: components["schemas"]["ValidationView"];
@@ -5455,6 +5508,11 @@ export interface components {
         Catalog: {
             series?: string[];
         };
+        Check: {
+            detail?: string;
+            name?: string;
+            passed?: boolean;
+        };
         ConfigField: {
             defaultValue?: unknown;
             description?: string;
@@ -5794,6 +5852,16 @@ export interface components {
             nextCursor?: number;
             status?: string;
             truncated?: boolean;
+        };
+        Expect: {
+            nodes?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            notReached?: string[];
+            reached?: string[];
+            status?: string;
         };
         /** @description Field-specific validation error detail */
         FieldError: {
@@ -6621,6 +6689,10 @@ export interface components {
             mode?: "DRAIN" | "CANCEL" | "KILL" | null;
             reason?: string | null;
         };
+        Stub: {
+            payload?: unknown;
+            port?: string;
+        };
         Summary: {
             /** Format: int32 */
             unowned?: number;
@@ -6833,6 +6905,11 @@ export interface components {
             seq?: number;
             /** @description The screen as text, one line per row */
             text?: string;
+        };
+        TestReport: {
+            assertions?: components["schemas"]["Check"][];
+            passed?: boolean;
+            status?: string;
         };
         Tick: components["schemas"]["Signal"] & {
             /** Format: date-time */
@@ -7144,6 +7221,18 @@ export interface components {
              * @example wf-ingest-main
              */
             workflowId?: string;
+        };
+        WorkflowTestSpec: {
+            allow?: string[];
+            expect?: components["schemas"]["Expect"];
+            input?: {
+                [key: string]: unknown;
+            };
+            stubs?: {
+                [key: string]: components["schemas"]["Stub"][];
+            };
+            /** Format: int32 */
+            timeoutSeconds?: number;
         };
         /** @description Result of validating a draft workflow without saving it */
         WorkflowValidationResult: {
@@ -9705,6 +9794,33 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseMapStringString"];
+                };
+            };
+        };
+    };
+    runTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+                workflowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowTestSpec"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTestReport"];
                 };
             };
         };

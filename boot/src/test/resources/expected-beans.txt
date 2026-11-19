@@ -40,6 +40,7 @@ com.infenia.yukta.controller.WebhookController
 com.infenia.yukta.controller.WorkersController
 com.infenia.yukta.controller.WorkflowController
 com.infenia.yukta.controller.WorkflowDetailsController
+com.infenia.yukta.controller.WorkflowTestController
 com.infenia.yukta.controller.WorkflowValidationController
 com.infenia.yukta.controller.WorkflowVersionController
 com.infenia.yukta.docs.ApiDocsCustomizer
@@ -252,6 +253,11 @@ com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex
 com.infenia.yukta.service.supervisor.workflow.SupervisorWorkflowRunner
 com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks
 com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory
+com.infenia.yukta.service.testing.StubPlugins
+com.infenia.yukta.service.testing.StubPlugins$1
+com.infenia.yukta.service.testing.StubPlugins$2
+com.infenia.yukta.service.testing.StubPlugins$3
+com.infenia.yukta.service.testing.WorkflowTestRunner
 com.infenia.yukta.service.worker.RemoteNodes
 com.infenia.yukta.service.worker.WorkerRegistry
 com.infenia.yukta.service.workflow.ConfigRedactor

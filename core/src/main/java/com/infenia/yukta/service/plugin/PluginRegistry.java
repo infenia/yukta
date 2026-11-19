@@ -26,6 +26,9 @@ import org.springframework.stereotype.Service;
     value = "CT_CONSTRUCTOR_THROW",
     justification = "Fails fast at startup on duplicate or incompatible plugin types")
 public class PluginRegistry implements PluginLookup {
+  // Types with this prefix are found by get() but not listed: the workflow test stubs.
+  private static final String INTERNAL_PREFIX = "TEST_STUB_";
+
   /** Plugin type to plugin, sorted by type so listings are stable; filled once, never changed. */
   @SuppressWarnings("PMD.UseConcurrentHashMap") // never changed after construction
   private final Map<String, Plugin> plugins = new TreeMap<>();
@@ -214,9 +217,11 @@ public class PluginRegistry implements PluginLookup {
   /**
    * Get all registered plugins.
    *
-   * @return list of all plugins
+   * @return list of all plugins, without the internal ones the workflow test runner swaps in
    */
   public List<Plugin> listPlugins() {
-    return List.copyOf(plugins.values());
+    return plugins.values().stream()
+        .filter(plugin -> !plugin.getType().startsWith(INTERNAL_PREFIX))
+        .toList();
   }
 }
