@@ -144,6 +144,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Masks resolved secrets in log lines; null when not wired. */
   private SecretScrubber scrubber;
 
+  /** Whether this server leads; a server without an election always does. */
+  private final java.util.concurrent.atomic.AtomicReference<java.util.function.BooleanSupplier>
+      leadership = new java.util.concurrent.atomic.AtomicReference<>(() -> true);
+
   /** Applies queued events to the execution states. */
   private final TrackerEventApplier applier;
 
@@ -195,7 +199,18 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
             eventFeed,
             streams,
             pendingLogs,
-            this::scheduleCleanup);
+            this::scheduleCleanup,
+            () -> leadership.get().getAsBoolean());
+  }
+
+  /**
+   * Lets a server that lost the leader lease skip the run-end events of its stopped runs.
+   *
+   * @param election the election
+   */
+  @Autowired(required = false)
+  public void setLeaderElection(final com.infenia.yukta.service.leader.LeaderElection election) {
+    leadership.set(election::isLeader);
   }
 
   /**

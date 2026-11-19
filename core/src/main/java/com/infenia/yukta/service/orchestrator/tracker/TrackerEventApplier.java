@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -29,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** Applies tracker events to the state of the executions, in the order they were emitted. */
 @Slf4j
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CouplingBetweenObjects"})
 final class TrackerEventApplier {
 
   /** Counts execution-log writes that failed, by what was being recorded. */
@@ -62,6 +63,9 @@ final class TrackerEventApplier {
   /** Schedules the cleanup of an ended execution. */
   private final Consumer<String> cleanup;
 
+  /** Whether this server still holds the leader lease; a deposed leader writes no run ends. */
+  private final BooleanSupplier leading;
+
   /** Rates the log lines of each node, keyed by execution and node. */
   private final Map<String, Map<String, LogLineClassifier>> classifiers = new ConcurrentHashMap<>();
 
@@ -72,7 +76,8 @@ final class TrackerEventApplier {
       final ExecutionEventFeed eventFeed,
       final ExecutionStreams streams,
       final AtomicInteger pendingLogs,
-      final Consumer<String> cleanup) {
+      final Consumer<String> cleanup,
+      final BooleanSupplier leading) {
     this.states = states;
     this.telemetry = telemetry;
     this.executionLog = executionLog;
@@ -80,6 +85,7 @@ final class TrackerEventApplier {
     this.streams = streams;
     this.pendingLogs = pendingLogs;
     this.cleanup = cleanup;
+    this.leading = leading;
   }
 
   /** Applies a batch of events strictly in the order in which they were emitted. */
@@ -202,7 +208,12 @@ final class TrackerEventApplier {
     }
     telemetry.runStatus(
         event.executionId(), event.status(), terminal, state.startTime, event.timestamp());
-    if (terminal) {
+    if (terminal && !leading.getAsBoolean()) {
+      // The new leader's recovery owns this run; a fenced store would only refuse the write.
+      log.atInfo()
+          .addKeyValue("executionId", event.executionId())
+          .log("Not the leader any more, the end of the run is not recorded");
+    } else if (terminal) {
       appendToLog(
           ExecutionLogEvent.finished(
               state.executionId,
