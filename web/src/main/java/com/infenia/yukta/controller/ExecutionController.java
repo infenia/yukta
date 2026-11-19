@@ -29,7 +29,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /**
  * Execution lifecycle and status. Each operation lives at {@code /api/executions/{executionId}/…}
@@ -129,9 +128,7 @@ public class ExecutionController {
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
     return access
         .require(null, executionId)
-        .flatMap(_ ->
-            Mono.fromCallable(() -> executionLog.forExecution(executionId))
-                .subscribeOn(Schedulers.boundedElastic()))
+        .flatMap(_ -> executionLog.forExecution(executionId).collectList())
         .map(events ->
             ApiResponse.success(
                 200, "Start payload retrieved", StartPayloadResponse.fromLog(events)));
