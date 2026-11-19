@@ -15,6 +15,7 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.redact.SecretScrubber;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
@@ -2716,6 +2717,19 @@ class DefaultTaskTrackerServiceTest {
         })
         .assertNext(entry -> assertThat(entry.logLevel()).isEqualTo(LogLevel.INFO))
         .assertNext(entry -> assertThat(entry.message()).isEqualTo("more"))
+        .thenCancel()
+        .verify();
+  }
+
+  @Test
+  void testEmitLogEventMasksResolvedSecrets() {
+    final SecretScrubber scrubber = new SecretScrubber(new SimpleMeterRegistry());
+    scrubber.record("hunter2-value");
+    tracker.setSecretScrubber(scrubber);
+
+    StepVerifier.create(tracker.getLogFlux())
+        .then(() -> tracker.emitLogEvent("exec-secret", "n", "token=hunter2-value done"))
+        .assertNext(entry -> assertThat(entry.message()).isEqualTo("token=****** done"))
         .thenCancel()
         .verify();
   }
