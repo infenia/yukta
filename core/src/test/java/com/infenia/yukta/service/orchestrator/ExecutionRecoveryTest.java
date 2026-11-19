@@ -18,6 +18,7 @@ import com.infenia.yukta.service.orchestrator.tracker.TrackerFactory;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import com.infenia.yukta.service.runtime.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.List;
@@ -27,6 +28,8 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+// the failing-recovery tests log from a boundedElastic thread, so the line may land in a later test
+@ExpectedErrorLog(sometimes = "ERROR com.infenia.yukta.service.orchestrator.ExecutionRecovery - ")
 @NoArgsConstructor
 @SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class ExecutionRecoveryTest {

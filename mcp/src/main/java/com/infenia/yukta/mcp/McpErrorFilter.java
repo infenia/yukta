@@ -3,6 +3,7 @@
 package com.infenia.yukta.mcp;
 
 import java.nio.charset.StandardCharsets;
+import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -35,6 +36,7 @@ import tools.jackson.databind.json.JsonMapper;
  * an error body that holds a stack trace. Only error responses are buffered; a stream is passed
  * through.
  */
+@Slf4j
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class McpErrorFilter implements WebFilter {
@@ -101,11 +103,44 @@ public class McpErrorFilter implements WebFilter {
         .defaultIfEmpty(new byte[0])
         .flatMap(bytes ->
             isMessage(bytes)
-                ? chain.filter(withBody(next, bytes))
+                ? timed(chain.filter(withBody(next, bytes)), next, bytes)
                 : replace(guarded, HttpStatus.BAD_REQUEST, INVALID_REQUEST))
         .onErrorResume(
             DataBufferLimitException.class,
             _ -> replace(guarded, HttpStatus.CONTENT_TOO_LARGE, TOO_LARGE));
+  }
+
+  /**
+   * Logs which tool a {@code tools/call} ran, the answer's status and how long it took: the access
+   * line only says {@code POST /mcp}.
+   */
+  private static Mono<Void> timed(
+      final Mono<Void> call, final ServerWebExchange exchange, final byte[] body) {
+    final String tool = toolName(body);
+    if (tool == null) {
+      return call;
+    }
+    final long start = System.nanoTime();
+    return call.doFinally(_ -> {
+      final HttpStatusCode status = exchange.getResponse().getStatusCode();
+      log.atInfo()
+          .addKeyValue("tool", tool)
+          .addKeyValue("status", status == null ? 0 : status.value())
+          .addKeyValue("durationMs", (System.nanoTime() - start) / 1_000_000)
+          .log("MCP tool call");
+    });
+  }
+
+  /** The tool of a single {@code tools/call} message, or null (a batch, another method). */
+  private static String toolName(final byte[] bytes) {
+    try {
+      final JsonNode root = JSON.readTree(bytes);
+      return "tools/call".equals(root.path("method").asString(""))
+          ? root.path("params").path("name").asString(null)
+          : null;
+    } catch (JacksonException e) {
+      return null; // not JSON: nothing to name
+    }
   }
 
   /** Whether the body is a JSON-RPC message (an object with {@code jsonrpc: "2.0"}) or a batch. */
