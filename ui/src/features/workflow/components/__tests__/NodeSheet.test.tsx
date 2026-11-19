@@ -7,7 +7,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '@/test/utils/testUtils';
-import type { LogEntry, WorkflowGraphNode } from '../../types/workflow';
+import type { WorkflowGraphNode } from '../../types/workflow';
 import { NodeSheet } from '../NodeSheet';
 
 vi.mock('@/features/supervisors/components/NodeSupervisorTab', () => ({
@@ -26,8 +26,6 @@ vi.mock('../../hooks/useExecutionResults', () => ({
 
 const node = (nodeId: string, category: WorkflowGraphNode['category']) =>
   ({ nodeId, type: 'T', category }) as WorkflowGraphNode;
-const line = (pluginId: string, message: string) =>
-  ({ pluginId, message }) as LogEntry;
 
 function open(
   over: Partial<Parameters<typeof NodeSheet>[0]> = {},
@@ -47,7 +45,6 @@ function open(
         sessionId="s"
         workflowId="w"
         executionId="e1"
-        entries={[line('work', 'hello'), line('else', 'not mine')]}
         tab="node"
         onTab={vi.fn()}
         onCommand={onCommand}
@@ -111,7 +108,6 @@ describe('NodeSheet', () => {
           sessionId="s"
           workflowId="w"
           executionId="e1"
-          entries={[]}
           tab="node"
           onTab={vi.fn()}
           onCommand={vi.fn()}
@@ -134,11 +130,58 @@ describe('NodeSheet', () => {
     expect(screen.queryByText('Started with')).not.toBeInTheDocument();
   });
 
-  it("shows only this node's log lines and its config", async () => {
-    open();
-    expect(screen.getByText('hello')).toBeInTheDocument();
-    expect(screen.queryByText('not mine')).not.toBeInTheDocument();
+  it('shows its config and sends its logs to the dock', async () => {
+    const onShowLogs = vi.fn();
+    open({ onShowLogs });
     expect(await screen.findByText(preText(/"a": 1/))).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: "Show this node's logs" })
+    );
+    expect(onShowLogs).toHaveBeenCalledWith('work');
+  });
+
+  it('has no logs button without a dock to show them in', () => {
+    open();
+    expect(
+      screen.queryByRole('button', { name: "Show this node's logs" })
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps every action in its cell and disables those that do not apply', () => {
+    open();
+    expect(screen.getByRole('button', { name: 'Pause node' })).toBeEnabled();
+    const resume = screen.getByRole('button', { name: 'Resume node' });
+    expect(resume).toBeDisabled();
+    expect(resume).toHaveAttribute(
+      'title',
+      'Resume node: not available while running'
+    );
+    expect(screen.getByRole('button', { name: 'Stop node…' })).toHaveAttribute(
+      'title',
+      'Stop node…'
+    );
+    expect(
+      screen.getByRole('button', { name: 'Set breakpoint…' })
+    ).toBeEnabled();
+  });
+
+  it('puts Clear breakpoint in the breakpoint cell when one is set', () => {
+    open({
+      task: {
+        nodeId: 'work',
+        module: 'T',
+        status: 'RUNNING',
+        startTime: null,
+        endTime: null,
+        breakpoint: { field: 'x', equals: 'y' },
+      },
+    });
+    expect(
+      screen.getByRole('button', { name: 'Clear breakpoint' })
+    ).toBeEnabled();
+    expect(
+      screen.queryByRole('button', { name: 'Set breakpoint…' })
+    ).not.toBeInTheDocument();
   });
 
   it('offers the actions of its status and reports the one chosen', async () => {

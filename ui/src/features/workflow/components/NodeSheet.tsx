@@ -12,13 +12,10 @@ import { useExecutionResults } from '../hooks/useExecutionResults';
 import { categoryAccent } from '../lib/categoryAccent';
 import { toNodeUiStatus } from '../lib/statusMapper';
 import { formatDateTime, formatDuration } from '../lib/timeFormat';
-import type {
-  LogEntry,
-  TaskProgress,
-  WorkflowGraphNode,
-} from '../types/workflow';
+import type { TaskProgress, WorkflowGraphNode } from '../types/workflow';
 import { Button } from '@/components/ui/button';
-import { nodeMenuItems, type NodeCommand } from './NodeControlsMenu';
+import { ICON_TONE } from '@/components/ui/iconTone';
+import { nodeActionSlots, type NodeCommand } from './NodeControlsMenu';
 import { StatusPill } from './StatusPill';
 
 /** The icon on each action button. */
@@ -26,19 +23,25 @@ const ACTION_ICONS: Record<string, string> = {
   pause: 'pause',
   resume: 'play_arrow',
   stop: 'stop',
-  skip: 'redo',
+  skip: 'skip_next',
   unskip: 'undo',
   retry: 'replay',
   'step/enable': 'footprint',
-  step: 'step',
-  'step/disable': 'footprint',
+  step: 'step_over',
+  'step/disable': 'do_not_step',
   breakpoint: 'adjust',
-  'breakpoint/clear': 'cancel',
+  'breakpoint/clear': 'block',
   'restart-from': 'restart_alt',
 };
 
-/** Log lines shown per node; the logs dock holds the full run. */
-const MAX_LINES = 200;
+/** The hover tint of each action cell: stop is destructive, the rest neutral or primary. */
+const ACTION_TONE: Partial<Record<NodeCommand, keyof typeof ICON_TONE>> = {
+  pause: 'attention',
+  resume: 'success',
+  stop: 'destructive',
+  retry: 'primary',
+  'restart-from': 'primary',
+};
 
 const Section = ({
   title,
@@ -121,7 +124,7 @@ function Results({
 
 /**
  * Everything about one node of a run in one place: its status and times, the actions that apply,
- * its configuration (secrets masked by the server), its log lines and, for a terminal, what it
+ * its configuration (secrets masked by the server), a link to its log lines and, for a terminal, what it
  * received. Opened by `?node=<id>` on the run page.
  */
 /** The capability the server names for each node action (others are checked by role only). */
@@ -148,11 +151,11 @@ export function NodeSheet({
   sessionId,
   workflowId,
   executionId,
-  entries,
   tab,
   onTab,
   closing = false,
   onCommand,
+  onShowLogs,
   onClose,
 }: {
   node: WorkflowGraphNode;
@@ -160,13 +163,14 @@ export function NodeSheet({
   sessionId: string;
   workflowId: string;
   executionId: string | null;
-  entries: LogEntry[];
   /** Which tab is shown; the Supervisor tab opens from a node's owner icon. */
   tab: SheetTab;
   onTab: (tab: SheetTab) => void;
   /** Plays the exit animation; the page unmounts it a moment later. */
   closing?: boolean;
   onCommand: (nodeId: string, command: NodeCommand) => void;
+  /** Shows only this node's lines in the logs dock. */
+  onShowLogs?: (nodeId: string) => void;
   onClose: () => void;
 }) {
   // Escape closes it from anywhere on the page, as the modal-less sheet did
@@ -177,11 +181,8 @@ export function NodeSheet({
   }, [onClose]);
   const status = toNodeUiStatus(task?.status);
   const actions = executionId
-    ? nodeMenuItems(status, Boolean(task?.breakpoint))
+    ? nodeActionSlots(status, Boolean(task?.breakpoint))
     : [];
-  const lines = entries
-    .filter((entry) => entry.pluginId === node.nodeId)
-    .slice(-MAX_LINES);
   return (
     // Over the progress panel, exactly its size: its parent is the panel's box, so hiding the
     // panel hides this too. Not modal: the canvas and the controls stay usable behind it.
@@ -214,16 +215,31 @@ export function NodeSheet({
               {node.type}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close node details"
-            className="text-on-surface-variant hover:text-on-surface flex size-8 shrink-0 items-center justify-center rounded-lg"
-          >
-            <span aria-hidden="true" className="material-symbols-outlined">
-              close
-            </span>
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            {onShowLogs && (
+              <button
+                type="button"
+                onClick={() => onShowLogs(node.nodeId)}
+                aria-label="Show this node's logs"
+                title="Show this node's logs"
+                className="text-on-surface-variant hover:bg-muted hover:text-on-surface transition-standard flex size-8 items-center justify-center rounded-lg"
+              >
+                <span aria-hidden="true" className="material-symbols-outlined">
+                  terminal
+                </span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close node details"
+              className="text-on-surface-variant hover:bg-muted hover:text-on-surface transition-standard flex size-8 items-center justify-center rounded-lg"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined">
+                close
+              </span>
+            </button>
+          </div>
         </div>
 
         <div
@@ -273,7 +289,8 @@ export function NodeSheet({
 
             {actions.length > 0 && (
               <Section title="Actions">
-                <div className="grid grid-cols-[repeat(auto-fill,2rem)] gap-1.5">
+                {/* Every action keeps its cell; the ones that do not apply now are disabled */}
+                <div className="border-border bg-surface-container-low grid w-max grid-cols-6 gap-1 rounded-xl border p-1">
                   {actions.map((item) => (
                     <RequireControl
                       key={item.command}
@@ -283,15 +300,24 @@ export function NodeSheet({
                     >
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="icon"
                         aria-label={item.label}
-                        title={item.label}
+                        title={
+                          item.enabled
+                            ? item.label
+                            : `${item.label.replace('…', '')}: not available while ${status}`
+                        }
+                        disabled={!item.enabled}
+                        className={cn(
+                          'transition-standard size-9 rounded-lg disabled:opacity-30',
+                          ICON_TONE[ACTION_TONE[item.command] ?? 'neutral']
+                        )}
                         onClick={() => onCommand(node.nodeId, item.command)}
                       >
                         <span
                           aria-hidden="true"
-                          className="material-symbols-outlined text-base"
+                          className="material-symbols-outlined text-lg"
                         >
                           {ACTION_ICONS[item.command]}
                         </span>
@@ -317,16 +343,6 @@ export function NodeSheet({
                 workflowId={workflowId}
                 nodeId={node.nodeId}
               />
-            </Section>
-
-            <Section title="Logs">
-              {lines.length > 0 ? (
-                <pre className="text-terminal-foreground bg-terminal text-code-sm max-h-60 overflow-auto rounded-xl p-2 whitespace-pre-wrap">
-                  {lines.map((l) => l.message).join('\n')}
-                </pre>
-              ) : (
-                <Empty>No log lines from this node.</Empty>
-              )}
             </Section>
 
             {node.category === 'TERMINAL' && executionId && (
