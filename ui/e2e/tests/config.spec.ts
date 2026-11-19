@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { test, expect } from '../fixtures';
+import { envelope } from '../api-envelope';
 
 test.describe('Configuration page', () => {
   test('is reachable from the header and lists the options', async ({
@@ -48,5 +49,32 @@ test.describe('Configuration page', () => {
       .getByRole('button', { name: 'yukta.session.store-type' })
       .click();
     await expect(page.getByText('Native image and Docker')).toBeVisible();
+  });
+
+  test('the Runtime tab shows the live limits and says they are not saved', async ({
+    page,
+  }) => {
+    await page.route('**/api/scheduler/limits*', (route) =>
+      route.fulfill(
+        envelope('/limits', {
+          maxConcurrent: 4,
+          maxPerWorkflow: 0,
+          running: 2,
+          queued: 1,
+          queueCapacity: 100,
+        })
+      )
+    );
+    await page.route('**/api/admin/drain*', (route) =>
+      route.fulfill(envelope('/drain', { draining: false }))
+    );
+    await page.goto('/config');
+    await page.getByRole('tab', { name: 'Runtime' }).click();
+
+    await expect(page).toHaveURL(/\/config\?tab=runtime$/);
+    await expect(
+      page.getByText('Changes here are live, but not saved')
+    ).toBeVisible();
+    await expect(page.getByText('2 of 4')).toBeVisible();
   });
 });
