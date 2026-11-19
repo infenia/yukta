@@ -159,7 +159,7 @@ class McpErrorFilterTest {
   }
 
   @Test
-  void aToolCallIsLoggedWithItsNameStatusAndDuration(final CapturedOutput output) {
+  void toolCallIsLoggedWithItsNameStatusAndDuration(final CapturedOutput output) {
     run(
         post(
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
@@ -170,7 +170,7 @@ class McpErrorFilterTest {
   }
 
   @Test
-  void aCallWithoutAStatusIsLoggedAsZero(final CapturedOutput output) {
+  void callWithoutStatusIsLoggedAsZero(final CapturedOutput output) {
     run(
         post(
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
