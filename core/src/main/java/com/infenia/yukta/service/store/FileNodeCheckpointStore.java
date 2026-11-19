@@ -101,9 +101,6 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   /** File operations queued on {@link #IO} or running there, across all stores. */
   private static final AtomicInteger PENDING_IO = new AtomicInteger();
 
-  /** One node of one run. */
-  private record NodeKey(String executionId, String nodeId) {}
-
   /** Root directory. */
   private final Path root;
 
