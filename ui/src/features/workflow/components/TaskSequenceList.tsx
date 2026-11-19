@@ -4,7 +4,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { toNodeStatusLabel, toNodeUiStatus } from '../lib/statusMapper';
 import { StatusPill } from './StatusPill';
-import { formatClockTime, formatDuration } from '../lib/timeFormat';
+import { formatDuration } from '../lib/timeFormat';
+import { DateTimeStamp, Stamp } from './DateTimeStamp';
 import { cn } from '@/lib/utils';
 import { NodeControlsMenu, type NodeCommand } from './NodeControlsMenu';
 import { aggregateStatus, groupNodes, stageOf } from '../lib/groups';
@@ -49,19 +50,24 @@ function TimingLine({
   if (!task.startTime) {
     return null;
   }
-  if (status === 'running') {
-    return (
-      <p className="text-code-sm text-on-surface-variant">
-        Start: {formatClockTime(task.startTime)}
-        {'  '}Dur: {formatDuration(task.startTime, new Date().toISOString())}
-      </p>
-    );
-  }
+  const running = status === 'running';
   return (
-    <p className="text-code-sm text-on-surface-variant">
-      Start: {formatClockTime(task.startTime)}
-      {'  '}End: {formatClockTime(task.endTime)}
-    </p>
+    <dl className="mt-1 grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-x-3 gap-y-1">
+      <Stamp label="Start">
+        <DateTimeStamp iso={task.startTime} />
+      </Stamp>
+      {!running && (
+        <Stamp label="End">
+          <DateTimeStamp iso={task.endTime} />
+        </Stamp>
+      )}
+      <Stamp label="Dur">
+        {formatDuration(
+          task.startTime,
+          running ? new Date().toISOString() : task.endTime
+        )}
+      </Stamp>
+    </dl>
   );
 }
 
@@ -249,7 +255,7 @@ export function TaskSequenceList({
     />
   );
   const chip = (active: boolean) =>
-    `text-label-sm inline-flex h-6 items-center gap-1 rounded-full border px-2 tabular-nums ${
+    `text-label-sm flex h-7 items-center gap-1.5 rounded-lg border px-2 tabular-nums ${
       active
         ? 'border-transparent bg-accent text-accent-foreground'
         : 'border-border text-on-surface hover:bg-muted'
@@ -297,7 +303,7 @@ export function TaskSequenceList({
       <div
         role="group"
         aria-label="Show nodes"
-        className="flex flex-wrap gap-1.5"
+        className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-1"
       >
         <button
           type="button"
@@ -315,7 +321,13 @@ export function TaskSequenceList({
             onClick={() => setShow(status)}
             className={chip(show === status)}
           >
-            {toNodeStatusLabel(status)} {counts.get(status)}
+            <span className="flex items-center gap-1.5">
+              <span
+                aria-hidden="true"
+                className={cn('size-2 rounded-full', BAR_COLOR[status])}
+              />
+              {`${toNodeStatusLabel(status)} ${counts.get(status)}`}
+            </span>
           </button>
         ))}
       </div>

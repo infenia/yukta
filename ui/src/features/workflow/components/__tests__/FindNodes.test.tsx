@@ -72,6 +72,18 @@ describe('FindNodes', () => {
     );
   });
 
+  it('toggles closed from the search button while open', async () => {
+    const user = userEvent.setup();
+    render(<Harness onPick={vi.fn()} />);
+    const toggle = screen.getByRole('button', { name: 'Find nodes' });
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await user.type(screen.getByRole('searchbox', { name: 'Find nodes' }), 'x');
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('searchbox')).toBeNull();
+  });
+
   it('closes on Escape and on the close button, clearing the query', async () => {
     const user = userEvent.setup();
     render(<Harness onPick={vi.fn()} />);
