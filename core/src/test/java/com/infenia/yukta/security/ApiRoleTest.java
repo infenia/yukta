@@ -33,6 +33,17 @@ class ApiRoleTest {
   }
 
   @Test
+  void readingTheEffectiveConfigurationNeedsAdmin() {
+    for (final String path : new String[] {"/api/config", "/api/config/x"}) {
+      assertThat(ApiRole.VIEWER.allows(HttpMethod.GET, path)).isFalse();
+      assertThat(ApiRole.OPERATOR.allows(HttpMethod.GET, path)).isFalse();
+      assertThat(ApiRole.ADMIN.allows(HttpMethod.GET, path)).isTrue();
+    }
+    // only the config path itself: a look-alike prefix is an ordinary read
+    assertThat(ApiRole.VIEWER.allows(HttpMethod.GET, "/api/configs")).isTrue();
+  }
+
+  @Test
   void admin_doesEverything() {
     assertThat(ApiRole.ADMIN.allows(HttpMethod.DELETE, "/api/sessions/s")).isTrue();
   }
