@@ -7,7 +7,6 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
-import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
