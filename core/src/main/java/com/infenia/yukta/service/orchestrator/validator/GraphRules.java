@@ -67,7 +67,8 @@ final class GraphRules {
             firstProblem(def, node -> processor(node, registry, sourceIds)),
             firstProblem(def, node -> endpoint(node, registry, sourceIds)),
             hasCycles(def)
-                ? Optional.of(ValidationProblem.of("CYCLE", "Workflow DAG contains cycles"))
+                ? Optional.of(
+                    ValidationProblem.forWorkflow("CYCLE", "Workflow DAG contains cycles"))
                 : Optional.<ValidationProblem>empty());
     checks.forEach(check -> check.ifPresent(problems::add));
     return problems;
@@ -88,7 +89,7 @@ final class GraphRules {
     return found
         ? Optional.empty()
         : Optional.of(
-            ValidationProblem.of(
+            ValidationProblem.forWorkflow(
                 "MISSING_" + category, "Workflow must contain at least one " + category + " node"));
   }
 

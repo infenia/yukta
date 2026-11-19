@@ -37,7 +37,7 @@ final class StructuralRules {
       final WorkflowDefinition def, final PluginRegistry registry) {
     if (def.nodes().size() > MAX_NODES || def.edges().size() > MAX_EDGES) {
       return Optional.of(
-          ValidationProblem.of(
+          ValidationProblem.forWorkflow(
               "WORKFLOW_TOO_LARGE",
               "Workflow is too large: at most "
                   + MAX_NODES
@@ -71,11 +71,12 @@ final class StructuralRules {
     final String label = "Edge " + edge.source() + " -> " + edge.target();
     if (!nodes.containsKey(edge.source()) || !nodes.containsKey(edge.target())) {
       return Optional.of(
-          ValidationProblem.of("UNKNOWN_EDGE_NODE", label + " references an unknown node"));
+          ValidationProblem.forWorkflow(
+              "UNKNOWN_EDGE_NODE", label + " references an unknown node"));
     }
     if (!seen.add(edge)) {
       return Optional.of(
-          ValidationProblem.of("DUPLICATE_EDGE", label + " is defined more than once"));
+          ValidationProblem.forWorkflow("DUPLICATE_EDGE", label + " is defined more than once"));
     }
     if (edge.sourcePort() != null
         && !NodePolicy.ALL_PORTS.equals(edge.sourcePort())

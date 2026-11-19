@@ -101,8 +101,8 @@ public class WorkflowValidator {
                 e -> {
                   problems.add(
                       e instanceof ValidationProblem.PluginProblemException p
-                          ? p.problem()
-                          : ValidationProblem.of(
+                          ? p.asProblem()
+                          : ValidationProblem.forWorkflow(
                               "INVALID", e.getMessage() != null ? e.getMessage() : e.toString()));
                   return Mono.empty();
                 }))

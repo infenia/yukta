@@ -22,23 +22,22 @@ public record ValidationProblem(String nodeId, String path, String code, String 
   /* default */ static final class PluginProblemException extends IllegalArgumentException {
     private static final long serialVersionUID = 1L;
 
-    private final transient ValidationProblem problem;
+    private final transient ValidationProblem detail;
 
     /* default */ PluginProblemException(
         final String nodeId, final String code, final IllegalArgumentException cause) {
       super(cause.getMessage(), cause);
-      this.problem =
-          ValidationProblem.ofNode(
-              nodeId, code, cause.getMessage() != null ? cause.getMessage() : cause.toString());
+      this.detail =
+          ofNode(nodeId, code, cause.getMessage() != null ? cause.getMessage() : cause.toString());
     }
 
-    /* default */ ValidationProblem problem() {
-      return problem;
+    /* default */ ValidationProblem asProblem() {
+      return detail;
     }
   }
 
   /** A problem about the workflow as a whole. */
-  /* default */ static ValidationProblem of(final String code, final String message) {
+  /* default */ static ValidationProblem forWorkflow(final String code, final String message) {
     return new ValidationProblem(null, null, code, message);
   }
 

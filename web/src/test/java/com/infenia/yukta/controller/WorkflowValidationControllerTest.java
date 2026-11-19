@@ -37,12 +37,6 @@ class WorkflowValidationControllerTest {
   /** A problem message reported for a workflow without a trigger. */
   private static final String NO_TRIGGER = "no trigger";
 
-  private static List<ValidationProblem> problems(final String... messages) {
-    return java.util.Arrays.stream(messages)
-        .map(m -> new ValidationProblem(null, null, "TEST", m))
-        .toList();
-  }
-
   /** A draft with one known and one unknown plugin type. */
   private static final String DRAFT =
       """
@@ -278,5 +272,11 @@ class WorkflowValidationControllerTest {
         .isEqualTo(false)
         .jsonPath("$.data.problems[0]")
         .isEqualTo("assignments[0].supervisor: no supervisor 'nope'");
+  }
+
+  private static List<ValidationProblem> problems(final String... messages) {
+    return java.util.Arrays.stream(messages)
+        .map(m -> new ValidationProblem(null, null, "TEST", m))
+        .toList();
   }
 }
