@@ -5654,6 +5654,17 @@ export interface components {
             /** Format: int64 */
             timeoutSeconds?: number;
         };
+        /** @description A validation problem with its location and code */
+        Detail: {
+            /** @description A stable machine-readable code */
+            code?: string;
+            /** @description What is wrong */
+            message?: string;
+            /** @description The node it is about; null for the workflow */
+            nodeId?: string;
+            /** @description Where in the definition; null when not specific */
+            path?: string;
+        };
         DirectiveBody: {
             cause?: string;
             command?: {
@@ -7070,6 +7081,8 @@ export interface components {
         };
         /** @description Result of validating a draft workflow without saving it */
         WorkflowValidationResult: {
+            /** @description Every problem with its node, path and code, in the order of problems */
+            details?: components["schemas"]["Detail"][];
             /** @description The first problem found; null when valid */
             message?: string;
             /** @description Output ports per node id, for the node's configuration */

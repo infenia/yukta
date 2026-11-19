@@ -33,21 +33,29 @@ final class StructuralRules {
    * <p>Checked eagerly, before the other validations are assembled, because they assume every edge
    * endpoint exists and ids are unique.
    */
-  /* default */ static Optional<String> findStructuralProblem(
+  /* default */ static Optional<ValidationProblem> findStructuralProblem(
       final WorkflowDefinition def, final PluginRegistry registry) {
     if (def.nodes().size() > MAX_NODES || def.edges().size() > MAX_EDGES) {
       return Optional.of(
-          "Workflow is too large: at most " + MAX_NODES + " nodes and " + MAX_EDGES + " edges");
+          ValidationProblem.of(
+              "WORKFLOW_TOO_LARGE",
+              "Workflow is too large: at most "
+                  + MAX_NODES
+                  + " nodes and "
+                  + MAX_EDGES
+                  + " edges"));
     }
     final Map<String, WorkflowDefinition.Node> nodes = new ConcurrentHashMap<>();
     for (final WorkflowDefinition.Node node : def.nodes()) {
       if (nodes.put(node.nodeId(), node) != null) {
-        return Optional.of("Duplicate node id '" + node.nodeId() + "'");
+        return Optional.of(
+            ValidationProblem.ofNode(
+                node.nodeId(), "DUPLICATE_NODE_ID", "Duplicate node id '" + node.nodeId() + "'"));
       }
     }
     final Set<WorkflowDefinition.Edge> seen = new HashSet<>();
     for (final WorkflowDefinition.Edge edge : def.edges()) {
-      final Optional<String> problem = findEdgeProblem(edge, nodes, seen, registry);
+      final Optional<ValidationProblem> problem = findEdgeProblem(edge, nodes, seen, registry);
       if (problem.isPresent()) {
         return problem;
       }
@@ -55,23 +63,32 @@ final class StructuralRules {
     return Optional.empty();
   }
 
-  private static Optional<String> findEdgeProblem(
+  private static Optional<ValidationProblem> findEdgeProblem(
       final WorkflowDefinition.Edge edge,
       final Map<String, WorkflowDefinition.Node> nodes,
       final Set<WorkflowDefinition.Edge> seen,
       final PluginRegistry registry) {
     final String label = "Edge " + edge.source() + " -> " + edge.target();
     if (!nodes.containsKey(edge.source()) || !nodes.containsKey(edge.target())) {
-      return Optional.of(label + " references an unknown node");
+      return Optional.of(
+          ValidationProblem.of("UNKNOWN_EDGE_NODE", label + " references an unknown node"));
     }
     if (!seen.add(edge)) {
-      return Optional.of(label + " is defined more than once");
+      return Optional.of(
+          ValidationProblem.of("DUPLICATE_EDGE", label + " is defined more than once"));
     }
     if (edge.sourcePort() != null
         && !NodePolicy.ALL_PORTS.equals(edge.sourcePort())
         && !hasPort(nodes.get(edge.source()), edge.sourcePort(), registry)) {
       return Optional.of(
-          label + " uses output port '" + edge.sourcePort() + "' that the source does not have");
+          new ValidationProblem(
+              edge.source(),
+              "sourcePort",
+              "UNKNOWN_OUTPUT_PORT",
+              label
+                  + " uses output port '"
+                  + edge.sourcePort()
+                  + "' that the source does not have"));
     }
     return Optional.empty();
   }

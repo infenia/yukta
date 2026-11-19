@@ -21,22 +21,26 @@ final class PolicyRules {
    *
    * <p>Checked eagerly, like the edge check, so the message names the node and the option.
    */
-  /* default */ static Optional<String> findInvalidPolicy(
+  /* default */ static Optional<ValidationProblem> findInvalidPolicy(
       final WorkflowDefinition def, final PluginRegistry registry) {
     for (final WorkflowDefinition.Node node : def.nodes()) {
       final NodePolicy policy;
       try {
         policy = NodePolicy.from(node.config());
       } catch (final IllegalArgumentException e) {
-        return Optional.of(nodeProblem(node, e.getMessage()));
+        return Optional.of(nodeProblem(node, "engine", "INVALID_POLICY", e.getMessage()));
       }
-      final Optional<String> backoff = findLongBackoff(node, policy, registry);
+      final Optional<ValidationProblem> backoff = findLongBackoff(node, policy, registry);
       if (backoff.isPresent()) {
         return backoff;
       }
       if (policy.concurrencyGroup() != null && !isProcessor(node, registry)) {
         return Optional.of(
-            nodeProblem(node, "engine.concurrencyGroup is only supported on processor nodes"));
+            nodeProblem(
+                node,
+                "engine.concurrencyGroup",
+                "POLICY_NOT_SUPPORTED",
+                "engine.concurrencyGroup is only supported on processor nodes"));
       }
       if (policy.perMessage()) {
         final var plugin = registry.get(node.type());
@@ -44,6 +48,8 @@ final class PolicyRules {
           return Optional.of(
               nodeProblem(
                   node,
+                  "engine",
+                  "POLICY_NOT_SUPPORTED",
                   "engine.retry, engine.onError and engine.elementTimeoutMs are only supported"
                       + " on processor nodes"));
         }
@@ -53,8 +59,13 @@ final class PolicyRules {
   }
 
   /** The message of a problem with one node, naming the node first. */
-  private static String nodeProblem(final WorkflowDefinition.Node node, final String message) {
-    return "Node '" + node.nodeId() + "': " + message;
+  private static ValidationProblem nodeProblem(
+      final WorkflowDefinition.Node node,
+      final String path,
+      final String code,
+      final String message) {
+    return new ValidationProblem(
+        node.nodeId(), path, code, "Node '" + node.nodeId() + "': " + message);
   }
 
   /** False only for a node whose plugin is known and is not a processor. */
@@ -81,7 +92,7 @@ final class PolicyRules {
    * A retry delay or element timeout as long as the node timeout makes the node time out first, so
    * the policy could never work as configured.
    */
-  private static Optional<String> findLongBackoff(
+  private static Optional<ValidationProblem> findLongBackoff(
       final WorkflowDefinition.Node node, final NodePolicy policy, final PluginRegistry registry) {
     final Duration element = policy.elementTimeout();
     final Duration deadline = policy.deadline();
@@ -89,6 +100,8 @@ final class PolicyRules {
       return Optional.of(
           nodeProblem(
               node,
+              "engine.elementTimeoutMs",
+              "POLICY_TIMEOUT_CONFLICT",
               "engine.elementTimeoutMs must be below engine.deadlineMs ("
                   + deadline.toMillis()
                   + " ms), which would end the node first"));
@@ -110,13 +123,15 @@ final class PolicyRules {
     return Optional.empty();
   }
 
-  private static String tooLong(
+  private static ValidationProblem tooLong(
       final WorkflowDefinition.Node node,
       final String option,
       final Duration timeout,
       final String consequence) {
     return nodeProblem(
         node,
+        option,
+        "POLICY_TIMEOUT_CONFLICT",
         option + " must be below the node timeout (" + timeout.toSeconds() + " s), " + consequence);
   }
 }

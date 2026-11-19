@@ -34,7 +34,7 @@ class WorkflowValidationResultTest {
   @Test
   void nullProblemsBecomeEmptyEvenWhenMessageIsSet() {
     final WorkflowValidationResult result =
-        new WorkflowValidationResult(false, MESSAGE, Map.of(), null, List.of());
+        new WorkflowValidationResult(false, MESSAGE, Map.of(), null, null, List.of());
 
     assertThat(result.message()).isEqualTo(MESSAGE);
     assertThat(result.problems()).isEmpty();

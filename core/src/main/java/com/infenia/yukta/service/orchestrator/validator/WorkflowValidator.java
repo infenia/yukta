@@ -42,18 +42,18 @@ public class WorkflowValidator {
         .addKeyValue("edgeCount", def.edges().size())
         .log("Starting workflow validation");
 
-    final List<String> eager = findEagerProblems(def);
+    final List<ValidationProblem> eager = findEagerProblems(def);
     if (!eager.isEmpty()) {
-      return Mono.error(new IllegalArgumentException(eager.getFirst()));
+      return Mono.error(new IllegalArgumentException(eager.getFirst().message()));
     }
-    final List<String> graph = GraphRules.findProblems(def, registry);
+    final List<ValidationProblem> graph = GraphRules.findProblems(def, registry);
     final Mono<Void> checks =
         graph.isEmpty()
             ? Flux.concat(
                     PluginChecks.validateNodeContexts(def, registry),
                     PluginChecks.validatePluginConfigs(def, registry))
                 .then()
-            : Mono.error(new IllegalArgumentException(graph.getFirst()));
+            : Mono.error(new IllegalArgumentException(graph.getFirst().message()));
     return checks
         .doOnSuccess(_ ->
             log.atInfo()
@@ -67,8 +67,9 @@ public class WorkflowValidator {
   }
 
   /** A secret mask, a literal secret, a bad policy or a broken structure: all of them. */
-  private List<String> findEagerProblems(final WorkflowDefinition def) {
-    final List<String> problems = new ArrayList<>(SecretRules.findProblems(def, registry));
+  private List<ValidationProblem> findEagerProblems(final WorkflowDefinition def) {
+    final List<ValidationProblem> problems =
+        new ArrayList<>(SecretRules.findProblems(def, registry));
     PolicyRules.findInvalidPolicy(def, registry).ifPresent(problems::add);
     StructuralRules.findStructuralProblem(def, registry).ifPresent(problems::add);
     return problems;
@@ -80,10 +81,10 @@ public class WorkflowValidator {
    * to unknown nodes) the checks that assume it are skipped.
    *
    * @param def the workflow
-   * @return the problems, empty if the workflow is valid
+   * @return the problems (each with node, path and code), empty if the workflow is valid
    */
-  public Mono<List<String>> validateAll(@NotNull @Valid final WorkflowDefinition def) {
-    final List<String> problems = findEagerProblems(def);
+  public Mono<List<ValidationProblem>> validateAll(@NotNull @Valid final WorkflowDefinition def) {
+    final List<ValidationProblem> problems = findEagerProblems(def);
     if (StructuralRules.findStructuralProblem(def, registry).isPresent()) {
       return Mono.just(problems);
     }
@@ -98,7 +99,11 @@ public class WorkflowValidator {
             check.onErrorResume(
                 IllegalArgumentException.class,
                 e -> {
-                  problems.add(e.getMessage() != null ? e.getMessage() : e.toString());
+                  problems.add(
+                      e instanceof ValidationProblem.PluginProblemException p
+                          ? p.problem()
+                          : ValidationProblem.of(
+                              "INVALID", e.getMessage() != null ? e.getMessage() : e.toString()));
                   return Mono.empty();
                 }))
         .then(Mono.fromSupplier(() -> List.copyOf(problems)));

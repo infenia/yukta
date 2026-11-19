@@ -150,7 +150,10 @@ class WorkflowValidatorTest {
                     Fixtures.workflow(
                         WORKFLOW_NAME, "d", List.of(node("a", "T"), node("a", "P")), List.of()))
                 .block())
-        .contains("Duplicate node id 'a'");
+        .extracting(ValidationProblem::message, ValidationProblem::code, ValidationProblem::nodeId)
+        .contains(
+            org.assertj.core.api.Assertions.tuple(
+                "Duplicate node id 'a'", "DUPLICATE_NODE_ID", "a"));
   }
 
   @Test
@@ -168,6 +171,7 @@ class WorkflowValidatorTest {
             List.of(new WorkflowDefinition.Edge("t", "unknown", null)));
 
     org.assertj.core.api.Assertions.assertThat(validator.validateAll(def).block())
+        .extracting(ValidationProblem::message)
         .containsExactly("Plugin not found for type: " + UNKNOWN_ID);
   }
 
@@ -199,6 +203,7 @@ class WorkflowValidatorTest {
     StepVerifier.create(validator.validateAll(triggerIntoProcessorWithoutTerminal()))
         .assertNext(problems ->
             org.assertj.core.api.Assertions.assertThat(problems)
+                .extracting(ValidationProblem::message)
                 .contains(
                     "Workflow must contain at least one TERMINAL node",
                     "Node p is an endpoint but not a TERMINAL"))
@@ -211,7 +216,11 @@ class WorkflowValidatorTest {
 
     StepVerifier.create(validator.validateAll(triggerIntoProcessorWithoutTerminal()))
         .assertNext(problems ->
-            org.assertj.core.api.Assertions.assertThat(problems).contains("bad context"))
+            org.assertj.core.api.Assertions.assertThat(problems)
+                .extracting(
+                    ValidationProblem::message, ValidationProblem::nodeId, ValidationProblem::code)
+                .contains(
+                    org.assertj.core.api.Assertions.tuple("bad context", "p", "INVALID_CONTEXT")))
         .verifyComplete();
   }
 
@@ -222,6 +231,7 @@ class WorkflowValidatorTest {
     StepVerifier.create(validator.validateAll(triggerIntoProcessorWithoutTerminal()))
         .assertNext(problems ->
             org.assertj.core.api.Assertions.assertThat(problems)
+                .extracting(ValidationProblem::message)
                 .contains("java.lang.IllegalArgumentException"))
         .verifyComplete();
   }
