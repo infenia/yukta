@@ -58,9 +58,7 @@ test.describe('Workflow Details Page', () => {
     await expect(page.getByTestId('task-sequence')).toContainText(
       'module: vector-engine-v2'
     );
-    await expect(page.getByTestId('task-sequence')).toContainText(
-      'Dur1m 12s'
-    );
+    await expect(page.getByTestId('task-sequence')).toContainText('Dur1m 12s');
 
     // the run's IDs and times sit on the Details tab
     await page.getByRole('tab', { name: 'Details' }).click();
