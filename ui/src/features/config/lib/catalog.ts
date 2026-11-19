@@ -280,6 +280,36 @@ export const CATALOG: ConfigOption[] = [
       purpose:
         'How long a prepared workflow stays cached. `yukta.cache.max-size` is 1000.',
     },
+    {
+      key: 'yukta.restart.messages-per-node',
+      default: '200',
+      purpose: 'Messages kept per node in a checkpoint.',
+    },
+    {
+      key: 'yukta.restart.bytes-per-node',
+      default: '4194304',
+      purpose: 'Bytes kept per node in a checkpoint.',
+    },
+    {
+      key: 'yukta.restart.spill-dir',
+      default: 'empty',
+      purpose: 'Folder where checkpoint data over the limit is written.',
+    },
+    {
+      key: 'yukta.restart.payload-packages',
+      default: '[]',
+      purpose: 'Java packages whose types may appear in a checkpoint.',
+    },
+    {
+      key: 'yukta.execution-log.compact-after',
+      default: '10000',
+      purpose: 'Log entries written before the log is compacted.',
+    },
+    {
+      key: 'yukta.execution-log.min-runs-per-session',
+      default: '10',
+      purpose: 'Runs kept per session when the log is trimmed.',
+    },
   ]),
   ...group('Scheduler and engine', [
     {
@@ -391,6 +421,194 @@ export const CATALOG: ConfigOption[] = [
       default: '1000',
       purpose: 'Time limit for one expression.',
     },
+    {
+      key: 'yukta.execution.max-concurrent-children',
+      default: '0 (no limit)',
+      purpose: 'Child (sub-workflow) runs at once.',
+    },
+    {
+      key: 'yukta.execution.queue-capacity-per-workflow',
+      default: '0',
+      purpose: 'Runs that may wait per workflow; 0 sets no separate limit.',
+    },
+    {
+      key: 'yukta.execution.queue-timeout',
+      default: '0',
+      purpose: 'How long a queued run waits for a slot; 0 sets no limit.',
+    },
+    {
+      key: 'yukta.results.retained-events',
+      default: '1000',
+      purpose: 'Events kept for a finished run.',
+    },
+    {
+      key: 'yukta.start.idempotency-max-keys',
+      default: '100000',
+      purpose: 'Idempotency keys remembered.',
+    },
+    {
+      key: 'yukta.stop.drain-timeout',
+      default: '30s',
+      purpose: 'How long a stop with drain waits for running work.',
+    },
+    {
+      key: 'yukta.streaming.status-history-max-per-run',
+      default: '200',
+      purpose: 'Status events replayed per run to a new stream.',
+    },
+    {
+      key: 'yukta.streaming.status-history-max-executions',
+      default: '1000',
+      purpose: 'Runs whose status history is kept.',
+    },
+    {
+      key: 'yukta.tracker.max-sessions',
+      default: '0 (no limit)',
+      purpose: 'Sessions the live tracker holds.',
+    },
+    {
+      key: 'yukta.tracker.session-ttl',
+      default: 'unset',
+      purpose: 'How long an idle session stays in the live tracker.',
+    },
+    {
+      key: 'yukta.control.approval.ttl',
+      default: '10m',
+      purpose: 'How long an approval request waits.',
+    },
+    {
+      key: 'yukta.supervisor.buffer-size',
+      default: '10000',
+      purpose: 'Events a supervisor may have waiting.',
+    },
+    {
+      key: 'yukta.supervisor.default.enabled',
+      default: 'true',
+      purpose: 'The default supervisor, which carries what nobody owns.',
+    },
+    {
+      key: 'yukta.supervisor.max-attachments',
+      default: '200',
+      purpose: 'Attachments one supervisor may hold.',
+    },
+    {
+      key: 'yukta.supervisor.review-timeout',
+      default: '5s',
+      purpose: 'Time a reviewer has to answer a command.',
+    },
+    {
+      key: 'yukta.supervisor.turn-around.period',
+      default: '60s',
+      purpose: 'Window in which turn-arounds are counted.',
+    },
+    {
+      key: 'yukta.supervisor.turn-around.limit',
+      default: '4',
+      purpose: 'Turn-arounds allowed within the period.',
+    },
+    {
+      key: 'yukta.supervisor.turn-around.cooldown',
+      default: '5m',
+      purpose: 'Pause after the limit is reached.',
+    },
+    {
+      key: 'yukta.input.max-ttl',
+      default: '24h',
+      purpose: 'Longest a human-input request may wait.',
+    },
+    {
+      key: 'yukta.input.max-open-per-execution',
+      default: '5',
+      purpose: 'Open input requests per run.',
+    },
+    {
+      key: 'yukta.input.max-open-per-session',
+      default: '50',
+      purpose: 'Open input requests per session.',
+    },
+    {
+      key: 'yukta.input.memory-max',
+      default: '10000',
+      purpose: 'Input requests kept in memory.',
+    },
+    {
+      key: 'yukta.input.retention',
+      default: '30d',
+      purpose: 'How long answered requests are kept.',
+    },
+    {
+      key: 'yukta.input.sweep-interval',
+      default: '1s',
+      purpose: 'How often expired requests are cleaned up.',
+    },
+    {
+      key: 'yukta.input.redact-keys',
+      default: '[]',
+      purpose: 'Data keys whose values are hidden in input requests.',
+    },
+    {
+      key: 'yukta.input.routes',
+      default: 'none',
+      purpose:
+        'Named routes that say where input requests are sent (`yukta.input.routes.<name>`).',
+    },
+    {
+      key: 'yukta.notifications.retention',
+      default: '7d',
+      purpose: 'How long notifications are kept.',
+    },
+    {
+      key: 'yukta.notifications.max-items',
+      default: '5000',
+      purpose: 'Notifications kept.',
+    },
+    {
+      key: 'yukta.notifications.action-grace',
+      default: '2s',
+      purpose: 'Grace period for notification actions.',
+    },
+    {
+      key: 'yukta.notifications.rules',
+      default: 'none',
+      purpose: 'Rules for what is notified (`yukta.notifications.rules.*`).',
+    },
+    {
+      key: 'yukta.notifications.channels',
+      default: 'none',
+      purpose:
+        'Where notifications go (`yukta.notifications.channels.<type>.<name>.*`).',
+    },
+    {
+      key: 'yukta.metrics.interval',
+      default: '5s',
+      purpose: 'How often meters are sampled.',
+    },
+    {
+      key: 'yukta.metrics.fine-retention',
+      default: '1h',
+      purpose: 'How long fine-grained samples are kept.',
+    },
+    {
+      key: 'yukta.metrics.coarse-retention',
+      default: '24h',
+      purpose: 'How long coarse samples are kept.',
+    },
+    {
+      key: 'yukta.metrics.max-series',
+      default: '500',
+      purpose: 'Most series the sampler records.',
+    },
+    {
+      key: 'yukta.metrics.allow-list',
+      default: 'built-in list',
+      purpose: 'Meters the sampler records.',
+    },
+    {
+      key: 'yukta.workers.lease',
+      default: '15s',
+      purpose:
+        'How long a remote worker holds a lease before it must renew (Plus).',
+    },
   ]),
   ...group('Plugins', [
     {
@@ -488,6 +706,36 @@ export const CATALOG: ConfigOption[] = [
       key: 'yukta.agents.pty.enabled',
       default: 'false',
       purpose: 'Terminal tier for agents. Also `host`, `cols` and `rows`.',
+    },
+    {
+      key: 'yukta.agents.max-message-bytes',
+      default: '65536',
+      purpose: 'Largest message sent to an agent.',
+    },
+    {
+      key: 'yukta.agents.max-tool-bytes',
+      default: '4096',
+      purpose: 'Cap on the bytes kept for one tool call in a conversation.',
+    },
+    {
+      key: 'yukta.agents.terminal-ring-bytes',
+      default: '262144',
+      purpose: 'Terminal output kept per agent (a ring buffer).',
+    },
+    {
+      key: 'yukta.agents.pty.host',
+      default: 'yukta-cli',
+      purpose: 'Program that hosts an agent terminal.',
+    },
+    {
+      key: 'yukta.agents.pty.cols',
+      default: '120',
+      purpose: 'Terminal width in columns.',
+    },
+    {
+      key: 'yukta.agents.pty.rows',
+      default: '40',
+      purpose: 'Terminal height in rows.',
     },
   ]),
   ...group('MCP', [
