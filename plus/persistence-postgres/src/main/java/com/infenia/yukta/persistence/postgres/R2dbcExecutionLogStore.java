@@ -370,6 +370,45 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
                     .timeout(STATEMENT_TIMEOUT))));
   }
 
+  /** One bounded query, newest first, so the audit does not read the table. */
+  @Override
+  public Flux<ExecutionLogEvent> newest(
+      final java.util.Set<ExecutionLogEvent.Type> types,
+      final String executionId,
+      final int limit) {
+    final List<ExecutionLogEvent.Type> wanted = List.copyOf(types);
+    if (wanted.isEmpty() || limit < 1) {
+      return Flux.empty();
+    }
+    return reading(
+        Mono.defer(() -> {
+          final StringBuilder sql =
+              new StringBuilder("SELECT CAST(event AS text) AS event FROM execution_log WHERE ");
+          sql.append("event->>'type' IN (");
+          for (int i = 0; i < wanted.size(); i++) {
+            sql.append(i == 0 ? ":t" : ", :t").append(i);
+          }
+          sql.append(')');
+          if (executionId != null) {
+            sql.append(" AND execution_id = :id");
+          }
+          sql.append(" ORDER BY seq DESC LIMIT :limit");
+          DatabaseClient.GenericExecuteSpec spec = client.sql(sql.toString());
+          for (int i = 0; i < wanted.size(); i++) {
+            spec = spec.bind("t" + i, wanted.get(i).name());
+          }
+          if (executionId != null) {
+            spec = spec.bind("id", executionId);
+          }
+          return parse(
+              spec.bind("limit", limit)
+                  .map(row -> row.get("event", String.class))
+                  .all()
+                  .collectList()
+                  .timeout(STATEMENT_TIMEOUT));
+        }));
+  }
+
   @Override
   public Flux<ExecutionLogEvent> ofType(
       final ExecutionLogEvent.Type type, final java.time.Instant since) {

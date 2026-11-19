@@ -154,4 +154,30 @@ class InMemoryExecutionLogStoreTest {
     assertThat(started.payload()).containsEntry("k", "v");
     assertThat(started.withoutPayload().payload()).isNull();
   }
+
+  @Test
+  void newest_returnsTheNewestOfTheTypesFirstUpToTheLimit() {
+    final var store = new InMemoryExecutionLogStore();
+    store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
+    store.append(ExecutionLogEvent.started("e2", "s1", "w1", "v1"));
+    store.append(ExecutionLogEvent.finished("e1", "s1", "w1", "SUCCESS", Map.of()));
+    store.append(ExecutionLogEvent.started("e3", "s1", "w1", "v1"));
+    final var started = java.util.Set.of(ExecutionLogEvent.Type.RUN_STARTED);
+
+    assertThat(
+            store
+                .newest(started, null, 2)
+                .map(ExecutionLogEvent::executionId)
+                .collectList()
+                .block())
+        .containsExactly("e3", "e2");
+    assertThat(
+            store
+                .newest(started, "e1", 5)
+                .map(ExecutionLogEvent::executionId)
+                .collectList()
+                .block())
+        .containsExactly("e1");
+    assertThat(store.newest(started, "none", 5).collectList().block()).isEmpty();
+  }
 }
