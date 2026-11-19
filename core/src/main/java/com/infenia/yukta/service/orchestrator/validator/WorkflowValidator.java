@@ -97,13 +97,9 @@ public class WorkflowValidator {
             PluginChecks.validatePluginConfigs(def, registry))
         .concatMap(check ->
             check.onErrorResume(
-                IllegalArgumentException.class,
+                ValidationProblem.PluginProblemException.class,
                 e -> {
-                  problems.add(
-                      e instanceof ValidationProblem.PluginProblemException p
-                          ? p.asProblem()
-                          : ValidationProblem.forWorkflow(
-                              "INVALID", e.getMessage() != null ? e.getMessage() : e.toString()));
+                  problems.add(e.asProblem());
                   return Mono.empty();
                 }))
         .then(Mono.fromSupplier(() -> List.copyOf(problems)));
