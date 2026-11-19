@@ -181,6 +181,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
       ['Plugins', '/plugins', 'extension'],
       ['Supervisors', '/supervisors', 'shield_person'],
       ['Control', '/control', 'hub'],
+      ['Configuration', '/config', 'settings'],
     ].map(([label, to, icon]) => ({
       id: `page:${to}`,
       group: 'Pages',
