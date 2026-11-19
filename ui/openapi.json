@@ -4333,6 +4333,28 @@
         },
         "type" : "object"
       },
+      "Detail" : {
+        "description" : "A validation problem with its location and code",
+        "properties" : {
+          "code" : {
+            "description" : "A stable machine-readable code",
+            "type" : "string"
+          },
+          "message" : {
+            "description" : "What is wrong",
+            "type" : "string"
+          },
+          "nodeId" : {
+            "description" : "The node it is about; null for the workflow",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "Where in the definition; null when not specific",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "DirectiveBody" : {
         "properties" : {
           "cause" : {
@@ -7771,6 +7793,13 @@
       "WorkflowValidationResult" : {
         "description" : "Result of validating a draft workflow without saving it",
         "properties" : {
+          "details" : {
+            "description" : "Every problem with its node, path and code, in the order of problems",
+            "items" : {
+              "$ref" : "#/components/schemas/Detail"
+            },
+            "type" : "array"
+          },
           "message" : {
             "description" : "The first problem found; null when valid",
             "type" : "string"

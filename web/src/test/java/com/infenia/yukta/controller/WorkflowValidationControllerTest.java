@@ -11,6 +11,7 @@ import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.mapper.AppConfigMapper;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.service.orchestrator.validator.ValidationProblem;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.supervisor.DefinitionSupervisors;
@@ -113,7 +114,7 @@ class WorkflowValidationControllerTest {
 
   @Test
   void testInvalidDraftReturnsTheProblemWithoutFailing() {
-    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of(NO_TRIGGER)));
+    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(problems(NO_TRIGGER)));
 
     post(DRAFT)
         .expectStatus()
@@ -130,7 +131,7 @@ class WorkflowValidationControllerTest {
   @Test
   void testEveryProblemIsListed() {
     when(workflowValidator.validateAll(any()))
-        .thenReturn(Mono.just(List.of(NO_TRIGGER, "no terminal")));
+        .thenReturn(Mono.just(problems(NO_TRIGGER, "no terminal")));
 
     post(DRAFT)
         .expectStatus()
@@ -139,7 +140,11 @@ class WorkflowValidationControllerTest {
         .jsonPath("$.data.message")
         .isEqualTo(NO_TRIGGER)
         .jsonPath("$.data.problems.length()")
-        .isEqualTo(2);
+        .isEqualTo(2)
+        .jsonPath("$.data.details[1].code")
+        .isEqualTo("TEST")
+        .jsonPath("$.data.details[1].message")
+        .isEqualTo("no terminal");
   }
 
   @Test
@@ -148,7 +153,7 @@ class WorkflowValidationControllerTest {
     when(plugin.getOutputPorts(any())).thenReturn(List.of("a"));
     when(pluginRegistry.get(BRANCH)).thenReturn(plugin);
     when(workflowValidator.validateAll(any()))
-        .thenReturn(Mono.just(List.of("Duplicate node id 'n1'")));
+        .thenReturn(Mono.just(problems("Duplicate node id 'n1'")));
 
     post(DUPLICATE_IDS)
         .expectStatus()
@@ -219,7 +224,7 @@ class WorkflowValidationControllerTest {
     when(single.getOutputPorts(any())).thenReturn(List.of("default"));
     when(pluginRegistry.get(BRANCH)).thenReturn(branch);
     when(pluginRegistry.get("ECHO")).thenReturn(single);
-    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of("still invalid")));
+    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(problems("still invalid")));
 
     final String body =
         """
@@ -267,5 +272,11 @@ class WorkflowValidationControllerTest {
         .isEqualTo(false)
         .jsonPath("$.data.problems[0]")
         .isEqualTo("assignments[0].supervisor: no supervisor 'nope'");
+  }
+
+  private static List<ValidationProblem> problems(final String... messages) {
+    return java.util.Arrays.stream(messages)
+        .map(m -> new ValidationProblem(null, null, "TEST", m))
+        .toList();
   }
 }

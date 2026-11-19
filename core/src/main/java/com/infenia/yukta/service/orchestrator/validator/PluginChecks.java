@@ -29,7 +29,10 @@ final class PluginChecks {
         .flatMap(node ->
             registry
                 .get(node.type())
-                .validateInContext(buildContext(node.nodeId(), def), node.config()))
+                .validateInContext(buildContext(node.nodeId(), def), node.config())
+                .onErrorMap(
+                    IllegalArgumentException.class,
+                    e -> ValidationProblem.pluginError(node.nodeId(), "INVALID_CONTEXT", e)))
         .then();
   }
 
@@ -61,6 +64,9 @@ final class PluginChecks {
               .log("Validating plugin configuration");
           return plugin
               .validateConfig(node.config())
+              .onErrorMap(
+                  IllegalArgumentException.class,
+                  e -> ValidationProblem.pluginError(node.nodeId(), "INVALID_CONFIG", e))
               .doOnError(e ->
                   log.atWarn()
                       .setCause(e)

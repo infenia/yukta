@@ -38,23 +38,28 @@ final class GraphRules {
    * The problems of the graph, in the order the checks run. Every check after the plugin lookup
    * assumes each node has a registered plugin, so when one has none only the lookup is reported.
    */
-  /* default */ static List<String> findProblems(
+  /* default */ static List<ValidationProblem> findProblems(
       final WorkflowDefinition def, final PluginRegistry registry) {
-    final List<String> problems = new ArrayList<>();
+    final List<ValidationProblem> problems = new ArrayList<>();
     if (!allRegistered(def, registry)) {
       def.nodes().stream()
           .filter(node -> registry.get(node.type()) == null)
           .findFirst()
           .ifPresent(node ->
               problems.add(
-                  "Plugin not found for type: " + node.type() + registry.missingHint(node.type())));
+                  ValidationProblem.ofNode(
+                      node.nodeId(),
+                      "PLUGIN_NOT_FOUND",
+                      "Plugin not found for type: "
+                          + node.type()
+                          + registry.missingHint(node.type()))));
       return problems;
     }
     final Set<String> targetIds =
         def.edges().stream().map(WorkflowDefinition.Edge::target).collect(Collectors.toSet());
     final Set<String> sourceIds =
         def.edges().stream().map(WorkflowDefinition.Edge::source).collect(Collectors.toSet());
-    final List<Optional<String>> checks =
+    final List<Optional<ValidationProblem>> checks =
         List.of(
             requireNode(def, registry, plugin -> plugin instanceof TriggerPlugin, "TRIGGER"),
             requireNode(def, registry, GraphRules::isTerminal, "TERMINAL"),
@@ -62,19 +67,20 @@ final class GraphRules {
             firstProblem(def, node -> processor(node, registry, sourceIds)),
             firstProblem(def, node -> endpoint(node, registry, sourceIds)),
             hasCycles(def)
-                ? Optional.of("Workflow DAG contains cycles")
-                : Optional.<String>empty());
+                ? Optional.of(
+                    ValidationProblem.forWorkflow("CYCLE", "Workflow DAG contains cycles"))
+                : Optional.<ValidationProblem>empty());
     checks.forEach(check -> check.ifPresent(problems::add));
     return problems;
   }
 
-  private static Optional<String> firstProblem(
+  private static Optional<ValidationProblem> firstProblem(
       final WorkflowDefinition def,
-      final Function<WorkflowDefinition.Node, Optional<String>> check) {
+      final Function<WorkflowDefinition.Node, Optional<ValidationProblem>> check) {
     return def.nodes().stream().map(check).flatMap(Optional::stream).findFirst();
   }
 
-  private static Optional<String> requireNode(
+  private static Optional<ValidationProblem> requireNode(
       final WorkflowDefinition def,
       final PluginRegistry registry,
       final Predicate<Plugin> wanted,
@@ -82,7 +88,9 @@ final class GraphRules {
     final boolean found = def.nodes().stream().anyMatch(n -> wanted.test(registry.get(n.type())));
     return found
         ? Optional.empty()
-        : Optional.of("Workflow must contain at least one " + category + " node");
+        : Optional.of(
+            ValidationProblem.forWorkflow(
+                "MISSING_" + category, "Workflow must contain at least one " + category + " node"));
   }
 
   /**
@@ -93,44 +101,63 @@ final class GraphRules {
     return plugin.getCategory() == PluginCategory.TERMINAL && plugin instanceof TerminalPlugin;
   }
 
-  private static Optional<String> entryPoint(
+  private static Optional<ValidationProblem> entryPoint(
       final WorkflowDefinition.Node node,
       final PluginRegistry registry,
       final Set<String> targets) {
     final Plugin plugin = registry.get(node.type());
     final boolean isEntryPoint = !targets.contains(node.nodeId());
     if (isEntryPoint && !(plugin instanceof TriggerPlugin)) {
-      return Optional.of("Node " + node.nodeId() + " is an entry point but not a TRIGGER");
+      return Optional.of(
+          ValidationProblem.ofNode(
+              node.nodeId(),
+              "ENTRY_NOT_TRIGGER",
+              "Node " + node.nodeId() + " is an entry point but not a TRIGGER"));
     }
     if (!isEntryPoint && plugin.getCategory() == PluginCategory.TRIGGER) {
-      return Optional.of("Trigger node " + node.nodeId() + " cannot have incoming edges");
+      return Optional.of(
+          ValidationProblem.ofNode(
+              node.nodeId(),
+              "TRIGGER_HAS_INPUT",
+              "Trigger node " + node.nodeId() + " cannot have incoming edges"));
     }
     return Optional.empty();
   }
 
   /** A processor without incoming edges is already rejected by {@link #entryPoint}. */
-  private static Optional<String> processor(
+  private static Optional<ValidationProblem> processor(
       final WorkflowDefinition.Node node,
       final PluginRegistry registry,
       final Set<String> sources) {
     final boolean noOutgoing = !sources.contains(node.nodeId());
     return noOutgoing && registry.get(node.type()).getCategory() == PluginCategory.PROCESSOR
         ? Optional.of(
-            "Processor node " + node.nodeId() + " must have both incoming and outgoing edges")
+            ValidationProblem.ofNode(
+                node.nodeId(),
+                "PROCESSOR_NOT_CONNECTED",
+                "Processor node " + node.nodeId() + " must have both incoming and outgoing edges"))
         : Optional.empty();
   }
 
-  private static Optional<String> endpoint(
+  private static Optional<ValidationProblem> endpoint(
       final WorkflowDefinition.Node node,
       final PluginRegistry registry,
       final Set<String> sources) {
     final boolean isEndpoint = !sources.contains(node.nodeId());
     final boolean isTerminal = isTerminal(registry.get(node.type()));
     if (isEndpoint && !isTerminal) {
-      return Optional.of("Node " + node.nodeId() + " is an endpoint but not a TERMINAL");
+      return Optional.of(
+          ValidationProblem.ofNode(
+              node.nodeId(),
+              "ENDPOINT_NOT_TERMINAL",
+              "Node " + node.nodeId() + " is an endpoint but not a TERMINAL"));
     }
     if (!isEndpoint && isTerminal) {
-      return Optional.of("Terminal node " + node.nodeId() + " cannot have outgoing edges");
+      return Optional.of(
+          ValidationProblem.ofNode(
+              node.nodeId(),
+              "TERMINAL_HAS_OUTPUT",
+              "Terminal node " + node.nodeId() + " cannot have outgoing edges"));
     }
     return Optional.empty();
   }

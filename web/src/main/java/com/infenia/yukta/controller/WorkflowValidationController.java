@@ -77,18 +77,28 @@ public class WorkflowValidationController {
     return workflowValidator
         .validateAll(definition)
         .zipWith(declared.check(definition))
-        .map(tuple ->
-            java.util.stream.Stream.concat(
-                    tuple.getT1().stream(),
-                    tuple.getT2().stream().map(i -> i.field() + ": " + i.message()))
-                .toList())
-        .map(problems ->
-            new WorkflowValidationResult(
-                problems.isEmpty(),
-                problems.isEmpty() ? null : problems.getFirst(),
-                ports,
-                problems,
-                warnings))
+        .map(tuple -> {
+          final List<WorkflowValidationResult.Detail> details =
+              java.util.stream.Stream.concat(
+                      tuple.getT1().stream()
+                          .map(p ->
+                              new WorkflowValidationResult.Detail(
+                                  p.nodeId(), p.path(), p.code(), p.message())),
+                      tuple.getT2().stream()
+                          .map(i ->
+                              new WorkflowValidationResult.Detail(
+                                  null, i.field(), "UNDECLARED", i.field() + ": " + i.message())))
+                  .toList();
+          final List<String> problems =
+              details.stream().map(WorkflowValidationResult.Detail::message).toList();
+          return new WorkflowValidationResult(
+              problems.isEmpty(),
+              problems.isEmpty() ? null : problems.getFirst(),
+              ports,
+              problems,
+              details,
+              warnings);
+        })
         .map(result -> ApiResponse.success(200, "Workflow validated", result));
   }
 
