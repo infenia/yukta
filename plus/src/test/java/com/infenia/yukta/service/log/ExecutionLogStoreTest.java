@@ -196,7 +196,7 @@ class ExecutionLogStoreTest {
   }
 
   @Test
-  void jsonl_aCancelledReadAndAnInterruptedClose_giveUpQuietly() {
+  void jsonlCancelledReadAndInterruptedCloseGiveUpQuietly() {
     // a busy writer, so neither call can finish before the interrupt is noticed
     final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
     org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))

@@ -215,7 +215,11 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
       final ExecutionLogEvent started = find(run, ExecutionLogEvent.Type.RUN_STARTED);
       final ExecutionLogEvent ended = end(run);
       if (started != null && ended == null) {
-        run.add(ExecutionLogEvent.aborted(started, finishedNodes(run)));
+        final Map<String, String> finished = new LinkedHashMap<>();
+        run.stream()
+            .filter(event -> event.type() == ExecutionLogEvent.Type.NODE_FINISHED)
+            .forEach(event -> finished.put(event.nodeId(), event.status()));
+        run.add(ExecutionLogEvent.aborted(started, finished));
         abortedIds.add(started.executionId());
       }
       kept.addAll(run);
@@ -298,31 +302,21 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
   private void restore(final ExecutionLogEvent started, final ExecutionLogEvent ended) {
     // A started run always has an end by now: either it finished or it was just marked aborted.
     if (started != null) {
+      final Map<String, TaskStatus> statuses = new LinkedHashMap<>();
+      ended
+          .nodeStatuses()
+          .forEach((nodeId, name) -> statuses.put(nodeId, TaskStatus.valueOf(name)));
       tracker.restore(
           started.executionId(),
           started.sessionId(),
           started.workflowId(),
           TaskStatus.valueOf(ended.status()),
-          statuses(ended.nodeStatuses()),
+          statuses,
           started.timestamp(),
           ended.timestamp(),
           started.definitionVersion(),
           started.initiator());
     }
-  }
-
-  private static Map<String, TaskStatus> statuses(final Map<String, String> names) {
-    final Map<String, TaskStatus> statuses = new LinkedHashMap<>();
-    names.forEach((nodeId, name) -> statuses.put(nodeId, TaskStatus.valueOf(name)));
-    return statuses;
-  }
-
-  private static Map<String, String> finishedNodes(final List<ExecutionLogEvent> run) {
-    final Map<String, String> nodes = new LinkedHashMap<>();
-    run.stream()
-        .filter(event -> event.type() == ExecutionLogEvent.Type.NODE_FINISHED)
-        .forEach(event -> nodes.put(event.nodeId(), event.status()));
-    return nodes;
   }
 
   private static ExecutionLogEvent find(

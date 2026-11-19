@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.Map;
@@ -161,6 +162,25 @@ class StartIdempotencyTest {
   }
 
   @Test
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.gateway.StartIdempotency - ")
+  void reloadThatFails_isLoggedAndStartsStillWork() {
+    final InMemoryExecutionLogStore unreadable =
+        new InMemoryExecutionLogStore() {
+          @Override
+          public reactor.core.publisher.Flux<ExecutionLogEvent> ofType(
+              final ExecutionLogEvent.Type type, final java.time.Instant since) {
+            return reactor.core.publisher.Flux.error(new IllegalStateException("unreadable"));
+          }
+        };
+    final StartIdempotency broken =
+        StartIdempotencyFixture.create(Duration.ofMinutes(10), unreadable);
+
+    broken.afterSingletonsInstantiated();
+
+    assertThat(broken.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
+  }
+
+  @Test
   void withoutLog_reloadingDoesNothing() {
     final StartIdempotency idle = StartIdempotencyFixture.create(Duration.ofMinutes(1));
     idle.reload().block();
@@ -225,10 +245,8 @@ class StartIdempotencyTest {
     final InMemoryExecutionLogStore slowLog =
         new InMemoryExecutionLogStore() {
           @Override
-          public reactor.core.publisher.Flux<com.infenia.yukta.service.log.ExecutionLogEvent>
-              ofType(
-                  final com.infenia.yukta.service.log.ExecutionLogEvent.Type type,
-                  final java.time.Instant since) {
+          public reactor.core.publisher.Flux<ExecutionLogEvent> ofType(
+              final ExecutionLogEvent.Type type, final java.time.Instant since) {
             return reactor.core.publisher.Flux.defer(
                     () -> {
                       reading.countDown();

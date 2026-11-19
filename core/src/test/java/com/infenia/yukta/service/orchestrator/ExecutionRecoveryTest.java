@@ -457,7 +457,7 @@ class ExecutionRecoveryTest {
     recovery.afterSingletonsInstantiated();
 
     org.awaitility.Awaitility.await()
-        .atMost(java.time.Duration.ofSeconds(5))
+        .atMost(Duration.ofSeconds(5))
         .untilAsserted(() -> assertThat(store.readAll().collectList().block()).hasSize(2));
   }
 
@@ -535,7 +535,24 @@ class ExecutionRecoveryTest {
   }
 
   @Test
-  void failedRecovery_stillOpensStarts() {
+  void startupRecoveryThatFails_isLoggedAndDoesNotEscape() {
+    final ExecutionRecovery recovery =
+        ExecutionRecoveryFixture.create(
+            new InMemoryExecutionLogStore() {
+              @Override
+              public reactor.core.publisher.Flux<ExecutionLogEvent> readAll() {
+                return reactor.core.publisher.Flux.error(new IllegalStateException("unreadable"));
+              }
+            },
+            tracker,
+            100);
+
+    org.assertj.core.api.Assertions.assertThatCode(recovery::afterSingletonsInstantiated)
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void failedRecoveryStillOpensStarts() {
     final ExecutionScheduler scheduler = new ExecutionScheduler(YuktaSettings.bind(Map.of()));
     final ExecutionRecovery recovery =
         ExecutionRecoveryFixture.create(
