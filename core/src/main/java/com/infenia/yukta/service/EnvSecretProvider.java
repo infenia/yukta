@@ -4,6 +4,7 @@ package com.infenia.yukta.service;
 
 import com.infenia.yukta.plugin.store.SecretContext;
 import com.infenia.yukta.plugin.store.SecretProvider;
+import com.infenia.yukta.service.redact.SecretScrubber;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -31,6 +32,9 @@ public class EnvSecretProvider implements SecretProvider {
   /** Prefix of the environment variables that hold secrets. */
   /* default */ static final String PREFIX = "YUKTA_SECRET_";
 
+  /** Told every value read, so it can be kept out of the logs; null when not wired. */
+  private SecretScrubber scrubber;
+
   /** Looks up an environment variable by name. */
   private final UnaryOperator<String> env;
 
@@ -42,6 +46,16 @@ public class EnvSecretProvider implements SecretProvider {
 
   /* default */ EnvSecretProvider(final UnaryOperator<String> env) {
     this.env = env;
+  }
+
+  /**
+   * Lets the provider tell the scrubber which values it hands out.
+   *
+   * @param secretScrubber the scrubber
+   */
+  @Autowired(required = false)
+  public void setScrubber(final SecretScrubber secretScrubber) {
+    this.scrubber = secretScrubber;
   }
 
   @Override
@@ -58,6 +72,9 @@ public class EnvSecretProvider implements SecretProvider {
       log.atWarn().log("Secret '{}' refused: a key may not contain '__'", key);
     } else {
       value = lookup(key, context);
+    }
+    if (scrubber != null) {
+      scrubber.record(value);
     }
     return Mono.justOrEmpty(value);
   }

@@ -17,6 +17,7 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowKey;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.redact.SecretScrubber;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.util.SinkEmit;
@@ -45,6 +46,7 @@ import java.util.function.LongSupplier;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -139,6 +141,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   /** Finished executions remembered for each session. */
   private final ExecutionHistory history;
 
+  /** Masks resolved secrets in log lines; null when not wired. */
+  private SecretScrubber scrubber;
+
   /** Applies queued events to the execution states. */
   private final TrackerEventApplier applier;
 
@@ -191,6 +196,16 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
             streams,
             pendingLogs,
             this::scheduleCleanup);
+  }
+
+  /**
+   * Masks resolved secrets in every log line.
+   *
+   * @param secretScrubber the scrubber
+   */
+  @Autowired(required = false)
+  public void setSecretScrubber(final SecretScrubber secretScrubber) {
+    this.scrubber = secretScrubber;
   }
 
   /** Replace the clock of the session times (nanoseconds); call before {@link #init()}. */
@@ -549,7 +564,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("nodeId", nodeId)
         .addKeyValue("lineLength", line.length())
         .log("Emitting workflow log event");
-    for (final String piece : line.split("\\R")) {
+    final String safe = scrubber == null ? line : scrubber.scrub(line);
+    for (final String piece : safe.split("\\R")) {
       if (!piece.isBlank()) {
         emitSingleLine(executionId, nodeId, piece, stderr, level);
       }

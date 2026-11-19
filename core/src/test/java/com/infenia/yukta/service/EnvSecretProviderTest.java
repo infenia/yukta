@@ -76,4 +76,19 @@ class EnvSecretProviderTest {
     StepVerifier.create(new EnvSecretProvider().getSecret("surely.not.set.anywhere"))
         .verifyComplete();
   }
+
+  @Test
+  void getSecret_tellsTheScrubberTheValue() {
+    final com.infenia.yukta.service.redact.SecretScrubber scrubber =
+        new com.infenia.yukta.service.redact.SecretScrubber(
+            new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
+    final EnvSecretProvider wired =
+        new EnvSecretProvider(Map.of("YUKTA_SECRET_API_KEY", "abcdef123")::get);
+    wired.setScrubber(scrubber);
+
+    StepVerifier.create(wired.getSecret("api.key")).expectNext("abcdef123").verifyComplete();
+
+    org.assertj.core.api.Assertions.assertThat(scrubber.scrub("x abcdef123 y"))
+        .isEqualTo("x ****** y");
+  }
 }
