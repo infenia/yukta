@@ -162,7 +162,7 @@ class DirectiveDispatcherTest {
     StepVerifier.create(dispatcher.dispatchOrdered(pause)).verifyComplete();
     StepVerifier.create(dispatcher.dispatchOrdered(resume)).expectError().verify();
 
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .extracting(
             ExecutionLogEvent::type, ExecutionLogEvent::executionId, ExecutionLogEvent::status)
         .containsExactly(
@@ -191,7 +191,7 @@ class DirectiveDispatcherTest {
 
     dispatcher.dispatchOrdered(pause).subscribe().dispose();
 
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .extracting(ExecutionLogEvent::type, ExecutionLogEvent::status)
         .containsExactly(
             org.assertj.core.api.Assertions.tuple(
@@ -205,7 +205,7 @@ class DirectiveDispatcherTest {
         .expectError()
         .verify();
 
-    assertThat(log.readAll()).isEmpty();
+    assertThat(log.readAll().collectList().block()).isEmpty();
   }
 
   @Test
@@ -219,7 +219,7 @@ class DirectiveDispatcherTest {
         .expectError()
         .verify();
 
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .singleElement()
         .satisfies(entry -> {
           assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
@@ -357,7 +357,7 @@ class DirectiveDispatcherTest {
 
     second.dispose();
 
-    assertThat(log.readAll()).isEmpty();
+    assertThat(log.readAll().collectList().block()).isEmpty();
     first.dispose();
   }
 
@@ -374,7 +374,7 @@ class DirectiveDispatcherTest {
         .subscribe()
         .dispose();
 
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .extracting(ExecutionLogEvent::status)
         .containsExactly("PauseWorkflowCommand [by key:bob]: cancelled");
   }

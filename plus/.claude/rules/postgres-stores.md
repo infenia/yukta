@@ -10,7 +10,7 @@ Moved from `core/CLAUDE.md`; loads when you touch `plus/persistence-postgres`.
 ### PostgreSQL stores (`plus/persistence-postgres`, optional, AGPL)
 `yukta.session.store-type=postgres` (profile `postgres`, build with `-Pyukta.persistence=postgres`)
 selects `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (definitions plus the newest 20
-versions) and `R2dbcExecutionLogStore` (blocking interface, so one writer thread; trims to the newest
+versions) and `R2dbcExecutionLogStore` (reactive reads, one serial write pipeline, a `SmartLifecycle` that flushes on stop; trims to the newest
 `retained-runs` runs and never drops a run without an end). Schema: Flyway migrations (`V1`, the alpha squash; `V2` drops the `KV_STORE` and `SESSION_MEMORY` tables; `V3` adds notifications and drops `input_delivery`; `V4` agent conversations; `V5` the partial index `execution_log_run_edge` on run starts and ends, which the log trim reads instead of the whole log) in
 `plus/persistence-postgres/src/main/resources/db/migration` (applied over JDBC from `spring.flyway.url`);
 run time uses R2DBC (`spring.r2dbc.url`). The in-memory/file defaults step aside when the type is

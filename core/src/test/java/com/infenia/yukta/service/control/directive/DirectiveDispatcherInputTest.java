@@ -131,7 +131,7 @@ class DirectiveDispatcherInputTest {
   }
 
   private List<ExecutionLogEvent> controlEntries() {
-    return flow.log.readAll().stream()
+    return flow.log.readAll().collectList().blockOptional().orElseThrow().stream()
         .filter(entry ->
             entry.type() == ExecutionLogEvent.Type.CONTROL_APPLIED
                 || entry.type() == ExecutionLogEvent.Type.CONTROL_REJECTED)

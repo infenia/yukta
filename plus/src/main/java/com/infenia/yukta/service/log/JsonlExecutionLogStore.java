@@ -27,6 +27,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -170,25 +173,31 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
     }
   }
 
+  // The file work runs on this store's own writer thread, behind the queued events; a reader waits
+  // for that on a boundedElastic thread, never on the caller's.
   @Override
-  public List<ExecutionLogEvent> readAll() {
-    return onWriter(this::read, List.of());
+  public Flux<ExecutionLogEvent> readAll() {
+    return Flux.defer(() -> Flux.fromIterable(onWriter(this::read, List.of())))
+        .subscribeOn(Schedulers.boundedElastic());
   }
 
   @Override
-  public Optional<RunHeader> header(final String executionId) {
-    return onWriter(
-        () -> {
-          if (!indexed) {
-            headers.clear();
-            for (final ExecutionLogEvent event : read()) {
-              index(event);
-            }
-            indexed = true;
-          }
-          return Optional.ofNullable(headers.get(executionId));
-        },
-        Optional.empty());
+  public Mono<RunHeader> header(final String executionId) {
+    return Mono.defer(() ->
+            Mono.justOrEmpty(
+                onWriter(
+                    () -> {
+                      if (!indexed) {
+                        headers.clear();
+                        for (final ExecutionLogEvent event : read()) {
+                          index(event);
+                        }
+                        indexed = true;
+                      }
+                      return Optional.ofNullable(headers.get(executionId));
+                    },
+                    Optional.<RunHeader>empty())))
+        .subscribeOn(Schedulers.boundedElastic());
   }
 
   private void index(final ExecutionLogEvent event) {
@@ -198,13 +207,15 @@ public class JsonlExecutionLogStore implements ExecutionLogStore {
   }
 
   @Override
-  public void replaceAll(final List<ExecutionLogEvent> events) {
-    onWriter(
-        () -> {
-          rewrite(events);
-          return null;
-        },
-        null);
+  public Mono<Void> replaceAll(final List<ExecutionLogEvent> events) {
+    return Mono.<Void>fromRunnable(() ->
+            onWriter(
+                () -> {
+                  rewrite(events);
+                  return null;
+                },
+                null))
+        .subscribeOn(Schedulers.boundedElastic());
   }
 
   /** Waits for queued events, stops the writer, and does not accept more. */

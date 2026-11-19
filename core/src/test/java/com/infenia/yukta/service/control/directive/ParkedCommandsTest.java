@@ -258,7 +258,7 @@ class ParkedCommandsTest {
           assertThat(proposal.proposer()).isNotNull();
         });
     assertThat(parked.find("nope")).isEmpty();
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .noneMatch(entry -> entry.type() == ExecutionLogEvent.Type.CONTROL_REJECTED);
   }
 
@@ -302,7 +302,7 @@ class ParkedCommandsTest {
     verify(other, times(2)).review(any());
     verify(guard, times(2)).review(any());
     assertThat(count("rejected")).isZero();
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .anySatisfy(entry -> {
           assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);
           assertThat(entry.status()).isNotNull();
@@ -337,7 +337,7 @@ class ParkedCommandsTest {
 
     await().until(() -> parked.size() == 0);
     verify(handler, never()).handle(any());
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .anySatisfy(entry -> {
           assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
           assertThat(entry.status()).contains("other: freeze");
@@ -365,7 +365,7 @@ class ParkedCommandsTest {
 
     await().until(() -> parked.size() == 0 && count("rejected") == 1.0);
     verify(handler, never()).handle(any());
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .anySatisfy(entry -> {
           assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
           assertThat(entry.status()).contains(id, "rejected by human alice");
@@ -403,7 +403,8 @@ class ParkedCommandsTest {
 
     await().until(() -> parked.size() == 0 && count("cancelled") == 1.0);
     verify(handler, never()).handle(any());
-    assertThat(log.readAll()).anySatisfy(entry -> assertThat(entry.status()).contains("run-ended"));
+    assertThat(log.readAll().collectList().block())
+        .anySatisfy(entry -> assertThat(entry.status()).contains("run-ended"));
   }
 
   @Test

@@ -4,13 +4,7 @@ package com.infenia.yukta.service.store;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.net.URLDecoder;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -142,24 +136,9 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
       return null;
     }
     final FileNodeCheckpointStore store = new FileNodeCheckpointStore(spillDir, mapper.getObject());
-    removeStaleSpill(Path.of(spillDir), store);
+    // nothing in memory survives a restart, so spill files of an earlier process are garbage
+    store.removeNotIn(Set.of());
     return store;
-  }
-
-  /** Nothing in memory survives a restart, so spill files of an earlier process are garbage. */
-  private static void removeStaleSpill(final Path root, final FileNodeCheckpointStore store) {
-    if (!Files.isDirectory(root)) {
-      return;
-    }
-    try (var children = Files.list(root)) {
-      children
-          .map(child -> child.toFile().getName())
-          .filter(name -> name.startsWith("e-"))
-          .forEach(
-              name -> store.clear(URLDecoder.decode(name.substring(2), StandardCharsets.UTF_8)));
-    } catch (final IOException | UncheckedIOException e) {
-      log.atWarn().setCause(e).log("Could not remove old spill files");
-    }
   }
 
   private static long sizeOf(final Message<?> message) {

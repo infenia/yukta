@@ -101,7 +101,7 @@ class PostgresPersistenceAcceptanceTest {
     await()
         .atMost(Duration.ofSeconds(10))
         .untilAsserted(() ->
-            assertThat(executionLog.readAll())
+            assertThat(executionLog.readAll().collectList().block())
                 .filteredOn(event -> event.executionId().equals(executionId))
                 .extracting(event -> event.type().name())
                 .contains("RUN_STARTED", "RUN_FINISHED"));

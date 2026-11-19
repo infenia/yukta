@@ -132,7 +132,8 @@ class InMemoryNodeCheckpointStoreSpillTest {
     store.clear("e1");
 
     try (var files = Files.list(dir)) {
-      assertThat(files).hasSize(1);
+      // e2 and the markers of the two cleared runs
+      assertThat(files).hasSize(3);
     }
     StepVerifier.create(store.getAll("e1", "n")).verifyComplete();
     StepVerifier.create(store.getAll("e2", "n")).expectNextCount(2).verifyComplete();

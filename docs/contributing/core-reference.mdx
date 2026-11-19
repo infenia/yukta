@@ -477,7 +477,7 @@ Grants a slot to each run, or queues or refuses it. The caller receives an execu
 - The slot is taken after preparation and before the id is handed out. Restarting a finished run, restart-from-node and resume take their slot the same way. Restarting a run that is still going keeps the old behaviour: the old run holds its slot until it ends.
 - **Shutdown:** nothing new is admitted, queued starts are refused, running ones get `shutdown-timeout` to finish.
 - `yukta.execution.max-starts-per-minute` limits new starts (not restarts or resumes) per workflow and minute, whoever asks. The bucket is the session and workflow together, since workflow ids are per session. Off at 0, the default.
-- Refusals are counted by reason in `yukta.executions.rejected{reason=shutdown|limit|queue_full|workflow_queue_full|queue_timeout|not_leader}`.
+- Refusals are counted by reason in `yukta.executions.rejected{reason=shutdown|limit|queue_full|workflow_queue_full|queue_timeout|not_leader|recovering}`.
 
 **Configure:** `yukta.execution.max-concurrent` · `…max-concurrent-per-workflow` · `…max-concurrent-per-session` · `…on-limit` (QUEUE\|REJECT) · `…queue-capacity` (100) · `…queue-capacity-per-workflow` · `…queue-timeout` · `…shutdown-timeout` (30s) · `…max-starts-per-minute` (0)
 
@@ -819,6 +819,7 @@ An append-only record of run starts (with the input payload), ends, control comm
 - Event types: `RUN_STARTED`, `RUN_FINISHED`, `RUN_ABORTED`, `CONTROL_APPLIED`, `CONTROL_REJECTED`, `NODE_FINISHED` (history only), `RUN_RESUMED`, `IDEMPOTENCY_KEY`.
 - Memory by default, trimmed like the file log (`LogRetention`: newest `retained-runs`, never a run without an end, every `compact-after` events). With `yukta.execution-log.dir` it is `executions.jsonl` on disk.
 - File access runs on one background writer thread. Events are **not fsynced** unless `yukta.execution-log.fsync=true`; a rewritten file (compaction, session config) is forced to disk before it replaces the old one.
+- **Store API**: `append` is fire-and-forget (it never fails a run); the reads (`readAll`, `forExecution`, `header`, `ofType`) return `Flux`/`Mono` and `replaceAll` a `Mono<Void>`, so no caller parks a thread. A read sees every event appended before it is subscribed.
 - **Boot recovery** (`ExecutionRecovery`): runs that never finished are marked `ABORTED`, the newest `retained-runs` are restored into history, and the log is rewritten without older ones.
 
 **Configure:** `yukta.execution-log.dir` · `…retained-runs` (500) · `…compact-after` (10000) · `…min-runs-per-session` (10) · `…fsync` (false)
@@ -936,6 +937,7 @@ Several servers share a PostgreSQL database; one holds a lease and admits runs, 
 - A single server is always leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` the lease row (`V4__leader_lease`) has a fencing number that grows with every change of holder. It is renewed three times per lease; a graceful stop releases it.
 - A server counts itself leader only while its last renewal is younger than the lease, so one that cannot reach the database stops *before* another takes over.
 - A standby refuses every start, restart and resume with `NotLeaderException` (HTTP 503; `yukta.executions.rejected{reason=not_leader}`).
+- While the run history is recovered (start-up, or takeover) and while the idempotency keys reload, every start, restart and resume is refused (HTTP 503; `reason=recovering`, `ExecutionScheduler.holdStarts()`), so a run that starts early cannot be marked aborted and a repeated start cannot slip past a stored key. Both steps run off the start-up thread; `GET` history can look empty for that moment.
 - **Takeover:** startup recovery is skipped in this mode; `TakeoverRecovery` runs `ExecutionRecovery.recover()` (old leader's unfinished runs become `ABORTED`). With `yukta.restart.auto-resume=true` they are resumed from the checkpoints (use the PostgreSQL store or a shared directory).
 
 **Configure:** `yukta.ha.mode=postgres` · `yukta.ha.lease` (15s) · `yukta.restart.auto-resume`

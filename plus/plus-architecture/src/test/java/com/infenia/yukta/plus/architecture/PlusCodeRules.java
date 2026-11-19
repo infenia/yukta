@@ -15,8 +15,8 @@ public final class PlusCodeRules {
   /** Classes that may block, with the reason; every entry parks a thread, so keep this short. */
   private static final Map<String, String> MAY_BLOCK =
       Map.of(
-          "com.infenia.yukta.persistence.postgres.R2dbcExecutionLogStore",
-          "the store interface is blocking; it runs on its own writer thread, not a reactive one");
+          "com.infenia.workers.WorkerAgent",
+          "polls for running attempts while draining, on the agent's own thread");
 
   /** Classes that use deprecated API, with the reason. */
   private static final Map<String, String> MAY_USE_DEPRECATED =

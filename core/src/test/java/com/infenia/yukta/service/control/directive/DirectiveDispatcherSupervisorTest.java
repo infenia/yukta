@@ -95,7 +95,7 @@ class DirectiveDispatcherSupervisorTest {
         .verify();
 
     verify(processor, never()).handle(any());
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .singleElement()
         .satisfies(entry -> {
           assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
@@ -151,7 +151,7 @@ class DirectiveDispatcherSupervisorTest {
         .review(
             org.mockito.ArgumentMatchers.argThat(
                 request -> "rules".equals(request.actor()) && request.command() == PAUSE));
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .singleElement()
         .satisfies(entry -> {
           assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);
@@ -172,7 +172,7 @@ class DirectiveDispatcherSupervisorTest {
   void dispatchOrdered_noActor_recordedWithoutActor() {
     StepVerifier.create(dispatcher.dispatchOrdered(PAUSE)).verifyComplete();
 
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .singleElement()
         .satisfies(e -> assertThat(e.status()).isEqualTo("PauseWorkflowCommand"));
     verify(supervisor).review(org.mockito.ArgumentMatchers.argThat(r -> r.actor() == null));

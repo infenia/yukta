@@ -7,6 +7,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Default execution log: kept in memory, so nothing survives a restart. Set {@code
@@ -69,36 +71,43 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
     }
   }
 
+  // Memory only: nothing here waits, so the reads are plain snapshots taken on subscription.
   @Override
-  public List<ExecutionLogEvent> readAll() {
-    lock.lock();
-    try {
-      return List.copyOf(events);
-    } finally {
-      lock.unlock();
-    }
+  public Flux<ExecutionLogEvent> readAll() {
+    return Flux.defer(() -> {
+      lock.lock();
+      try {
+        return Flux.fromIterable(List.copyOf(events));
+      } finally {
+        lock.unlock();
+      }
+    });
   }
 
   @Override
-  public void replaceAll(final List<ExecutionLogEvent> kept) {
-    lock.lock();
-    try {
-      events = new ArrayList<>(kept);
-      reindex();
-      sinceTrim = 0;
-    } finally {
-      lock.unlock();
-    }
+  public Mono<Void> replaceAll(final List<ExecutionLogEvent> kept) {
+    return Mono.fromRunnable(() -> {
+      lock.lock();
+      try {
+        events = new ArrayList<>(kept);
+        reindex();
+        sinceTrim = 0;
+      } finally {
+        lock.unlock();
+      }
+    });
   }
 
   @Override
-  public List<ExecutionLogEvent> forExecution(final String executionId) {
-    lock.lock();
-    try {
-      return List.copyOf(byRun.getOrDefault(executionId, List.of()));
-    } finally {
-      lock.unlock();
-    }
+  public Flux<ExecutionLogEvent> forExecution(final String executionId) {
+    return Flux.defer(() -> {
+      lock.lock();
+      try {
+        return Flux.fromIterable(List.copyOf(byRun.getOrDefault(executionId, List.of())));
+      } finally {
+        lock.unlock();
+      }
+    });
   }
 
   /** Rebuilds the per-run index; the caller holds the lock. */

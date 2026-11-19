@@ -86,7 +86,7 @@ class TrackerEventFeedTest {
     await()
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(() ->
-            assertThat(log.readAll())
+            assertThat(log.readAll().collectList().block())
                 .filteredOn(e -> e.type() == ExecutionLogEvent.Type.RUN_FINISHED)
                 .extracting(ExecutionLogEvent::status)
                 .containsExactly("STOPPED"));

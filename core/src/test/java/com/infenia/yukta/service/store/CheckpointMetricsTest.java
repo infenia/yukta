@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.store;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.message.DefaultMessage;
@@ -10,6 +11,7 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -61,7 +63,11 @@ class CheckpointMetricsTest {
 
     store.save("e1", "n1", DefaultMessage.create(UUID.randomUUID(), "x")).block();
 
-    assertThat(registry.get("yukta.checkpoint.io.pending").gauge().value()).isZero();
+    // doFinally releases the count after block() has returned, on the checkpoint scheduler
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> assertThat(registry.get("yukta.checkpoint.io.pending").gauge().value()).isZero());
     assertThat(FileNodeCheckpointStore.pendingIo()).isZero();
   }
 

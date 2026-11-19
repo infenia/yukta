@@ -21,12 +21,9 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -72,6 +69,8 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   /** Suffix of the marker that says the node ended normally and its output is durable. */
   private static final String DONE = ".done";
 
+  private static final long PRUNE_INTERVAL_MS = 60_000L;
+
   /** Log key of the run. */
   private static final String EXECUTION_ID = "executionId";
 
@@ -83,8 +82,11 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   private static final FileAttribute<?>[] FILE_ATTRS =
       attributes(FileSystems.getDefault().supportedFileAttributeViews(), "rw-------");
 
-  /** How many cleared runs are remembered. */
-  private static final int REMEMBERED_CLEARED = 4096;
+  /** Name of the marker that says a run was cleared, so a late write for it is dropped. */
+  private static final String CLEARED = ".cleared";
+
+  /** How long a cleared marker is kept: no write of a run is late by more than that. */
+  private static final long MARKER_TTL_MS = 3_600_000L;
 
   /**
    * Runs the file work of all checkpoint stores, apart from the shared {@code boundedElastic} that
@@ -113,16 +115,8 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   /** Markers that could not be made durable. */
   private final AtomicLong failedMarkers = new AtomicLong();
 
-  /** The runs cleared lately: a late message for one of them is dropped, not written again. */
-  private final Set<String> cleared =
-      Collections.newSetFromMap(
-          Collections.synchronizedMap(
-              new LinkedHashMap<>() {
-                @Override
-                protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
-                  return size() > REMEMBERED_CLEARED;
-                }
-              }));
+  /** When the cleared markers were last pruned. */
+  private final AtomicLong lastPrune = new AtomicLong(0L);
 
   /** Reads and writes messages. */
   private final ObjectMapper mapper;
@@ -212,9 +206,9 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
       touch(done);
       force(done);
       force(dir(executionId));
-      if (cleared.contains(executionId)) {
-        // a late marker of a cleared run: do not leave its directory behind
-        deleteTree(executionId);
+      if (isCleared(executionId)) {
+        // a late marker of a cleared run: do not leave its files behind
+        deleteTree(executionId, false);
       }
     } catch (final IOException | RuntimeException e) {
       markerFailed(executionId, nodeId, e);
@@ -297,7 +291,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
           .map(name -> URLDecoder.decode(name.substring(2), StandardCharsets.UTF_8))
           .filter(executionId -> !kept.contains(executionId))
           .toList()
-          .forEach(this::clear);
+          .forEach(this::sweep);
     } catch (final IOException | UncheckedIOException e) {
       log.atWarn().setCause(e).log("Could not remove the output of runs that are gone");
     }
@@ -305,18 +299,70 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   @Override
   public void clear(final String executionId) {
-    cleared.add(executionId);
+    // The marker goes first and stays (it is durable, so no cap on how many runs it covers); a
+    // later start removes it with the directory, when no writer of the old process is left.
+    try {
+      Files.createDirectories(dir(executionId), DIR_ATTRS);
+      touch(file(executionId, "", CLEARED));
+    } catch (final IOException e) {
+      log.atWarn().addKeyValue(EXECUTION_ID, executionId).setCause(e).log("Could not mark cleared");
+    }
     failedWrites.removeIf(key -> key.executionId().equals(executionId));
-    deleteTree(executionId);
+    deleteTree(executionId, false);
+    pruneMarkers();
   }
 
-  private void deleteTree(final String executionId) {
+  /** Once a minute, removes the directories that hold only a cleared marker older than the TTL. */
+  private void pruneMarkers() {
+    final long now = System.currentTimeMillis();
+    if (now - lastPrune.get() < PRUNE_INTERVAL_MS) {
+      return;
+    }
+    // a racing prune of the same markers is harmless: each one is deleted only once it is old
+    lastPrune.set(now);
+    prune(now);
+  }
+
+  /* default */ void prune(final long now) {
+    try (var children = Files.list(root)) {
+      for (final Path child :
+          children.filter(c -> String.valueOf(c.getFileName()).startsWith("e-")).toList()) {
+        final Path marker = child.resolve(fileName("") + CLEARED);
+        try (var inside = Files.list(child)) {
+          if (inside.count() == 1
+              && Files.exists(marker)
+              && now - Files.getLastModifiedTime(marker).toMillis() > MARKER_TTL_MS) {
+            Files.delete(marker);
+            Files.delete(child);
+          }
+        }
+      }
+    } catch (final IOException | UncheckedIOException e) {
+      log.atDebug().setCause(e).log("Could not prune the cleared markers");
+    }
+  }
+
+  /** Removes what a run of an earlier process left, its cleared marker too. */
+  private void sweep(final String executionId) {
+    failedWrites.removeIf(key -> key.executionId().equals(executionId));
+    deleteTree(executionId, true);
+  }
+
+  private boolean isCleared(final String executionId) {
+    return Files.exists(file(executionId, "", CLEARED));
+  }
+
+  private void deleteTree(final String executionId, final boolean withMarker) {
     final Path dir = dir(executionId);
     if (!Files.exists(dir)) {
       return;
     }
+    final Path marker = file(executionId, "", CLEARED);
     try (var paths = Files.walk(dir)) {
       for (final Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+        if (!withMarker && (path.equals(marker) || path.equals(dir))) {
+          continue;
+        }
         if (path.toString().endsWith(MESSAGES)) {
           final long size = Files.size(path);
           held.updateAndGet(h -> Math.max(0, h - size));
@@ -356,14 +402,14 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
           channel.write(buffer);
         }
       }
-      if (cleared.contains(executionId)) {
-        // Checked after the write: a clear that ran in between has already set the flag, so a late
-        // message cannot leave a directory behind that no later clear removes.
+      if (isCleared(executionId)) {
+        // Checked after the write: a clear that ran in between has already left its marker, so a
+        // late message cannot leave files behind that no later clear removes.
         log.atDebug()
             .addKeyValue(EXECUTION_ID, executionId)
             .addKeyValue("nodeId", nodeId)
             .log("Dropped a late node output: the run was cleared");
-        deleteTree(executionId);
+        deleteTree(executionId, false);
         return;
       }
       held.addAndGet(written);

@@ -307,10 +307,11 @@ class RunAnalyticsTest {
   @Test
   void failedReadOfTheLogIsLoggedNotLost() {
     final ExecutionLogStore broken = mock(ExecutionLogStore.class);
-    when(broken.readAll()).thenThrow(new IllegalStateException("log unreadable"));
+    when(broken.readAll())
+        .thenReturn(reactor.core.publisher.Flux.error(new IllegalStateException("log unreadable")));
     final RunAnalytics seeded = new RunAnalytics(feed, Clock.systemUTC(), broken);
 
-    seeded.seedSafely();
+    seeded.seedSafely().block();
 
     assertThat(seeded.snapshot(RunAnalytics.GLOBAL)).isEmpty();
   }
@@ -747,7 +748,7 @@ class RunAnalyticsTest {
             Instant.now(),
             null);
     final ExecutionLogStore store = mock(ExecutionLogStore.class);
-    when(store.readAll()).thenReturn(List.of(finished));
+    when(store.readAll()).thenReturn(reactor.core.publisher.Flux.just(finished));
     @SuppressWarnings("unchecked")
     final ObjectProvider<ExecutionLogStore> provider = mock(ObjectProvider.class);
     when(provider.getIfAvailable()).thenReturn(store);

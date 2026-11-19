@@ -197,7 +197,7 @@ class InputRequestThreatsTest {
             () -> assertThat(events).anyMatch(ExecutionEvent.InputRequested.class::isInstance));
     assertThat(store.list(null, null).collectList().block().toString()).doesNotContain(secret);
     assertThat(events.toString()).doesNotContain(secret);
-    assertThat(log.readAll().toString()).doesNotContain(secret);
+    assertThat(log.readAll().collectList().block().toString()).doesNotContain(secret);
     assertThat(store.list(null, null).collectList().block().toString()).contains("staging");
   }
 
@@ -244,7 +244,7 @@ class InputRequestThreatsTest {
     for (int i = 0; i < ids.size(); i++) {
       final String requestId = ids.get(i);
       final List<String> events =
-          log.readAll().stream()
+          log.readAll().collectList().blockOptional().orElseThrow().stream()
               .map(ExecutionLogEvent::payload)
               .filter(payload -> payload != null && requestId.equals(payload.get("requestId")))
               .map(payload -> String.valueOf(payload.get(ExecutionLogEvent.INPUT_EVENT_KEY)))
@@ -259,7 +259,7 @@ class InputRequestThreatsTest {
 
   private static Map<String, Object> logged(
       final InMemoryExecutionLogStore log, final String event) {
-    return log.readAll().stream()
+    return log.readAll().collectList().blockOptional().orElseThrow().stream()
         .map(ExecutionLogEvent::payload)
         .filter(payload ->
             payload != null && event.equals(payload.get(ExecutionLogEvent.INPUT_EVENT_KEY)))
