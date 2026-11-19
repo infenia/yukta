@@ -822,7 +822,7 @@ An append-only record of run starts (with the input payload), ends, control comm
 - **Store API**: `append` is fire-and-forget (it never fails a run); the reads (`readAll`, `forExecution`, `header`, `ofType`) return `Flux`/`Mono` and `replaceAll` a `Mono<Void>`, so no caller parks a thread. A read sees every event appended before it is subscribed.
 - **Boot recovery** (`ExecutionRecovery`): runs that never finished are marked `ABORTED`, the newest `retained-runs` are restored into history, and the log is rewritten without older ones.
 
-**Configure:** `yukta.execution-log.dir` · `…retained-runs` (500) · `…compact-after` (10000) · `…fsync` (false)
+**Configure:** `yukta.execution-log.dir` · `…retained-runs` (500) · `…compact-after` (10000) · `…min-runs-per-session` (10) · `…fsync` (false)
 
 **Source:** `ExecutionLogStore` `InMemoryExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionLogEvent` `ExecutionRecovery`
 

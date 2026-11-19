@@ -5,6 +5,7 @@ package com.infenia.yukta.service.runtime;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.control.SchedulerLimits;
+import com.infenia.yukta.model.workflow.WorkflowKey;
 import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.service.ExecutionRejectedException;
 import com.infenia.yukta.service.leader.LeaderElection;
@@ -101,7 +102,7 @@ public class ExecutionScheduler implements SmartLifecycle {
   private final WaitQueue queue = new WaitQueue();
 
   /** Running executions per workflow. */
-  private final Map<String, Integer> runningPerKey = new ConcurrentHashMap<>();
+  private final Map<WorkflowKey, Integer> runningPerKey = new ConcurrentHashMap<>();
 
   /** Running executions per session. */
   private final Map<String, Integer> runningPerSession = new ConcurrentHashMap<>();
@@ -197,7 +198,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       if (unavailable != null) {
         throw unavailable;
       }
-      final String key = key(sessionId, workflowId);
+      final WorkflowKey key = new WorkflowKey(sessionId, workflowId);
       if (!fits(key)) {
         final RejectReason reason = cannotQueue(key);
         if (reason != null) {
@@ -257,7 +258,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       @Nullable final String executionId,
       final boolean countsAgainstRate) {
     assertLeader();
-    final String key = key(sessionId, workflowId);
+    final WorkflowKey key = new WorkflowKey(sessionId, workflowId);
     synchronized (lock) {
       final ExecutionRejectedException unavailable = unavailable();
       if (unavailable != null) {
@@ -268,7 +269,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       if (reason != null) {
         return refused(refusal(reason, "Execution limit reached"));
       }
-      if (countsAgainstRate && !startRate.tryAcquire(sessionId + "\0" + workflowId)) {
+      if (countsAgainstRate && !startRate.tryAcquire(key)) {
         return refused(
             refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute"));
       }
@@ -378,7 +379,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       liveChildren.decrementAndGet();
       return refused(refusal(RejectReason.LIMIT, "Child run limit reached"));
     }
-    return new Admission(true, Mono.just(new Permit("", maxChildren > 0)));
+    return new Admission(true, Mono.just(new Permit(null, maxChildren > 0)));
   }
 
   /**
@@ -441,10 +442,6 @@ public class ExecutionScheduler implements SmartLifecycle {
     return payload != null && payload.get(PRIORITY_KEY) instanceof Number number
         ? number.intValue()
         : 0;
-  }
-
-  private static String key(final String sessionId, final String workflowId) {
-    return sessionId + "\0" + workflowId;
   }
 
   /**
@@ -515,7 +512,7 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @param key the workflow of the start
    */
   @Nullable
-  private RejectReason cannotQueue(final String key) {
+  private RejectReason cannotQueue(final WorkflowKey key) {
     if (onLimit == OnLimit.REJECT) {
       return RejectReason.LIMIT;
     }
@@ -539,31 +536,27 @@ public class ExecutionScheduler implements SmartLifecycle {
     return count == null ? 0 : count.sum();
   }
 
-  private static String sessionOf(final String key) {
-    return key.substring(0, key.indexOf('\0'));
-  }
-
-  private boolean fits(final String key) {
+  private boolean fits(final WorkflowKey key) {
     return (maxConcurrent == 0 || runningTotal < maxConcurrent)
         && (maxPerWorkflow == 0 || runningPerKey.getOrDefault(key, 0) < maxPerWorkflow)
         && (maxPerSession == 0
-            || runningPerSession.getOrDefault(sessionOf(key), 0) < maxPerSession);
+            || runningPerSession.getOrDefault(key.sessionId(), 0) < maxPerSession);
   }
 
-  private Permit take(final String key) {
+  private Permit take(final WorkflowKey key) {
     runningTotal++;
     runningPerKey.merge(key, 1, Integer::sum);
-    runningPerSession.merge(sessionOf(key), 1, Integer::sum);
+    runningPerSession.merge(key.sessionId(), 1, Integer::sum);
     return new Permit(key);
   }
 
-  private void free(final String key) {
+  private void free(final WorkflowKey key) {
     final List<Waiter> admitted;
     synchronized (lock) {
       runningTotal--;
       runningPerKey.computeIfPresent(key, (_, count) -> count > 1 ? count - 1 : null);
       runningPerSession.computeIfPresent(
-          sessionOf(key), (_, count) -> count > 1 ? count - 1 : null);
+          key.sessionId(), (_, count) -> count > 1 ? count - 1 : null);
       admitted = admitWaiting();
       if (closed && runningTotal == 0) {
         drained.tryEmitEmpty();
@@ -610,7 +603,7 @@ public class ExecutionScheduler implements SmartLifecycle {
         if (!fits(waiter.key())) {
           continue;
         }
-        final int running = runningPerSession.getOrDefault(sessionOf(waiter.key()), 0);
+        final int running = runningPerSession.getOrDefault(waiter.key().sessionId(), 0);
         if (best == null || running < bestRunning) {
           best = waiter;
           bestRunning = running;
@@ -718,8 +711,8 @@ public class ExecutionScheduler implements SmartLifecycle {
 
   /** A claim on one execution slot; release it when the execution ends. */
   public final class Permit {
-    /** The workflow the slot was taken for; empty for a borrowed one, which holds nothing. */
-    private final String key;
+    /** The workflow the slot was taken for; null for a borrowed one, which holds nothing. */
+    private final @Nullable WorkflowKey key;
 
     /** Makes releasing idempotent. */
     private final AtomicBoolean released = new AtomicBoolean();
@@ -727,11 +720,11 @@ public class ExecutionScheduler implements SmartLifecycle {
     /** True for a counted child run. */
     private final boolean child;
 
-    private Permit(final String key) {
+    private Permit(final WorkflowKey key) {
       this(key, false);
     }
 
-    private Permit(final String key, final boolean child) {
+    private Permit(final WorkflowKey key, final boolean child) {
       this.key = key;
       this.child = child;
     }
@@ -741,7 +734,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       if (released.compareAndSet(false, true)) {
         if (child) {
           liveChildren.decrementAndGet();
-        } else if (!key.isEmpty()) {
+        } else if (key != null) {
           free(key);
         }
       }

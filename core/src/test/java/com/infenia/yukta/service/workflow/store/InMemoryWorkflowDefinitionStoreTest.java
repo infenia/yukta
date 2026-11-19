@@ -216,6 +216,39 @@ class InMemoryWorkflowDefinitionStoreTest {
         .verify();
   }
 
+  private String latestRevision(final String sessionId, final String workflowId) {
+    return java.util.Objects.requireNonNull(store.revisions(sessionId, workflowId).blockFirst())
+        .id();
+  }
+
+  @Test
+  void removeKeepsNotesAndHistoryOfOtherWorkflowsAndSessions() {
+    store.save(SESSION_ID_1, version("a")).block();
+    store.save(SESSION_ID_1, definition(WORKFLOW_ID_2)).block();
+    store.save(SESSION_ID_2, version("b")).block();
+    store
+        .saveNote(SESSION_ID_1, WORKFLOW_ID_1, latestRevision(SESSION_ID_1, WORKFLOW_ID_1), "alpha")
+        .block();
+    store
+        .saveNote(SESSION_ID_1, WORKFLOW_ID_2, latestRevision(SESSION_ID_1, WORKFLOW_ID_2), "beta")
+        .block();
+    store
+        .saveNote(SESSION_ID_2, WORKFLOW_ID_1, latestRevision(SESSION_ID_2, WORKFLOW_ID_1), "three")
+        .block();
+    final Map<?, ?> notes =
+        (Map<?, ?>) org.springframework.test.util.ReflectionTestUtils.getField(store, "notes");
+
+    store.remove(SESSION_ID_1, WORKFLOW_ID_1).block();
+    assertThat(notes).hasSize(2);
+    assertThat(store.revisions(SESSION_ID_1, WORKFLOW_ID_2).blockFirst().note()).isEqualTo("beta");
+    assertThat(store.revisions(SESSION_ID_2, WORKFLOW_ID_1).blockFirst().note()).isEqualTo("three");
+
+    store.removeAll(SESSION_ID_1).block();
+    assertThat(notes).hasSize(1);
+    assertThat(store.revisions(SESSION_ID_2, WORKFLOW_ID_1).blockFirst().note()).isEqualTo("three");
+    assertThat(store.revisions(SESSION_ID_2, WORKFLOW_ID_1).collectList().block()).hasSize(1);
+  }
+
   @Test
   void nullNoteClearsIt_noteGoesWithPrunedVersion() throws InterruptedException {
     store.save(SESSION_ID_1, version("first")).block();

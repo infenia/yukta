@@ -3,7 +3,11 @@
 
 import { RequireControl } from '@/features/supervisors/components/RequireControl';
 import { buttonVariants } from '@/components/ui/button';
-import { ICON_TONE, iconButton } from '@/components/ui/iconTone';
+import {
+  TOOLBAR_DIVIDER,
+  TOOLBAR_GROUP,
+  toolbarSegment,
+} from '@/components/ui/iconTone';
 import { useState } from 'react';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
@@ -35,9 +39,8 @@ import {
 } from '../lib/statusMapper';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
-/** A button inside the segmented run controls. */
-const SEG =
-  'text-label-md flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 font-medium disabled:pointer-events-none disabled:opacity-45';
+/** An icon glyph inside a toolbar segment. */
+const GLYPH = 'material-symbols-outlined text-lg';
 
 /** An icon-only segment of the run controls: the label is the tooltip and the accessible name. */
 function ControlButton({
@@ -50,7 +53,7 @@ function ControlButton({
 }: {
   icon: string;
   label: string;
-  tone: string;
+  tone: Parameters<typeof toolbarSegment>[0];
   disabled?: boolean;
   /** Set by RequireControl (the reason it is disabled); defaults to the label. */
   title?: string;
@@ -60,15 +63,12 @@ function ControlButton({
     <Tip label={label} title={title} disabled={disabled}>
       <button
         type="button"
-        className={`${SEG} ${tone}`}
+        className={toolbarSegment(tone)}
         aria-label={label}
         disabled={disabled}
         onClick={onClick}
       >
-        <span
-          aria-hidden="true"
-          className="material-symbols-outlined text-base"
-        >
+        <span aria-hidden="true" className={GLYPH}>
           {icon}
         </span>
       </button>
@@ -229,17 +229,13 @@ export function RunControls({
       className="flex flex-wrap items-center gap-2"
       data-testid="run-controls"
     >
-      {/* Run, Pause or Resume, Stop and Restart as one segmented control, as on the run view artboard */}
-      <div
-        role="group"
-        aria-label="Run controls"
-        className="border-border bg-card flex items-center gap-0.5 rounded-full border p-0.5"
-      >
+      {/* Run, Pause or Resume, Stop and Restart, then the run's tools, as one segmented pill */}
+      <div role="group" aria-label="Run controls" className={TOOLBAR_GROUP}>
         <RunButton
           sessionId={sessionId}
           workflowId={workflowId}
           onStarted={onStarted}
-          className={`${SEG} ${ICON_TONE.success}`}
+          className={cn(toolbarSegment('success'), '[&>span]:text-lg')}
           iconOnly
         />
         <RequireControl
@@ -251,14 +247,14 @@ export function RunControls({
             <ControlButton
               icon="play_circle"
               label="Resume"
-              tone={ICON_TONE.primary}
+              tone="primary"
               onClick={() => act('resume')}
             />
           ) : (
             <ControlButton
               icon="pause"
               label="Pause"
-              tone={ICON_TONE.attention}
+              tone="attention"
               disabled={category !== 'running'}
               onClick={() => act('pause')}
             />
@@ -271,14 +267,19 @@ export function RunControls({
             target={{ execution: executionId }}
           >
             <DropdownMenuTrigger
-              className={`${SEG} ${ICON_TONE.destructive}`}
+              className={cn(toolbarSegment('destructive'), 'pr-1')}
               disabled={!live}
               aria-label="Stop options"
               title="Stop"
             >
-              <span className="material-symbols-outlined text-base">stop</span>
-              <span className="material-symbols-outlined text-base">
-                arrow_drop_down
+              <span aria-hidden="true" className={GLYPH}>
+                stop
+              </span>
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined -ml-0.5 text-sm opacity-70"
+              >
+                expand_more
               </span>
             </DropdownMenuTrigger>
           </RequireControl>
@@ -328,65 +329,64 @@ export function RunControls({
           target={{ execution: executionId }}
         >
           <ControlButton
-            icon="restart_alt"
+            icon="replay"
             label="Restart"
-            tone={ICON_TONE.primary}
+            tone="primary"
             disabled={!canRestart}
             onClick={() => act('restart')}
           />
         </RequireControl>
-      </div>
-      {canPrioritize && (
-        <RequireControl
-          perm="controlRuns"
-          command="priority"
-          target={{ execution: executionId }}
-        >
-          <Tip label="Change priority">
-            <button
-              type="button"
-              className={iconButton('attention')}
-              aria-label="Priority…"
-              onClick={() => setPrioritizing(true)}
-            >
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-base"
+        <span aria-hidden="true" className={TOOLBAR_DIVIDER} />
+        {canPrioritize && (
+          <RequireControl
+            perm="controlRuns"
+            command="priority"
+            target={{ execution: executionId }}
+          >
+            <Tip label="Change priority">
+              <button
+                type="button"
+                className={toolbarSegment('attention')}
+                aria-label="Priority…"
+                onClick={() => setPrioritizing(true)}
               >
-                low_priority
-              </span>
-            </button>
-          </Tip>
-        </RequireControl>
-      )}
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          className={cn(iconButton('primary'), copyTone(copied))}
-          aria-label="Copy as"
-          title="Copy as…"
-        >
-          <span className="material-symbols-outlined text-base">
-            {copyIcon(copied)}
+                <span aria-hidden="true" className={GLYPH}>
+                  low_priority
+                </span>
+              </button>
+            </Tip>
+          </RequireControl>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className={cn(toolbarSegment('neutral'), copyTone(copied))}
+            aria-label="Copy as"
+            title="Copy as command…"
+          >
+            <span aria-hidden="true" className={GLYPH}>
+              {copyIcon(copied, 'terminal')}
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-max">
+            <CopyAsMenu choices={choices} onCopy={copy} />
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {copied && (
+          <span role="status" className="sr-only">
+            {copied === 'copied' ? 'Copied' : 'Copy failed'}
           </span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-max">
-          <CopyAsMenu choices={choices} onCopy={copy} />
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {copied && (
-        <span role="status" className="sr-only">
-          {copied === 'copied' ? 'Copied' : 'Copy failed'}
-        </span>
-      )}
-      {canRecover && (
-        <RecoverButton
-          sessionId={sessionId}
-          workflowId={workflowId}
-          executionId={executionId as string}
-          onRecovered={onStarted}
-          iconOnly
-        />
-      )}
+        )}
+        {canRecover && (
+          <RecoverButton
+            sessionId={sessionId}
+            workflowId={workflowId}
+            executionId={executionId as string}
+            onRecovered={onStarted}
+            className={toolbarSegment('primary')}
+            iconOnly
+          />
+        )}
+      </div>
       <InlineError message={failure ? controlErrorMessage(failure) : null} />
 
       {prioritizing && (

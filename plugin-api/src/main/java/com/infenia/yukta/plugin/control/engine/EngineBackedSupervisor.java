@@ -47,7 +47,9 @@ public final class EngineBackedSupervisor
   private final Map<String, Sinks.One<Map<String, Object>>> delegations = new ConcurrentHashMap<>();
   private final java.util.concurrent.atomic.AtomicReference<Consultant> consultant =
       new java.util.concurrent.atomic.AtomicReference<>();
-  private final AtomicLong seq = new AtomicLong();
+  // one counter for every instance: the attachments of a supervisor share one agent channel, so
+  // their review, delegation and event ids must not repeat (a verdict for one would answer another)
+  private static final AtomicLong SEQ = new AtomicLong();
   private final Consumer<EngineReads> readsSink;
   private final java.util.concurrent.atomic.AtomicReference<EngineReads> reads =
       new java.util.concurrent.atomic.AtomicReference<>(EngineReads.NONE);
@@ -122,7 +124,7 @@ public final class EngineBackedSupervisor
   private Mono<Signal> started() {
     return Mono.defer(() -> {
       final String reason = startedOnce.getAndSet(true) ? "resubscribe" : "first";
-      final String cursor = "e" + seq.get();
+      final String cursor = "e" + SEQ.get();
       final EngineReads now = reads.get();
       return Mono.zip(
               now.executions(null, SNAPSHOT_ROWS)
@@ -140,7 +142,7 @@ public final class EngineBackedSupervisor
   }
 
   private Signal event(final ExecutionEvent event) {
-    final String n = "e" + seq.incrementAndGet();
+    final String n = "e" + SEQ.incrementAndGet();
     return new Signal.Event(n, n, event);
   }
 
@@ -184,7 +186,7 @@ public final class EngineBackedSupervisor
     if (ask == null) {
       return Mono.empty();
     }
-    final String id = question.key() == null ? "c" + seq.incrementAndGet() : question.key();
+    final String id = question.key() == null ? "c" + SEQ.incrementAndGet() : question.key();
     return ask.consult(question.kind(), question.payload())
         .onErrorReturn(Map.of())
         .doOnNext(answers -> asked.tryEmitNext(new Signal.Consulted(id, question.kind(), answers)))
@@ -210,7 +212,7 @@ public final class EngineBackedSupervisor
     if (delegations.size() >= MAX_OPEN_REVIEWS) {
       return Mono.empty();
     }
-    final String id = "d" + seq.incrementAndGet();
+    final String id = "d" + SEQ.incrementAndGet();
     final Sinks.One<Map<String, Object>> sink = Sinks.one();
     delegations.put(id, sink);
     asked.tryEmitNext(new Signal.Delegated(id, kind, from, payload));
@@ -238,7 +240,7 @@ public final class EngineBackedSupervisor
       // an error, not an answer: the reviewer refuses it (a stop is still let through)
       return Mono.error(new IllegalStateException("too many open reviews"));
     }
-    final String reviewId = "r" + seq.incrementAndGet();
+    final String reviewId = "r" + SEQ.incrementAndGet();
     final Sinks.One<Decision> sink = Sinks.one();
     pending.put(reviewId, sink);
     asked.tryEmitNext(new Signal.Review(reviewId, request, reviewTimeout));

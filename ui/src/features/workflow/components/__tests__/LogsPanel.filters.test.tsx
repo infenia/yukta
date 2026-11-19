@@ -60,27 +60,47 @@ describe('LogsPanel level and node filters', () => {
     );
   });
 
-  it('narrows to one node until the chip is cleared', async () => {
+  it('narrows to the node picked until All nodes is picked again', async () => {
     const user = userEvent.setup();
-    const onClearNode = vi.fn();
+    const onNode = vi.fn();
     const { rerender } = render(
       <LogsPanel
         entries={entries}
         isStreaming={false}
         node="lint"
-        onClearNode={onClearNode}
+        nodes={['build', 'lint']}
+        onNode={onNode}
       />
     );
     expect(shown()).toEqual(['lint failed']);
-    expect(screen.getByText('Node: lint')).toBeInTheDocument();
-    await user.click(
-      screen.getByRole('button', {
-        name: "Show every node's lines, not only lint's",
-      })
+    const picker = screen.getByRole('combobox', {
+      name: 'Show lines of node',
+    });
+    expect(picker).toHaveValue('lint');
+    await user.selectOptions(picker, 'All nodes');
+    expect(onNode).toHaveBeenLastCalledWith(null);
+    await user.selectOptions(picker, 'build');
+    expect(onNode).toHaveBeenLastCalledWith('build');
+    rerender(
+      <LogsPanel
+        entries={entries}
+        isStreaming={false}
+        node={null}
+        nodes={['build', 'lint']}
+        onNode={onNode}
+      />
     );
-    expect(onClearNode).toHaveBeenCalled();
-    rerender(<LogsPanel entries={entries} isStreaming={false} node={null} />);
     expect(shown()).toHaveLength(6);
+    expect(picker).toHaveValue('');
+  });
+
+  it('has no node picker without nodes to pick', () => {
+    render(
+      <LogsPanel entries={entries} isStreaming={false} onNode={vi.fn()} />
+    );
+    expect(
+      screen.queryByRole('combobox', { name: 'Show lines of node' })
+    ).not.toBeInTheDocument();
   });
 
   it('leaves the raw stream to the text filter', async () => {
@@ -90,6 +110,8 @@ describe('LogsPanel level and node filters', () => {
         entries={entries}
         isStreaming={false}
         node="lint"
+        nodes={['lint']}
+        onNode={vi.fn()}
         executionId="e1"
       />
     );
@@ -101,6 +123,8 @@ describe('LogsPanel level and node filters', () => {
     );
     expect(await screen.findByText('raw line')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'warn' })).toBeDisabled();
-    expect(screen.queryByText('Node: lint')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Show lines of node' })
+    ).toBeDisabled();
   });
 });

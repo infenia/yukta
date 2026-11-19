@@ -6,6 +6,7 @@ import com.infenia.yukta.mcp.dto.WorkflowStartResult;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.model.workflow.WorkflowKey;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.control.StartOptions;
@@ -147,7 +148,7 @@ public class WorkflowExecutionProvider {
     final AtomicBoolean started = new AtomicBoolean();
     return autoKey
         .once(
-            sessionId + "\0" + workflowId,
+            new WorkflowKey(sessionId, workflowId),
             () ->
                 Mono.defer(() -> {
                   started.set(true);

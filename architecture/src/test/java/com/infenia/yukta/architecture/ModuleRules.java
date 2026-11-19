@@ -52,9 +52,7 @@ public final class ModuleRules {
 
   /** Classes that may block, with the reason; every entry parks a thread, so keep this short. */
   private static final Map<String, String> MAY_BLOCK =
-      Map.of(
-          "com.infenia.yukta.startup.BootstrapRunner",
-          "applies the bootstrap once at start-up, before the server takes traffic");
+      Map.of("com.infenia.yukta.plugin.mcp.McpClientGateway", "closes the MCP clients at shutdown");
 
   /** Classes that may use deprecated API, with the reason; every entry is removed with its API. */
   private static final Map<String, String> MAY_USE_DEPRECATED =

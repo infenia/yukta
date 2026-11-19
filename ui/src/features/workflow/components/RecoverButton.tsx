@@ -24,6 +24,7 @@ export function RecoverButton({
   onRecovered,
   size,
   iconOnly = false,
+  className,
 }: {
   sessionId: string;
   workflowId: string;
@@ -32,6 +33,8 @@ export function RecoverButton({
   size?: 'sm';
   /** Icon only: "Recover" moves to the tooltip and accessible name. */
   iconOnly?: boolean;
+  /** Replaces the outlined look, e.g. with a toolbar segment. */
+  className?: string;
 }) {
   const { recover } = useExecutionControl(sessionId, workflowId);
   const [confirming, setConfirming] = useState(false);
@@ -46,20 +49,26 @@ export function RecoverButton({
         <Tip label={iconOnly ? 'Recover this run' : undefined}>
           <button
             type="button"
-            className={cn(
-              buttonVariants({
-                variant: 'outline',
-                size: iconOnly ? 'icon' : size,
-              }),
-              iconOnly && ICON_TONE.primary
-            )}
+            className={
+              className ??
+              cn(
+                buttonVariants({
+                  variant: 'outline',
+                  size: iconOnly ? 'icon' : size,
+                }),
+                iconOnly && ICON_TONE.primary
+              )
+            }
             aria-label={iconOnly ? 'Recover' : undefined}
             disabled={recover.isPending}
             onClick={() => setConfirming(true)}
           >
             <span
               aria-hidden="true"
-              className="material-symbols-outlined text-primary text-base"
+              className={cn(
+                'material-symbols-outlined text-primary',
+                className ? 'text-lg' : 'text-base'
+              )}
             >
               history
             </span>

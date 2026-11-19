@@ -4,6 +4,7 @@ package com.infenia.yukta.service.runtime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.model.workflow.WorkflowKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -13,12 +14,13 @@ import reactor.core.publisher.Sinks;
 
 class WaitQueueTest {
 
-  private static final String KEY_A = "s/a";
-  private static final String KEY_B = "s/b";
+  private static final WorkflowKey KEY_A = new WorkflowKey("s", "a");
+  private static final WorkflowKey KEY_B = new WorkflowKey("s", "b");
   private static final String EXEC_1 = "exec-1";
   private static final String EXEC_2 = "exec-2";
 
-  private static Waiter waiter(final String key, final String executionId, final int priority) {
+  private static Waiter waiter(
+      final WorkflowKey key, final String executionId, final int priority) {
     return new Waiter(
         key, executionId, new AtomicInteger(priority), Sinks.one(), new AtomicReference<>());
   }
@@ -34,7 +36,7 @@ class WaitQueueTest {
     assertThat(queue.size()).isEqualTo(3);
     assertThat(queue.count(KEY_A)).isEqualTo(2);
     assertThat(queue.count(KEY_B)).isEqualTo(1);
-    assertThat(queue.count("s/none")).isZero();
+    assertThat(queue.count(new WorkflowKey("s", "none"))).isZero();
     assertThat(queue.byExecution(EXEC_1)).isSameAs(first);
     assertThat(queue.byExecution("missing")).isNull();
   }

@@ -73,6 +73,18 @@ export function nodeMenuItems(status: NodeUiStatus, hasBreakpoint: boolean) {
   );
 }
 
+/**
+ * Every node action in a fixed order, for the node sheet's grid: each keeps its cell and is
+ * disabled when it does not apply. Set and clear breakpoint share one cell.
+ */
+export function nodeActionSlots(status: NodeUiStatus, hasBreakpoint: boolean) {
+  return ITEMS.map((item) =>
+    item.command === 'breakpoint' && hasBreakpoint
+      ? { ...CLEAR_BREAKPOINT, enabled: true }
+      : { command: item.command, label: item.label, enabled: item.when(status) }
+  );
+}
+
 /** Per-node actions, listing only those that make sense for the node's current status. */
 export function NodeControlsMenu({
   nodeId,

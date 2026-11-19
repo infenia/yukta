@@ -14,6 +14,7 @@ import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.model.workflow.WorkflowKey;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
@@ -118,7 +119,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   private final Map<String, WorkflowState> executionIndex = new ConcurrentHashMap<>();
 
   /** Map of workflow ID to latest execution ID. */
-  private final Map<String, String> latestExecs = new ConcurrentHashMap<>();
+  private final Map<WorkflowKey, String> latestExecs = new ConcurrentHashMap<>();
 
   /** Map of workflow ID to status sinks. */
   private final Map<String, Sinks.Many<WorkflowProgress>> statusSinks = new ConcurrentHashMap<>();
@@ -917,8 +918,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     return executionIndex.get(executionId);
   }
 
-  private String getLatestKey(final String sessionId, final String workflowId) {
-    return sessionId + "\0" + workflowId;
+  private WorkflowKey getLatestKey(final String sessionId, final String workflowId) {
+    return new WorkflowKey(sessionId, workflowId);
   }
 
   private void scheduleCleanup(final String executionId) {
