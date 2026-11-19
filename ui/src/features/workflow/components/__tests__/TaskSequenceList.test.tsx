@@ -41,12 +41,13 @@ describe('TaskSequenceList', () => {
       'Succeeded'
     );
     expect(completed).toHaveTextContent('module: ingress-v1');
-    expect(completed).toHaveTextContent('Start: 14:22:01');
-    expect(completed).toHaveTextContent('End: 14:22:10');
+    expect(completed).toHaveTextContent('26-Jul-2026');
+    expect(completed).toHaveTextContent('14:22:01');
+    expect(completed).toHaveTextContent('14:22:10');
 
     const running = screen.getByTestId('task-item-vectorize-batch');
     await expectTooltip(within(running).getByTestId('task-status'), 'Running');
-    expect(running).toHaveTextContent('Dur:');
+    expect(running).toHaveTextContent('Dur');
   });
 
   it('dims pending tasks and omits timing when not started', async () => {
@@ -57,7 +58,7 @@ describe('TaskSequenceList', () => {
     const pending = screen.getByTestId('task-item-sink-storage');
     await expectTooltip(within(pending).getByTestId('task-status'), 'Waiting');
     expect(pending.className).toContain('opacity-60');
-    expect(pending).not.toHaveTextContent('Start:');
+    expect(pending).not.toHaveTextContent('Start');
   });
 
   it('falls back to all-pending entries for a never-run workflow', async () => {
@@ -108,14 +109,14 @@ describe('TaskSequenceList', () => {
       );
 
       const running = screen.getByTestId('task-item-vectorize-batch');
-      expect(running).toHaveTextContent('Dur: 2s');
+      expect(running).toHaveTextContent('Dur2s');
 
       act(() => {
         vi.setSystemTime(new Date('2026-07-26T14:22:20'));
         vi.advanceTimersByTime(1000);
       });
 
-      expect(running).toHaveTextContent('Dur: 11s');
+      expect(running).toHaveTextContent('Dur11s');
     } finally {
       vi.useRealTimers();
     }

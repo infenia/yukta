@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import type { ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
-import { formatDateTime, TIME_PLACEHOLDER } from '../lib/timeFormat';
+import { DateTimeStamp } from './DateTimeStamp';
 import { toStatusDisplay } from '../lib/statusMapper';
 import type { WorkflowProgress } from '../types/workflow';
 
@@ -12,16 +13,16 @@ function SummaryRow({
   mono = true,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   mono?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-1">
+    <div className="flex items-start justify-between gap-4 py-1">
       <span className="text-body-sm text-on-surface-variant">{label}</span>
       <span
         className={
           mono
-            ? 'text-code-sm text-on-surface truncate'
+            ? 'text-code-sm text-on-surface text-right break-all'
             : 'text-label-sm text-on-surface font-semibold'
         }
       >
@@ -51,11 +52,11 @@ export function ExecutionSummaryBlock({
       />
       <SummaryRow
         label="Start Time"
-        value={progress ? formatDateTime(progress.startTime) : TIME_PLACEHOLDER}
+        value={<DateTimeStamp iso={progress?.startTime} />}
       />
       <SummaryRow
         label="End Time"
-        value={progress ? formatDateTime(progress.endTime) : TIME_PLACEHOLDER}
+        value={<DateTimeStamp iso={progress?.endTime} />}
       />
     </Card>
   );

@@ -65,6 +65,10 @@ import { BreakpointDialog } from './BreakpointDialog';
 import { WorkflowSupervision } from '@/features/supervisors/components/WorkflowSupervision';
 import { Tip } from '@/components/ui/tooltip';
 
+/** A switch inside the shared tool panel: stacked, its own chrome removed. */
+const BARE_COLUMN =
+  'flex-col rounded-full border-0 bg-transparent p-0 shadow-none backdrop-blur-none';
+
 /** The workflow page: the run, its tasks and logs, and the controls. */
 
 export function WorkflowDetailsPage() {
@@ -196,6 +200,7 @@ export function WorkflowDetailsPage() {
     );
   const [follow, setFollow] = useState(true);
   const [findQuery, setFindQuery] = useState('');
+  const [centerOn, setCenterOn] = useState<{ id: string; nonce: number }>();
   // only a run that is going has running nodes to follow
   const followable = progress !== null && live;
   const subWorkflowLinks = useSubWorkflowLinks(
@@ -457,31 +462,43 @@ export function WorkflowDetailsPage() {
                         }}
                         follow={follow && followable}
                         find={findQuery}
+                        centerOn={centerOn}
                       />
                     </AgentsByNode.Provider>
                   )}
-                  {/* The canvas toolbar; its gaps pass the pointer through to the canvas */}
+                  {/* One vertical tool panel, top left: search first. Its gaps pass the pointer through */}
                   {view === 'graph' && (
-                    <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-center gap-2">
+                    <div
+                      role="toolbar"
+                      aria-orientation="vertical"
+                      aria-label="Canvas tools"
+                      className="border-border bg-card/80 shadow-card absolute top-3 left-3 z-10 flex flex-col items-center gap-1 rounded-full border p-1 backdrop-blur-sm"
+                    >
+                      <FindNodes
+                        graph={graph}
+                        query={findQuery}
+                        onQuery={setFindQuery}
+                        onPick={(nodeId) => {
+                          setOpenNode(nodeId);
+                          setCenterOn((held) => ({
+                            id: nodeId,
+                            nonce: (held?.nonce ?? 0) + 1,
+                          }));
+                        }}
+                      />
+                      <span aria-hidden="true" className="bg-border h-px w-5" />
                       <ViewSwitch
                         view={view}
                         onChange={setView}
-                        className="pointer-events-auto"
+                        className={BARE_COLUMN}
                       />
                       {stages.hasStages && (
                         <GroupingSwitch
                           grouped={stages.grouped}
                           onChange={stages.setGrouped}
-                          className="pointer-events-auto"
+                          className={BARE_COLUMN}
                         />
                       )}
-                      <FindNodes
-                        graph={graph}
-                        query={findQuery}
-                        onQuery={setFindQuery}
-                        onPick={(nodeId) => setOpenNode(nodeId)}
-                        className="pointer-events-auto"
-                      />
                       {followable && (
                         <IconButton
                           icon="my_location"
@@ -490,8 +507,8 @@ export function WorkflowDetailsPage() {
                           onClick={() => setFollow((value) => !value)}
                           tone={follow ? 'primary' : 'neutral'}
                           className={cn(
-                            'pointer-events-auto ml-auto size-8',
-                            follow && 'bg-accent'
+                            'size-8 rounded-full border-0',
+                            follow && 'bg-primary/10'
                           )}
                         />
                       )}

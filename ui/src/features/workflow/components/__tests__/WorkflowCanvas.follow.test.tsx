@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { act, render } from '@testing-library/react';
 import { WorkflowCanvas } from '../WorkflowCanvas';
 import {
   createMockGraph,
@@ -63,6 +63,37 @@ describe('WorkflowCanvas follow', () => {
       />
     );
     expect(fitView).not.toHaveBeenCalled();
+  });
+});
+
+describe('WorkflowCanvas centerOn', () => {
+  beforeEach(() => {
+    fitView.mockClear();
+    vi.useFakeTimers();
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('centres the picked node once the side panel has settled', () => {
+    const graph = createMockGraph();
+    const { rerender } = render(
+      <WorkflowCanvas graph={graph} tasksByNode={{}} />
+    );
+    expect(fitView).not.toHaveBeenCalled();
+
+    rerender(
+      <WorkflowCanvas
+        graph={graph}
+        tasksByNode={{}}
+        centerOn={{ id: 'sink-storage', nonce: 1 }}
+      />
+    );
+    expect(fitView).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(160);
+    });
+    expect(fitView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ nodes: [{ id: 'sink-storage' }] })
+    );
   });
 });
 

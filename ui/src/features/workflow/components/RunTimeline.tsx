@@ -65,28 +65,28 @@ export function ViewSwitch({
           ['timeline', 'Timeline', 'view_timeline'],
         ] as const
       ).map(([value, label, icon]) => (
-        <button
-          key={value}
-          type="button"
-          role="radio"
-          aria-checked={view === value}
-          aria-label={label}
-          title={label}
-          onClick={() => onChange(value)}
-          className={cn(
-            'transition-standard focus-visible:ring-ring flex size-8 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none',
-            view === value
-              ? 'bg-primary/10 text-primary'
-              : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
-          )}
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-lg"
+        <Tip key={value} label={label}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={view === value}
+            aria-label={label}
+            onClick={() => onChange(value)}
+            className={cn(
+              'transition-standard focus-visible:ring-ring flex size-8 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none',
+              view === value
+                ? 'bg-primary/10 text-primary'
+                : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
+            )}
           >
-            {icon}
-          </span>
-        </button>
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-lg"
+            >
+              {icon}
+            </span>
+          </button>
+        </Tip>
       ))}
     </div>
   );

@@ -194,7 +194,7 @@ export function GroupingSwitch({
       role="radiogroup"
       aria-label="Canvas grouping"
       className={cn(
-        'border-border bg-surface shadow-card flex gap-0.5 rounded-lg border p-0.5',
+        'border-border bg-card/80 shadow-card flex gap-0.5 rounded-full border p-1 backdrop-blur-sm',
         className
       )}
     >
@@ -204,28 +204,28 @@ export function GroupingSwitch({
           [false, 'All nodes', 'hub'],
         ] as const
       ).map(([value, label, icon]) => (
-        <button
-          key={label}
-          type="button"
-          role="radio"
-          aria-checked={grouped === value}
-          aria-label={label}
-          title={label}
-          onClick={() => onChange(value)}
-          className={cn(
-            'flex size-7 items-center justify-center rounded-md',
-            grouped === value
-              ? 'bg-muted text-on-surface'
-              : 'text-on-surface-variant hover:text-on-surface'
-          )}
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-base"
+        <Tip key={label} label={label}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={grouped === value}
+            aria-label={label}
+            onClick={() => onChange(value)}
+            className={cn(
+              'transition-standard flex size-8 items-center justify-center rounded-full',
+              grouped === value
+                ? 'bg-primary/10 text-primary'
+                : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
+            )}
           >
-            {icon}
-          </span>
-        </button>
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-lg"
+            >
+              {icon}
+            </span>
+          </button>
+        </Tip>
       ))}
     </div>
   );

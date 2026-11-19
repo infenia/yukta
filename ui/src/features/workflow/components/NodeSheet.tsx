@@ -11,7 +11,8 @@ import { getWorkflowDefinition } from '../api/getWorkflowDefinition';
 import { useExecutionResults } from '../hooks/useExecutionResults';
 import { categoryAccent } from '../lib/categoryAccent';
 import { toNodeUiStatus } from '../lib/statusMapper';
-import { formatDateTime, formatDuration } from '../lib/timeFormat';
+import { formatDuration } from '../lib/timeFormat';
+import { DateTimeStamp, Stamp } from './DateTimeStamp';
 import type { TaskProgress, WorkflowGraphNode } from '../types/workflow';
 import { Button } from '@/components/ui/button';
 import { ICON_TONE } from '@/components/ui/iconTone';
@@ -195,7 +196,7 @@ export function NodeSheet({
       className={cn(
         'border-border bg-background absolute inset-0 z-10 flex flex-col gap-3 overflow-y-auto border-l p-4 duration-150',
         closing
-          ? 'animate-out fade-out-0 slide-out-to-right-4 fill-mode-forwards'
+          ? 'animate-out fade-out-0 fill-mode-forwards slide-out-to-right-4'
           : 'animate-in fade-in-0 slide-in-from-right-4'
       )}
     >
@@ -222,7 +223,7 @@ export function NodeSheet({
                 onClick={() => onShowLogs(node.nodeId)}
                 aria-label="Show this node's logs"
                 title="Show this node's logs"
-                className="text-on-surface-variant hover:bg-muted hover:text-on-surface transition-standard flex size-8 items-center justify-center rounded-lg"
+                className="text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface flex size-8 items-center justify-center rounded-lg"
               >
                 <span aria-hidden="true" className="material-symbols-outlined">
                   terminal
@@ -233,7 +234,7 @@ export function NodeSheet({
               type="button"
               onClick={onClose}
               aria-label="Close node details"
-              className="text-on-surface-variant hover:bg-muted hover:text-on-surface transition-standard flex size-8 items-center justify-center rounded-lg"
+              className="text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface flex size-8 items-center justify-center rounded-lg"
             >
               <span aria-hidden="true" className="material-symbols-outlined">
                 close
@@ -278,19 +279,24 @@ export function NodeSheet({
             <Section title="Status">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <StatusPill status={task?.status} scope="node" iconOnly />
-                <span className="text-body-sm num text-on-surface-variant">
-                  {formatDateTime(task?.startTime)} to{' '}
-                  {formatDateTime(task?.endTime)}
-                  {' · '}
-                  {formatDuration(task?.startTime, task?.endTime)}
-                </span>
               </div>
+              <dl className="grid grid-cols-[repeat(auto-fit,minmax(6rem,1fr))] gap-x-3 gap-y-2">
+                <Stamp label="Start">
+                  <DateTimeStamp iso={task?.startTime} />
+                </Stamp>
+                <Stamp label="End">
+                  <DateTimeStamp iso={task?.endTime} />
+                </Stamp>
+                <Stamp label="Dur">
+                  {formatDuration(task?.startTime, task?.endTime)}
+                </Stamp>
+              </dl>
             </Section>
 
             {actions.length > 0 && (
               <Section title="Actions">
                 {/* Every action keeps its cell; the ones that do not apply now are disabled */}
-                <div className="border-border bg-surface-container-low grid w-max grid-cols-6 gap-1 rounded-xl border p-1">
+                <div className="border-border bg-surface-container-low grid w-full grid-cols-6 gap-1 rounded-xl border p-1">
                   {actions.map((item) => (
                     <RequireControl
                       key={item.command}
@@ -310,7 +316,7 @@ export function NodeSheet({
                         }
                         disabled={!item.enabled}
                         className={cn(
-                          'transition-standard size-9 rounded-lg disabled:opacity-30',
+                          'transition-standard h-9 w-full rounded-lg disabled:opacity-30',
                           ICON_TONE[ACTION_TONE[item.command] ?? 'neutral']
                         )}
                         onClick={() => onCommand(node.nodeId, item.command)}

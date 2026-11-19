@@ -626,7 +626,7 @@ export function LogsPanel({
             className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center transition-colors"
           >
             <span className="material-symbols-outlined text-base">
-              {maximized ? 'close_fullscreen' : 'open_in_full'}
+              {maximized ? 'fullscreen_exit' : 'fullscreen'}
             </span>
           </button>
         </div>
