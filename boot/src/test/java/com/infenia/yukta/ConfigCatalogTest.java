@@ -92,8 +92,8 @@ class ConfigCatalogTest {
     final Set<String> keys = new TreeSet<>();
     for (final URL url :
         Collections.list(
-            ConfigCatalogTest.class
-                .getClassLoader()
+            Thread.currentThread()
+                .getContextClassLoader()
                 .getResources("META-INF/spring-configuration-metadata.json"))) {
       try (InputStream in = url.openStream()) {
         final JsonNode properties = mapper.readTree(in).get("properties");
