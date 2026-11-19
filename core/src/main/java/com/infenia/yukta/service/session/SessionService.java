@@ -327,12 +327,7 @@ public class SessionService {
    * @return Flux of session IDs
    */
   public Flux<String> getSessionIds() {
-    return configService
-        .getSessionIds()
-        .doOnSubscribe(_ -> log.atDebug().log("Retrieving all session IDs"))
-        .doOnNext(sessionId -> log.atTrace().log("Found session: {}", sessionId))
-        .doOnComplete(() -> log.atDebug().log("Session ID retrieval completed"))
-        .doOnError(err -> log.atError().setCause(err).log("Failed to retrieve session IDs"));
+    return configService.getSessionIds();
   }
 
   /**
@@ -358,20 +353,7 @@ public class SessionService {
    * @return Mono containing the session configuration response
    */
   public Mono<SessionConfigResponse> getSessionConfig(@SessionId final String sessionId) {
-    return configService
-        .getAllConfigs(sessionId)
-        .doOnSubscribe(_ -> log.atDebug().log("Fetching configuration for session: {}", sessionId))
-        .flatMap(this::mapToSessionConfigResponse)
-        .doOnNext(config ->
-            log.atDebug().log(
-                "Retrieved configuration for session: {} with {} workflows",
-                sessionId,
-                config.workflows().size()))
-        .doOnError(err ->
-            log.atError()
-                .addArgument(sessionId)
-                .setCause(err)
-                .log("Failed to retrieve configuration for session: {}"));
+    return configService.getAllConfigs(sessionId).flatMap(this::mapToSessionConfigResponse);
   }
 
   private Mono<SessionConfigResponse> mapToSessionConfigResponse(final SessionSnapshot config) {
@@ -401,7 +383,6 @@ public class SessionService {
    */
   public Flux<SessionConfigResponse> getAllSessionConfigs() {
     return getSessionIds()
-        .doOnSubscribe(_ -> log.atDebug().log("Fetching all session configurations"))
         .flatMap(sessionId ->
             getSessionConfig(sessionId)
                 .onErrorResume(err -> {
@@ -412,8 +393,7 @@ public class SessionService {
                           "Skipping unreadable session config, continuing with other"
                               + " sessions");
                   return Mono.empty();
-                }))
-        .doOnComplete(() -> log.atDebug().log("All session configurations retrieved"));
+                }));
   }
 
   /**
@@ -452,17 +432,7 @@ public class SessionService {
    */
   public Mono<Map<String, WorkflowDefinition>> getSessionWorkflows(
       @SessionId final String sessionId) {
-    return workflowDefinitionStore
-        .findAll(sessionId)
-        .doOnSubscribe(_ -> log.atDebug().log("Fetching all workflows for session: {}", sessionId))
-        .doOnSuccess(workflows ->
-            log.atDebug().log(
-                "Retrieved {} workflows for session: {}", workflows.size(), sessionId))
-        .doOnError(err ->
-            log.atError()
-                .addArgument(sessionId)
-                .setCause(err)
-                .log("Failed to retrieve workflows for session: {}"));
+    return workflowDefinitionStore.findAll(sessionId);
   }
 
   /**

@@ -8,6 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -15,6 +18,7 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+@ExtendWith(OutputCaptureExtension.class)
 class McpErrorFilterTest {
 
   private static final String VALID = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}";
@@ -152,5 +156,35 @@ class McpErrorFilterTest {
                     .writeWith(Mono.just(e.getResponse().bufferFactory().wrap(new byte[] {'o'}))));
 
     assertThat(exchange.getResponse().getBodyAsString().block()).isEqualTo("o");
+  }
+
+  @Test
+  void aToolCallIsLoggedWithItsNameStatusAndDuration(final CapturedOutput output) {
+    run(
+        post(
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
+                + "\"params\":{\"name\":\"list_sessions\"}}"),
+        answers(HttpStatus.OK, "{\"result\":{}}"));
+
+    assertThat(output.getOut()).contains("MCP tool call", "list_sessions", "200");
+  }
+
+  @Test
+  void aCallWithoutAStatusIsLoggedAsZero(final CapturedOutput output) {
+    run(
+        post(
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
+                + "\"params\":{\"name\":\"quiet_tool\"}}"),
+        this::reads);
+
+    assertThat(output.getOut()).contains("quiet_tool").contains("status=\"0\"");
+  }
+
+  @Test
+  void otherMessagesAndNonJsonBodiesAreNotLogged(final CapturedOutput output) {
+    run(post(VALID), this::reads);
+    run(post("not json"), this::reads);
+
+    assertThat(output.getOut()).doesNotContain("MCP tool call");
   }
 }

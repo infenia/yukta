@@ -116,7 +116,6 @@ public class WorkflowPreparator {
 
     return validator
         .validate(def)
-        .doOnError(e -> log.atError().setCause(e).log("Workflow validation failed"))
         .then(
             Flux.fromIterable(def.nodes())
                 .flatMap(node -> {
