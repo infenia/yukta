@@ -4,8 +4,8 @@ package com.infenia.yukta.startup;
 
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.config.YuktaProperties;
-import com.infenia.yukta.service.store.CheckpointJson;
 import com.infenia.yukta.service.log.LogRetention;
+import com.infenia.yukta.service.store.CheckpointJson;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
