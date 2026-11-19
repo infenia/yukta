@@ -27,7 +27,7 @@ class ControlAuditTest {
         seen::add,
         new AuditRecord(false, "e1", "StopWorkflowCommand", "key:bob", "busy", Instant.now()));
 
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .singleElement()
         .satisfies(event -> {
           assertThat(event.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
@@ -52,7 +52,7 @@ class ControlAuditTest {
     ControlAudit.record(
         log, null, new AuditRecord(true, "e1", "PauseWorkflowCommand", null, null, Instant.now()));
 
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .singleElement()
         .satisfies(e -> assertThat(e.status()).isEqualTo("PauseWorkflowCommand"));
   }
@@ -68,6 +68,6 @@ class ControlAuditTest {
         },
         new AuditRecord(true, "e1", "PauseWorkflowCommand", null, null, Instant.now()));
 
-    assertThat(log.readAll()).hasSize(1);
+    assertThat(log.readAll().collectList().block()).hasSize(1);
   }
 }

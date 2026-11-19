@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.service.leader.LeaderElection;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,7 @@ class TakeoverRecoveryTest {
 
   @Test
   void onTakeover_theLogIsRecovered() {
+    when(recovery.recover()).thenReturn(Mono.just(List.of()));
     new TakeoverRecovery(election, recovery, resumer, false).afterSingletonsInstantiated();
 
     final ArgumentCaptor<Runnable> action = ArgumentCaptor.forClass(Runnable.class);
@@ -53,6 +55,20 @@ class TakeoverRecoveryTest {
     action.getValue().run();
     verify(recovery).recover();
     verify(recovery, never()).onRecovered(any());
+  }
+
+  @Test
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.TakeoverRecovery - ")
+  void onTakeover_failedRecovery_isLoggedAndDoesNotEscape() {
+    when(recovery.recover()).thenReturn(Mono.error(new IllegalStateException("unreadable")));
+    new TakeoverRecovery(election, recovery, resumer, false).afterSingletonsInstantiated();
+
+    final ArgumentCaptor<Runnable> action = ArgumentCaptor.forClass(Runnable.class);
+    verify(election).onTakeover(action.capture());
+    action.getValue().run();
+
+    verify(recovery).recover();
+    verify(resumer, never()).resume(any());
   }
 
   @Test

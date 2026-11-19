@@ -229,7 +229,7 @@ class SupervisorHostTest {
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(() -> {
           feed.publish(failed("e1"));
-          assertThat(log.readAll())
+          assertThat(log.readAll().collectList().block())
               .anySatisfy(entry -> {
                 assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
                 assertThat(entry.status()).contains("[by rules]").contains("dry-run");
@@ -320,7 +320,7 @@ class SupervisorHostTest {
                         .count())
                 .isPositive());
     verify(dispatcher, org.mockito.Mockito.atMost(5)).dispatchOrdered(any());
-    assertThat(log.readAll())
+    assertThat(log.readAll().collectList().block())
         .anySatisfy(e -> assertThat(e.status()).contains("rate limit exceeded"));
   }
 

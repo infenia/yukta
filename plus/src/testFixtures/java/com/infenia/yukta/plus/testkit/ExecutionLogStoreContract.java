@@ -39,7 +39,7 @@ public abstract class ExecutionLogStoreContract {
     store.append(started);
     store.append(finished);
 
-    assertThat(store.readAll()).containsExactly(started, finished);
+    assertThat(store.readAll().collectList().block()).containsExactly(started, finished);
   }
 
   @Test
@@ -53,14 +53,14 @@ public abstract class ExecutionLogStoreContract {
     store.append(started);
     store.append(without);
 
-    assertThat(store.readAll())
+    assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::initiator)
         .containsExactly("yk check", null);
   }
 
   @Test
   void anEmptyStoreReadsAsEmpty() {
-    assertThat(create().readAll()).isEmpty();
+    assertThat(create().readAll().collectList().block()).isEmpty();
   }
 
   @Test
@@ -71,9 +71,9 @@ public abstract class ExecutionLogStoreContract {
     store.append(first);
     store.append(second);
 
-    store.replaceAll(List.of(second));
+    store.replaceAll(List.of(second)).block();
 
-    assertThat(store.readAll()).containsExactly(second);
+    assertThat(store.readAll().collectList().block()).containsExactly(second);
   }
 
   @Test
@@ -83,12 +83,17 @@ public abstract class ExecutionLogStoreContract {
     store.append(ExecutionLogEvent.started("b", "s2", "w2", "v"));
     store.append(ExecutionLogEvent.finished("a", "s1", "w1", "SUCCESS", Map.of()));
 
-    assertThat(store.forExecution("a"))
+    assertThat(store.forExecution("a").collectList().block())
         .extracting(ExecutionLogEvent::type)
         .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_FINISHED);
-    assertThat(store.header("b")).contains(new ExecutionLogStore.RunHeader("s2", "w2"));
-    assertThat(store.header("nope")).isEmpty();
-    assertThat(store.ofType(ExecutionLogEvent.Type.RUN_FINISHED, java.time.Instant.EPOCH))
+    assertThat(store.header("b").blockOptional())
+        .contains(new ExecutionLogStore.RunHeader("s2", "w2"));
+    assertThat(store.header("nope").blockOptional()).isEmpty();
+    assertThat(
+            store
+                .ofType(ExecutionLogEvent.Type.RUN_FINISHED, java.time.Instant.EPOCH)
+                .collectList()
+                .block())
         .extracting(ExecutionLogEvent::executionId)
         .containsExactly("a");
   }

@@ -80,7 +80,7 @@ public class PostgresPersistenceAutoConfiguration {
    * @param leaderElection the election whose fencing number guards the writes, if one runs
    * @return the store
    */
-  @Bean(destroyMethod = "close")
+  @Bean(destroyMethod = "")
   public ExecutionLogStore executionLogStore(
       final DatabaseClient client,
       final ObjectMapper mapper,
