@@ -22,7 +22,7 @@ The alpha release may change names and defaults.
 
 Durations take a unit (`30s`, `10m`, `1h`); `0` means off where the row says so. Settings marked **system property only** are read with `Integer.getInteger`-style calls and ignore the environment and the properties file: `yukta.script.*`, `yukta.spel.*`, `yukta.streams.*`, `yukta.rate-limit-per-minute`, `yukta.auth-failures-per-minute`. `yukta.variables.allowed` is read as a system property or as `YUKTA_VARIABLES_ALLOWED`. Secrets are read only from `YUKTA_SECRET_*` environment variables.
 
-A native binary activates the `prod` profile itself unless `--spring.profiles.active=...` is passed as an argument. Setting `SPRING_PROFILES_ACTIVE=postgres` alone replaces `prod`; name both (`prod,postgres`).
+The `prod` profile is the default: a JVM jar started with no flags runs as `prod` (`spring.profiles.default`), and a native binary sets it itself unless a profile is chosen with `--spring.profiles.active=`, `-Dspring.profiles.active=` or the `SPRING_PROFILES_ACTIVE` variable. `bootRun` uses `dev`. Setting `SPRING_PROFILES_ACTIVE=postgres` alone replaces `prod`; name both (`prod,postgres`).
 
 Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`) need the Plus edition; the Community build refuses them at start-up. See [Licensing and editions](/reference/licensing).
 
@@ -34,7 +34,10 @@ Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execu
 | `server.port` (`SERVER_PORT`) | int | `9858` | HTTP port for the API, the web UI and `/mcp`. |
 | `spring.codec.max-in-memory-size` (`YUKTA_LIMITS_MAX_BODY`) | size | `1MB` | Largest request body; larger gets `413`. |
 | `spring.profiles.active` (`SPRING_PROFILES_ACTIVE`) | string | `prod` | Profile. `bootRun` uses `dev`. |
-| `management.endpoints.web.exposure.include` | list | `health,info,metrics` | Exposed management endpoints under `/actuator`. |
+| `management.endpoints.web.exposure.include` | list | `health,info,metrics` | Exposed management endpoints under `/actuator`. Everything except `/actuator/health` needs an ADMIN key. |
+| `spring.threads.virtual.enabled` | boolean | `true` | Run request handling and blocking work on virtual threads. |
+| `spring.web.compression.enabled`, `spring.web.compression.min-response-size` | boolean, size | `true`, `1024` in the `prod` profile | gzip for responses over the minimum size. |
+| `spring.main.banner-mode` | enum | `console`; `off` in `prod` | The start-up banner. |
 
 ## Admission and run limits
 
@@ -51,7 +54,7 @@ Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execu
 | `yukta.execution.on-limit` | enum | `QUEUE` | `QUEUE` holds a start as `QUEUED`; `REJECT` refuses it with `429`. |
 | `yukta.execution.queue-timeout` | duration | `0` | A start that waits longer ends `TIMED_OUT`. |
 | `yukta.execution.max-starts-per-minute` | int | `0` | Starts per workflow and minute. |
-| `yukta.execution.timeout` (`YUKTA_EXECUTION_TIMEOUT`) | duration | `1h` | Run deadline; paused time does not count. |
+| `yukta.execution.timeout` | duration | `1h` | Run deadline; paused time does not count. |
 | `yukta.execution.shutdown-timeout` | duration | `30s` | Time running runs get at server stop. |
 | `yukta.stop.drain-timeout` | duration | `30s` | How long a `DRAIN` stop waits. |
 | `yukta.start.idempotency-ttl` | duration | `10m` | Window in which a repeated `Idempotency-Key` returns the first run id. |
@@ -240,6 +243,57 @@ A tier name matches `[A-Za-z0-9._-]{1,64}`. A tier's `type` defaults to `AUTO` w
 | `yukta.ha.mode` | string | single server | `single` or `postgres` (active/standby; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. With `postgres`, start-up warns unless `yukta.restart.store-type=postgres`, since a server that takes over could not replay node output. |
 | `yukta.ha.lease` | duration | `15s` | Leader lease, renewed three times per lease. |
 | `yukta.ha.instance-id` | string | random per start | Server name in the lease row. |
+
+## Agent console
+
+Conversations with AI agents (the agent console). With `yukta.agents.enabled=false` the console, its REST and MCP tools and the conversation store are not created.
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.agents.enabled` | boolean | `true` | Turns the agent console on. In a native binary this is fixed when the image is built. |
+| `yukta.agents.retention` | duration | `7d` | How long conversations are kept. |
+| `yukta.agents.max-conversations` | int | `500` | Conversations kept. |
+| `yukta.agents.max-events-per-conversation` | int | `5000` | Events kept per conversation. |
+| `yukta.agents.max-message-bytes` | int | `65536` | Largest message sent to an agent; larger gets `413`. |
+| `yukta.agents.max-tool-bytes` | int | `4096` | Bytes kept for one tool call in a conversation. |
+| `yukta.agents.terminal-ring-bytes` | int | `262144` | Terminal output kept per agent. |
+| `yukta.agents.messages-per-minute` | int | `30` | Messages one caller may send to one conversation per minute. |
+| `yukta.agents.pty.enabled` | boolean | `false` | The terminal tier, which runs an agent in a pseudo-terminal. |
+| `yukta.agents.pty.host`, `.cols`, `.rows` | string, int, int | `yukta-cli`, `120`, `40` | The program that hosts the terminal and its size. |
+
+`yukta.agents.store-type` is under [Durability and stores](#durability-and-stores).
+
+## MCP server
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `spring.ai.mcp.server.enabled` | boolean | `true` | The MCP server. |
+| `spring.ai.mcp.server.streamable-http.mcp-endpoint` | path | `/mcp` | Where it listens. |
+| `spring.ai.mcp.server.protocol`, `.type` | enum, enum | `STATELESS`, `ASYNC` | Stateless, asynchronous streamable HTTP. |
+| `spring.ai.mcp.server.name` | string | `yukta` | Server name sent to clients. |
+
+The MCP rate limits, log limits and `yukta.mcp.start-dedupe-window` are under [Admission and run limits](#admission-and-run-limits) and [Security and access](#security-and-access).
+
+## Logging, tracing and API docs
+
+All of these are read at start; none changes while the server runs. The log level of a running server cannot be changed.
+
+| Property (environment variable) | Type | Default | Effect |
+|---|---|---|---|
+| `logging.level.root` (`LOGGING_LEVEL_ROOT`) | level | `INFO`; `WARN` in `prod` | Log level for everything. |
+| `logging.level.com.infenia.yukta` | level | `INFO`; `DEBUG` in `dev` | Log level for Yukta's own classes. |
+| `management.endpoint.health.show-details` | enum | `never` | Detail in `/actuator/health`. |
+| `management.otlp.metrics.export.enabled`, `.url` | boolean, URL | `false`, unset | Export meters over OTLP. |
+| `management.tracing.export.enabled` | boolean | `false` | Export traces. Set `management.opentelemetry.tracing.export.otlp.endpoint` to say where. |
+| `springdoc.api-docs.enabled`, `springdoc.swagger-ui.enabled` | boolean | `false` in `prod`, `true` in `dev` | The OpenAPI document (`/v3/api-docs`) and Swagger UI (`/swagger-ui.html`). The default profile is `prod`, so both are off unless enabled. |
+
+## Run mode and files
+
+| Setting | Default | Effect |
+|---|---|---|
+| `yukta.run-mode` (`YUKTA_MODE`, `--mode=console\|plain\|daemon`, `--plain`) | `console` on a terminal, else `plain` | How the server runs: with a live console, plain log lines, or detached as a daemon (`yukta start`). |
+| `YUKTA_HOME` | `$XDG_STATE_HOME/yukta`, else `~/.local/state/yukta` | Folder of the daemon's pid and log files. `yukta-cli` reads the same folder. |
+| `NO_COLOR`, `TERM=dumb` | unset | Turn off colour in the console. |
 
 ## Fixed limits
 
