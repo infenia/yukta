@@ -46,9 +46,9 @@ rehearsals; `release.sh --publish` refuses it.
 
 ## One-time setup
 
-1. **GitHub App for bots.** The `YUKTA_PROJECT_APP` App needs Contents and Pull requests read/write and
-   must be installed on `infenia/yukta` (variable `YUKTA_PROJECT_APP_CLIENT_ID`, secret
-   `YUKTA_PROJECT_APP_KEY`). *Why:* release-please and the docs bump open pull requests and push a tag.
+1. **GitHub App for releases (key in the `release` environment).** The `yukta-release-bot` App needs Contents and Pull requests read/write and
+   must be installed on `infenia/yukta` (variable `YUKTA_RELEASE_APP_CLIENT_ID`, secret
+   `YUKTA_RELEASE_APP_KEY`). *Why:* release-please and the docs bump open pull requests and push a tag.
    Anything made with the default `GITHUB_TOKEN` starts no workflows, so the release PR would never get
    its required checks and the tag would build nothing.
 2. **Allow auto-merge** (Settings → General). *Why:* the docs pull request merges itself once approved.
@@ -56,7 +56,7 @@ rehearsals; `release.sh --publish` refuses it.
    Manage Actions access → add `infenia/yukta` with Write. *Why:* the first image was pushed from a
    person's machine, so the package does not yet grant the workflow access.
 4. **Protect release tags:** a tag ruleset for `v*` that blocks deletion, force-push and creation, with the
-   `YUKTA_PROJECT_APP` App as its only bypass actor (so only release-please can create a release tag), and
+   `yukta-release-bot` App as its only bypass actor (so only release-please can create a release tag), and
    Settings → General → Releases → enable immutable releases. *Why:* people pin versions and verify
    them. The price: a wrong tag stays forever, so you ship the next version instead.
 5. **Allow public packages in the organisation** (Settings → Packages → Package creation → Public), and
