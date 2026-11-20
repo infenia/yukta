@@ -172,9 +172,17 @@ class ExamplesE2eTest {
   }
 
   private void helloWorld(final Scenarios scenarios) throws IOException {
-    final String session = scenarios.applySession(session("01-hello-world"));
+    final String example = "01-hello-world";
+    final String session = scenarios.applySession(session(example));
 
-    assertThat(run(scenarios, session, "hello", Map.of(), "SUCCESS")).contains("Hello from Yukta!");
+    assertThat(run(scenarios, session, "hello", Map.of(), "SUCCESS"))
+        .contains("Hello, Yukta! Digit 5 is odd.");
+    assertThat(run(scenarios, session, "hello", payload(example, "odd.json"), "SUCCESS"))
+        .contains("Hello, Grace! Digit 5 is odd.");
+    assertThat(run(scenarios, session, "hello", payload(example, "even.json"), "SUCCESS"))
+        .contains("Hello, Lovelace! Digit 8 is even.");
+    assertThat(run(scenarios, session, "hello", Map.of("text", ""), "SUCCESS"))
+        .contains("Hello, Yukta!");
   }
 
   private void inboxNotification(final Scenarios scenarios) throws IOException {
