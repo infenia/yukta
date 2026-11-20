@@ -3,7 +3,9 @@
 
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { Input } from '@/components/ui/input';
+import { textareaFieldClassName } from '@/components/ui/native-select';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Tip } from '@/components/ui/tooltip';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -108,7 +110,10 @@ function NewSession() {
   if (start === undefined) {
     return (
       <div className="bg-background flex flex-1 flex-col gap-0">
-        <NewSessionHeader description="Choose a start. A template is a working example pipeline you can change after creating it." />
+        <NewSessionHeader
+          withImport
+          description="Choose a start. A template is a working example pipeline you can change after creating it."
+        />
         <div className="px-4 pb-8 sm:px-6">
           <TemplateGallery onPick={(template) => setStart(template ?? null)} />
         </div>
@@ -118,8 +123,17 @@ function NewSession() {
   return <SessionForm template={start ?? undefined} />;
 }
 
-/** The header of the New session pages, on the Sessions page's hero backdrop. Import is here, not on the list. */
-function NewSessionHeader({ description }: { description: string }) {
+/**
+ * The header of the New session pages, on the Sessions page's hero backdrop. Import is here, not
+ * on the list, and only while choosing a start: once a template is picked it no longer applies.
+ */
+function NewSessionHeader({
+  description,
+  withImport = false,
+}: {
+  description: string;
+  withImport?: boolean;
+}) {
   return (
     <div className="relative isolate px-4 pt-6 sm:px-6">
       <PageHeader
@@ -127,18 +141,22 @@ function NewSessionHeader({ description }: { description: string }) {
         title="New session"
         description={description}
         actions={
-          <Link
-            to="/sessions/import"
-            className={buttonVariants({ variant: 'outline' })}
-          >
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-base"
-            >
-              upload
-            </span>
-            Import session
-          </Link>
+          withImport && (
+            <Tip label="Import session">
+              <Link
+                to="/sessions/import"
+                aria-label="Import session"
+                className={buttonVariants({ variant: 'outline', size: 'icon' })}
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  upload
+                </span>
+              </Link>
+            </Tip>
+          )
         }
       />
     </div>
@@ -219,6 +237,7 @@ function SessionForm({
     setError(null);
     setSupervisorErrors([]);
     let created: SessionDraft | undefined;
+    let first: string | undefined;
     try {
       const metadata = {
         ...fields,
@@ -246,11 +265,11 @@ function SessionForm({
       } else {
         created = newSession(fields, metadata.tags, template, supervisors);
         await saveSession(created);
+        // A template is there to be run: open its first workflow. A blank start opens the starter's editor.
+        first = template ? Object.keys(created.workflows)[0] : undefined;
       }
       await queryClient.invalidateQueries({ queryKey: ['sessions'] });
       const sessionPath = `/sessions/${encodeURIComponent(fields.sessionId)}`;
-      // A template is there to be run: open its first workflow. A blank start opens the starter's editor.
-      const first = template && Object.keys(created?.workflows ?? {})[0];
       navigate(
         loaded
           ? sessionPath
@@ -279,26 +298,42 @@ function SessionForm({
     key: keyof Fields,
     label: string,
     hint?: string,
-    problem?: ReactNode
+    problem?: ReactNode,
+    multiline = false
   ) => (
     <div className="flex flex-col gap-1">
       <label htmlFor={`s-${key}`} className="text-label-md text-on-surface">
         {label}
       </label>
-      <Input
-        id={`s-${key}`}
-        required
-        readOnly={loaded !== undefined && key === 'sessionId'}
-        aria-describedby={hint ? `s-${key}-hint` : undefined}
-        aria-invalid={problem ? true : undefined}
-        value={fields[key]}
-        onChange={(event) => change(key, event.target.value)}
-        onBlur={
-          key === 'projectPath'
-            ? (event) => setCheckedPath(event.target.value.trim())
-            : undefined
-        }
-      />
+      {multiline ? (
+        // grows with the text (field-sizing) up to a limit, then scrolls; the handle resizes it
+        <textarea
+          id={`s-${key}`}
+          required
+          rows={3}
+          value={fields[key]}
+          onChange={(event) => change(key, event.target.value)}
+          className={cn(
+            textareaFieldClassName,
+            'field-sizing-content max-h-64 min-h-24 resize-y'
+          )}
+        />
+      ) : (
+        <Input
+          id={`s-${key}`}
+          required
+          readOnly={loaded !== undefined && key === 'sessionId'}
+          aria-describedby={hint ? `s-${key}-hint` : undefined}
+          aria-invalid={problem ? true : undefined}
+          value={fields[key]}
+          onChange={(event) => change(key, event.target.value)}
+          onBlur={
+            key === 'projectPath'
+              ? (event) => setCheckedPath(event.target.value.trim())
+              : undefined
+          }
+        />
+      )}
       {problem ? (
         <span
           id={`s-${key}-hint`}
@@ -335,7 +370,7 @@ function SessionForm({
           ? "Used in URLs, the CLI and MCP calls; it can't be changed."
           : "Made from the name. Used in URLs, the CLI and MCP calls, and can't be changed later."
       )}
-      {field('description', 'Description')}
+      {field('description', 'Description', undefined, undefined, true)}
       {field(
         'projectPath',
         'Working directory',
@@ -397,7 +432,7 @@ function SessionForm({
   }
   return (
     <div className="bg-background flex flex-1 flex-col gap-0">
-      <NewSessionHeader description="A session groups related workflows and their runs. You add workflows after creating it, or import a whole session as JSON." />
+      <NewSessionHeader description="A session groups related workflows and their runs. You add workflows after creating it." />
       <div className="grid gap-8 px-4 pb-8 sm:px-6 lg:grid-cols-2">
         {form}
         <ScriptedPanel
