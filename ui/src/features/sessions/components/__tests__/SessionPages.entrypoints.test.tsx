@@ -42,7 +42,12 @@ beforeAll(() => server.listen());
 afterAll(() => server.close());
 
 function Where() {
-  return <output data-testid="where">{useLocation().pathname}</output>;
+  const location = useLocation();
+  return (
+    <output data-testid="where" data-state={JSON.stringify(location.state)}>
+      {location.pathname}
+    </output>
+  );
 }
 
 function renderAt(path: string) {
@@ -87,6 +92,11 @@ describe('session page entry points to the builder', () => {
     await user.click(screen.getByRole('button', { name: 'Create and edit' }));
     expect(screen.getByTestId('where')).toHaveTextContent(
       '/sessions/s1/workflow/my%20flow/edit'
+    );
+    // the editor reads the picked supervisors from `assignments`
+    expect(screen.getByTestId('where')).toHaveAttribute(
+      'data-state',
+      '{"assignments":[]}'
     );
     expect(dialog).not.toBeInTheDocument();
   });
