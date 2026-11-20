@@ -75,6 +75,19 @@ describe('SupervisorsSummary', () => {
     ).toHaveAttribute('href', '/supervisors');
   });
 
+  it('ranks the busiest supervisors first', async () => {
+    server.use(
+      ...handlers([
+        decision('applied', 60_000),
+        { ...decision('applied', 90_000), supervisorId: 'ci' },
+        { ...decision('applied', 120_000), supervisorId: 'ci' },
+      ])
+    );
+    renderWithProviders(<SupervisorsSummary />);
+    const links = await screen.findAllByRole('link', { name: /^(s|ci)$/ });
+    expect(links.map((l) => l.textContent)).toEqual(['ci', 's']);
+  });
+
   it('collapses the strip to one line when there are no decisions', async () => {
     server.use(...handlers([], 0, 0));
     renderWithProviders(<SupervisorsSummary />);

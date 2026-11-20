@@ -84,7 +84,7 @@ describe('DayHeat', () => {
   });
 
   it('shows an empty day', () => {
-    vi.mocked(useHeatmap).mockReturnValue(q());
+    vi.mocked(useHeatmap).mockReturnValue(q({ data: undefined }));
     renderWithProviders(<DayHeat scope="global" live />);
     expect(screen.getByText('0 runs')).toBeInTheDocument();
   });
