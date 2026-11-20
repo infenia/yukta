@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
-# Runs the mocked Playwright specs inside the same image CI uses, so screenshots match CI byte for byte.
-# Screenshot baselines must only ever be written by this script (or CI), never by a bare `playwright test`:
-#   scripts/e2e-docker.sh --update-snapshots            # regenerate every baseline
+# Runs the mocked Playwright specs inside the image CI uses, to reproduce CI's browser and fonts locally.
+# It is NOT guaranteed to render pixel-identical to the GitHub runner (a baseline written here was rejected by CI),
+# so CI stays the authority for baselines: when CI fails on a screenshot, take the expected/actual images from its
+# `playwright-report` artifact (`gh run download <run> -n playwright-report`).
+#   scripts/e2e-docker.sh                               # run the specs
 #   scripts/e2e-docker.sh e2e/tests/control-visual.spec.ts
 # The image tag follows the installed @playwright/test, which is also what CI pins (checked in ci.yml).
 set -euo pipefail
