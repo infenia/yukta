@@ -180,10 +180,14 @@ export const SHOTS: Shot[] = [
       'The Inputs panel of the running release: an approval waiting, with its approval chain.',
     route: WORKFLOW_URL,
     stubs: [stub.releaseRun, stub.pendingInput],
-    ready: (page) =>
-      page
+    ready: (page) => page.getByRole('tab', { name: /^Inputs/ }),
+    actions: async (page) => {
+      await page.getByRole('tab', { name: /^Inputs/ }).click();
+      await page
         .getByRole('region', { name: 'Inputs' })
-        .getByRole('button', { name: 'Approve' }),
+        .getByRole('button', { name: 'Approve' })
+        .waitFor();
+    },
     region: (page) => page.getByRole('region', { name: 'Inputs' }),
     pages: ['/concepts/ai-and-deterministic-work', '/interfaces/web-ui'],
   },

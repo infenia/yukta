@@ -141,6 +141,7 @@ test.describe('examples from the UI on a real server', () => {
       example('04-pr-risk-gate/borderline.json')
     );
     await expect(page.getByText('Waiting for an answer')).toBeVisible();
+    await page.getByRole('tab', { name: /^Inputs/ }).click();
     await page
       .getByRole('main')
       .getByRole('button', { name: 'Approve', exact: true })

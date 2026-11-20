@@ -31,12 +31,14 @@ const HEIGHT_KEY = 'yukta.logsHeight';
 
 /** The dock's tab, kept across runs and reloads. */
 const TAB_KEY = 'yukta.dockTab';
-type DockTab = 'logs' | 'events' | 'agents';
+type DockTab = 'logs' | 'events' | 'agents' | 'inputs';
 
 function storedTab(): DockTab {
   try {
     const value = localStorage.getItem(TAB_KEY);
-    return value === 'events' || value === 'agents' ? value : 'logs';
+    return value === 'events' || value === 'agents' || value === 'inputs'
+      ? value
+      : 'logs';
   } catch {
     return 'logs';
   }
@@ -164,6 +166,7 @@ export function LogsPanel({
   onNode,
   progress = null,
   agents = null,
+  inputs = null,
 }: {
   entries: LogEntry[];
   isStreaming: boolean;
@@ -186,6 +189,8 @@ export function LogsPanel({
     /** Asks the dock to show the Agents tab; a new nonce asks again. */
     focus?: { id: string; nonce: number } | null;
   } | null;
+  /** The Inputs tab: how many requests wait for an answer, and what the tab shows; none, no tab. */
+  inputs?: { waiting: number; content: ReactNode } | null;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [height, setHeight] = useState(storedHeight);
@@ -246,6 +251,8 @@ export function LogsPanel({
   }
   const showEvents = view === 'events' && progress !== null;
   const showAgents = view === 'agents' && agents !== null;
+  const showInputs = view === 'inputs' && inputs !== null;
+  const showOther = showAgents || showInputs;
   const [filter, setFilter] = useState('');
   const [minLevel, setMinLevel] = useState<MinLevel>('all');
   const [autoScroll, setAutoScroll] = useState(true);
@@ -359,7 +366,7 @@ export function LogsPanel({
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-1.5 sm:min-h-11">
         {/* The design has no icon or title here; the heading stays for screen readers */}
         <h2 className="sr-only">Execution logs</h2>
-        {(progress || agents) && (
+        {(progress || agents || inputs) && (
           <div
             role="tablist"
             aria-label="Logs, events or agents"
@@ -367,11 +374,12 @@ export function LogsPanel({
           >
             {(
               [
-                ['logs', 'Logs'],
-                ...(progress ? [['events', 'Events']] : []),
-                ...(agents ? [['agents', 'Agents']] : []),
-              ] as [DockTab, string][]
-            ).map(([key, label]) => (
+                ['logs', 'Logs', 0],
+                ...(progress ? [['events', 'Events', 0]] : []),
+                ...(agents ? [['agents', 'Agents', agents.waiting]] : []),
+                ...(inputs ? [['inputs', 'Inputs', inputs.waiting]] : []),
+              ] as [DockTab, string, number][]
+            ).map(([key, label, waiting]) => (
               <button
                 key={key}
                 type="button"
@@ -386,9 +394,9 @@ export function LogsPanel({
                 )}
               >
                 {label}
-                {key === 'agents' && agents && agents.waiting > 0 && (
+                {waiting > 0 && (
                   <span className="bg-warning text-label-sm text-on-primary ml-1.5 rounded-full px-1.5 tabular-nums">
-                    {agents.waiting}
+                    {waiting}
                     <span className="sr-only"> waiting</span>
                   </span>
                 )}
@@ -420,7 +428,7 @@ export function LogsPanel({
           </span>
         )}
         <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-4 sm:gap-y-1.5">
-          {onNode && nodes.length > 0 && !showAgents && (
+          {onNode && nodes.length > 0 && !showOther && (
             <div className="relative">
               <span
                 aria-hidden="true"
@@ -456,7 +464,7 @@ export function LogsPanel({
               </span>
             </div>
           )}
-          {!showEvents && !showAgents && (
+          {!showEvents && !showOther && (
             <>
               <div
                 role="group"
@@ -632,6 +640,7 @@ export function LogsPanel({
         </div>
       </div>
       {!collapsed && showAgents && agents.content}
+      {!collapsed && showInputs && inputs.content}
       {!collapsed && showEvents && (
         <ol
           className="bg-terminal text-code-sm text-terminal-fg min-h-0 flex-1 overflow-y-auto px-4 py-2 leading-5"
@@ -656,7 +665,7 @@ export function LogsPanel({
           )}
         </ol>
       )}
-      {!collapsed && !showEvents && !showAgents && (
+      {!collapsed && !showEvents && !showOther && (
         <div className="relative min-h-0 flex-1">
           <div
             ref={bodyRef}
