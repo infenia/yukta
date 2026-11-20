@@ -601,7 +601,7 @@ Sizes: S under 2 days, M under a week, L more. Each phase is its own issue and P
 - **S8c, rules and credentials:** Rules settings with replay and JSON; External system settings and the credential panel.
 - **S8d, activity and polish:** Activity, the approval chain in the inbox, palette entries, the Control tile counts, states, Playwright. See "UI and UX design" for the screens (revised 2026-11-09).
 
-**S9. `workflow` engine and nodes (plugins, core, L).** Begin with a spike that answers the evaluation question; then `SUPERVISOR_SIGNAL`, `SUPERVISOR_DECISION`, `SUPERVISOR_READ` and the engine, and port the example `examples/17-supervisor-workflow`. The engine declares the signal kinds that start it; `Tick` is how it initiates.
+**S9. `workflow` engine and nodes (plugins, core, L).** Begin with a spike that answers the evaluation question; then `SUPERVISOR_SIGNAL`, `SUPERVISOR_DECISION`, `SUPERVISOR_READ` and the engine, and port the example `examples/1-standalone/09-supervisor-workflow`. The engine declares the signal kinds that start it; `Tick` is how it initiates.
 
 **S10. Hardening and more engines (M and L).** A threat-model review of the new endpoints against the table above; fuzzing of the directive body; a chaos test (the engine disconnects mid-review, the credential is revoked during a command); the `process` engine; a scaffold `yk new engine <name>`; the docs and the migration note (`docs/operations/security.mdx`, `docs/running/supervisors.mdx`, `docs/api`, `core/.claude/rules/supervisors.md`, `docs/contributing/core-reference.mdx` then `core/scripts/check-core-reference.sh`); regenerate `ui/openapi.json`, `docs/api/openapi.json` and `ui/src/types/api.generated.ts`.
 

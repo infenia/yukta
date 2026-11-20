@@ -285,6 +285,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show the effective values of settings
+         * @description Returns, for each `key` asked for, the value the server uses and where it comes from (argument, system property, environment variable, configuration file). A key nothing sets has a null value and the source `default`: the built-in default applies. Keys must start with yukta., server., spring., management., logging. or springdoc.; at most 500. Secrets (keys, tokens, passwords, credentials, and passwords in URLs) are masked as ******. Needs an ADMIN key.
+         */
+        get: operations["show_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/control/audit": {
         parameters: {
             query?: never;
@@ -3180,6 +3200,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListConfigValue: {
+            /** @description The response data */
+            data?: components["schemas"]["ConfigValue"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListControlAuditEntry: {
             /** @description The response data */
             data?: components["schemas"]["ControlAuditEntry"][];
@@ -5566,6 +5619,21 @@ export interface components {
                 [key: string]: components["schemas"]["WorkflowDefinitionRequest"];
             };
         };
+        /** @description One setting as the running server sees it */
+        ConfigValue: {
+            /**
+             * @description The property key that was asked for
+             * @example server.port
+             */
+            key?: string;
+            /**
+             * @description Where the value comes from, or `default` when nothing sets it
+             * @example environment variable
+             */
+            source?: string;
+            /** @description The value in use, ****** for a secret, or null when nothing sets it and the built-in default applies */
+            value?: string | null;
+        };
         Consulted: components["schemas"]["Signal"] & {
             answers?: {
                 [key: string]: {
@@ -7664,6 +7732,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListInfo"];
+                };
+            };
+        };
+    };
+    show_2: {
+        parameters: {
+            query: {
+                key: string[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListConfigValue"];
                 };
             };
         };

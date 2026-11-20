@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import type { Page } from '@playwright/test';
 import {
   test,
   expect,
@@ -9,6 +10,27 @@ import {
   sseBody,
 } from '../fixtures';
 import { envelope } from '../api-envelope';
+
+/**
+ * The first fit runs before the progress panel has its final width, so the canvas can end up at
+ * either of two zoom levels. Fit again once the layout is final and wait for the viewport to stop.
+ */
+async function fitAndSettle(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Fit view' }).click();
+  const viewport = page.locator('.react-flow__viewport');
+  let last = '';
+  await expect
+    .poll(
+      async () => {
+        const now = (await viewport.getAttribute('style')) ?? '';
+        const settled = now === last;
+        last = now;
+        return settled;
+      },
+      { intervals: [400], timeout: 10_000 }
+    )
+    .toBe(true);
+}
 
 const WORKFLOW_URL = '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11';
 
@@ -451,6 +473,7 @@ test.describe('Workflow Details Page', () => {
     });
     await page.goto(WORKFLOW_URL);
 
+    await page.getByRole('tab', { name: /^Inputs/ }).click();
     const panel = page.getByRole('region', { name: 'Inputs' });
     await expect(panel).toContainText('Release to production?');
     await panel.getByRole('button', { name: 'Approve' }).click();
@@ -664,6 +687,7 @@ test.describe('Workflow Details Page', () => {
         page.getByTestId('workflow-node-Data_Ingress')
       ).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
+      await fitAndSettle(page);
 
       await expect(page).toHaveScreenshot('workflow-details-full-page.webp', {
         ...screenshotOptions.fullLive,
@@ -687,6 +711,7 @@ test.describe('Workflow Details Page', () => {
       }
       await expect(toggle).toHaveAttribute('aria-description', 'Current: dark');
       await page.evaluate(() => document.fonts.ready);
+      await fitAndSettle(page);
 
       await expect(page).toHaveScreenshot(
         'workflow-details-full-page-dark.webp',

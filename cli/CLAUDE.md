@@ -32,7 +32,7 @@ make fmt       # Format code
 
 **Windows:** the Makefile and the Gradle `go*` tasks need a POSIX shell with make, awk and grep (WSL or Git Bash). The released `.exe` is cross-built and needs none of them.
 
-**Exit codes** (a contract for scripts): 0 ok, 1 other failure, 2 usage, 3 not found (404), 4 server (5xx), 5 timeout. `-o` accepts `table` or `json`.
+**Exit codes** (a contract for scripts): 0 ok, 1 other failure, 2 usage, 3 not found (404), 4 server (5xx), 5 timeout, 6 refused by a supervisor (409 `CONTROLLED_BY_SUPERVISOR` or 403 `CONTROL_REJECTED`). `-o` accepts `table` or `json`.
 
 ## Project Structure
 - `cmd/yukta/main.go`: Entry point.

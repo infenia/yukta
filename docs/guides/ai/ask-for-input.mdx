@@ -152,7 +152,7 @@ If the answer is refused, the status says why: `403` names the rule that failed 
 
 - **Let a supervisor answer low-risk questions.** A rules supervisor can approve `LOW` requests by policy: [Write a rules supervisor](/guides/supervise/write-a-rules-supervisor).
 - **Escalation tiers and webhooks.** Supervisors first, then a person, or a chat bot with a one-time token: [Route input requests](/guides/supervise/route-input-requests).
-- **Pull instead of push.** A script can poll `GET /api/inputs` with an `OPERATOR` key and answer; [example 15](https://github.com/infenia/yukta/tree/main/examples/15-input-pull) does it with curl.
+- **Pull instead of push.** A script can poll `GET /api/inputs` with an `OPERATOR` key and answer; [example 07](https://github.com/infenia/yukta/tree/main/examples/1-standalone/07-input-pull) does it with curl.
 - **After a restart.** Requests are held in memory by default: a restart cancels waiting runs and loses their open requests. With the Plus edition and PostgreSQL they survive: [Persist sessions](/guides/operate/persist-sessions).
 
 ## Related

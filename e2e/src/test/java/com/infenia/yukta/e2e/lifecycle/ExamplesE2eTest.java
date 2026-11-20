@@ -45,21 +45,22 @@ class ExamplesE2eTest {
   /** Examples with a {@code run.sh} that this test does not run, and why. */
   private static final Map<String, String> SKIPPED =
       Map.of(
-          "02-agent-verification",
+          "11-agent-verification",
               "its checks run the scripts patch-guard.sh and patch-guard-test.sh",
-          "03-release-approval",
+          "02-release-approval",
               "drives release.sh and a supervisor through several signals in run.sh",
-          "08-alert-triage", "starts a local pager with python3 and needs jq-driven escalations",
-          "10-mcp-agent", "needs an LLM endpoint, not available to a deterministic test",
-          "12-model-promotion", "a multi-round review across sub-workflows, driven by run.sh",
-          "14-security-findings", "a batch with a human decision per finding, driven by run.sh",
-          "18-supervisor-agents", "needs the Python and Go agents of the example",
-          "21-agent-console", "needs the fake-agent harness (AGENT_SESSION with a PTY host)");
+          "12-alert-triage", "starts a local pager with python3 and needs jq-driven escalations",
+          "13-mcp-agent", "drives /mcp with curl JSON-RPC; run-all.sh covers it in the nightly",
+          "05-model-promotion", "a multi-round review across sub-workflows, driven by run.sh",
+          "06-security-findings", "a batch with a human decision per finding, driven by run.sh",
+          "14-supervisor-agents", "needs the Python and Go agents of the example",
+          "16-agent-console", "needs the fake-agent harness (AGENT_SESSION with a PTY host)");
 
   private final Api admin = Api.forRole(ApiRole.ADMIN);
 
+  /** The example folders: {@code examples/<category>/<NN-name>}, the ones with a run.sh. */
   /* default */ static Stream<String> exampleDirs() throws IOException {
-    try (Stream<Path> dirs = Files.list(EXAMPLES)) {
+    try (Stream<Path> dirs = Files.walk(EXAMPLES, 2)) {
       return dirs
           .filter(d -> Files.exists(d.resolve("run.sh")))
           .map(d -> String.valueOf(d.getFileName()))
@@ -69,14 +70,24 @@ class ExamplesE2eTest {
     }
   }
 
+  /** The folder of one example, wherever its category holds it. */
+  private static Path dir(final String example) throws IOException {
+    try (Stream<Path> dirs = Files.walk(EXAMPLES, 2)) {
+      return dirs.filter(
+              d -> Files.isDirectory(d) && example.equals(String.valueOf(d.getFileName())))
+          .findFirst()
+          .orElseThrow(() -> new AssertionError("no example folder " + example));
+    }
+  }
+
   private static String session(final String example) throws IOException {
-    return Files.readString(EXAMPLES.resolve(example).resolve("session.json"));
+    return Files.readString(dir(example).resolve("session.json"));
   }
 
   private static Map<String, Object> payload(final String example, final String file)
       throws IOException {
     return JSON.readValue(
-        Files.readString(EXAMPLES.resolve(example).resolve(file)),
+        Files.readString(dir(example).resolve(file)),
         new tools.jackson.core.type.TypeReference<>() {});
   }
 
@@ -151,9 +162,9 @@ class ExamplesE2eTest {
     }
     switch (example) {
       case "01-hello-world" -> helloWorld(scenarios);
-      case "04-pr-risk-gate" -> prRiskGate(scenarios);
-      case "05-dependency-updates" -> dependencyUpdates(scenarios);
-      case "20-inbox-notification" -> inboxNotification(scenarios);
+      case "03-pr-risk-gate" -> prRiskGate(scenarios);
+      case "04-dependency-updates" -> dependencyUpdates(scenarios);
+      case "10-inbox-notification" -> inboxNotification(scenarios);
       default ->
           throw new AssertionError(
               example + " has a run.sh but is neither run nor listed in SKIPPED with a reason");
@@ -167,7 +178,7 @@ class ExamplesE2eTest {
   }
 
   private void inboxNotification(final Scenarios scenarios) throws IOException {
-    final String session = scenarios.applySession(session("20-inbox-notification"));
+    final String session = scenarios.applySession(session("10-inbox-notification"));
 
     assertThat(run(scenarios, session, "report", Map.of(), "SUCCESS"))
         .contains("nightly report ready");
@@ -180,7 +191,7 @@ class ExamplesE2eTest {
 
   private void prRiskGate(final Scenarios scenarios) throws IOException {
     Files.createDirectories(Path.of("/tmp/yukta-examples/pr-risk-gate"));
-    final String example = "04-pr-risk-gate";
+    final String example = "03-pr-risk-gate";
     final String session = scenarios.applySession(session(example));
 
     assertThat(run(scenarios, session, "pr", payload(example, "low-risk.json"), "SUCCESS"))
@@ -213,7 +224,7 @@ class ExamplesE2eTest {
 
   private void dependencyUpdates(final Scenarios scenarios) throws IOException {
     Files.createDirectories(Path.of("/tmp/yukta-examples/dependency-updates"));
-    final String example = "05-dependency-updates";
+    final String example = "04-dependency-updates";
     final String session = scenarios.applySession(session(example));
 
     assertThat(run(scenarios, session, "updates", payload(example, "invalid.json"), "SUCCESS"))

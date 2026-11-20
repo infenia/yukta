@@ -43,6 +43,7 @@ describe('AppHeader', () => {
     ['/supervisors', 'Supervisors'],
     ['/runs', 'Runs'],
     ['/control', 'Control'],
+    ['/config', 'Config'],
   ])('marks the section of %s as current', (path, label) => {
     render(
       <MemoryRouter initialEntries={[path]}>
@@ -115,6 +116,7 @@ describe('AppHeader', () => {
       ['Plugins', '/plugins'],
       ['Supervisors', '/supervisors'],
       ['Control', '/control'],
+      ['Config', '/config'],
     ]);
   });
 
@@ -218,6 +220,6 @@ describe('MobileNav', () => {
     );
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(nav).toHaveClass('fixed', 'bottom-0', 'sm:hidden');
-    expect(screen.getAllByRole('link')).toHaveLength(5);
+    expect(screen.getAllByRole('link')).toHaveLength(6);
   });
 });

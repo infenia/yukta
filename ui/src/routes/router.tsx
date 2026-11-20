@@ -108,6 +108,13 @@ const router = createBrowserRouter([
         }),
       },
       {
+        path: 'config',
+        lazy: async () => ({
+          Component: (await import('@/features/config/components/ConfigPage'))
+            .ConfigPage,
+        }),
+      },
+      {
         path: 'supervisors/new',
         lazy: async () => ({
           Component: (

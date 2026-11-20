@@ -30,7 +30,7 @@ import { LogsPanel } from './LogsPanel';
 import { AgentsPanel } from './agents/AgentsPanel';
 import { useAgentStream } from '../hooks/useAgentStream';
 import { AgentsByNode, byNode } from '../lib/agentsByNode';
-import { InputsPanel } from './InputsPanel';
+import { InputsPanel, useInputQueries } from './InputsPanel';
 import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
 import { WorkflowCanvas } from './WorkflowCanvas';
@@ -197,6 +197,16 @@ export function WorkflowDetailsPage() {
   // a const keeps the narrowing inside the tab callback below
   const shownNode = sheet.shown;
   const live = !isTerminalExecStatus(progress?.status);
+  const inputQueries = useInputQueries(sessionId, workflowId, live);
+  // no tab until the workflow has asked once, then it stays to say when all are answered
+  const [inputsSeen, setInputsSeen] = useState(false);
+  const inputsAsked =
+    (inputQueries.open.data?.length ?? 0) +
+      (inputQueries.history.data?.length ?? 0) >
+      0 ||
+    inputQueries.open.isError ||
+    inputQueries.history.isError;
+  if (inputsAsked && !inputsSeen) setInputsSeen(true);
   // Rollback is blocked while any run of this workflow is going, not only the one on screen: the
   // shown run's live status comes from its stream, the others from the executions list
   const anyRunLive =
@@ -389,8 +399,6 @@ export function WorkflowDetailsPage() {
         />
       )}
 
-      <InputsPanel sessionId={sessionId} workflowId={workflowId} live={live} />
-
       {nodeError && (
         <div className="px-6 py-2">
           <InlineError message={controlErrorMessage(nodeError)} />
@@ -530,6 +538,20 @@ export function WorkflowDetailsPage() {
                   )}
                 </div>
                 <LogsPanel
+                  inputs={
+                    inputsSeen
+                      ? {
+                          waiting: inputQueries.open.data?.length ?? 0,
+                          content: (
+                            <InputsPanel
+                              sessionId={sessionId}
+                              workflowId={workflowId}
+                              live={live}
+                            />
+                          ),
+                        }
+                      : null
+                  }
                   agents={{
                     waiting: agents.waiting,
                     focus: agentFocus,

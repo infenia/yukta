@@ -90,6 +90,16 @@ import { Diagram } from "/snippets/diagram.jsx";
     yukta.logs.store.retention.default-period-minutes=30
     ```
 
+    These bound what Yukta keeps. The process heap bounds how much memory it may use, and you set it differently for each way of running Yukta:
+
+    | How it runs | How to set the heap |
+    |---|---|
+    | JVM jar | `-Xmx2g` or `-XX:MaxRAMPercentage=75` before `-jar`, or in `JAVA_TOOL_OPTIONS`. With no flag the JVM takes a quarter of the memory it sees; in a container that is the container limit. |
+    | Native binary | `JAVA_TOOL_OPTIONS` is ignored. Pass `-Xmx` as an argument: `yukta -Xmx2g`. The native binary uses the serial garbage collector. Passing `-Xmx` to Yukta's binary has not been tested. |
+    | Docker image | The image runs the native binary, so pass the flag after the image name: `docker run ... ghcr.io/infenia/yukta -Xmx2g`. Set the container's memory limit above the heap. |
+
+    Yukta does not set the Reactor and Netty properties; they keep their library defaults. Standard ones can be given as `-D` arguments (system properties are passed to the native binary the same way, as the nightly smoke test does for `yukta.rate-limit-per-minute`): `-Dreactor.schedulers.defaultPoolSize` and `-Dreactor.schedulers.defaultBoundedElasticSize` size the shared Reactor schedulers, and `-Dio.netty.leakDetection.level` controls buffer leak checks. Yukta's own blocking work runs on a separate pool of up to 100000 virtual threads. Whether these properties take effect in a native binary has not been tested.
+
     Large payloads are not bounded: every node that touches a payload holds it in memory, and Yukta has no reference passing for big data. Keep payloads small, or pass references yourself. The other bounds are in [Configuration reference](/reference/configuration).
   </Step>
   <Step title="Move heavy work and slow branches">

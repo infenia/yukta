@@ -109,9 +109,9 @@ class SupervisorCatalogTest {
 
   private static Stream<String> profileFiles() {
     return Stream.of(
-        "examples/16-supervisor-profiles/input-requests.json",
-        "examples/17-supervisor-workflow/supervisor.json",
-        "examples/17-supervisor-workflow/section-supervisor.json");
+        "examples/1-standalone/08-supervisor-profiles/input-requests.json",
+        "examples/1-standalone/09-supervisor-workflow/supervisor.json",
+        "examples/1-standalone/09-supervisor-workflow/section-supervisor.json");
   }
 
   @SuppressWarnings("unchecked")
