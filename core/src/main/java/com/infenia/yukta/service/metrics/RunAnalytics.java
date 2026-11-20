@@ -6,6 +6,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.review.EngineLatency;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
 import io.micrometer.core.instrument.Metrics;
 import jakarta.annotation.PostConstruct;
@@ -69,6 +70,8 @@ public class RunAnalytics {
   /** The scope of the whole server. */
   public static final String GLOBAL = "global";
 
+  private static final String WORKFLOW_SCOPE = "workflow:";
+
   /** Most sessions, and most workflows, tracked on their own. */
   private static final int MAX_SCOPES = 50;
 
@@ -98,6 +101,15 @@ public class RunAnalytics {
   /** Statuses that count as a failure. */
   private static final Set<String> FAILED =
       Set.of(TaskStatus.FAILURE.name(), TaskStatus.TIMED_OUT.name());
+
+  /**
+   * Distinct nodes kept per minute (in the server bucket only); later ones that minute are left
+   * out.
+   */
+  private static final int MAX_NODE_KEYS = 50;
+
+  /** Duration samples kept per node and minute. */
+  private static final int NODE_SAMPLES = 16;
 
   /** The kind of scope for session and workflow keys. */
   private static final String OTHER = "other";
@@ -138,6 +150,9 @@ public class RunAnalytics {
   /** The subscription to the feed. */
   private Disposable subscription;
 
+  /** The subscription to the engine timings. */
+  private Disposable latencySubscription;
+
   /**
    * Creates the aggregator, seeded at start from the execution log when there is one.
    *
@@ -172,6 +187,8 @@ public class RunAnalytics {
             .onBackpressureBuffer(10_000, _ -> countDropped(), BufferOverflowStrategy.DROP_LATEST)
             .publishOn(Schedulers.single())
             .subscribe(this::accept);
+    latencySubscription =
+        feed.latencies().publishOn(Schedulers.single()).subscribe(this::onLatency);
   }
 
   /**
@@ -204,6 +221,9 @@ public class RunAnalytics {
     if (subscription != null) {
       subscription.dispose();
     }
+    if (latencySubscription != null) {
+      latencySubscription.dispose();
+    }
   }
 
   /** What the aggregator keeps per minute. */
@@ -215,6 +235,32 @@ public class RunAnalytics {
     private int waitCount;
     private final List<String> failedRuns = new ArrayList<>();
     private final Map<String, double[]> modules = new TreeMap<>();
+    private final Samples start = new Samples();
+    private final Samples handoff = new Samples();
+    private final Map<NodeKey, NodeStat> nodes = new HashMap<>();
+
+    private void addNode(
+        final NodeKey key,
+        final String module,
+        final boolean failed,
+        final double ms,
+        final String executionId) {
+      NodeStat stat = nodes.get(key);
+      if (stat == null) {
+        if (nodes.size() >= MAX_NODE_KEYS) {
+          return;
+        }
+        stat = new NodeStat(module);
+        nodes.put(key, stat);
+      }
+      stat.runs++;
+      stat.failures += failed ? 1 : 0;
+      stat.lastExecutionId = executionId;
+      if (ms >= 0) {
+        stat.timed++;
+        reserve(stat.samples, stat.timed, ms, NODE_SAMPLES);
+      }
+    }
 
     private void addWait(final double wait) {
       waitCount++;
@@ -234,11 +280,16 @@ public class RunAnalytics {
 
     /** Reservoir sampling: after {@code seen} values, each one is kept with equal chance. */
     private static void reserve(final double[] sample, final int seen, final double value) {
-      if (seen <= SAMPLES) {
+      reserve(sample, seen, value, SAMPLES);
+    }
+
+    private static void reserve(
+        final double[] sample, final int seen, final double value, final int size) {
+      if (seen <= size) {
         sample[seen - 1] = value;
       } else {
         final int slot = ThreadLocalRandom.current().nextInt(seen);
-        if (slot < SAMPLES) {
+        if (slot < size) {
           sample[slot] = value;
         }
       }
@@ -252,6 +303,8 @@ public class RunAnalytics {
       c.durationCount = durationCount;
       System.arraycopy(waits, 0, c.waits, 0, SAMPLES);
       c.waitCount = waitCount;
+      c.start.load(start);
+      c.handoff.load(handoff);
       return c;
     }
 
@@ -264,6 +317,43 @@ public class RunAnalytics {
     }
   }
 
+  /** Up to {@value #SAMPLES} values of one minute, chosen by reservoir sampling. */
+  private static final class Samples {
+    private final double[] values = new double[SAMPLES];
+    private int count;
+
+    private void add(final double value) {
+      count++;
+      Bucket.reserve(values, count, value);
+    }
+
+    private void load(final Samples from) {
+      System.arraycopy(from.values, 0, values, 0, SAMPLES);
+      count = from.count;
+    }
+
+    private List<Double> list() {
+      return Arrays.stream(values, 0, Math.min(count, SAMPLES)).boxed().toList();
+    }
+  }
+
+  /** A node of a workflow of a session. */
+  private record NodeKey(String sessionId, String workflowId, String nodeId) {}
+
+  /** What one node did in one minute. */
+  private static final class NodeStat {
+    private final String module;
+    private long runs;
+    private long failures;
+    private int timed;
+    private final double[] samples = new double[NODE_SAMPLES];
+    private String lastExecutionId;
+
+    private NodeStat(final String module) {
+      this.module = module;
+    }
+  }
+
   /** A run that has not ended. */
   private static final class RunState {
     private final String sessionId;
@@ -273,6 +363,7 @@ public class RunAnalytics {
     private final Set<String> nodesSeen = new HashSet<>();
     private final Set<String> nodesDone = new HashSet<>();
     private final Map<String, Instant> nodeStarted = new HashMap<>();
+    private boolean paused;
 
     private RunState(final String sessionId, final String workflowId) {
       this.sessionId = sessionId;
@@ -329,6 +420,30 @@ public class RunAnalytics {
   public record ModuleRow(String module, long executions, long failures, double avgMs) {}
 
   /**
+   * How one node of one workflow in one session did.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param nodeId the node
+   * @param module the node's plugin type
+   * @param runs times it ended
+   * @param failures how many of them failed
+   * @param p50Ms median duration in milliseconds over the sampled runs, 0 when none was timed
+   * @param p95Ms 95th percentile duration in milliseconds over the sampled runs
+   * @param lastExecutionId the newest run it ended in
+   */
+  public record NodeRow(
+      String sessionId,
+      String workflowId,
+      String nodeId,
+      String module,
+      long runs,
+      long failures,
+      double p50Ms,
+      double p95Ms,
+      String lastExecutionId) {}
+
+  /**
    * A run in progress.
    *
    * @param executionId the run
@@ -339,6 +454,8 @@ public class RunAnalytics {
    * @param nodesDone nodes that ended
    * @param nodesSeen nodes that have started or ended
    * @param p95Ms the workflow's usual p95 duration over the last day, or null when unknown
+   * @param paused whether the last pause or resume command applied to it was a pause
+   * @param currentNodes the nodes that have started and not ended, by id
    * @param nodesTotal nodes in the run's graph, or null when unknown; filled in by the web layer
    */
   public record LiveRun(
@@ -350,7 +467,14 @@ public class RunAnalytics {
       int nodesDone,
       int nodesSeen,
       @Nullable Double p95Ms,
+      boolean paused,
+      List<String> currentNodes,
       @Nullable Integer nodesTotal) {
+
+    /** Keeps an immutable copy of the node ids. */
+    public LiveRun {
+      currentNodes = List.copyOf(currentNodes);
+    }
 
     /**
      * Copy with the node total filled in.
@@ -368,6 +492,8 @@ public class RunAnalytics {
           nodesDone,
           nodesSeen,
           p95Ms,
+          paused,
+          currentNodes,
           total);
     }
   }
@@ -475,6 +601,14 @@ public class RunAnalytics {
   }
 
   private void onControl(final ExecutionEvent.ControlOutcome e) {
+    final RunState run = live.get(e.executionId());
+    if (run != null && e.applied()) {
+      if (e.command().startsWith("PauseWorkflow")) {
+        run.paused = true;
+      } else if (e.command().startsWith("ResumeWorkflow")) {
+        run.paused = false;
+      }
+    }
     addAnnotation(
         new Annotation(
             e.timestamp().toEpochMilli(),
@@ -504,13 +638,28 @@ public class RunAnalytics {
       final Instant started = run.nodeStarted.remove(e.nodeId());
       final double ms = started == null ? 0 : Duration.between(started, e.timestamp()).toMillis();
       final boolean failed = FAILED.contains(e.status());
-      for (final Bucket b : buckets(run, e.timestamp())) {
+      final List<Bucket> bs = buckets(run, e.timestamp());
+      for (final Bucket b : bs) {
         final double[] stat = b.modules.computeIfAbsent(e.module(), _ -> new double[3]);
         stat[0]++;
         stat[1] += failed ? 1 : 0;
         stat[2] += ms;
       }
+      // per node only in the server's bucket; a session or workflow reads it from there
+      bs.get(0)
+          .addNode(
+              new NodeKey(run.sessionId, run.workflowId, e.nodeId()),
+              e.module(),
+              failed,
+              started == null ? -1 : ms,
+              e.executionId());
     }
+  }
+
+  /* default */ synchronized void onLatency(final EngineLatency l) {
+    final RunState run = new RunState(l.sessionId(), l.workflowId());
+    buckets(run, clock.instant())
+        .forEach(b -> (l.stage() == EngineLatency.Stage.START ? b.start : b.handoff).add(l.ms()));
   }
 
   private void onRun(final ExecutionEvent.WorkflowStatusChanged e) {
@@ -548,7 +697,7 @@ public class RunAnalytics {
     final List<Bucket> out = new ArrayList<>(3);
     out.add(bucket(GLOBAL, minute));
     out.add(bucket(scopeKey("session:", run.sessionId), minute));
-    out.add(bucket(scopeKey("workflow:", run.workflowId), minute));
+    out.add(bucket(scopeKey(WORKFLOW_SCOPE, run.workflowId), minute));
     return out;
   }
 
@@ -616,6 +765,8 @@ public class RunAnalytics {
       if (b.waitCount > 0) {
         values.put("queue.wait.p95", percentile(b.sampledWaits(), 0.95));
       }
+      putOverhead(values, "overhead.start", b.start.list());
+      putOverhead(values, "overhead.handoff", b.handoff.list());
       values.forEach((name, v) -> {
         if (names.stream().anyMatch(name::startsWith)) {
           out.computeIfAbsent(name, _ -> new ArrayList<>())
@@ -626,9 +777,18 @@ public class RunAnalytics {
     return out;
   }
 
+  private static void putOverhead(
+      final Map<String, Double> values, final String name, final List<Double> samples) {
+    if (!samples.isEmpty()) {
+      values.put(name + ".p50", percentile(samples, 0.5));
+      values.put(name + ".p95", percentile(samples, 0.95));
+    }
+  }
+
   /**
    * The aggregates of the last hour as single values: {@code runs.finished}, {@code runs.<STATUS>},
-   * {@code runs.failed} and {@code duration.p95} in milliseconds.
+   * {@code runs.failed}, {@code duration.p95}, {@code overhead.start.p95} and {@code
+   * overhead.handoff.p95} in milliseconds.
    *
    * @param scope the scope
    * @return name to value; empty for an unknown scope or nothing in the hour
@@ -637,6 +797,8 @@ public class RunAnalytics {
   public Map<String, Double> snapshot(final String scope) {
     final Map<String, Double> out = new TreeMap<>();
     final List<Double> durations = new ArrayList<>();
+    final List<Double> starts = new ArrayList<>();
+    final List<Double> handoffs = new ArrayList<>();
     double finished = 0;
     double failed = 0;
     final List<Bucket> copy;
@@ -652,6 +814,14 @@ public class RunAnalytics {
         }
       }
       durations.addAll(b.sampledDurations());
+      starts.addAll(b.start.list());
+      handoffs.addAll(b.handoff.list());
+    }
+    if (!starts.isEmpty()) {
+      out.put("overhead.start.p95", percentile(starts, 0.95));
+    }
+    if (!handoffs.isEmpty()) {
+      out.put("overhead.handoff.p95", percentile(handoffs, 0.95));
     }
     if (finished > 0) {
       out.put("runs.finished", finished);
@@ -717,6 +887,59 @@ public class RunAnalytics {
   }
 
   /**
+   * How each node did within the range, slowest first.
+   *
+   * @param scope the scope: the server, or one session or workflow
+   * @param range how far back
+   * @param limit most rows returned
+   * @return one row per node of a workflow of a session, by 95th percentile duration, highest first
+   */
+  public synchronized List<NodeRow> nodes(
+      final String scope, final Duration range, final int limit) {
+    final Map<NodeKey, NodeStat> sum = new HashMap<>();
+    final Map<NodeKey, List<Double>> pooled = new HashMap<>();
+    within(GLOBAL, range)
+        .values()
+        .forEach(b ->
+            b.nodes.forEach((key, stat) -> {
+              if (inScope(scope, key)) {
+                final NodeStat total = sum.computeIfAbsent(key, _ -> new NodeStat(stat.module));
+                total.runs += stat.runs;
+                total.failures += stat.failures;
+                total.lastExecutionId = stat.lastExecutionId;
+                final List<Double> samples = pooled.computeIfAbsent(key, _ -> new ArrayList<>());
+                for (int i = 0; i < Math.min(stat.timed, NODE_SAMPLES); i++) {
+                  samples.add(stat.samples[i]);
+                }
+              }
+            }));
+    return sum.entrySet().stream()
+        .map(e -> {
+          final List<Double> samples = pooled.get(e.getKey());
+          final NodeStat t = e.getValue();
+          return new NodeRow(
+              e.getKey().sessionId(),
+              e.getKey().workflowId(),
+              e.getKey().nodeId(),
+              t.module,
+              t.runs,
+              t.failures,
+              samples.isEmpty() ? 0 : percentile(samples, 0.5),
+              samples.isEmpty() ? 0 : percentile(samples, 0.95),
+              t.lastExecutionId);
+        })
+        .sorted(Comparator.comparingDouble(NodeRow::p95Ms).reversed())
+        .limit(limit)
+        .toList();
+  }
+
+  private static boolean inScope(final String scope, final NodeKey key) {
+    return GLOBAL.equals(scope)
+        || scope.equals("session:" + key.sessionId())
+        || scope.equals(WORKFLOW_SCOPE + key.workflowId());
+  }
+
+  /**
    * The runs in progress, longest running first.
    *
    * @return one entry per run that has started and not ended
@@ -736,6 +959,8 @@ public class RunAnalytics {
               r.nodesDone.size(),
               r.nodesSeen.size(),
               baseline(r.workflowId),
+              r.paused,
+              r.nodeStarted.keySet().stream().sorted().toList(),
               null);
         })
         .sorted((a, b) -> Long.compare(b.elapsedMs(), a.elapsedMs()))
@@ -744,7 +969,7 @@ public class RunAnalytics {
 
   /** The workflow's p95 duration over its kept buckets, or null without samples. */
   private Double baseline(final String workflowId) {
-    final NavigableMap<Long, Bucket> all = scopes.get("workflow:" + workflowId);
+    final NavigableMap<Long, Bucket> all = scopes.get(WORKFLOW_SCOPE + workflowId);
     if (all == null) {
       return null;
     }
@@ -769,7 +994,7 @@ public class RunAnalytics {
         .filter(a ->
             GLOBAL.equals(scope)
                 || scope.equals("session:" + a.sessionId())
-                || scope.equals("workflow:" + a.workflowId()))
+                || scope.equals(WORKFLOW_SCOPE + a.workflowId()))
         .toList();
   }
 }

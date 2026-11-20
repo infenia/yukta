@@ -378,7 +378,7 @@ export const test = base.extend<TestFixtures>({
     await quiet(/\/api\/control\/audit/, 200, []);
     // The Control dashboard's endpoints, empty. mockMetricsApi (utils.ts) fills them with data.
     await quiet(
-      /\/api\/metrics\/(heatmap|modules|annotations|runs\/live)(\?|$)/,
+      /\/api\/metrics\/(heatmap|modules|nodes|annotations|runs\/live)(\?|$)/,
       200,
       []
     );

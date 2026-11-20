@@ -150,7 +150,9 @@ public class BootstrapRunner implements ApplicationRunner {
                     .log("Bootstrap done"))
             .doFinally(_ -> firstPassDone());
     final Flux<Integer> pipeline =
-        watch ? first.thenMany(Flux.interval(interval).concatMap(_ -> apply())) : first.flux();
+        watch
+            ? first.thenMany(Flux.interval(interval).onBackpressureDrop().concatMap(_ -> apply()))
+            : first.flux();
     watcher = pipeline.subscribe(_ -> {}, e -> log.atError().setCause(e).log("Bootstrap ended"));
   }
 

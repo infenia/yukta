@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { buttonVariants } from '@/components/ui/button';
 import { HeatStrip } from '@/components/dashboard/Strips';
-import { KpiTile } from '@/components/dashboard/KpiTile';
+import { Panel } from '@/components/dashboard/Tile';
 import { useFallbackPoll } from '@/features/control/context/ControlEventsContext';
 import { getSupervisorDecisions } from '../api/supervisors';
 import { getSupervisionSummary } from '../api/supervision';
@@ -59,45 +59,44 @@ export function SupervisorsSummary() {
   const perSupervisor = [...perId].sort((a, b) => b[1] - a[1]).slice(0, TOP);
 
   return (
-    <section aria-label="Supervisors" className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-headline-md text-on-surface">Supervisors</h2>
+    <Panel
+      title="Supervisors"
+      action={
         <Link
           to="/supervisors"
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
         >
           Open supervisors
         </Link>
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Link to="/supervisors" aria-label="Supervisors tile">
-          <KpiTile label="Supervisors" value={na(supervisors.data?.length)} />
-        </Link>
-        <KpiTile label="Assignments" value={na(attachments.data?.length)} />
-        <Link
+      }
+    >
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
+        <Stat
+          label="Supervisors"
+          value={na(supervisors.data?.length)}
+          to="/supervisors"
+          aria="Supervisors tile"
+        />
+        <Stat label="Assignments" value={na(attachments.data?.length)} />
+        <Stat
+          label="Direct control"
+          value={na(summary.data?.unowned)}
           to="/supervisors?supervisor=default"
-          aria-label="Under direct control tile"
-        >
-          <KpiTile
-            label="Under direct control"
-            value={na(summary.data?.unowned)}
-          />
-        </Link>
-        <KpiTile
-          label="Applied"
-          value={decisions.data ? String(count('applied')) : '–'}
+          aria="Under direct control tile"
+          title={
+            summary.data
+              ? `${plural(summary.data.unowned, 'workflow', 'workflows')} nobody supervises`
+              : undefined
+          }
         />
-        <KpiTile
-          label="Refused"
-          value={decisions.data ? String(count('rejected')) : '–'}
+        <Stat
+          label="Applied / refused"
+          value={
+            decisions.data ? `${count('applied')} / ${count('rejected')}` : '–'
+          }
+          title={`Of the newest ${list.length} decisions the server still holds`}
         />
-      </div>
-      <p className="text-body-sm text-on-surface-variant">
-        Applied and Refused count the newest {list.length} decisions the server
-        still holds.
-        {summary.data &&
-          ` ${plural(summary.data.unowned, 'workflow', 'workflows')} nobody owns.`}
-      </p>
+      </dl>
       {list.length === 0 ? (
         <p className="text-body-sm text-on-surface-variant">
           No supervisor decisions yet.
@@ -115,7 +114,7 @@ export function SupervisorsSummary() {
           <p className="text-body-sm text-on-surface-variant">
             Last {list.length} decisions · {hours.toFixed(1)} h
           </p>
-          <ul className="flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-x-3 gap-y-1">
             {perSupervisor.map(([id, n]) => (
               <li key={id}>
                 <Link
@@ -132,6 +131,35 @@ export function SupervisorsSummary() {
           </ul>
         </>
       )}
-    </section>
+    </Panel>
+  );
+}
+
+/** One number of the card; a link when it has somewhere to go. */
+function Stat({
+  label,
+  value,
+  to,
+  aria,
+  title,
+}: {
+  label: string;
+  value: string;
+  to?: string;
+  aria?: string;
+  title?: string;
+}) {
+  const body = (
+    <div title={title}>
+      <dt className="text-label-sm text-on-surface-variant">{label}</dt>
+      <dd className="text-headline-md num text-on-surface">{value}</dd>
+    </div>
+  );
+  return to ? (
+    <Link to={to} aria-label={aria}>
+      {body}
+    </Link>
+  ) : (
+    body
   );
 }

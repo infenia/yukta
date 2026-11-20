@@ -169,6 +169,9 @@ class ProcessorNodeAssemblerStrategyTest {
     assembler.assemble(context);
 
     verify(processor).process(any(), any());
+    // the run's start is noted once the node is wired; a plain stream has no per-message hand-off
+    verify(tracker).recordPluginStart(context.executionId());
+    verify(tracker, never()).recordHandoff(anyString(), any(Duration.class));
     assertThat(context.streams()[0]).isSameAs(broadcast);
   }
 
@@ -818,6 +821,8 @@ class ProcessorNodeAssemblerStrategyTest {
         .verifyComplete();
 
     verify(tracker).recordRetry("processor");
+    // only the first attempt of a message is a hand-off; the retry is not
+    verify(tracker).recordHandoff(anyString(), any(Duration.class));
   }
 
   @Test

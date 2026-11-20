@@ -1263,6 +1263,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/metrics/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Slowest nodes
+         * @description Runs, failures and duration percentiles per node of a workflow of a session
+         */
+        get: operations["nodes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/metrics/runs/live": {
         parameters: {
             query?: never;
@@ -3596,6 +3616,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListNodeRow: {
+            /** @description The response data */
+            data?: components["schemas"]["NodeRow"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListNotificationView: {
             /** @description The response data */
             data?: components["schemas"]["NotificationView"][];
@@ -5657,8 +5710,10 @@ export interface components {
             command?: string;
             executionId?: string;
             reason?: string;
+            sessionId?: string;
             /** Format: date-time */
             time?: string;
+            workflowId?: string;
         };
         ControlOutcome: components["schemas"]["ExecutionEvent"] & {
             actor?: string;
@@ -6200,6 +6255,7 @@ export interface components {
             text?: string;
         };
         LiveRun: {
+            currentNodes?: string[];
             /** Format: int64 */
             elapsedMs?: number;
             executionId?: string;
@@ -6211,6 +6267,7 @@ export interface components {
             nodesTotal?: number;
             /** Format: double */
             p95Ms?: number;
+            paused?: boolean;
             sessionId?: string;
             /** Format: int64 */
             startedAt?: number;
@@ -6315,6 +6372,21 @@ export interface components {
             nodeId: string;
             /** @description Plugin type */
             type: string;
+        };
+        NodeRow: {
+            /** Format: int64 */
+            failures?: number;
+            lastExecutionId?: string;
+            module?: string;
+            nodeId?: string;
+            /** Format: double */
+            p50Ms?: number;
+            /** Format: double */
+            p95Ms?: number;
+            /** Format: int64 */
+            runs?: number;
+            sessionId?: string;
+            workflowId?: string;
         };
         NodeStatusChanged: components["schemas"]["ExecutionEvent"] & {
             executionId?: string;
@@ -9022,6 +9094,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListModuleRow"];
+                };
+            };
+        };
+    };
+    nodes: {
+        parameters: {
+            query?: {
+                range?: string;
+                scope?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListNodeRow"];
                 };
             };
         };

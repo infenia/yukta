@@ -5,7 +5,10 @@ import { useState } from 'react';
 import { formatDateTime } from '@/features/workflow/lib/timeFormat';
 import { useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
+import { NativeSelect } from '@/components/ui/native-select';
+import { api } from '@/lib/apiClient';
 import { useFallbackPoll } from '../context/ControlEventsContext';
 import { fetchApi } from '@/lib/apiClient';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -27,6 +30,9 @@ export interface ControlAuditEntry {
   actor: string | null;
   applied: boolean;
   reason: string | null;
+  /** the run's session and workflow; null once the server no longer holds the run */
+  sessionId?: string | null;
+  workflowId?: string | null;
 }
 
 /**
@@ -54,42 +60,122 @@ const getAudit = (limit: number, executionId: string) =>
       (executionId ? `&executionId=${encodeURIComponent(executionId)}` : '')
   );
 
-/** Who sent which control command, newest first. */
+/** `SetLimits(2, 0)` is the command `SetLimits`, whatever its arguments. */
+const commandName = (command: string) => command.replace(/\(.*$/, '');
+
+type Result = 'all' | 'applied' | 'refused';
+
+/** The run view of a command's run, when the server still knows the run's session and workflow. */
+const runLink = (e: ControlAuditEntry) =>
+  e.sessionId && e.workflowId
+    ? `${api`/sessions/${e.sessionId}/workflow/${e.workflowId}`}?exec=${encodeURIComponent(e.executionId)}`
+    : null;
+
+/** Applied or refused, as a badge: the reason of a refusal reads next to it. */
+function ResultBadge({ entry }: { entry: ControlAuditEntry }) {
+  return entry.applied ? (
+    <span className="bg-success/10 text-success text-label-sm rounded-full px-2 py-0.5">
+      Applied
+    </span>
+  ) : (
+    <span className="flex flex-wrap items-center gap-1">
+      <span className="bg-destructive/10 text-destructive text-label-sm rounded-full px-2 py-0.5">
+        Refused
+      </span>
+      {entry.reason && (
+        <span className="text-body-sm text-on-surface-variant">
+          {entry.reason}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Who sent which control command, newest first, with filters over what was loaded. */
 export function ControlAuditPanel() {
   const poll = useFallbackPoll();
   // ?execution=<id> shows the commands of one run (the run view links here)
   const [params, setParams] = useSearchParams();
   const execution = params.get('execution') ?? '';
   const [limit, setLimit] = useState(PAGE);
+  const [result, setResult] = useState<Result>('all');
+  const [command, setCommand] = useState('');
+  const [actor, setActor] = useState('');
   const audit = useQuery({
     queryKey: ['control', 'audit', execution, limit],
     queryFn: () => getAudit(limit, execution),
     refetchInterval: poll,
     placeholderData: (previous) => previous,
   });
-  const keys = audit.data ? rowKeys(audit.data) : [];
+  const loaded = audit.data ?? [];
+  const keys = rowKeys(loaded);
+  const commands = [...new Set(loaded.map((e) => commandName(e.command)))];
+  const actors = [...new Set(loaded.map((e) => e.actor ?? 'api'))];
+  const shown = loaded
+    .map((entry, index) => ({ entry, key: keys[index] }))
+    .filter(
+      ({ entry: e }) =>
+        (result === 'all' || (result === 'applied') === e.applied) &&
+        (command === '' || commandName(e.command) === command) &&
+        (actor === '' || (e.actor ?? 'api') === actor)
+    );
 
   return (
     <section aria-labelledby="audit-heading" className="flex flex-col gap-2">
-      <h2 id="audit-heading" className="text-headline-md text-on-surface">
-        Who did what
+      <h2 id="audit-heading" className="sr-only">
+        Control audit
       </h2>
-      {execution && (
-        <p className="text-body-sm text-on-surface-variant flex items-center gap-2">
-          Commands of run <span className="text-code-sm">{execution}</span>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              const next = new URLSearchParams(params);
-              next.delete('execution');
-              setParams(next, { replace: true });
-            }}
-          >
-            Show all
-          </Button>
-        </p>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <NativeSelect
+          aria-label="Result"
+          value={result}
+          onChange={(e) => setResult(e.target.value as Result)}
+        >
+          <option value="all">Any result</option>
+          <option value="applied">Applied</option>
+          <option value="refused">Refused</option>
+        </NativeSelect>
+        <NativeSelect
+          aria-label="Command"
+          value={command}
+          onChange={(e) => setCommand(e.target.value)}
+        >
+          <option value="">Any command</option>
+          {commands.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </NativeSelect>
+        <NativeSelect
+          aria-label="Actor"
+          value={actor}
+          onChange={(e) => setActor(e.target.value)}
+        >
+          <option value="">Any actor</option>
+          {actors.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </NativeSelect>
+        {execution && (
+          <p className="text-body-sm text-on-surface-variant flex items-center gap-2">
+            Commands of run <span className="text-code-sm">{execution}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                const next = new URLSearchParams(params);
+                next.delete('execution');
+                setParams(next, { replace: true });
+              }}
+            >
+              Show all
+            </Button>
+          </p>
+        )}
+      </div>
       {audit.error ? (
         <StateMessage
           tone="error"
@@ -99,12 +185,14 @@ export function ControlAuditPanel() {
         />
       ) : audit.isPending ? (
         <StateMessage tone="loading" title="Loading…" compact />
-      ) : audit.data.length === 0 ? (
+      ) : loaded.length === 0 ? (
         <StateMessage
           title="No control commands recorded yet."
           icon="history"
           compact
         />
+      ) : shown.length === 0 ? (
+        <StateMessage title="No commands match the filters." compact />
       ) : (
         <TableFrame>
           <Table>
@@ -113,32 +201,55 @@ export function ControlAuditPanel() {
                 <TableHead>Time</TableHead>
                 <TableHead>Actor</TableHead>
                 <TableHead>Command</TableHead>
-                <TableHead>Execution</TableHead>
+                <TableHead>Workflow</TableHead>
                 <TableHead>Result</TableHead>
+                <TableHead>Run</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {audit.data.map((entry, index) => (
-                <TableRow key={keys[index]}>
-                  <TableCell className="text-on-surface-variant">
-                    {formatDateTime(entry.time)}
-                  </TableCell>
-                  <TableCell className="text-code-sm">
-                    {entry.actor ?? 'api'}
-                  </TableCell>
-                  <TableCell className="text-code-sm">
-                    {entry.command}
-                  </TableCell>
-                  <TableCell className="text-code-sm text-on-surface-variant">
-                    {entry.executionId}
-                  </TableCell>
-                  <TableCell>
-                    {entry.applied
-                      ? 'Applied'
-                      : `Refused: ${entry.reason ?? ''}`}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {shown.map(({ entry, key }) => {
+                const link = runLink(entry);
+                return (
+                  <TableRow key={key}>
+                    <TableCell className="text-on-surface-variant">
+                      {formatDateTime(entry.time)}
+                    </TableCell>
+                    <TableCell className="text-code-sm">
+                      {entry.actor ?? 'api'}
+                    </TableCell>
+                    <TableCell className="text-code-sm">
+                      {entry.command}
+                    </TableCell>
+                    <TableCell>
+                      {entry.workflowId ? (
+                        <>
+                          {entry.workflowId}
+                          <span className="text-on-surface-variant">
+                            {' '}
+                            · {entry.sessionId}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-on-surface-variant">–</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <ResultBadge entry={entry} />
+                    </TableCell>
+                    <TableCell className="text-code-sm">
+                      {link ? (
+                        <Link className="text-primary" to={link}>
+                          {entry.executionId.slice(0, 8)}
+                        </Link>
+                      ) : (
+                        <span className="text-on-surface-variant">
+                          {entry.executionId}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableFrame>
