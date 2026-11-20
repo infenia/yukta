@@ -240,6 +240,57 @@ test.describe('Workflow editor - loading', () => {
     ).toHaveCount(0);
   });
 
+  test('the + under a node on the canvas adds a step after it', async ({
+    page,
+  }) => {
+    await open(page);
+
+    await page
+      .getByRole('button', { name: 'Add a step after compile' })
+      .click();
+    await page.getByLabel('Search steps').fill('ShellProcessor');
+    await page.keyboard.press('Enter');
+
+    await expect(
+      page.getByTestId('workflow-node-shellprocessor-1')
+    ).toBeVisible();
+    await expect(nodeButton(page, 'shellprocessor-1')).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    // a terminal ends a branch: no + under it
+    await expect(
+      page.getByRole('button', { name: 'Add a step after out' })
+    ).toHaveCount(0);
+  });
+
+  test('the + on an edge puts a step between its two nodes', async ({
+    page,
+  }) => {
+    await open(page);
+    await outline(page).getByRole('tab', { name: /Edges/ }).click();
+    await expect(
+      outline(page).getByRole('tab', { name: /Edges\s*2/ })
+    ).toBeVisible();
+
+    await page
+      .getByRole('button', { name: 'Add a step between start and compile' })
+      .click();
+    await page.getByLabel('Search steps').fill('ShellProcessor');
+    await page.keyboard.press('Enter');
+
+    await expect(
+      page.getByTestId('workflow-node-shellprocessor-1')
+    ).toBeVisible();
+    // start -> compile became start -> new -> compile: one edge more
+    await expect(
+      outline(page).getByRole('tab', { name: /Edges\s*3/ })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Add a step between start and compile' })
+    ).toHaveCount(0);
+  });
+
   test('Undo takes back the last change and Redo brings it back', async ({
     page,
   }) => {

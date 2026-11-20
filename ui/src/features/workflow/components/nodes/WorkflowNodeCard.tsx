@@ -5,6 +5,7 @@ import { Handle, Position } from '@xyflow/react';
 import { useContext } from 'react';
 import { Link } from 'react-router';
 import { NodeSupervisors } from '../../hooks/useNodeSupervisors';
+import { NodeAdder } from '../../lib/stepAdders';
 import { NodeOwner } from './NodeOwner';
 import { SubWorkflowLinks } from '../../hooks/useSubWorkflowLinks';
 import type { NodeProps } from '@xyflow/react';
@@ -98,6 +99,7 @@ export function WorkflowNodeCard({
   const agent = useContext(AgentsByNode)[node.nodeId];
   const subWorkflowHref = useContext(SubWorkflowLinks).get(node.nodeId);
   const owner = useContext(NodeSupervisors).get(node.nodeId);
+  const adder = useContext(NodeAdder);
   const isTrigger = node.category === 'TRIGGER';
   const icon = pluginIcon(node.type, node.category);
   // The raw task status tells e.g. "Timed out" from "Failed"; without one, the bucket's label.
@@ -144,6 +146,15 @@ export function WorkflowNodeCard({
         STATUS_CARD_CLASSES[status]
       )}
     >
+      {adder && node.category !== 'TERMINAL' && (
+        // under the card, where the next step goes; it is not a click on the node
+        <div
+          className="nodrag nopan absolute -bottom-3 left-1/2 z-10 -translate-x-1/2"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {adder(node)}
+        </div>
+      )}
       {node.issues && (node.issues.errors > 0 || node.issues.warnings > 0) && (
         <span
           role="img"
