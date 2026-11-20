@@ -17,7 +17,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 
 **Use this when** more than one person, script or agent will call the server, or when workflows run commands, SQL or HTTP calls you want to bound. A fresh server listens on `127.0.0.1` only and takes no key. These steps assume you opened it as described in [Deploy Yukta](/guides/operate/deploy).
 
-**Prerequisites:** an `ADMIN` key and the ability to change the server's settings and restart it. For who can do what and why, read [The security model](/concepts/security-model). Every setting named here is listed with its default in [Security reference](/reference/security).
+**Prerequisites:** an `ADMIN` key and the ability to change the server's settings and restart it. For who can do what and why, read [The security model](/concepts/security-model). Every setting named here is listed with its default in [Security reference](/reference/security). The web UI repeats the key steps on **Configuration**, on its **Security** tab.
 
 <Warning>
   Whoever can define a workflow decides what its nodes do: run commands, scripts and SQL, call HTTP endpoints, read files. Give the `ADMIN` role, and with it the right to define workflows, only to people you would let run code on the server. Without any key, everyone who can reach the server has that right. That is why the default is loopback only.

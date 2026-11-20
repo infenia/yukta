@@ -67,46 +67,6 @@ export const MATRIX: Table = {
   ],
 };
 
-export const BUILD_FLAGS: Table = {
-  title: 'Build-time flags',
-  intro:
-    'Gradle properties for `yk gradle :boot:bootJar` or `nativeCompile`. They decide what is in the binary and cannot be changed at start.',
-  columns: ['Flag', 'Default', 'Effect'],
-  rows: [
-    [
-      '-Pyukta.edition=plus',
-      'Community',
-      'Adds the Plus modules: file stores, execution log, checkpoints.',
-    ],
-    [
-      '-Pyukta.persistence=postgres',
-      'off',
-      'Adds the Postgres stores and high-availability mode.',
-    ],
-    ['-Pyukta.workers=true', 'off', 'Adds remote workers (Plus).'],
-    [
-      '-Pyukta.plugins=<list>',
-      'default',
-      '`default` (all but `script-js`), `all`, `none`, or a comma list. An unknown name fails the build. `YUKTA_PLUGINS_ENABLED` can only switch on plugins that are in.',
-    ],
-    [
-      '-Pnative.heap=<size>',
-      '16g',
-      'Heap of the native-image builder (use 24g locally if it runs out).',
-    ],
-    [
-      '-Pnative.static',
-      'off',
-      'A statically linked binary (`--static-nolibc`), as the Docker image uses.',
-    ],
-    [
-      '-Pnative.quick',
-      'off',
-      'A faster build and a slower binary; for smoke tests.',
-    ],
-  ],
-};
-
 export const TUNING: Table = {
   title: 'Netty, Reactor and JVM tuning',
   intro:

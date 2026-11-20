@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { Fragment, useMemo, useState } from 'react';
+import { cn } from '@/lib/utils';
 import { useSearchParams } from 'react-router';
 import { Callout } from '@/components/common/Callout';
 import { CodeBlock } from '@/components/common/CodeBlock';
@@ -9,9 +10,15 @@ import { StateMessage } from '@/components/common/StateMessage';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Tabs } from '@/components/ui/tabs';
 import { PackagingGuide } from './PackagingGuide';
-import { CapacityPanel } from '@/features/control/dashboard/CapacityPanel';
+import { SecurityGuide } from './SecurityGuide';
 import { Input } from '@/components/ui/input';
-import { NativeSelect } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Table,
   TableBody,
@@ -30,6 +37,13 @@ import {
 } from '../lib/catalog';
 import { howToSet } from '../lib/howToSet';
 import { useConfigValues } from '../hooks/useConfigValues';
+
+/** Roomy cells that wrap instead of scrolling sideways. */
+const CELL = 'px-5';
+const WRAP = 'px-5 py-3.5 align-top whitespace-normal';
+const NOWRAP = 'px-5 py-3.5 align-top whitespace-nowrap';
+/** A value column: wraps only a value too long for it. */
+const VALUE = `${WRAP} text-code-sm wrap-anywhere`;
 
 const WHEN_LABEL: Record<AppliesWhen, string> = {
   startup: 'Restart',
@@ -87,73 +101,93 @@ function OptionCatalog() {
   }, [query, area, when, native, set, values]);
 
   return (
-    <div>
-      <Callout title="How configuration works" className="mb-4">
-        Most options are read once at start, so change them and restart. A value
-        is taken from, in order: a command-line argument, an environment
-        variable, then <code>application.yaml</code>. Options marked{' '}
-        <em>Live</em> change without a restart. A few are read only as{' '}
-        <code>-D</code> JVM system properties. In the native binary and the
-        Docker image, some choices are fixed when the image is built.
-      </Callout>
-      <div className="mb-3 flex flex-wrap gap-2">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
         <Input
           aria-label="Search options"
           placeholder="Search by key, variable or purpose"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="max-w-xs"
+          className="h-9 w-full sm:w-80"
         />
-        <NativeSelect
-          aria-label="Area"
+        <Select
+          ariaLabel="Area"
           value={area}
-          onChange={(e) => setArea(e.target.value)}
-        >
-          <option value="">All areas</option>
-          {AREAS.map((a) => (
-            <option key={a}>{a}</option>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          aria-label="Applies"
+          onValueChange={setArea}
+          options={[
+            { value: '', label: 'All areas' },
+            ...AREAS.map((a) => ({ value: a, label: a })),
+          ]}
+          className="w-44"
+        />
+        <Select
+          ariaLabel="Applies"
           value={when}
-          onChange={(e) => setWhen(e.target.value)}
-        >
-          <option value="">Any change type</option>
-          <option value="startup">Needs a restart</option>
-          <option value="runtime">Changes live</option>
-        </NativeSelect>
-        <NativeSelect
-          aria-label="Mode"
+          onValueChange={setWhen}
+          options={[
+            { value: '', label: 'Any change type' },
+            { value: 'startup', label: 'Needs a restart' },
+            { value: 'runtime', label: 'Changes live' },
+          ]}
+          className="w-44"
+        />
+        <Select
+          ariaLabel="Mode"
           value={native}
-          onChange={(e) => setNative(e.target.value)}
-        >
-          <option value="">JVM, native and Docker</option>
-          <option value="native">Differs in native and Docker</option>
-        </NativeSelect>
+          onValueChange={setNative}
+          options={[
+            { value: '', label: 'JVM, native and Docker' },
+            { value: 'native', label: 'Differs in native and Docker' },
+          ]}
+          className="w-56"
+        />
         {values && (
-          <NativeSelect
-            aria-label="Value"
+          <Select
+            ariaLabel="Value"
             value={set}
-            onChange={(e) => setSet(e.target.value)}
-          >
-            <option value="">Any value</option>
-            <option value="set">Set on this server</option>
-          </NativeSelect>
+            onValueChange={setSet}
+            options={[
+              { value: '', label: 'Any value' },
+              { value: 'set', label: 'Set on this server' },
+            ]}
+            className="w-44"
+          />
         )}
+        <Popover>
+          <PopoverTrigger
+            aria-label="How configuration works"
+            className="border-border text-primary hover:bg-primary/10 transition-standard focus-visible:ring-ring/30 ml-auto flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border outline-none focus-visible:ring-3"
+          >
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-xl"
+            >
+              info
+            </span>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-96 space-y-2 p-4">
+            <p className="text-label-md">How configuration works</p>
+            <p className="text-body-md text-on-surface-variant">
+              Most options are read once at start, so change them and restart. A
+              value is taken from, in order: a command-line argument, an
+              environment variable, then <code>application.yaml</code>. Options
+              marked <em>Live</em> change without a restart. A few are read only
+              as <code>-D</code> JVM system properties. In the native binary and
+              the Docker image, some choices are fixed when the image is built.
+            </p>
+          </PopoverContent>
+        </Popover>
       </div>
       {live.status === 'denied' && (
-        <Callout compact className="mb-3">
-          Current values need an ADMIN key.
-        </Callout>
+        <Callout compact>Current values need an ADMIN key.</Callout>
       )}
       {live.status === 'loading' && (
-        <p className="text-body-sm text-on-surface-variant mb-3">
+        <p className="text-body-sm text-on-surface-variant">
           Loading current values…
         </p>
       )}
       {live.status === 'error' && (
-        <Callout kind="warning" compact className="mb-3">
+        <Callout kind="warning" compact>
           Could not load the current values.
         </Callout>
       )}
@@ -166,12 +200,19 @@ function OptionCatalog() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Option</TableHead>
-                <TableHead>Default</TableHead>
-                {values && <TableHead>Current value</TableHead>}
-                {values && <TableHead>Source</TableHead>}
-                <TableHead>Applies</TableHead>
-                <TableHead>Area</TableHead>
+                <TableHead className={`${CELL} whitespace-normal`}>
+                  Option
+                  <span className="text-on-surface-variant ml-2 font-normal normal-case">
+                    Select a row for how to set it
+                  </span>
+                </TableHead>
+                <TableHead className={`${CELL}`}>Default</TableHead>
+                {values && (
+                  <TableHead className={`${CELL}`}>Current value</TableHead>
+                )}
+                {values && <TableHead className={`${CELL}`}>Source</TableHead>}
+                <TableHead className={`${CELL}`}>Applies</TableHead>
+                <TableHead className={`${CELL}`}>Area</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -180,39 +221,78 @@ function OptionCatalog() {
                 const now = values?.get(o.key);
                 return (
                   <Fragment key={o.key}>
-                    <TableRow>
-                      <TableCell>
-                        <button
-                          type="button"
-                          aria-expanded={expanded}
-                          onClick={() => setOpen(expanded ? null : o.key)}
-                          className="text-code-sm text-left font-medium"
-                        >
-                          {o.key}
-                        </button>
-                        <p className="text-body-sm text-on-surface-variant">
-                          {o.purpose}
-                        </p>
+                    <TableRow
+                      onClick={() => setOpen(expanded ? null : o.key)}
+                      className="group cursor-pointer"
+                    >
+                      <TableCell className={`${WRAP} min-w-80`}>
+                        <div className="flex items-start gap-2">
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              'material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-standard shrink-0 text-xl',
+                              expanded && 'text-primary rotate-180'
+                            )}
+                          >
+                            expand_more
+                          </span>
+                          <div className="min-w-0">
+                            {/* the row handles the click; the button is the keyboard and screen reader target */}
+                            <button
+                              type="button"
+                              aria-expanded={expanded}
+                              className="text-code-sm group-hover:text-primary text-left font-medium wrap-anywhere"
+                            >
+                              {o.key}
+                            </button>
+                            <p className="text-body-sm text-on-surface-variant mt-1">
+                              {o.purpose}
+                            </p>
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-code-sm">
-                        {o.default}
-                      </TableCell>
+                      <TableCell className={VALUE}>{o.default}</TableCell>
                       {values && (
-                        <TableCell className="text-code-sm">
+                        <TableCell className={VALUE}>
                           {now ? (now.value ?? 'Not set') : '—'}
                         </TableCell>
                       )}
                       {values && (
-                        <TableCell>
-                          {now && now.source !== 'default' ? now.source : '—'}
+                        <TableCell className={`${NOWRAP} text-body-sm`}>
+                          {now ? (
+                            now.source === 'default' ? (
+                              <span className="text-on-surface-variant">
+                                Default
+                              </span>
+                            ) : (
+                              now.source
+                            )
+                          ) : (
+                            '—'
+                          )}
                         </TableCell>
                       )}
-                      <TableCell>{WHEN_LABEL[o.appliesWhen]}</TableCell>
-                      <TableCell>{o.area}</TableCell>
+                      <TableCell className={NOWRAP}>
+                        <Badge
+                          variant={
+                            o.appliesWhen === 'runtime'
+                              ? 'default'
+                              : 'secondary'
+                          }
+                        >
+                          {WHEN_LABEL[o.appliesWhen]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className={`${NOWRAP} text-body-sm`}>
+                        {o.area}
+                      </TableCell>
                     </TableRow>
                     {expanded && (
                       <TableRow>
-                        <TableCell colSpan={values ? 6 : 4}>
+                        <TableCell
+                          colSpan={values ? 6 : 4}
+                          className="bg-muted/30 px-5 py-4 whitespace-normal"
+                        >
                           <Details option={o} />
                         </TableCell>
                       </TableRow>
@@ -228,26 +308,11 @@ function OptionCatalog() {
   );
 }
 
-/** What can change without a restart. Everything else in the catalog is read once at start. */
-function RuntimeTab() {
-  return (
-    <div className="max-w-2xl space-y-4">
-      <Callout title="Changes here are live, but not saved">
-        These limits apply at once and are lost when the server restarts; it
-        starts again with <code>yukta.execution.max-concurrent</code> and{' '}
-        <code>yukta.execution.max-concurrent-per-workflow</code>. Every other
-        option needs a restart.
-      </Callout>
-      <CapacityPanel live />
-    </div>
-  );
-}
-
-type Tab = 'options' | 'runtime' | 'packaging';
+type Tab = 'options' | 'security' | 'modes';
 const TABS = [
   { id: 'options', label: 'Options' },
-  { id: 'runtime', label: 'Runtime' },
-  { id: 'packaging', label: 'Packaging' },
+  { id: 'security', label: 'Security' },
+  { id: 'modes', label: 'Run modes' },
 ] as const;
 
 /** Every way to configure Yukta, and the few settings that change while it runs. */
@@ -255,9 +320,7 @@ export function ConfigPage() {
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab');
   const tab: Tab =
-    requested === 'runtime' || requested === 'packaging'
-      ? requested
-      : 'options';
+    requested === 'modes' || requested === 'security' ? requested : 'options';
   const choose = (next: Tab) => {
     const updated = new URLSearchParams(params);
     if (next === 'options') updated.delete('tab');
@@ -265,8 +328,9 @@ export function ConfigPage() {
     setParams(updated, { replace: true });
   };
   return (
-    <div>
+    <div className="px-4 py-6 sm:px-6">
       <PageHeader
+        backdrop
         title="Configuration"
         description="Every option that configures Yukta: what it does, when a change takes effect and how to set it."
       />
@@ -281,11 +345,11 @@ export function ConfigPage() {
         id="config-tabpanel"
         role="tabpanel"
         aria-labelledby={`config-tab-${tab}`}
-        className="pt-4"
+        className="pt-6"
       >
         {tab === 'options' && <OptionCatalog />}
-        {tab === 'runtime' && <RuntimeTab />}
-        {tab === 'packaging' && <PackagingGuide />}
+        {tab === 'security' && <SecurityGuide />}
+        {tab === 'modes' && <PackagingGuide />}
       </div>
     </div>
   );

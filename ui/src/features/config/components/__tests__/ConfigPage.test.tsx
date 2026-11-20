@@ -13,12 +13,6 @@ vi.mock('../../hooks/useConfigValues', () => ({
   useConfigValues: vi.fn(),
 }));
 
-vi.mock('@/features/control/dashboard/CapacityPanel', () => ({
-  CapacityPanel: ({ live }: { live: boolean }) => (
-    <div>capacity panel live={String(live)}</div>
-  ),
-}));
-
 function Search() {
   return <p data-testid="search">{useLocation().search}</p>;
 }
@@ -36,15 +30,24 @@ const rowCount = () => screen.getAllByRole('row').length - 1;
 const live = (state: LiveValues) =>
   vi.mocked(useConfigValues).mockReturnValue(state);
 
+/** Opens a themed select and chooses an option by its label. */
+async function pick(name: string, option: string) {
+  await userEvent.click(screen.getByRole('combobox', { name }));
+  await userEvent.click(await screen.findByRole('option', { name: option }));
+}
+
 describe('ConfigPage', () => {
   beforeEach(() => live({ status: 'denied' }));
 
-  it('lists every option with the how-it-works note', () => {
+  it('lists every option, with the how-it-works note behind the info button', async () => {
     setup();
     expect(
       screen.getByRole('heading', { name: 'Configuration' })
     ).toBeInTheDocument();
-    expect(screen.getByText('How configuration works')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'How configuration works' })
+    );
+    expect(await screen.findByText(/read once at start/)).toBeInTheDocument();
     expect(rowCount()).toBe(CATALOG.length);
   });
 
@@ -60,13 +63,13 @@ describe('ConfigPage', () => {
 
   it('filters by area', async () => {
     setup();
-    await userEvent.selectOptions(screen.getByLabelText('Area'), 'MCP');
+    await pick('Area', 'MCP');
     expect(rowCount()).toBe(CATALOG.filter((o) => o.area === 'MCP').length);
   });
 
   it('filters by when a change applies', async () => {
     setup();
-    await userEvent.selectOptions(screen.getByLabelText('Applies'), 'runtime');
+    await pick('Applies', 'Changes live');
     expect(rowCount()).toBe(
       CATALOG.filter((o) => o.appliesWhen === 'runtime').length
     );
@@ -75,7 +78,7 @@ describe('ConfigPage', () => {
 
   it('filters to options that differ in the native image', async () => {
     setup();
-    await userEvent.selectOptions(screen.getByLabelText('Mode'), 'native');
+    await pick('Mode', 'Differs in native and Docker');
     expect(rowCount()).toBe(CATALOG.filter((o) => o.native).length);
   });
 
@@ -105,37 +108,48 @@ describe('ConfigPage', () => {
     expect(screen.queryByText('JVM jar')).toBeNull();
   });
 
-  it('opens the Runtime tab from the URL and says the change is not saved', () => {
-    setup('/config?tab=runtime');
-    expect(screen.getByRole('tab', { name: 'Runtime' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
-    expect(screen.getByText('capacity panel live=true')).toBeInTheDocument();
-    expect(
-      screen.getByText('Changes here are live, but not saved')
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText('Search options')).toBeNull();
-  });
-
   it('switches between the tabs and keeps the choice in the URL', async () => {
     setup();
-    await userEvent.click(screen.getByRole('tab', { name: 'Runtime' }));
-    expect(screen.getByTestId('search')).toHaveTextContent('?tab=runtime');
-    expect(screen.getByText('capacity panel live=true')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Run modes' }));
+    expect(screen.getByTestId('search')).toHaveTextContent('?tab=modes');
 
     await userEvent.click(screen.getByRole('tab', { name: 'Options' }));
     expect(screen.getByTestId('search')).toHaveTextContent(/^$/);
     expect(screen.getByLabelText('Search options')).toBeInTheDocument();
   });
 
-  it('opens the Packaging tab', async () => {
+  it('opens an option when anywhere on its row is clicked', async () => {
     setup();
-    await userEvent.click(screen.getByRole('tab', { name: 'Packaging' }));
-    expect(screen.getByTestId('search')).toHaveTextContent('?tab=packaging');
+    const button = screen.getByRole('button', { name: 'server.port' });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+
+    // Once open, the purpose also appears in the details panel, so keep the row's node.
+    const row = screen.getByText(/HTTP port for the API/);
+    await userEvent.click(row);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.click(row);
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens the Security tab from the URL', () => {
+    setup('/config?tab=security');
+    expect(screen.getByRole('tab', { name: 'Security' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Set up API keys' })
+    ).toBeInTheDocument();
+  });
+
+  it('opens the Run modes tab', async () => {
+    setup();
+    await userEvent.click(screen.getByRole('tab', { name: 'Run modes' }));
+    expect(screen.getByTestId('search')).toHaveTextContent('?tab=modes');
     expect(
       screen.getByRole('heading', {
-        name: 'JVM jar, native binary and Docker image',
+        name: 'Example: start on another port',
       })
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Search options')).toBeNull();
@@ -173,7 +187,7 @@ describe('ConfigPage', () => {
       expect(port).toHaveTextContent('argument');
       expect(
         screen.getByRole('row', { name: /yukta\.execution\.timeout/ })
-      ).toHaveTextContent('Not set');
+      ).toHaveTextContent('Not setDefault');
       expect(
         screen.getByRole('row', { name: /yukta\.api-keys\[0\]\.key/ })
       ).toHaveTextContent('******');
@@ -193,7 +207,7 @@ describe('ConfigPage', () => {
     it('filters to the options set on this server, and spans the detail row', async () => {
       ready();
       setup();
-      await userEvent.selectOptions(screen.getByLabelText('Value'), 'set');
+      await pick('Value', 'Set on this server');
       expect(rowCount()).toBe(2);
 
       await userEvent.click(
