@@ -86,6 +86,17 @@ describe('passages', () => {
     expect(passages(page('Short', '## A\nok'), 'a.mdx')).toEqual([]);
   });
 
+  it('keeps the short paragraphs of a section together', () => {
+    const out = passages(
+      page('Short', '## S\nThe first short paragraph.\n\nThe second short paragraph.'),
+      'short.mdx'
+    );
+
+    expect(out.map((p) => p.x)).toEqual([
+      'The first short paragraph.\n\nThe second short paragraph.',
+    ]);
+  });
+
   it('cuts a long section at paragraphs', () => {
     const out = passages(
       page('Long', `## S\n${paragraph('a')}\n\n${paragraph('b')}\n\n${paragraph('c')}`),
