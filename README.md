@@ -126,15 +126,15 @@ curl http://localhost:9858/actuator/health
 # {"groups":["liveness","readiness"],"status":"UP"}
 ```
 
-**2. Run your first workflow** (needs `curl` and `jq`). It saves a three-step flowchart, starts it and checks the result:
+**2. Run your first workflow** (needs `curl` and `jq`). It saves a small flowchart (input, default, text to digit, even or odd branch, greeting), starts it three times and checks each result:
 
 ```bash
 git clone --depth 1 https://github.com/infenia/yukta
 ./yukta/examples/1-standalone/01-hello-world/run.sh
-# expected: status SUCCESS and the log line stdout=Hello from Yukta!
+# expected: three runs with status SUCCESS, e.g. "Hello, Yukta! Digit 5 is odd."
 ```
 
-Yukta refuses to run operating-system commands unless you allow them, which is what `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo` does for the examples. In a container, pass it with `-e` and set `YUKTA_API_KEY` to your key before `run.sh`.
+The first example needs no setup. Later ones run operating-system commands, which Yukta refuses unless you allow them, which is what `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo` does for the examples. In a container, pass it with `-e` and set `YUKTA_API_KEY` to your key before `run.sh`.
 
 **3. Connect an AI assistant** in one line:
 

@@ -18,7 +18,27 @@ The alpha release may change names and defaults.
 | Command-line argument | `--key=value` | `--yukta.execution.max-concurrent=20` |
 | Environment variable | key upper-cased, `.` and `-` replaced by `_` | `YUKTA_EXECUTION_MAX_CONCURRENT=20` |
 | Properties file | `key=value` | `yukta.execution.on-limit=REJECT` |
+| Configuration file | `application.yaml` or `application.properties` | `server.port=9000` |
 | System property | `-Dkey=value` before the program arguments | `-Dyukta.script.timeout-ms=5000` |
+
+Where each source reads from depends on how you run Yukta. When the same setting is supplied twice, the command-line argument wins over the environment variable, which wins over a configuration file, which wins over the built-in default.
+
+| Source | JVM jar | Native binary | Docker image |
+|---|---|---|---|
+| Command-line argument | `java -jar yukta.jar --server.port=9000` | `./yukta --server.port=9000` | `docker run ghcr.io/infenia/yukta --server.port=9000` |
+| Environment variable | `SERVER_PORT=9000 java -jar yukta.jar` | `SERVER_PORT=9000 ./yukta` | `docker run -e SERVER_PORT=9000 ghcr.io/infenia/yukta` |
+| Configuration file | `application.yaml` or `config/application.yaml` in the folder you start from, or `--spring.config.additional-location=file:<path>` | The same file names, in the folder you start from | Mount a file and name it: `-v $PWD/yukta.yaml:/config/yukta.yaml` with `--spring.config.additional-location=file:/config/yukta.yaml` |
+
+For example, to start on port 9000 instead of 9858 in the Docker image, set the variable and publish the same port. The image listens on all interfaces, so it also needs an API key:
+
+```bash
+docker run --rm -p 127.0.0.1:9000:9000 \
+  -e SERVER_PORT=9000 \
+  -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=<key> -e YUKTA_API_KEYS_0_ROLE=ADMIN \
+  ghcr.io/infenia/yukta
+```
+
+A list is set with an index in the environment (`YUKTA_API_KEYS_0_NAME`, `YUKTA_API_KEYS_1_NAME`). Most settings are read once at start, so change them and restart. The web UI shows the same information on **Configuration** (`/config`), on its **Run modes** tab, and lists every setting on its **Options** tab: see [Use the web UI](/guides/operate/use-the-web-ui#look-up-a-setting).
 
 Durations take a unit (`30s`, `10m`, `1h`); `0` means off where the row says so. Settings marked **system property only** are read with `Integer.getInteger`-style calls and ignore the environment and the properties file: `yukta.script.*`, `yukta.spel.*`, `yukta.streams.*`, `yukta.rate-limit-per-minute`, `yukta.auth-failures-per-minute`. `yukta.variables.allowed` is read as a system property or as `YUKTA_VARIABLES_ALLOWED`. Secrets are read only from `YUKTA_SECRET_*` environment variables.
 

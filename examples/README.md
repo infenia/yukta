@@ -24,7 +24,7 @@ Example 15 is a walkthrough for now (it has no `run.sh`). Its README says how to
 - Plugins that touch the outside (`PROCESS_EXECUTOR`, `FILE_*`, `HTTP_REQUEST`, `NOTIFY_TERMINAL`, `SESSION_MEMORY`,
   `LLM_CALL`, ...) are off until named. Start the server with `YUKTA_PLUGINS_ENABLED=all` (or list the plugins) or the examples
   that use them exit `3` (SKIP) or fail; `GET /api/plugins` shows what is enabled.
-- Examples 01, 02, 11 and 12 run operating-system commands, which Yukta refuses by default. Allow only what they need, for
+- Examples 02, 11 and 12 run operating-system commands, which Yukta refuses by default. Allow only what they need, for
   example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo` (property `yukta.process.allowed-commands`); each README names its set.
   Example 12 also needs `python3` for its local pager stand-in. Without an allowlist those examples exit `3` (SKIP).
 

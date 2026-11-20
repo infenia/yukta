@@ -22,7 +22,8 @@ test.describe('Configuration page', () => {
     await expect(
       page.getByRole('heading', { name: 'Configuration', level: 1 })
     ).toBeVisible();
-    await expect(page.getByText('How configuration works')).toBeVisible();
+    await page.getByRole('button', { name: 'How configuration works' }).click();
+    await expect(page.getByText(/read once at start/)).toBeVisible();
     await expect(
       page.getByRole('button', { name: 'server.port' })
     ).toBeVisible();
@@ -51,47 +52,37 @@ test.describe('Configuration page', () => {
 
   test('the native filter shows the build-time caveat', async ({ page }) => {
     await page.goto('/config');
-    await page.getByLabel('Mode').selectOption('native');
+    await page.getByRole('combobox', { name: 'Mode' }).click();
+    await page
+      .getByRole('option', { name: 'Differs in native and Docker' })
+      .click();
     await page
       .getByRole('button', { name: 'yukta.session.store-type' })
       .click();
     await expect(page.getByText('Native image and Docker')).toBeVisible();
   });
 
-  test('the Runtime tab shows the live limits and says they are not saved', async ({
-    page,
-  }) => {
-    await page.route('**/api/scheduler/limits*', (route) =>
-      route.fulfill(
-        envelope('/limits', {
-          maxConcurrent: 4,
-          maxPerWorkflow: 0,
-          running: 2,
-          queued: 1,
-          queueCapacity: 100,
-        })
-      )
-    );
-    await page.route('**/api/admin/drain*', (route) =>
-      route.fulfill(envelope('/drain', { draining: false }))
-    );
+  test('the Security tab explains how to set an API key', async ({ page }) => {
     await page.goto('/config');
-    await page.getByRole('tab', { name: 'Runtime' }).click();
+    await page.getByRole('tab', { name: 'Security' }).click();
 
-    await expect(page).toHaveURL(/\/config\?tab=runtime$/);
+    await expect(page).toHaveURL(/\/config\?tab=security$/);
     await expect(
-      page.getByText('Changes here are live, but not saved')
+      page.getByRole('heading', { name: 'Set up API keys' })
     ).toBeVisible();
-    await expect(page.getByText('2 of 4')).toBeVisible();
+    await expect(page.getByText('yukta.api-keys[0].role=ADMIN')).toBeVisible();
   });
 
-  test('the Packaging tab compares JVM, native and Docker', async ({
+  test('the Run modes tab shows how to set a value and compares JVM, native and Docker', async ({
     page,
   }) => {
     await page.goto('/config');
-    await page.getByRole('tab', { name: 'Packaging' }).click();
+    await page.getByRole('tab', { name: 'Run modes' }).click();
 
-    await expect(page).toHaveURL(/\/config\?tab=packaging$/);
+    await expect(page).toHaveURL(/\/config\?tab=modes$/);
+    await expect(
+      page.getByRole('heading', { name: 'Example: start on another port' })
+    ).toBeVisible();
     await expect(
       page.getByRole('heading', {
         name: 'JVM jar, native binary and Docker image',
@@ -140,7 +131,8 @@ test.describe('Configuration page', () => {
       page.getByRole('row', { name: /yukta\.api-keys\[0\]\.key/ })
     ).toContainText('******');
 
-    await page.getByLabel('Value').selectOption('set');
+    await page.getByRole('combobox', { name: 'Value' }).click();
+    await page.getByRole('option', { name: 'Set on this server' }).click();
     await expect(page.getByRole('row')).toHaveCount(3);
   });
 
