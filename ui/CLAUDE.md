@@ -122,7 +122,7 @@ Report location: `coverage/index.html` (generated, git-ignored)
 ## Development Workflow
 1. **Frontend dev**: `cd ui && pnpm dev` (Vite dev server auto-rebuilds, HMR enabled)
 2. **Backend dev**: `./gradlew :boot:bootRun -x test` (proxies `/api/**` to Spring via vite.config.ts server.proxy)
-3. **Tests**: `pnpm test` (watch mode) or `pnpm test:e2e` (Playwright against dev server)
+3. **Tests**: `pnpm test` (watch mode) or `pnpm test:e2e` (Playwright against dev server). **Screenshot baselines** are only written in the CI image: `yk tool -C ui scripts/e2e-docker.sh --update-snapshots [spec]` (a bare `playwright --update-snapshots` makes baselines CI rejects).
 4. **Production**: `yk gradle :ui:build` wires Vite output into JAR; `boot` serves it as static resources
 
 ## Native Image Support
