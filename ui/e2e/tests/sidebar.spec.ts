@@ -29,6 +29,9 @@ test.describe('Sidebar (desktop rail)', () => {
 
   for (const { label, path } of SECTIONS) {
     test(`${label} opens ${path} and is marked current`, async ({ page }) => {
+      await page.route('**/api/config?*', (route) =>
+        route.fulfill(envelope('/config', []))
+      );
       await page.goto('/sessions');
       const rail = page.getByRole('navigation', { name: 'Primary' }).first();
 
