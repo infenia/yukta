@@ -606,7 +606,7 @@ describe('WorkflowEditorPage', () => {
     expect(screen.getByLabelText('Edge port')).toHaveValue('');
   });
 
-  it('shows what the validator rejects and clears it when the draft changes', async () => {
+  it('shows what the validator rejects and replaces it with the next check once the draft changes', async () => {
     validation = { valid: false, message: 'No trigger node', outputPorts: {} };
     const user = userEvent.setup();
     renderEditor();
@@ -617,7 +617,12 @@ describe('WorkflowEditorPage', () => {
       'No trigger node'
     );
 
+    validation = { valid: true, message: null, outputPorts: {} };
     await user.type(screen.getByLabelText('Description'), '!');
+    // the old problem stays until the draft has rested and been checked again
+    expect(
+      await screen.findByText('Workflow is valid.', {}, { timeout: 3000 })
+    ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 

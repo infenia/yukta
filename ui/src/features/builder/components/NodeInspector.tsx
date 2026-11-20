@@ -9,6 +9,7 @@ import {
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { usePlugin } from '@/features/plugins/hooks/usePlugins';
 import { useState } from 'react';
+import type { InspectorTab } from './validationIssues';
 import { Input } from '@/components/ui/input';
 import { textareaFieldClassName } from '@/components/ui/native-select';
 import type { DraftEdge, DraftNode } from '../types';
@@ -18,7 +19,7 @@ import { ENGINE_FIELDS } from './NodeInspector.helpers';
 
 type Config = Record<string, unknown>;
 
-type Tab = 'config' | 'connections' | 'policy' | 'json';
+type Tab = InspectorTab;
 const TABS: [Tab, string][] = [
   ['config', 'Config'],
   ['connections', 'Connections'],
@@ -110,6 +111,7 @@ export function NodeInspector({
   edges = [],
   onRemoveEdge,
   onAddEdge,
+  initialTab = 'config',
 }: {
   node: DraftNode;
   onChange: (config: Config) => void;
@@ -128,8 +130,10 @@ export function NodeInspector({
   onRemoveEdge?: (edge: DraftEdge) => void;
   /** Start a new edge from this node (in the Edges tab, with its checks). */
   onAddEdge?: () => void;
+  /** The tab it opens on (a problem sends you to the one where it is fixed). */
+  initialTab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>('config');
+  const [tab, setTab] = useState<Tab>(initialTab);
   const plugin = usePlugin(node.type);
   const { engine, ...pluginConfig } = node.config;
   const engineValues = (engine ?? {}) as Config;

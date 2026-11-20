@@ -45,7 +45,8 @@ export function connectionProblem(
 export function toPreviewGraph(
   workflow: DraftWorkflow,
   categories: Record<string, string>,
-  ports: Record<string, string[]>
+  ports: Record<string, string[]>,
+  issues: Record<string, { errors: number; warnings: number }> = {}
 ): WorkflowGraph {
   return {
     workflowId: workflow.workflowId,
@@ -61,6 +62,7 @@ export function toPreviewGraph(
       outputPorts: ports[node.nodeId] ?? ['default'],
       group: node.group,
       color: node.color,
+      issues: issues[node.nodeId],
     })),
     edges: workflow.edges,
     topologicalOrder: [],

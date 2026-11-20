@@ -575,14 +575,45 @@ test.describe('Workflow editor - Validate', () => {
     await expect(page.getByRole('alert')).toContainText('validator is down');
   });
 
-  test('editing after a check clears its result', async ({ page }) => {
-    await open(page);
-    await page.getByRole('button', { name: 'Validate' }).click();
+  test('the draft is checked on its own: problems are listed, badge their node and lead to it', async ({
+    page,
+  }) => {
+    await open(page, {
+      validate: {
+        valid: false,
+        message: "Node 'out': bad",
+        outputPorts: {},
+        details: [
+          { nodeId: 'out', path: null, code: 'X', message: "Node 'out': bad" },
+        ],
+      },
+    });
+
+    // no Validate click
+    const problems = page.getByRole('list', { name: 'Problems' });
+    await expect(problems).toContainText("Node 'out': bad");
+    await expect(page.getByTestId('node-issues-out')).toBeVisible();
+
+    await problems.getByRole('button', { name: 'Go to out' }).click();
+    await expect(nodeButton(page, 'out')).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+  });
+
+  test('an edit is checked again once the draft has rested', async ({
+    page,
+  }) => {
+    const calls = await open(page);
     await expect(page.getByText('Workflow is valid.')).toBeVisible();
+    const before = calls.validated.length;
 
     await page.getByLabel('Description', { exact: true }).fill('edited');
 
-    await expect(page.getByText('Workflow is valid.')).toHaveCount(0);
+    await expect.poll(() => calls.validated.length).toBeGreaterThan(before);
+    expect(calls.validated[calls.validated.length - 1]).toMatchObject({
+      description: 'edited',
+    });
   });
 });
 
@@ -601,7 +632,11 @@ test.describe('Workflow editor - saving', () => {
     await page.getByRole('button', { name: 'Save version' }).click();
 
     await expect(page).toHaveURL(/\/sessions\/session-1\/workflow\/build$/);
-    expect(calls.validated).toHaveLength(1);
+    // the draft is also checked on its own while it is edited; Save checks it last
+    expect(calls.validated.length).toBeGreaterThanOrEqual(1);
+    expect(calls.validated[calls.validated.length - 1]).toMatchObject({
+      description: 'New description',
+    });
     expect(calls.saved).toHaveLength(1);
     const saved = calls.saved[0] as ReturnType<typeof config>;
     expect(saved.sessionId).toBe('session-1');

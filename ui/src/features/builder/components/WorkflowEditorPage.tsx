@@ -34,7 +34,9 @@ import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPi
 import { supervisorProblems } from '@/features/supervisors/lib/supervisorProblems';
 import type { SupervisorRef } from '@/features/supervisors/types';
 import { NativeSelect } from '@/components/ui/native-select';
+import { ProblemsPanel } from './ProblemsPanel';
 import { StepPicker } from './StepPicker';
+import { issueCounts, problemsOf, type InspectorTab } from './validationIssues';
 import {
   connectionProblem,
   toPreviewGraph,
@@ -43,6 +45,8 @@ import { readDraft, writeDraft } from './workflowDraft';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 const NO_TASKS = {};
+/** How long the draft must rest before it is validated. */
+const LIVE_DELAY_MS = 600;
 
 // fetchApi only throws Error subclasses
 const errorText = (error: unknown) => (error as Error).message;
@@ -109,9 +113,10 @@ function Editor({
       Object.fromEntries((plugins.data ?? []).map((p) => [p.type, p.category])),
     [plugins.data]
   );
+  const issues = useMemo(() => issueCounts(result), [result]);
   const graph = useMemo(
-    () => toPreviewGraph(workflow, categories, ports),
-    [workflow, categories, ports]
+    () => toPreviewGraph(workflow, categories, ports, issues),
+    [workflow, categories, ports, issues]
   );
   const node = workflow.nodes.find((n) => n.nodeId === selected);
 
@@ -183,9 +188,46 @@ function Editor({
   // Saving navigates away on purpose; that must not ask
   const leaving = useRef(false);
 
+  // The result stays until the next one arrives, so the problems do not blink on every edit
   const update = (patch: Partial<DraftWorkflow>) => {
     setWorkflow((current) => ({ ...current, ...patch }));
-    setResult(null);
+  };
+
+  // Validates the draft when the user pauses, so the problems and the ports are always current
+  // (an empty draft has nothing to check yet; a JSON field that does not parse blocks it).
+  useEffect(() => {
+    if (workflow.nodes.length === 0 || invalidJson.size > 0) return undefined;
+    let current = true;
+    const timer = setTimeout(() => {
+      validateWorkflow(workflow)
+        .then((outcome) => {
+          if (!current) return;
+          setResult(outcome);
+          setPorts(outcome.outputPorts);
+        })
+        // ponytail: a failed live check stays silent; Validate and Save show the error
+        .catch(() => undefined);
+    }, LIVE_DELAY_MS);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [workflow, invalidJson]);
+
+  // A problem about a node: select it and open the inspector tab where it is fixed
+  const [go, setGo] = useState<{
+    nodeId: string;
+    tab: InspectorTab;
+    n: number;
+  } | null>(null);
+  const [seen, setSeen] = useState(selected);
+  if (seen !== selected) {
+    setSeen(selected);
+    if (go && go.nodeId !== selected) setGo(null);
+  }
+  const goTo = (nodeId: string, tab: InspectorTab) => {
+    setSelected(nodeId);
+    setGo({ nodeId, tab, n: (go?.n ?? 0) + 1 });
   };
 
   /**
@@ -406,11 +448,12 @@ function Editor({
             error ??
             (invalidJson.size > 0
               ? 'Fix the JSON field that does not parse before validating or saving.'
-              : result && !result.valid
-                ? result.message
-                : null)
+              : null)
           }
         />
+        {!error && invalidJson.size === 0 && (
+          <ProblemsPanel problems={problemsOf(result)} onGo={goTo} />
+        )}
         {result?.valid && (
           <Callout kind="success" compact>
             Workflow is valid.
@@ -689,7 +732,8 @@ function Editor({
           {node ? (
             <JsonValidityContext.Provider value={reportJson}>
               <NodeInspector
-                key={`${node.nodeId}/${revision}`}
+                key={`${node.nodeId}/${revision}/${go?.n ?? 0}`}
+                initialTab={go?.nodeId === node.nodeId ? go.tab : 'config'}
                 node={node}
                 onRemove={() => removeNode(node.nodeId)}
                 onGroupChange={(group) =>

@@ -69,6 +69,19 @@ function progressPercent(
     : null;
 }
 
+/** "2 errors, 1 warning": what the badge on a node says. */
+function issuesLabel({
+  errors,
+  warnings,
+}: {
+  errors: number;
+  warnings: number;
+}) {
+  const part = (n: number, what: string) =>
+    n > 0 ? [`${n} ${what}${n === 1 ? '' : 's'}`] : [];
+  return [...part(errors, 'error'), ...part(warnings, 'warning')].join(', ');
+}
+
 const HANDLE_CLASSES =
   'size-2.5! border-2! bg-surface! transition-transform hover:scale-150';
 
@@ -131,6 +144,22 @@ export function WorkflowNodeCard({
         STATUS_CARD_CLASSES[status]
       )}
     >
+      {node.issues && (node.issues.errors > 0 || node.issues.warnings > 0) && (
+        <span
+          role="img"
+          aria-label={issuesLabel(node.issues)}
+          title={issuesLabel(node.issues)}
+          data-testid={`node-issues-${node.nodeId}`}
+          className={cn(
+            'bg-surface text-label-sm shadow-card absolute -top-2 -right-2 z-10 flex h-5 min-w-5 items-center justify-center rounded-full border px-1 font-semibold',
+            node.issues.errors > 0
+              ? 'border-error text-error'
+              : 'border-warning text-warning'
+          )}
+        >
+          {node.issues.errors || node.issues.warnings}
+        </span>
+      )}
       {!isTrigger && (
         <Handle
           type="target"

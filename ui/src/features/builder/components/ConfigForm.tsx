@@ -8,7 +8,7 @@ import {
   textareaFieldClassName,
 } from '@/components/ui/native-select';
 import type { ConfigField } from '@/features/plugins/types';
-import { JsonValidityContext } from './ConfigForm.helpers';
+import { JsonValidityContext, isMissing } from './ConfigForm.helpers';
 
 type Values = Record<string, unknown>;
 
@@ -238,6 +238,8 @@ export function ConfigForm({
 }) {
   // Scoped per form: NodeInspector renders two, and field names can repeat across them.
   const scope = useId();
+  // A required field is flagged once the user has been in it, not on a form just opened
+  const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const set = (name: string, value: unknown) => {
     // An unset field is dropped so the plugin default applies.
     onChange(
@@ -252,7 +254,13 @@ export function ConfigForm({
   return (
     <div className="flex flex-col gap-3">
       {schema.map((field) => (
-        <div key={field.name} className="flex flex-col gap-1">
+        <div
+          key={field.name}
+          className="flex flex-col gap-1"
+          onBlur={() =>
+            setTouched((current) => new Set(current).add(field.name))
+          }
+        >
           <label
             htmlFor={`${scope}-${field.name}`}
             className="text-label-sm text-on-surface font-semibold"
@@ -266,6 +274,11 @@ export function ConfigForm({
             value={values[field.name]}
             onChange={(value) => set(field.name, value)}
           />
+          {touched.has(field.name) && isMissing(field, values[field.name]) && (
+            <span className="text-body-sm text-error">
+              {field.name} is required.
+            </span>
+          )}
           {field.description && (
             <span className="text-body-sm text-on-surface-variant">
               {field.description}
