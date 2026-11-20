@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router';
 import { ConfigPage } from '../ConfigPage';
 import { CATALOG } from '../../lib/catalog';
+import { useConfigValues, type LiveValues } from '../../hooks/useConfigValues';
+
+vi.mock('../../hooks/useConfigValues', () => ({
+  useConfigValues: vi.fn(),
+}));
 
 vi.mock('@/features/control/dashboard/CapacityPanel', () => ({
   CapacityPanel: ({ live }: { live: boolean }) => (
@@ -28,7 +33,12 @@ const setup = (path = '/config') =>
 
 const rowCount = () => screen.getAllByRole('row').length - 1;
 
+const live = (state: LiveValues) =>
+  vi.mocked(useConfigValues).mockReturnValue(state);
+
 describe('ConfigPage', () => {
+  beforeEach(() => live({ status: 'denied' }));
+
   it('lists every option with the how-it-works note', () => {
     setup();
     expect(
@@ -129,5 +139,99 @@ describe('ConfigPage', () => {
       })
     ).toBeInTheDocument();
     expect(screen.queryByLabelText('Search options')).toBeNull();
+  });
+
+  describe('current values', () => {
+    const ready = () =>
+      live({
+        status: 'ready',
+        values: new Map([
+          [
+            'server.port',
+            { key: 'server.port', value: '7000', source: 'argument' },
+          ],
+          [
+            'yukta.execution.timeout',
+            { key: 'yukta.execution.timeout', value: null, source: 'default' },
+          ],
+          [
+            'yukta.api-keys[0].key',
+            {
+              key: 'yukta.api-keys[0].key',
+              value: '******',
+              source: 'environment variable',
+            },
+          ],
+        ]),
+      });
+
+    it('adds the value and source columns', () => {
+      ready();
+      setup();
+      const port = screen.getByRole('row', { name: /server\.port/ });
+      expect(port).toHaveTextContent('7000');
+      expect(port).toHaveTextContent('argument');
+      expect(
+        screen.getByRole('row', { name: /yukta\.execution\.timeout/ })
+      ).toHaveTextContent('Not set');
+      expect(
+        screen.getByRole('row', { name: /yukta\.api-keys\[0\]\.key/ })
+      ).toHaveTextContent('******');
+      expect(
+        screen.getByRole('columnheader', { name: 'Current value' })
+      ).toBeInTheDocument();
+    });
+
+    it('shows a dash where the server reports nothing for an option', () => {
+      ready();
+      setup();
+      expect(
+        screen.getByRole('row', { name: /yukta\.session\.base-dir/ })
+      ).toHaveTextContent('—');
+    });
+
+    it('filters to the options set on this server, and spans the detail row', async () => {
+      ready();
+      setup();
+      await userEvent.selectOptions(screen.getByLabelText('Value'), 'set');
+      expect(rowCount()).toBe(2);
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'server.port' })
+      );
+      expect(
+        screen.getByText('Environment variable').closest('td')
+      ).toHaveAttribute('colspan', '6');
+    });
+
+    it('keeps four columns and no value filter without values', () => {
+      setup();
+      expect(screen.queryByLabelText('Value')).toBeNull();
+      expect(
+        screen.queryByRole('columnheader', { name: 'Current value' })
+      ).toBeNull();
+    });
+
+    it('says current values need ADMIN', () => {
+      setup();
+      expect(
+        screen.getByText('Current values need an ADMIN key.')
+      ).toBeInTheDocument();
+    });
+
+    it('says the values are loading', () => {
+      live({ status: 'loading' });
+      setup();
+      expect(screen.getByText('Loading current values…')).toBeInTheDocument();
+    });
+
+    it('warns when the values cannot be loaded, and still lists the options', () => {
+      live({ status: 'error' });
+      setup();
+      expect(
+        screen.getByText('Could not load the current values.')
+      ).toBeInTheDocument();
+      expect(rowCount()).toBe(CATALOG.length);
+    });
   });
 });

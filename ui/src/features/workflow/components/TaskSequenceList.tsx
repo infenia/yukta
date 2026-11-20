@@ -16,6 +16,7 @@ import type {
   WorkflowGraph,
 } from '../types/workflow';
 import { Tip } from '@/components/ui/tooltip';
+import { ICON_TONE } from '@/components/ui/iconTone';
 
 /** Filter chips and summary-bar segments, in the order a run moves through them. */
 const STATUS_ORDER: NodeUiStatus[] = [
@@ -26,6 +27,19 @@ const STATUS_ORDER: NodeUiStatus[] = [
   'skipped',
   'pending',
 ];
+
+/** The icon and tint of each status filter, as the action buttons of the node panel. */
+const FILTER_LOOK: Record<
+  NodeUiStatus,
+  { icon: string; tone: keyof typeof ICON_TONE }
+> = {
+  failed: { icon: 'error', tone: 'destructive' },
+  running: { icon: 'progress_activity', tone: 'attention' },
+  paused: { icon: 'pause', tone: 'attention' },
+  completed: { icon: 'check_circle', tone: 'success' },
+  skipped: { icon: 'redo', tone: 'neutral' },
+  pending: { icon: 'hourglass_empty', tone: 'neutral' },
+};
 
 /** A raw status for each bucket, so a stage's aggregate reads like a node's in StatusPill. */
 const RAW_STATUS: Record<NodeUiStatus, string> = {
@@ -254,12 +268,13 @@ export function TaskSequenceList({
       scope={scope}
     />
   );
-  const chip = (active: boolean) =>
-    `text-label-sm flex h-7 items-center gap-1.5 rounded-lg border px-2 tabular-nums ${
+  const chip = (active: boolean, tone: keyof typeof ICON_TONE) =>
+    cn(
+      'flex h-9 min-w-0 items-center justify-center gap-1 rounded-lg text-label-sm tabular-nums transition-standard',
       active
-        ? 'border-transparent bg-accent text-accent-foreground'
-        : 'border-border text-on-surface hover:bg-muted'
-    }`;
+        ? 'bg-primary/15 text-primary ring-1 ring-primary/30'
+        : ICON_TONE[tone]
+    );
 
   // Re-render on a fixed interval so running durations keep advancing between SSE updates;
   // the interval only exists while a task is actually running.
@@ -300,35 +315,50 @@ export function TaskSequenceList({
           />
         ))}
       </div>
+      {/* the same tray as a node's action buttons: an icon and its count per filter */}
       <div
         role="group"
         aria-label="Show nodes"
-        className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-1"
+        className="border-border bg-surface-container-low grid grid-cols-[repeat(auto-fill,minmax(3.75rem,1fr))] gap-0.5 rounded-xl border p-1"
       >
-        <button
-          type="button"
-          aria-pressed={show === 'all'}
-          onClick={() => setShow('all')}
-          className={chip(show === 'all')}
-        >
-          All {tasks.length}
-        </button>
-        {STATUS_ORDER.filter((status) => counts.has(status)).map((status) => (
+        <Tip label={`All nodes · ${tasks.length}`}>
           <button
-            key={status}
             type="button"
-            aria-pressed={show === status}
-            onClick={() => setShow(status)}
-            className={chip(show === status)}
+            aria-label={`All ${tasks.length}`}
+            aria-pressed={show === 'all'}
+            onClick={() => setShow('all')}
+            className={chip(show === 'all', 'neutral')}
           >
-            <span className="flex items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-lg"
+            >
+              list
+            </span>
+            {tasks.length}
+          </button>
+        </Tip>
+        {STATUS_ORDER.filter((status) => counts.has(status)).map((status) => (
+          <Tip
+            key={status}
+            label={`${toNodeStatusLabel(status)} · ${counts.get(status)}`}
+          >
+            <button
+              type="button"
+              aria-label={`${toNodeStatusLabel(status)} ${counts.get(status)}`}
+              aria-pressed={show === status}
+              onClick={() => setShow(status)}
+              className={chip(show === status, FILTER_LOOK[status].tone)}
+            >
               <span
                 aria-hidden="true"
-                className={cn('size-2 rounded-full', BAR_COLOR[status])}
-              />
-              {`${toNodeStatusLabel(status)} ${counts.get(status)}`}
-            </span>
-          </button>
+                className="material-symbols-outlined text-lg"
+              >
+                {FILTER_LOOK[status].icon}
+              </span>
+              {counts.get(status)}
+            </button>
+          </Tip>
         ))}
       </div>
       <input

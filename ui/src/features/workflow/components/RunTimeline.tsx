@@ -16,7 +16,8 @@ import { aggregateStatus, groupNodes } from '../lib/groups';
 import { NodeSupervisors } from '../hooks/useNodeSupervisors';
 import { NodeOwner } from './nodes/NodeOwner';
 import { SubWorkflowLinks } from '../hooks/useSubWorkflowLinks';
-import { formatClockTime, formatDuration } from '../lib/timeFormat';
+import { formatDateTime, formatDuration } from '../lib/timeFormat';
+import { DateTimeStamp } from './DateTimeStamp';
 import { cn } from '@/lib/utils';
 import type {
   NodeUiStatus,
@@ -172,7 +173,7 @@ export function RunTimeline({
               <th scope="col" className="w-16 pb-1 font-normal">
                 Status
               </th>
-              <th scope="col" className="w-20 pb-1 font-normal">
+              <th scope="col" className="w-40 pb-1 font-normal">
                 Start
               </th>
               <th scope="col" className="w-20 pb-1 font-normal">
@@ -218,7 +219,7 @@ export function RunTimeline({
   );
 }
 
-const clock = (ms: number) => formatClockTime(new Date(ms).toISOString());
+const iso = (ms: number) => new Date(ms).toISOString();
 const span = (from: number, to: number) =>
   formatDuration(new Date(from).toISOString(), new Date(to).toISOString());
 
@@ -239,7 +240,7 @@ function Bar({
   );
   return (
     <Tip
-      label={`${clock(row.startMs)} to ${clock(row.endMs)} · ${span(row.startMs, row.endMs)} · ${share}% of the run`}
+      label={`${formatDateTime(iso(row.startMs))} to ${formatDateTime(iso(row.endMs))} · ${span(row.startMs, row.endMs)} · ${share}% of the run`}
     >
       <div className="bg-muted relative h-3 rounded-full" aria-hidden="true">
         <div
@@ -322,7 +323,11 @@ function NodeRow({
         <StatusPill status={row.status} scope="node" iconOnly />
       </td>
       <td className="text-body-sm num text-on-surface-variant py-1.5 pr-2">
-        {clock(row.startMs)}
+        <DateTimeStamp
+          iso={iso(row.startMs)}
+          inline
+          className="whitespace-nowrap"
+        />
       </td>
       <td className="text-body-sm num text-on-surface-variant py-1.5 pr-2">
         {span(row.startMs, row.endMs)}
@@ -395,7 +400,11 @@ function StageRow({
         <StatusPill status={STAGE_RAW[status]} scope="node" iconOnly />
       </td>
       <td className="text-body-sm num text-on-surface-variant py-1.5 pr-2">
-        {clock(startMs)}
+        <DateTimeStamp
+          iso={iso(startMs)}
+          inline
+          className="whitespace-nowrap"
+        />
       </td>
       <td className="text-body-sm num text-on-surface-variant py-1.5 pr-2">
         {span(startMs, endMs)}

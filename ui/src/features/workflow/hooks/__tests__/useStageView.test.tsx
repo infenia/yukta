@@ -54,6 +54,27 @@ describe('useStageView', () => {
     expect(result.current.location.search).toBe('?exec=e1');
   });
 
+  it('opens the stage holding a picked node, and leaves the others alone', () => {
+    const { result } = setup('/w', createStagedGraph());
+    expect(result.current.view.stageView?.open.size).toBe(0);
+
+    const reveal = (id: string, search = '') => {
+      const next = new URLSearchParams(search);
+      result.current.view.revealParams(id)(next);
+      return next.toString();
+    };
+    expect(reveal('lint.fix')).toBe('open=lint');
+    expect(reveal('lint.fix', 'open=lint')).toBe('open=lint');
+    expect(reveal('start')).toBe('');
+  });
+
+  it('reveals nothing while the nodes are ungrouped', () => {
+    const { result } = setup('/w?stages=all', createStagedGraph());
+    const next = new URLSearchParams('stages=all');
+    result.current.view.revealParams('lint.fix')(next);
+    expect(next.toString()).toBe('stages=all');
+  });
+
   it('has nothing to group in a graph without stages, or before it loads', () => {
     expect(setup('/w', createMockGraph()).result.current.view).toMatchObject({
       hasStages: false,

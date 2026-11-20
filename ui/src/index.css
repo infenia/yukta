@@ -537,11 +537,12 @@
   --xy-minimap-background-color: var(--card);
   --xy-minimap-mask-background-color: color-mix(
     in oklch,
-    var(--background) 70%,
+    var(--foreground) 14%,
     transparent
   );
-  --xy-minimap-mask-stroke-color: var(--outline);
-  --xy-minimap-node-background-color: var(--muted);
+  --xy-minimap-mask-stroke-color: var(--primary);
+  --xy-minimap-mask-stroke-width: 2;
+  --xy-minimap-node-background-color: var(--muted-foreground);
   --xy-minimap-node-stroke-color: transparent;
 }
 
@@ -743,28 +744,5 @@
   *::before,
   *::after {
     animation: none !important;
-  }
-}
-
-/* ---- Compact density (header toggle): the text stays at 12px or more, the room around it shrinks ---- */
-[data-density='compact'] {
-  .text-body-md,
-  .text-label-md {
-    font-size: 13px;
-    line-height: 16px;
-  }
-  .text-headline-lg {
-    font-size: 20px;
-    line-height: 26px;
-  }
-  .text-headline-md {
-    font-size: 17px;
-    line-height: 22px;
-  }
-  [data-slot='table-head'] {
-    height: 2rem;
-  }
-  [data-slot='table-cell'] {
-    padding-block: 0.25rem;
   }
 }

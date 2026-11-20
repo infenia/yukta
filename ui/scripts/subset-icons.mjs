@@ -14,8 +14,8 @@ import fs from 'fs';
 import path from 'path';
 import { glob } from 'glob';
 
-// expand_more/expand_less are valid icons that material-symbols' name list omits, so list them here.
-const PLUGIN_ICONS = ['expand_more', 'expand_less'];
+// expand_more/expand_less/auto_awesome are valid icons that material-symbols' name list omits, so list them here.
+const PLUGIN_ICONS = ['expand_more', 'expand_less', 'auto_awesome'];
 
 const root = path.resolve(import.meta.dirname, '..');
 const dts = fs.readFileSync(

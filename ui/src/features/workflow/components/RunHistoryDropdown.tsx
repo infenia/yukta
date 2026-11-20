@@ -21,12 +21,12 @@ function RunRow({ execution }: { execution: ExecutionSummary }) {
         status={execution.status}
         iconOnly
         testId="run-status"
-        className="shrink-0"
+        className="size-6 shrink-0 [&_.material-symbols-outlined]:text-[18px]!"
       />
-      <span className="text-code-sm font-mono whitespace-nowrap">
+      <span className="text-label-md font-mono whitespace-nowrap">
         {execution.executionId}
       </span>
-      <span className="text-body-sm text-on-surface-variant whitespace-nowrap tabular-nums">
+      <span className="text-body-md text-on-surface-variant whitespace-nowrap tabular-nums">
         {formatDateTime(execution.startTime)}
       </span>
     </span>
@@ -43,10 +43,10 @@ export function RunHistoryDropdown({
   selectedExecutionId: string | null;
   onSelect: (executionId: string) => void;
 }) {
-  // The run picker sits tight against its label: tighter padding than the other small buttons
+  // As tall as the run controls beside it (a toolbar group is a 32px segment in 4px padding)
   const triggerClass = cn(
     buttonVariants({ variant: 'outline', size: 'sm' }),
-    'px-1'
+    'h-10 gap-2 rounded-full pr-2 pl-2'
   );
 
   if (executions.length === 0) {
@@ -72,9 +72,9 @@ export function RunHistoryDropdown({
         {selected ? (
           <RunRow execution={selected} />
         ) : (
-          <span className="text-body-sm">—</span>
+          <span className="text-body-md">—</span>
         )}
-        <span className="material-symbols-outlined text-base">expand_more</span>
+        <span className="material-symbols-outlined text-xl">expand_more</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-max">
         {executions.map((execution) => (

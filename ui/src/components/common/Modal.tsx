@@ -27,8 +27,9 @@ export function Modal({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    // Capture phase: a menu or popup under the dialog may stop Escape before it bubbles here
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
   return createPortal(

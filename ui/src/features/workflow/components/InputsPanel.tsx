@@ -34,6 +34,25 @@ function HistoryRow({ request }: { request: InputRequest }) {
   );
 }
 
+/** Open and answered input requests of a workflow; the dock tab and its panel share the cache. */
+export function useInputQueries(
+  sessionId: string,
+  workflowId: string,
+  live: boolean
+) {
+  const query = (name: 'open' | 'history') => ({
+    queryKey: ['inputs', sessionId, workflowId, name],
+    queryFn: () =>
+      listInputs(sessionId, {
+        workflowId,
+        state: name === 'open' ? OPEN_STATES : HISTORY_STATES,
+      }),
+    // only a live run can start to ask, so only then poll
+    refetchInterval: live ? (5000 as const) : (false as const),
+  });
+  return { open: useQuery(query('open')), history: useQuery(query('history')) };
+}
+
 /** The input requests of a workflow: those that wait for an answer, and the history. */
 export function InputsPanel({
   sessionId,
@@ -42,34 +61,17 @@ export function InputsPanel({
 }: {
   sessionId: string;
   workflowId: string;
-  /** The run on screen is going: only then can a step start to ask, so only then poll. */
   live?: boolean;
 }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>('open');
-  const query = (name: (typeof TABS)[number]) => ({
-    queryKey: ['inputs', sessionId, workflowId, name],
-    queryFn: () =>
-      listInputs(sessionId, {
-        workflowId,
-        state: name === 'open' ? OPEN_STATES : HISTORY_STATES,
-      }),
-    refetchInterval: live ? (5000 as const) : (false as const),
-  });
-  const openInputs = useQuery(query('open'));
-  const history = useQuery(query('history'));
-  const inputs = tab === 'open' ? openInputs : history;
+  const queries = useInputQueries(sessionId, workflowId, live);
+  const inputs = tab === 'open' ? queries.open : queries.history;
   const items = inputs.data ?? [];
-  // Nothing has been asked in this workflow: show no panel, so a run without inputs keeps its
-  // screen to itself. Once it has shown a request it stays, to say when they are all answered.
-  const [seen, setSeen] = useState(false);
-  const any = (openInputs.data?.length ?? 0) + (history.data?.length ?? 0) > 0;
-  if (any && !seen) setSeen(true);
-  if (!any && !seen && !openInputs.isError && !history.isError) return null;
 
   return (
     <section
       aria-label="Inputs"
-      className="border-outline-variant bg-surface-container-low flex flex-col gap-2 border-b px-4 py-3 sm:px-6"
+      className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-2"
     >
       <div role="tablist" className="flex gap-4">
         {TABS.map((name) => (

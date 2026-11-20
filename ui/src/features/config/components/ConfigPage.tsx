@@ -29,6 +29,7 @@ import {
   type ConfigOption,
 } from '../lib/catalog';
 import { howToSet } from '../lib/howToSet';
+import { useConfigValues } from '../hooks/useConfigValues';
 
 const WHEN_LABEL: Record<AppliesWhen, string> = {
   startup: 'Restart',
@@ -67,7 +68,11 @@ function OptionCatalog() {
   const [area, setArea] = useState('');
   const [when, setWhen] = useState('');
   const [native, setNative] = useState('');
+  const [set, setSet] = useState('');
   const [open, setOpen] = useState<string | null>(null);
+
+  const live = useConfigValues();
+  const values = live.status === 'ready' ? live.values : null;
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -76,9 +81,10 @@ function OptionCatalog() {
         (!area || o.area === area) &&
         (!when || o.appliesWhen === when) &&
         (!native || o.native) &&
+        (!set || (values?.get(o.key)?.source ?? 'default') !== 'default') &&
         (!q || `${o.key} ${envName(o)} ${o.purpose}`.toLowerCase().includes(q))
     );
-  }, [query, area, when, native]);
+  }, [query, area, when, native, set, values]);
 
   return (
     <div>
@@ -125,7 +131,32 @@ function OptionCatalog() {
           <option value="">JVM, native and Docker</option>
           <option value="native">Differs in native and Docker</option>
         </NativeSelect>
+        {values && (
+          <NativeSelect
+            aria-label="Value"
+            value={set}
+            onChange={(e) => setSet(e.target.value)}
+          >
+            <option value="">Any value</option>
+            <option value="set">Set on this server</option>
+          </NativeSelect>
+        )}
       </div>
+      {live.status === 'denied' && (
+        <Callout compact className="mb-3">
+          Current values need an ADMIN key.
+        </Callout>
+      )}
+      {live.status === 'loading' && (
+        <p className="text-body-sm text-on-surface-variant mb-3">
+          Loading current values…
+        </p>
+      )}
+      {live.status === 'error' && (
+        <Callout kind="warning" compact className="mb-3">
+          Could not load the current values.
+        </Callout>
+      )}
       {rows.length === 0 ? (
         <StateMessage tone="neutral" title="No options match.">
           Clear the search or a filter.
@@ -137,6 +168,8 @@ function OptionCatalog() {
               <TableRow>
                 <TableHead>Option</TableHead>
                 <TableHead>Default</TableHead>
+                {values && <TableHead>Current value</TableHead>}
+                {values && <TableHead>Source</TableHead>}
                 <TableHead>Applies</TableHead>
                 <TableHead>Area</TableHead>
               </TableRow>
@@ -144,6 +177,7 @@ function OptionCatalog() {
             <TableBody>
               {rows.map((o) => {
                 const expanded = open === o.key;
+                const now = values?.get(o.key);
                 return (
                   <Fragment key={o.key}>
                     <TableRow>
@@ -163,12 +197,22 @@ function OptionCatalog() {
                       <TableCell className="text-code-sm">
                         {o.default}
                       </TableCell>
+                      {values && (
+                        <TableCell className="text-code-sm">
+                          {now ? (now.value ?? 'Not set') : '—'}
+                        </TableCell>
+                      )}
+                      {values && (
+                        <TableCell>
+                          {now && now.source !== 'default' ? now.source : '—'}
+                        </TableCell>
+                      )}
                       <TableCell>{WHEN_LABEL[o.appliesWhen]}</TableCell>
                       <TableCell>{o.area}</TableCell>
                     </TableRow>
                     {expanded && (
                       <TableRow>
-                        <TableCell colSpan={4}>
+                        <TableCell colSpan={values ? 6 : 4}>
                           <Details option={o} />
                         </TableCell>
                       </TableRow>

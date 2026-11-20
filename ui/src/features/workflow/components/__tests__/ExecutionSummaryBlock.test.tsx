@@ -1,12 +1,81 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ExecutionSummaryBlock } from '../ExecutionSummaryBlock';
 import { createMockProgress } from '@/test/factories/workflowFactory';
 
+/** Installs a clipboard after user-event has set up its own, so ours is the one used. */
+function installClipboard(writeText: (text: string) => Promise<void>) {
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  });
+}
+
 describe('ExecutionSummaryBlock', () => {
+  it('copies the execution id and confirms in place', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn(() => Promise.resolve());
+    installClipboard(writeText);
+    render(
+      <ExecutionSummaryBlock progress={createMockProgress()} sessionId="s1" />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Copy execution id' }));
+
+    expect(writeText).toHaveBeenCalledWith('exec-091-qp-55');
+    await waitFor(() =>
+      expect(screen.getByTestId('execution-summary')).toHaveTextContent('check')
+    );
+  });
+
+  it('copies the session id from the route when there is no run', async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn(() => Promise.resolve());
+    installClipboard(writeText);
+    render(
+      <ExecutionSummaryBlock progress={null} sessionId="SESSION_A92_XP_2024" />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Copy session id' }));
+
+    expect(writeText).toHaveBeenCalledWith('SESSION_A92_XP_2024');
+  });
+
+  it('shows the failure icon when the clipboard refuses', async () => {
+    const user = userEvent.setup();
+    installClipboard(() => Promise.reject(new Error('denied')));
+    render(
+      <ExecutionSummaryBlock progress={createMockProgress()} sessionId="s1" />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Copy execution id' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('execution-summary')).toHaveTextContent('error')
+    );
+  });
+
+  it('shows the failure icon when there is no clipboard', async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    });
+    render(
+      <ExecutionSummaryBlock progress={createMockProgress()} sessionId="s1" />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Copy session id' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('execution-summary')).toHaveTextContent('error')
+    );
+  });
+
   it('renders the execution summary rows', () => {
     render(
       <ExecutionSummaryBlock progress={createMockProgress()} sessionId="s1" />
