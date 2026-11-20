@@ -163,8 +163,12 @@ const inspector = (page: Page) =>
   page.getByRole('complementary', { name: 'Node inspector' });
 const nodeButton = (page: Page, id: string) =>
   outline(page).getByRole('button', { name: new RegExp(`^${id}`) });
-const addNode = (page: Page, type: string) =>
-  outline(page).getByLabel('Plugin type').selectOption(type);
+/** Adds a step by searching for its type: Enter picks the first match. */
+const addNode = async (page: Page, type: string) => {
+  await outline(page).getByRole('button', { name: 'Add step' }).click();
+  await page.getByLabel('Search steps').fill(type);
+  await page.keyboard.press('Enter');
+};
 
 async function open(page: Page, opts: Options = {}) {
   const calls = await mockEditor(page, opts);
@@ -240,7 +244,7 @@ test.describe('Workflow editor - loading', () => {
 });
 
 test.describe('Workflow editor - nodes', () => {
-  test('selecting a node shows its inspector, and the Add node picker lists plugins by category', async ({
+  test('selecting a node shows its inspector, and the Add step picker lists plugins by category', async ({
     page,
   }) => {
     await open(page);
@@ -253,23 +257,24 @@ test.describe('Workflow editor - nodes', () => {
     await expect(inspector(page)).toContainText('ShellProcessor');
     await expect(inspector(page)).toContainText('The command line to run');
 
-    const groups = outline(page).getByLabel('Plugin type').locator('optgroup');
-    await expect(groups).toHaveCount(3);
+    await outline(page).getByRole('button', { name: 'Add step' }).click();
+    for (const group of ['Triggers', 'Processors', 'Terminals']) {
+      await expect(page.getByRole('region', { name: group })).toBeVisible();
+    }
   });
 
-  test('Add node adds the chosen plugin with a unique ID and selects it', async ({
+  test('Add step adds the chosen plugin with a unique ID, selects it and connects it after the selected node', async ({
     page,
   }) => {
     await open(page);
 
     await addNode(page, 'ShellProcessor');
-    await outline(page).getByRole('button', { name: 'Add node' }).click();
     await expect(nodeButton(page, 'shellprocessor-1')).toHaveAttribute(
       'aria-current',
       'true'
     );
 
-    await outline(page).getByRole('button', { name: 'Add node' }).click();
+    await addNode(page, 'ShellProcessor');
     await expect(nodeButton(page, 'shellprocessor-2')).toBeVisible();
     await expect(
       page.getByTestId('workflow-node-shellprocessor-2')
@@ -415,8 +420,7 @@ test.describe('Workflow editor - the node inspector', () => {
   test('a plugin without a schema is configured as JSON, with its usage pattern', async ({
     page,
   }) => {
-    await outline(page).getByLabel('Plugin type').selectOption('RawProcessor');
-    await outline(page).getByRole('button', { name: 'Add node' }).click();
+    await addNode(page, 'RawProcessor');
 
     await expect(
       inspector(page).getByLabel('Configuration (JSON)')
@@ -593,7 +597,6 @@ test.describe('Workflow editor - saving', () => {
       .getByLabel('Description', { exact: true })
       .fill('New description');
     await addNode(page, 'FileSink');
-    await outline(page).getByRole('button', { name: 'Add node' }).click();
 
     await page.getByRole('button', { name: 'Save version' }).click();
 
@@ -681,7 +684,6 @@ test.describe('Workflow editor - unsaved changes', () => {
       page.getByRole('status').filter({ hasText: 'Unsaved changes' })
     ).toBeVisible();
     await addNode(page, 'FileSink');
-    await outline(page).getByRole('button', { name: 'Add node' }).click();
 
     await page.getByRole('button', { name: 'Discard' }).click();
 

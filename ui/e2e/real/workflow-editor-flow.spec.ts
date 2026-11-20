@@ -7,6 +7,13 @@ import { expect, test } from './fixtures';
 const outline = (page: import('@playwright/test').Page) =>
   page.getByRole('complementary', { name: 'Nodes and edges' });
 
+/** Adds a step by searching for its type: Enter picks the first match. */
+const addNode = async (page: import('@playwright/test').Page, type: string) => {
+  await outline(page).getByRole('button', { name: 'Add step' }).click();
+  await page.getByLabel('Search steps').fill(type);
+  await page.keyboard.press('Enter');
+};
+
 test('a node and an edge are added, validated and saved, and the server keeps them', async ({
   page,
   api,
@@ -22,10 +29,9 @@ test('a node and an edge are added, validated and saved, and the server keeps th
   ).toBeVisible();
 
   await page.getByLabel('Description', { exact: true }).fill('after');
-  await outline(page)
-    .getByLabel('Plugin type')
-    .selectOption('CONSOLE_TERMINAL');
-  await outline(page).getByRole('button', { name: 'Add node' }).click();
+  // nothing selected, so the new step is left unconnected for the Edges form below
+  await page.keyboard.press('Escape');
+  await addNode(page, 'CONSOLE_TERMINAL');
   await expect(page.getByText('Unsaved changes')).toBeVisible();
 
   await outline(page).getByRole('tab', { name: /Edges/ }).click();
@@ -72,10 +78,8 @@ test('the server rejects a workflow that is not valid and nothing is saved', asy
   await page.goto(`/sessions/${id}/workflow/w/edit`);
 
   // a node nothing connects to
-  await outline(page)
-    .getByLabel('Plugin type')
-    .selectOption('PROCESS_EXECUTOR');
-  await outline(page).getByRole('button', { name: 'Add node' }).click();
+  await page.keyboard.press('Escape');
+  await addNode(page, 'PROCESS_EXECUTOR');
   await page.getByRole('button', { name: 'Save version' }).click();
 
   await expect(page.getByRole('alert')).toBeVisible();

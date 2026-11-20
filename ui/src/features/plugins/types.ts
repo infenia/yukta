@@ -11,6 +11,12 @@ export interface PluginSummary {
   category: PluginCategory;
   tier?: 'CORE' | 'EXTENDED' | 'SPECIFIC';
   restricted?: boolean;
+  /** False when the plugin exists but the operator has not enabled it. */
+  enabled?: boolean;
+  /** What an operator sets to enable it; null when already enabled. */
+  enableWith?: string | null;
+  /** What the plugin does, in a sentence or two. */
+  description?: string | null;
 }
 
 export type ConfigFieldType =

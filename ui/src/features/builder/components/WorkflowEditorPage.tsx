@@ -34,11 +34,14 @@ import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPi
 import { supervisorProblems } from '@/features/supervisors/lib/supervisorProblems';
 import type { SupervisorRef } from '@/features/supervisors/types';
 import { NativeSelect } from '@/components/ui/native-select';
-import { toPreviewGraph } from './WorkflowEditorPage.helpers';
+import { StepPicker } from './StepPicker';
+import {
+  connectionProblem,
+  toPreviewGraph,
+} from './WorkflowEditorPage.helpers';
 import { readDraft, writeDraft } from './workflowDraft';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
-const PLUGIN_CATEGORIES = ['TRIGGER', 'PROCESSOR', 'TERMINAL'] as const;
 const NO_TASKS = {};
 
 // fetchApi only throws Error subclasses
@@ -93,7 +96,6 @@ function Editor({
       return next;
     });
   }, []);
-  const [newType, setNewType] = useState('');
   const [listTab, setListTab] = useState<'nodes' | 'edges'>('nodes');
   const [nodeQuery, setNodeQuery] = useState('');
   const [edge, setEdge] = useState<DraftEdge>({
@@ -144,14 +146,6 @@ function Editor({
     grouped && stages.size > 0
       ? { open: openNow, onToggle: toggleStage }
       : undefined;
-  // The select lists plugins by category; until the user picks one, what it shows is the first option.
-  const selectedType =
-    newType ||
-    PLUGIN_CATEGORIES.flatMap((c) =>
-      (plugins.data ?? []).filter((p) => p.category === c)
-    )[0]?.type ||
-    '';
-
   // Unsaved: the draft differs from what was loaded (saving leaves the page)
   const dirty = JSON.stringify(workflow) !== JSON.stringify(initial);
   // problems with the declared supervisors, from Validate or from a refused save
@@ -194,11 +188,27 @@ function Editor({
     setResult(null);
   };
 
-  const addNode = () => {
-    const type = selectedType;
-    if (!type) return;
+  /**
+   * Adds a step of `type`; when a node that can have a successor is selected, the new step is
+   * connected after it (a trigger starts a workflow, so it never is).
+   */
+  const addNode = (type: string) => {
     const nodeId = uniqueNodeId(type, workflow.nodes);
-    update({ nodes: [...workflow.nodes, { nodeId, type, config: {} }] });
+    const after =
+      node &&
+      categories[node.type] !== 'TERMINAL' &&
+      categories[type] !== 'TRIGGER'
+        ? node
+        : null;
+    update({
+      nodes: [...workflow.nodes, { nodeId, type, config: {} }],
+      ...(after && {
+        edges: [
+          ...workflow.edges,
+          { source: after.nodeId, target: nodeId, sourcePort: null },
+        ],
+      }),
+    });
     setSelected(nodeId);
   };
 
@@ -242,10 +252,6 @@ function Editor({
   /** Adds an edge from the Edges form, or one drawn on the canvas, unless it is a loop or a copy. */
   const addEdge = (next: DraftEdge = edge) => {
     if (!next.source || !next.target) return;
-    if (next.source === next.target) {
-      setError('An edge cannot connect a node to itself.');
-      return;
-    }
     if (
       workflow.edges.some(
         (e) =>
@@ -255,6 +261,16 @@ function Editor({
       )
     ) {
       setError('That edge already exists.');
+      return;
+    }
+    const problem = connectionProblem(
+      workflow,
+      categories,
+      next.source,
+      next.target
+    );
+    if (problem) {
+      setError(problem);
       return;
     }
     setError(null);
@@ -471,29 +487,16 @@ function Editor({
 
           {listTab === 'nodes' && (
             <>
-              <div className="flex gap-2">
-                <NativeSelect
-                  aria-label="Plugin type"
-                  className="min-w-0 flex-1"
-                  value={selectedType}
-                  onChange={(event) => setNewType(event.target.value)}
-                >
-                  {PLUGIN_CATEGORIES.map((category) => (
-                    <optgroup key={category} label={category}>
-                      {plugins.data
-                        ?.filter((p) => p.category === category)
-                        .map((p) => (
-                          <option key={p.type} value={p.type}>
-                            {p.type}
-                          </option>
-                        ))}
-                    </optgroup>
-                  ))}
-                </NativeSelect>
-                <button type="button" className={BUTTON} onClick={addNode}>
-                  Add node
+              <StepPicker plugins={plugins.data ?? []} onPick={addNode}>
+                <button type="button" className={BUTTON}>
+                  Add step
                 </button>
-              </div>
+              </StepPicker>
+              {node && categories[node.type] !== 'TERMINAL' && (
+                <p className="text-body-sm text-muted-foreground -mt-1">
+                  A new step is connected after {node.nodeId}.
+                </p>
+              )}
 
               <input
                 type="search"
