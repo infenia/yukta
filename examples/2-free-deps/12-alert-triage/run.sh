@@ -62,7 +62,8 @@ decide() { # decide EID NODE SIGNAL DECISION
   row=$(api GET "/api/sessions/$SID/inputs?state=OPEN,ESCALATED" | jq -c --arg e "$1" --arg n "$2" '[.data[] | select(.executionId == $e and .nodeId == $n)][0]')
   api POST "/api/executions/$1/inputs/$(jq -r .id <<<"$row")/answer" "$(jq -n --arg d "$4" --argjson v "$(jq .version <<<"$row")" '{decision: $d, expectedVersion: $v}')" >/dev/null && echo "    on-call answers $3=$4"
 }
-check() { local d=$1; shift; if "$@"; then echo "    PASS $d"; else echo "    FAIL $d"; for f in "$SANDBOX"/*.log "$PAGES"; do echo "--- $f"; cat "$f" 2>/dev/null; done; exit 1; fi; }
+# The page is sent on a branch parallel to the wait, so a check may run just before its effect lands: retry for 5 s.
+check() { local d=$1; shift; local n; for n in $(seq 20); do "$@" && break; sleep 0.25; done; if "$@"; then echo "    PASS $d"; else echo "    FAIL $d"; for f in "$SANDBOX"/*.log "$PAGES"; do echo "--- $f"; cat "$f" 2>/dev/null; done; exit 1; fi; }
 has() { grep -qF -- "$2" "$1"; }
 hasnt() { ! grep -qF -- "$2" "$1" 2>/dev/null; }
 
