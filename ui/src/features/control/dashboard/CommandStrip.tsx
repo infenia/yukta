@@ -48,7 +48,7 @@ const ENGINE_TITLE =
  */
 export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
   const snapshot = useMetricSnapshot(scope).data;
-  const handoff = useMetricSeries('overhead.handoff.p95', '1h', scope).data;
+  const start = useMetricSeries('overhead.start.p95', '1h', scope).data;
   const day = useHeatmap('24h', scope, live).data;
   const limits = useQuery({
     queryKey: ['control', 'scheduler', 'limits'],
@@ -60,10 +60,10 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
   const dayRuns = (day ?? []).reduce((n, c) => n + c.runs, 0);
   const dayFailed = (day ?? []).reduce((n, c) => n + c.failed, 0);
   const rate = successRate(dayRuns, dayFailed);
-  const trend = handoff?.['overhead.handoff.p95'] ?? [];
+  const trend = start?.['overhead.start.p95'] ?? [];
   const change = percentChange(trend);
-  const p95 = snapshot?.['overhead.handoff.p95'];
-  const start = snapshot?.['overhead.start.p95'];
+  const p95 = snapshot?.['overhead.start.p95'];
+  const handoff = snapshot?.['overhead.handoff.p95'];
   const failed = snapshot?.['runs.failed'] ?? 0;
   const finished = snapshot?.['runs.finished'] ?? 0;
 
@@ -120,9 +120,9 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
         delta={formatChange(change)}
         deltaTone={slowerIsWorse(change)}
         hint={
-          start === undefined
-            ? 'hand-off'
-            : `hand-off · start ${formatMs(start)}`
+          handoff === undefined
+            ? 'request to first plugin'
+            : `request to plugin · hand-off ${formatMs(handoff)}`
         }
         series={trend.map((p) => p.v)}
       />

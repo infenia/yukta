@@ -120,8 +120,8 @@ const server = setupServer(
           values: {
             'runs.finished': 120,
             'runs.failed': 3,
-            'overhead.handoff.p95': 4,
             'overhead.start.p95': 12,
+            'overhead.handoff.p95': 4,
             'llm.tokens{direction=input,provider=OPENAI}|rate': 2,
             'llm.tokens{direction=output,provider=OPENAI}|rate': 1,
             'yukta.mcp.heavy.refused|rate': 0.1,
@@ -145,10 +145,11 @@ const server = setupServer(
           }
         : names.startsWith('overhead')
           ? {
-              'overhead.handoff.p95': [
-                { time: minute - 60_000, value: 2 },
-                { time: minute, value: 4 },
+              'overhead.start.p95': [
+                { time: minute - 60_000, value: 6 },
+                { time: minute, value: 12 },
               ],
+              'overhead.handoff.p95': [{ time: minute, value: 4 }],
             }
           : names.startsWith('llm.cost')
             ? {
@@ -210,10 +211,10 @@ describe('the Mission Control dashboard', () => {
     expect(within(strip).getByText('holds 100')).toBeInTheDocument();
     expect(within(strip).getAllByText('95%').length).toBeGreaterThan(0); // 19 of 20 in 24 h
     expect(within(strip).getByText('of 120 runs')).toBeInTheDocument();
-    expect(within(strip).getByText('4 ms')).toBeInTheDocument(); // hand-off p95
-    expect(within(strip).getByText('+100%')).toBeInTheDocument(); // 2 ms to 4 ms
+    expect(within(strip).getByText('12 ms')).toBeInTheDocument(); // run start p95
+    expect(within(strip).getByText('+100%')).toBeInTheDocument(); // 6 ms to 12 ms
     expect(
-      within(strip).getByText('hand-off · start 12 ms')
+      within(strip).getByText('request to plugin · hand-off 4 ms')
     ).toBeInTheDocument();
     expect(within(strip).getByText('0')).toBeInTheDocument(); // no inputs waiting
     expect(await screen.findByText('20 runs')).toBeInTheDocument();

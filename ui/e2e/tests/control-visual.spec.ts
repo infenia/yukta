@@ -14,9 +14,9 @@ async function mockControlPage(page: Page) {
     'runs.finished': 120,
     'runs.success': 100,
     'runs.failure': 20,
-    'overhead.handoff.p50': 2,
-    'overhead.handoff.p95': 4,
-    'overhead.start.p95': 12,
+    'overhead.start.p50': 2,
+    'overhead.start.p95': 4,
+    'overhead.handoff.p95': 3,
   });
   const empty = [
     '**/api/supervisors',

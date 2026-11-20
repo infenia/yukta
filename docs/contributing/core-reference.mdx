@@ -1168,7 +1168,7 @@ All meters are Micrometer. Tags in braces.
 | `yukta.node.retries` `{module}` | counter | [ENG-04](#eng-04-failure-policy-engine-config) | Retried messages |
 | `yukta.execution.duration` `{status}` | timer | [OBS-04](#obs-04-metrics) | Run time |
 | `yukta.execution.queue.wait` | timer | [ADM-01](#adm-01-scheduler-limits-and-queue) | Time a start waited for a slot |
-| `yukta.engine.start` · `yukta.engine.handoff` | timer | [OBS-04](#obs-04-metrics) | Engine overhead: slot to first plugin call, and a message's turn at a node to its plugin call. `RunAnalytics` also keeps them per scope as `overhead.start.*` and `overhead.handoff.*` series, and the slowest nodes behind `GET /api/metrics/nodes` |
+| `yukta.engine.start` · `yukta.engine.handoff` | timer | [OBS-04](#obs-04-metrics) | Engine overhead: run registration to first plugin call (queue wait excluded), and, for nodes that run per message, a message's turn at a node to its plugin call. `RunAnalytics` also keeps them per scope as `overhead.start.*` and `overhead.handoff.*` series, and the slowest nodes behind `GET /api/metrics/nodes` |
 | `yukta.executions.running` · `yukta.executions.queued` | gauge | [ADM-01](#adm-01-scheduler-limits-and-queue) | Scheduler state |
 | `yukta.executions.rejected` `{reason}` | counter | [ADM-01](#adm-01-scheduler-limits-and-queue) | Refused starts: shutdown, limit, queue_full, workflow_queue_full, queue_timeout, not_leader |
 | `yukta.tracker.queue.depth` | gauge | [OBS-01](#obs-01-tracker-and-live-progress) | State events waiting; alert on growth |

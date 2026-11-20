@@ -43,16 +43,16 @@ describe('OverheadChart', () => {
     render(
       <OverheadChart
         series={{
-          'overhead.handoff.p50': [point(2000, 5), point(1000, 3)],
-          'overhead.handoff.p95': [point(1000, 9)],
+          'overhead.start.p50': [point(2000, 5), point(1000, 3)],
+          'overhead.start.p95': [point(1000, 9)],
         }}
       />
     );
 
     expect(screen.getByText('line-chart')).toBeInTheDocument();
     expect(chart.props?.data).toEqual([
-      { t: 1000, 'overhead.handoff.p50': 3, 'overhead.handoff.p95': 9 },
-      { t: 2000, 'overhead.handoff.p50': 5 },
+      { t: 1000, 'overhead.start.p50': 3, 'overhead.start.p95': 9 },
+      { t: 2000, 'overhead.start.p50': 5 },
     ]);
   });
 
@@ -71,20 +71,19 @@ describe('OverheadChart', () => {
       labelFormatter: (t: number) => string;
       formatter: (v: number, n: string) => [string, string];
     };
-    expect(tip.labelFormatter(Date.UTC(2026, 0, 1))).toEqual(expect.any(String));
-    expect(tip.formatter(1500, 'hand-off p50')).toEqual([
+    expect(tip.labelFormatter(Date.UTC(2026, 0, 1))).toEqual(
+      expect.any(String)
+    );
+    expect(tip.formatter(1500, 'run start p50')).toEqual([
       formatMs(1500),
-      'hand-off p50',
+      'run start p50',
     ]);
 
     const lines = (chart.props?.children ?? []).flat() as ReactElement<
       Record<string, unknown>
     >[];
-    expect(lines.filter((l) => 'name' in l.props).map((l) => l.props.name))
-      .toEqual([
-      'hand-off p50',
-      'hand-off p95',
-      'run start p95',
-    ]);
+    expect(
+      lines.filter((l) => 'name' in l.props).map((l) => l.props.name)
+    ).toEqual(['run start p50', 'run start p95', 'hand-off p95']);
   });
 });

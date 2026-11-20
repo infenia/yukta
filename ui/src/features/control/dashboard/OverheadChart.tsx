@@ -12,18 +12,18 @@ import { formatMs } from './format';
 
 const LINES = [
   {
-    key: 'overhead.handoff.p50',
-    label: 'hand-off p50',
+    key: 'overhead.start.p50',
+    label: 'run start p50',
     color: 'var(--chart-1)',
-  },
-  {
-    key: 'overhead.handoff.p95',
-    label: 'hand-off p95',
-    color: 'var(--chart-2)',
   },
   {
     key: 'overhead.start.p95',
     label: 'run start p95',
+    color: 'var(--chart-2)',
+  },
+  {
+    key: 'overhead.handoff.p95',
+    label: 'hand-off p95',
     color: 'var(--chart-4)',
   },
 ];
@@ -32,7 +32,8 @@ const time = (t: number) =>
   new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 /**
- * What the engine added: the hand-off to a plugin and the start of a run, never the plugins' own
+ * What the engine added: the start of a run (registration to its first plugin call, queue wait
+ * excluded) and, for nodes that run per message, the hand-off to a plugin; never the plugins' own
  * time. The default export, so a route can `lazy()` it.
  */
 export default function OverheadChart({

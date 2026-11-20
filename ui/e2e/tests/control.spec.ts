@@ -144,7 +144,7 @@ test.describe('Control page', () => {
           time: Date.now(),
           values: {
             'runs.finished': 120,
-            'overhead.handoff.p95': 4,
+            'overhead.start.p95': 4,
           },
         })
       )

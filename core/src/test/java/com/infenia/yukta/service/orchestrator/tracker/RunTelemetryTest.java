@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.orchestrator.tracker;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.event.TaskStatusEvent;
 import com.infenia.yukta.model.execution.TaskProgress;
@@ -11,6 +12,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
@@ -54,12 +56,10 @@ class RunTelemetryTest {
   }
 
   @Test
-  void theStartOfTheRunIsTimedOnceFromItsSlot() {
-    assertThat(telemetry.pluginStarted("never-ran")).isNull();
+  void theStartOfTheRunIsTimedOnceFromItsRegistration() {
+    assertThat(telemetry.pluginStarted("never-registered")).isNull();
 
-    telemetry.runStatus("e1", TaskStatus.RUNNING, false, null, null);
-    // a second RUNNING does not move the slot
-    telemetry.runStatus("e1", TaskStatus.RUNNING, false, null, null);
+    telemetry.runStarted("e1", "s", "w");
 
     assertThat(telemetry.pluginStarted("e1")).isGreaterThanOrEqualTo(java.time.Duration.ZERO);
     assertThat(telemetry.pluginStarted("e1")).isNull();
@@ -67,9 +67,31 @@ class RunTelemetryTest {
   }
 
   @Test
-  void theRunThatEndsBeforeAnyPluginRanLeavesNoSlotBehind() {
-    final Instant now = Instant.now();
+  void theWaitForASlotIsNotPartOfTheStart() {
+    telemetry.runStarted("e1", "s", "w");
+    telemetry.runStatus("e1", TaskStatus.QUEUED, false, null, null);
+    await().pollDelay(java.time.Duration.ofMillis(80)).until(() -> true);
     telemetry.runStatus("e1", TaskStatus.RUNNING, false, null, null);
+
+    assertThat(telemetry.pluginStarted("e1")).isLessThan(java.time.Duration.ofMillis(40));
+    assertThat(meters.get("yukta.execution.queue.wait").timer().totalTime(TimeUnit.MILLISECONDS))
+        .isGreaterThanOrEqualTo(80);
+  }
+
+  @Test
+  void aRunThatIsStillQueuedWhenItsFirstPluginIsCalledDoesNotCountTheWait() {
+    // the slot is given before the RUNNING event is applied
+    telemetry.runStarted("e1", "s", "w");
+    telemetry.runStatus("e1", TaskStatus.QUEUED, false, null, null);
+    await().pollDelay(java.time.Duration.ofMillis(80)).until(() -> true);
+
+    assertThat(telemetry.pluginStarted("e1")).isLessThan(java.time.Duration.ofMillis(40));
+  }
+
+  @Test
+  void aRunThatEndsBeforeAnyPluginRanLeavesNothingBehind() {
+    final Instant now = Instant.now();
+    telemetry.runStarted("e1", "s", "w");
     telemetry.runStatus("e1", TaskStatus.SUCCESS, true, now.minusSeconds(1), now);
 
     assertThat(telemetry.pluginStarted("e1")).isNull();

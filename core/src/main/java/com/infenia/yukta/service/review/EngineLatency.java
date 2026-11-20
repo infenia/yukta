@@ -16,7 +16,7 @@ public record EngineLatency(
 
   /** The steps the engine times. */
   public enum Stage {
-    /** From the run getting its slot to the first plugin being called. */
+    /** From the run being registered to its first plugin being called, without the queue wait. */
     START,
     /** From a message taking the node's turn to the plugin being called with it. */
     HANDOFF

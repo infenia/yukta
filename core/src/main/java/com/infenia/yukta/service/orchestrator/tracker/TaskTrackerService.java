@@ -223,7 +223,7 @@ public interface TaskTrackerService extends ExecutionLog {
 
   /**
    * Notes that a plugin of the run was called. The first call of a run times the start of the run,
-   * from its slot to this call.
+   * from the run being registered to this call, without the time it waited for a slot.
    *
    * @param executionId the run
    */

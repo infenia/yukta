@@ -13,7 +13,7 @@ vi.mock('@/features/metrics/hooks', () => ({
   useMetricSnapshot: vi.fn(),
   useMetricSeries: () => ({
     data: {
-      'overhead.handoff.p95': [
+      'overhead.start.p95': [
         { t: 1, v: 2 },
         { t: 2, v: 4 },
       ],
@@ -74,16 +74,19 @@ describe('CommandStrip', () => {
 
   it('shows the engine overhead and what it is not', () => {
     snapshot.mockReturnValue(
-      asSnapshot({ 'overhead.handoff.p95': 4, 'overhead.start.p95': 12 })
+      asSnapshot({ 'overhead.start.p95': 12, 'overhead.handoff.p95': 4 })
     );
     renderWithProviders(<CommandStrip scope="global" live={false} />);
-    expect(screen.getByText('hand-off · start 12 ms')).toBeInTheDocument();
+    expect(screen.getByText('12 ms')).toBeInTheDocument();
+    expect(
+      screen.getByText('request to plugin · hand-off 4 ms')
+    ).toBeInTheDocument();
     expect(screen.getByTitle(/leaves out the plugin/)).toBeInTheDocument();
   });
 
   it('has no engine number before anything was measured', () => {
     renderWithProviders(<CommandStrip scope="global" live={false} />);
-    expect(screen.getByText('hand-off')).toBeInTheDocument();
+    expect(screen.getByText('request to first plugin')).toBeInTheDocument();
   });
 
   it('counts the failed runs of the hour out of the finished ones', () => {
