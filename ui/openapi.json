@@ -8678,6 +8678,28 @@
         "tags" : [ "AI Backend API" ]
       }
     },
+    "/api/assistant/proxy/{provider}" : {
+      "post" : {
+        "description" : "Sends the body to Anthropic (provider anthropic) or an OpenAI-compatible endpoint (provider openai) with the key from X-Assistant-Key and streams the reply back. An OpenAI-compatible base URL (X-Assistant-Base-Url) must name a host in yukta.assistant.allowed-base-urls.",
+        "operationId" : "proxy",
+        "parameters" : [ {
+          "description" : "anthropic or openai",
+          "in" : "path",
+          "name" : "provider",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Relay an assistant model call",
+        "tags" : [ "Assistant API" ]
+      }
+    },
     "/api/config" : {
       "get" : {
         "description" : "Returns, for each `key` asked for, the value the server uses and where it comes from (argument, system property, environment variable, configuration file). A key nothing sets has a null value and the source `default`: the built-in default applies. Keys must start with yukta., server., spring., management., logging. or springdoc.; at most 500. Secrets (keys, tokens, passwords, credentials, and passwords in URLs) are masked as ******. Needs an ADMIN key.",
@@ -14134,6 +14156,9 @@
   }, {
     "description" : "Live feed of execution events",
     "name" : "Events API"
+  }, {
+    "description" : "Model relay for the experimental UI assistant",
+    "name" : "Assistant API"
   }, {
     "description" : "Follow the result of an execution",
     "name" : "Execution Results API"
