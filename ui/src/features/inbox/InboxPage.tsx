@@ -118,7 +118,7 @@ function Row({
           className={`mt-2 size-2 flex-none rounded-full ${SEVERITY_DOT[item.severity]}`}
         />
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <div className="flex flex-wrap items-center gap-2">
+          <div>
             <NotificationLink
               item={item}
               className={`text-body-md hover:text-primary ${item.read ? '' : 'font-semibold'}`}
@@ -127,7 +127,7 @@ function Row({
             </NotificationLink>
             {!item.read && (
               <span
-                className="bg-primary size-1.5 rounded-full"
+                className="bg-primary ml-2 inline-block size-1.5 rounded-full align-middle"
                 role="img"
                 aria-label="New"
               />
