@@ -19,7 +19,7 @@ import { UiShot } from "/snippets/ui-shot.jsx";
 
 **Prerequisites:** open the server address in a browser: `http://localhost:9858` by default. With no key configured (the default on loopback) the UI asks for nothing. When the server answers `401` or `403`, the UI asks for the API key once and sends it as `Authorization: Bearer <key>`. The key stays in that browser tab and is gone when the tab closes. **Change API key** is in the account menu. Controls your key's role cannot use are shown disabled.
 
-A narrow rail (a tab bar on a phone) links to **Sessions**, **Runs**, **Plugins**, **Supervisors** and **Control**. The search box and jump palette is on `⌘K` (`Ctrl+K`), and the account menu holds the theme toggle (light, dark or system). A breadcrumb row shows where you are.
+A narrow rail (a tab bar on a phone) links to **Sessions**, **Runs**, **Plugins**, **Supervisors**, **Control** and **Configuration**. The search box and jump palette is on `⌘K` (`Ctrl+K`), and the account menu holds the theme toggle (light, dark or system). A breadcrumb row shows where you are.
 
 ## Find a session and its workflows
 
@@ -134,6 +134,14 @@ Open **Plugins** (`/plugins`). Plugins are grouped as triggers, processors and t
 **Control** (`/control`, titled *Control bus*) has three tabs. **Overview** shows pending input requests, supervisors, the Mission Control dashboard (throughput, latency, capacity, live runs, workers and system), the scheduler's limits with **Edit** (`ADMIN`), and the remote workers with their pools and use. **Activity** is a live feed of events from all runs. **Audit** lists the newest control commands with the time, actor, command, run, and whether each was applied or refused and why. Commands sent without a named key show as `api`. From a workflow page, **Control commands of this run** in the **Workflow actions** menu opens the audit for that run.
 
 See [Use the control dashboard](/guides/supervise/use-the-control-dashboard) for what to read there, and [Tune capacity and limits](/guides/operate/tune-capacity-and-limits) for the scheduler.
+
+## Look up a setting
+
+Open **Configuration** (`/config`). It answers "how do I set this?" without leaving the server. Its tabs are kept in the address (`?tab=security`, `?tab=modes`):
+
+- **Options** lists every setting with its default, whether a change needs a restart (**Restart**) or applies at once (**Live**), and its area. Search by key, environment variable or purpose, and filter by area, change type, or whether the option differs in the native binary and the Docker image. With an `ADMIN` key the table also shows the value this server uses now and where it came from (command line, environment variable or configuration file); secrets are masked. Select any row to open the commands that set that one option. The **i** button explains how a value is chosen.
+- **Security** shows how to give each caller a named API key with a role, store its digest, rotate it, and bound what workflows may run and call. It is the short form of [Secure the server](/guides/operate/secure-the-server).
+- **Run modes** shows where a value is set for the JVM jar, the native binary and the Docker image (command-line argument, environment variable, configuration file), with `server.port` as a worked example, then compares the three modes. The same table is in the [Configuration reference](/reference/configuration#how-settings-are-supplied).
 
 ## Verify it worked
 
