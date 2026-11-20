@@ -7155,6 +7155,9 @@
       },
       "TemplateSummary" : {
         "properties" : {
+          "category" : {
+            "type" : "string"
+          },
           "id" : {
             "type" : "string"
           },

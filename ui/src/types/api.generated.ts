@@ -6916,6 +6916,7 @@ export interface components {
             title?: string;
         };
         TemplateSummary: {
+            category?: string;
             id?: string;
             pluginTypes?: string[];
             summary?: string;

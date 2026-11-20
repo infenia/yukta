@@ -207,7 +207,7 @@ Lists the remote workers that are connected and keep their lease, ordered by wor
 
 ## Templates
 
-`GET /api/templates` lists the example sessions bundled with the server. Each entry has `id`, `title`, `summary` and `pluginTypes`, the plugin types its workflows use.
+`GET /api/templates` lists the example sessions bundled with the server. Each entry has `id`, `title`, `summary`, `category` (the `examples/` folder it sits in, such as `1-standalone`) and `pluginTypes`, the plugin types its workflows use.
 
 `GET /api/templates/{id}` adds `readme` (markdown) and `session`, a session definition you can apply as it is. An unknown `id` answers `404`.
 

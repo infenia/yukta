@@ -3,6 +3,8 @@
 
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/common/Modal';
+import { Tip } from '@/components/ui/tooltip';
+import { Callout } from '@/components/common/Callout';
 import { InlineError } from '@/components/common/InlineError';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useQuery } from '@tanstack/react-query';
@@ -36,6 +38,29 @@ export function TemplateGallery({
       Object.fromEntries((plugins.data ?? []).map((p) => [p.type, p.category])),
     [plugins.data]
   );
+  // the types the server has switched off: a template that uses one fails when it runs
+  const off = useMemo(
+    () =>
+      new Set(
+        (plugins.data ?? [])
+          .filter((p) => p.enabled === false)
+          .map((p) => p.type)
+      ),
+    [plugins.data]
+  );
+  // the examples folders, in their number order, each with its templates
+  const groups = useMemo(() => {
+    const by = new Map<string, TemplateSummary[]>();
+    for (const t of templates.data ?? []) {
+      by.set(t.category ?? '', [...(by.get(t.category ?? '') ?? []), t]);
+    }
+    // a template without a folder goes last
+    const rank = (c: string) => (c ? 0 : 1);
+    return [...by].sort(
+      ([a], [b]) =>
+        rank(a) - rank(b) || a.localeCompare(b, undefined, { numeric: true })
+    );
+  }, [templates.data]);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<TemplateDetail | null>(null);
 
@@ -62,18 +87,23 @@ export function TemplateGallery({
       <p className="text-body-sm text-on-surface-variant">{t.summary}</p>
       <ul className="flex flex-wrap gap-1" aria-label="Plugin types">
         {t.pluginTypes.map((type) => (
-          <li
+          <Tip
             key={type}
-            className="rounded px-2 py-0.5 text-xs"
-            style={{
-              background: categoryTint(categories[type] ?? null),
-              color: categoryAccent(categories[type] ?? null),
-            }}
+            label={off.has(type) ? 'Not enabled on this server' : null}
           >
-            {type}
-          </li>
+            <li
+              className={`rounded px-2 py-0.5 text-xs ${off.has(type) ? 'line-through opacity-70' : ''}`}
+              style={{
+                background: categoryTint(categories[type] ?? null),
+                color: categoryAccent(categories[type] ?? null),
+              }}
+            >
+              {type}
+            </li>
+          </Tip>
         ))}
       </ul>
+      <NeedsPlugins types={t.pluginTypes.filter((type) => off.has(type))} />
       <div className="mt-auto flex flex-wrap gap-2 pt-2">
         <Button size="sm" onClick={() => open(t.id, onPick)}>
           Use template
@@ -95,7 +125,7 @@ export function TemplateGallery({
       {templates.isError && (
         <InlineError message="Templates could not be loaded; you can still start blank." />
       )}
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <ul className={GRID}>
         <li className="border-border bg-card flex flex-col gap-2 rounded-xl border p-4">
           <h3 className="text-label-md text-on-surface">Blank session</h3>
           <p className="text-body-sm text-on-surface-variant">
@@ -107,11 +137,22 @@ export function TemplateGallery({
             </Button>
           </div>
         </li>
-        {templates.data?.map(card)}
       </ul>
+      {groups.map(([category, list]) => (
+        <section key={category} aria-label={categoryLabel(category)}>
+          <h2 className="text-overline text-on-surface-variant mb-2">
+            {categoryLabel(category)}
+          </h2>
+          <ul className={GRID}>{list.map(card)}</ul>
+        </section>
+      ))}
       {preview && (
         <Modal wide title={preview.title} onClose={() => setPreview(null)}>
           <TemplateCanvas template={preview} categories={categories} />
+          <NeedsPlugins
+            types={preview.pluginTypes.filter((type) => off.has(type))}
+            className="mb-4"
+          />
           <Markdown source={preview.readme} />
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setPreview(null)}>
@@ -129,6 +170,42 @@ export function TemplateGallery({
         </Modal>
       )}
     </>
+  );
+}
+
+const GRID = 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
+
+/** `2-free-deps` reads "Free deps"; a template without a folder is "Other". */
+const categoryLabel = (category: string) => {
+  const words = category.replace(/^\d+-/, '').replace(/-/g, ' ');
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Other';
+};
+
+/** Which plugins the server has switched off, and the setting that switches them on. */
+function NeedsPlugins({
+  types,
+  className,
+}: {
+  types: string[];
+  className?: string;
+}) {
+  if (types.length === 0) return null;
+  return (
+    <Callout
+      kind="warning"
+      compact
+      className={className}
+      title={`Needs ${types.join(', ')} enabled`}
+    >
+      <span className="text-body-sm">
+        Switched off on this server, so a run fails until you set{' '}
+        <code className="text-code-sm select-all">
+          YUKTA_PLUGINS_ENABLED={types.join(',')}
+        </code>{' '}
+        (or <code className="text-code-sm">yukta.plugins.enabled</code>) and
+        restart. You can still use the template and edit it.
+      </span>
+    </Callout>
   );
 }
 
