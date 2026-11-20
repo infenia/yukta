@@ -209,6 +209,13 @@ describe('activity helpers', () => {
     expect(matches(e, f('deploy'))).toBe(false);
     // an event without a workflow or node only matches on its run
     expect(matches(node('x', 'RUNNING'), f('build'))).toBe(false);
+    // chosen types and severities narrow the match
+    const g = { types: ['NodeStatusChanged'], severities: ['INFO'], text: '' };
+    expect(matches(e, { ...g, types: [] })).toBe(true);
+    expect(matches(e, { ...g, types: ['ControlOutcome'] })).toBe(false);
+    expect(matches(e, { ...g, severities: [] })).toBe(true);
+    expect(matches(e, { ...g, severities: ['ERROR'] })).toBe(false);
+    expect(matches(e, g)).toBe(true);
   });
 
   it('keeps at most the newest events and counts what it dropped', () => {

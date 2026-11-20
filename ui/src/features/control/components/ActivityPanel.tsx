@@ -32,7 +32,9 @@ const SEVERITY_CLASS: Record<string, string> = {
   ERROR: 'text-error',
 };
 
-const GROUP_LABEL = Object.fromEntries(GROUPS.map((g) => [g.id, g.label]));
+const TYPE_LABEL: Record<string, string> = Object.fromEntries(
+  GROUPS.flatMap((g) => g.types.map((t) => [t, g.label]))
+);
 
 /** The run view of the event's run when its session is known, else a search for the run. */
 function runLink(e: ActivityEvent): string {
@@ -114,7 +116,7 @@ function GroupChips({
             }`}
           >
             {g.label}
-            <span className="num ml-1 opacity-70">{counts[g.id] ?? 0}</span>
+            <span className="num ml-1 opacity-70">{counts[g.id]}</span>
           </button>
         );
       })}
@@ -146,11 +148,12 @@ export function ActivityPanel() {
   const narrowed = shown.filter((e) =>
     matches(e, { types: [], severities, text })
   );
-  const counts: Record<string, number> = {};
-  for (const e of narrowed) {
-    const group = groupOf(e.type);
-    if (group) counts[group] = (counts[group] ?? 0) + 1;
-  }
+  const counts: Record<string, number> = Object.fromEntries(
+    GROUPS.map((g) => [
+      g.id,
+      narrowed.filter((e) => groupOf(e.type) === g.id).length,
+    ])
+  );
   const types = typesOf(chosen);
   const rows = narrowed.filter((e) => types.includes(e.type)).reverse();
 
@@ -244,9 +247,7 @@ export function ActivityPanel() {
                   <td className={SEVERITY_CLASS[e.severity]}>{e.severity}</td>
                   <td>
                     <Tip label={e.type}>
-                      <span>
-                        {GROUP_LABEL[groupOf(e.type) ?? ''] ?? e.type}
-                      </span>
+                      <span>{TYPE_LABEL[e.type]}</span>
                     </Tip>
                   </td>
                   <td className="text-code-sm">{e.event.workflowId ?? '–'}</td>
