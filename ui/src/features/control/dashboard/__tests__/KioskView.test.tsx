@@ -76,6 +76,53 @@ describe('KioskView', () => {
     expect(screen.getByText('latency')).toBeInTheDocument();
   });
 
+  it('renders in the body, above the header, and locks page scroll', () => {
+    const { unmount } = render(<KioskView onExit={vi.fn()} />);
+    const kiosk = screen.getByTestId('kiosk');
+    expect(kiosk.parentElement).toBe(document.body);
+    expect(kiosk.className).toContain('z-60');
+    expect(document.body.style.overflow).toBe('hidden');
+    unmount();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('goes fullscreen, leaves when the browser leaves it, and exits it on close', async () => {
+    const request = vi.fn().mockResolvedValue(undefined);
+    const exit = vi.fn().mockResolvedValue(undefined);
+    document.documentElement.requestFullscreen = request;
+    document.exitFullscreen = exit;
+    const onExit = vi.fn();
+    const { unmount, rerender } = render(<KioskView onExit={onExit} />);
+    expect(request).toHaveBeenCalled();
+    fireEvent(document, new Event('fullscreenchange'));
+    expect(onExit).toHaveBeenCalledTimes(1);
+    Object.defineProperty(document, 'fullscreenElement', {
+      value: document.documentElement,
+      configurable: true,
+    });
+    fireEvent(document, new Event('fullscreenchange'));
+    expect(onExit).toHaveBeenCalledTimes(1);
+    // a re-render with a new callback keeps the fullscreen it has
+    request.mockClear();
+    rerender(<KioskView onExit={onExit} />);
+    expect(request).not.toHaveBeenCalled();
+    unmount();
+    expect(exit).toHaveBeenCalled();
+    Object.defineProperty(document, 'fullscreenElement', {
+      value: null,
+      configurable: true,
+    });
+  });
+
+  it('stays an overlay when fullscreen is refused', async () => {
+    document.documentElement.requestFullscreen = vi
+      .fn()
+      .mockRejectedValue(new Error('denied'));
+    render(<KioskView onExit={vi.fn()} />);
+    await Promise.resolve();
+    expect(screen.getByTestId('kiosk')).toBeInTheDocument();
+  });
+
   it('ignores keys other than Escape', () => {
     const onExit = vi.fn();
     render(<KioskView onExit={onExit} />);
