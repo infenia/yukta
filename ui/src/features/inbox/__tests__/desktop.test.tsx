@@ -139,7 +139,9 @@ describe('desktop notifications', () => {
     expect(focus).toHaveBeenCalled();
     expect(popups[0]?.close).toHaveBeenCalled();
     await waitFor(() =>
-      expect(screen.getByTestId('where')).toHaveTextContent('/inbox?item=q')
+      expect(screen.getByTestId('where')).toHaveTextContent(
+        '/sessions/s1/workflow/wf?exec=e1&node=gate'
+      )
     );
   });
 

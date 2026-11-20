@@ -273,4 +273,45 @@ describe('InboxPage', () => {
     open(state([], { loaded: false }), '/inbox?item=x');
     expect(screen.queryByRole('alert')).toBeNull();
   });
+
+  it('links a row to its run and node, and marks only unread rows read when followed', async () => {
+    const f = fixtures();
+    const placed = note({
+      id: 'placed',
+      title: 'Placed',
+      executionId: 'e9',
+      nodeId: 'gate',
+      read: true,
+    });
+    const loose = note({
+      id: 'loose',
+      title: 'Loose',
+      sessionId: null,
+      workflowId: null,
+      nodeId: null,
+      read: true,
+    });
+    open(state([f.info, f.bare, placed, loose]));
+    await userEvent.click(screen.getByRole('tab', { name: /All/ }));
+    expect(screen.getByText('Loose')).toBeInTheDocument();
+
+    const row = document.getElementById('item-placed');
+    expect(row).not.toBeNull();
+    expect(
+      within(row as HTMLElement).getByRole('link', { name: 'gate' })
+    ).toHaveAttribute('href', '/sessions/s1/workflow/wf?exec=e9&node=gate');
+
+    await userEvent.click(
+      within(document.getElementById('item-info') as HTMLElement).getAllByRole(
+        'link'
+      )[0] as HTMLElement
+    );
+    expect(markRead).toHaveBeenCalledWith(['info']);
+    markRead.mockClear();
+
+    await userEvent.click(
+      within(row as HTMLElement).getAllByRole('link')[0] as HTMLElement
+    );
+    expect(markRead).not.toHaveBeenCalled();
+  });
 });

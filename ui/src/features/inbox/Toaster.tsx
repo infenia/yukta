@@ -2,8 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useEffect } from 'react';
-import { Link } from 'react-router';
+import { IconButton } from '@/components/common/IconButton';
 import { InputAnswerForm } from '@/features/workflow/components/InputAnswerForm';
+import { NotificationLink } from './NotificationLink';
 import { useNotifications, type Toast } from './NotificationsContext';
 import { plain, SEVERITY_DOT } from './severity';
 
@@ -46,19 +47,12 @@ function ToastItem({ toast }: { toast: Toast }) {
             </p>
           )}
         </div>
-        <button
-          type="button"
-          aria-label="Dismiss"
+        <IconButton
+          icon="close"
+          label="Dismiss"
+          className="size-7"
           onClick={() => dismissToast(toast.id)}
-          className="text-on-surface-variant hover:text-on-surface"
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-lg"
-          >
-            close
-          </span>
-        </button>
+        />
       </div>
       {n.state === 'ACTIVE' && input?.kind === 'APPROVAL' && (
         <InputAnswerForm
@@ -66,13 +60,19 @@ function ToastItem({ toast }: { toast: Toast }) {
           onAnswered={() => dismissToast(toast.id)}
         />
       )}
-      <Link
-        to={`/inbox?item=${n.id}`}
+      <NotificationLink
+        item={n}
         onClick={() => dismissToast(toast.id)}
-        className="text-body-sm text-primary"
+        className="text-body-sm text-primary inline-flex items-center gap-1 font-medium"
       >
-        View
-      </Link>
+        Open
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-base"
+        >
+          arrow_forward
+        </span>
+      </NotificationLink>
     </div>
   );
 }

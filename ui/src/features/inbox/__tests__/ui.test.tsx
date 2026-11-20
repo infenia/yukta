@@ -212,7 +212,7 @@ describe('InboxPopover', () => {
 
     expect(screen.getAllByRole('link', { name: 'Answer…' })).toHaveLength(5);
     expect(screen.getByText('Needs action · 7')).toBeInTheDocument();
-    expect(screen.getAllByText(/unread/)).toHaveLength(4);
+    expect(screen.getAllByRole('img', { name: 'unread' })).toHaveLength(4);
     await userEvent.click(
       screen.getByRole('button', { name: 'Mark all read' })
     );
@@ -282,6 +282,23 @@ describe('InboxPopover', () => {
   });
 });
 
+describe('InboxPopover rows without a place', () => {
+  it('names the severity when an alert has no workflow or node', () => {
+    const bare = note({
+      id: 'bare-alert',
+      title: 'Loose alert',
+      severity: 'ERROR',
+      sessionId: null,
+      workflowId: null,
+      nodeId: null,
+    });
+    view(state([bare]), <InboxPopover />);
+
+    const row = must(screen.getByText('Loose alert').closest('li'));
+    expect(within(row).getByText('Error', { exact: false })).toBeVisible();
+  });
+});
+
 describe('Toaster', () => {
   const toast = (n: AppNotification) => ({ id: n.id, notification: n });
 
@@ -340,7 +357,7 @@ describe('Toaster', () => {
     expect(dismissToast).toHaveBeenCalledWith('q');
   });
 
-  it('links to the item, dismisses by button, and shows at most three', async () => {
+  it('links to the run, dismisses by button, and shows at most three', async () => {
     const dismissToast = vi.fn();
     const list = Array.from({ length: 5 }, (_, i) =>
       note({ id: `n${i}`, title: `T${i}` })
@@ -348,15 +365,15 @@ describe('Toaster', () => {
     view(state(list, { toasts: list.map(toast), dismissToast }), <Toaster />);
 
     expect(screen.getAllByTestId('toast')).toHaveLength(3);
-    expect(screen.getAllByRole('link', { name: 'View' })[0]).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'Open' })[0]).toHaveAttribute(
       'href',
-      '/inbox?item=n0'
+      '/sessions/s1/workflow/wf?exec=e1&node=gate'
     );
     fireEvent.click(
       must(screen.getAllByRole('button', { name: 'Dismiss' })[0])
     );
     expect(dismissToast).toHaveBeenCalledWith('n0');
-    fireEvent.click(must(screen.getAllByRole('link', { name: 'View' })[1]));
+    fireEvent.click(must(screen.getAllByRole('link', { name: 'Open' })[1]));
     expect(dismissToast).toHaveBeenCalledWith('n1');
   });
 });

@@ -3,9 +3,13 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/common/IconButton';
+import { iconButton } from '@/components/ui/iconTone';
+import { Tip } from '@/components/ui/tooltip';
 import { InputAnswerForm } from '@/features/workflow/components/InputAnswerForm';
+import { formatRelative } from '@/features/workflow/lib/timeFormat';
 import type { AppNotification } from './api';
+import { NotificationLink } from './NotificationLink';
 import { useNotifications } from './NotificationsContext';
 import { plain, SEVERITY_DOT, SEVERITY_LABEL } from './severity';
 
@@ -46,7 +50,12 @@ function ActionItem({ item }: { item: AppNotification }) {
           {[item.workflowId, item.nodeId].filter(Boolean).join(' · ')}
         </span>
       </div>
-      <p className="text-body-md font-medium">{plain(item.title)}</p>
+      <NotificationLink
+        item={item}
+        className="text-body-md hover:text-primary font-medium"
+      >
+        {plain(item.title)}
+      </NotificationLink>
       {item.state === 'RESOLVED' ? (
         <p role="status" className="text-body-sm text-on-surface-variant">
           {item.resolution ? plain(item.resolution) : 'Done'}
@@ -84,61 +93,94 @@ export function InboxPopover() {
     .sort(byDeadline);
   const recent = items.filter((i) => i.kind === 'INFO').slice(0, MAX_RECENT);
   return (
-    <div className="flex flex-col">
-      <Heading>{`Needs action · ${actions.length}`}</Heading>
-      {actions.length === 0 ? (
-        <p className="text-body-sm text-on-surface-variant px-4 pb-3">
-          Nothing waits for you.
-        </p>
-      ) : (
-        <ul>
-          {actions.slice(0, MAX_ACTIONS).map((item) => (
-            <ActionItem key={item.id} item={item} />
-          ))}
-        </ul>
-      )}
-      <div className="flex items-center justify-between">
-        <Heading>Recent</Heading>
-        <Button
-          variant="link"
-          size="sm"
-          disabled={unread.length === 0}
-          onClick={() => markRead()}
-        >
-          Mark all read
-        </Button>
-      </div>
-      {recent.length === 0 ? (
-        <p className="text-body-sm text-on-surface-variant px-4 pb-3">
-          No alerts.
-        </p>
-      ) : (
-        <ul className="pb-2">
-          {recent.map((item) => (
-            <li key={item.id} className="flex items-start gap-2.5 px-4 py-1.5">
+    <div className="flex max-h-[min(36rem,80vh)] flex-col">
+      <div className="border-border flex items-center justify-between border-b px-4 py-2">
+        <h2 className="text-body-md font-semibold">
+          Notifications
+          {unread.length > 0 && (
+            <span className="text-label-sm text-on-surface-variant ml-2 font-normal">
+              {unread.length} unread
+            </span>
+          )}
+        </h2>
+        <div className="flex gap-1.5">
+          <IconButton
+            icon="done_all"
+            label="Mark all read"
+            disabled={unread.length === 0}
+            onClick={() => markRead()}
+          />
+          <Tip label="Open inbox">
+            <Link
+              to="/inbox"
+              aria-label="Open inbox"
+              className={iconButton('neutral')}
+            >
               <span
                 aria-hidden="true"
-                className={`mt-1.5 size-2 flex-none rounded-full ${SEVERITY_DOT[item.severity]}`}
-              />
-              <span className="text-body-sm">
-                <span className={item.read ? '' : 'font-medium'}>
-                  {plain(item.title)}
-                </span>
-                <span className="text-on-surface-variant block">
-                  {SEVERITY_LABEL[item.severity]}
-                  {item.read ? '' : ' · unread'}
-                </span>
+                className="material-symbols-outlined text-base"
+              >
+                open_in_new
               </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <Link
-        to="/inbox"
-        className="border-border text-body-sm text-primary border-t px-4 py-3 text-center font-medium"
-      >
-        Open inbox
-      </Link>
+            </Link>
+          </Tip>
+        </div>
+      </div>
+      <div className="min-h-0 overflow-y-auto">
+        <Heading>{`Needs action · ${actions.length}`}</Heading>
+        {actions.length === 0 ? (
+          <p className="text-body-sm text-on-surface-variant px-4 pb-3">
+            Nothing waits for you.
+          </p>
+        ) : (
+          <ul>
+            {actions.slice(0, MAX_ACTIONS).map((item) => (
+              <ActionItem key={item.id} item={item} />
+            ))}
+          </ul>
+        )}
+        <Heading>Recent</Heading>
+        {recent.length === 0 ? (
+          <p className="text-body-sm text-on-surface-variant px-4 pb-3">
+            No alerts.
+          </p>
+        ) : (
+          <ul className="pb-2">
+            {recent.map((item) => (
+              <li key={item.id}>
+                <NotificationLink
+                  item={item}
+                  className="hover:bg-muted flex items-start gap-2.5 px-4 py-2"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`mt-1.5 size-2 flex-none rounded-full ${SEVERITY_DOT[item.severity]}`}
+                  />
+                  <span className="text-body-sm min-w-0 flex-1">
+                    <span className={item.read ? '' : 'font-medium'}>
+                      {plain(item.title)}
+                    </span>
+                    <span className="text-on-surface-variant block truncate">
+                      {[item.workflowId, item.nodeId]
+                        .filter(Boolean)
+                        .join(' · ') || SEVERITY_LABEL[item.severity]}
+                      {' · '}
+                      {formatRelative(item.createdAt)}
+                    </span>
+                  </span>
+                  {!item.read && (
+                    <span
+                      role="img"
+                      aria-label="unread"
+                      className="bg-primary mt-2 size-1.5 flex-none rounded-full"
+                    />
+                  )}
+                </NotificationLink>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router';
 import { getPreferences } from './api';
 import { readDevicePrefs } from './devicePrefs';
 import { useNotifications } from './NotificationsContext';
+import { notificationHref } from './notificationLink';
 import { plain } from './severity';
 
 export const GENERIC_TITLE = 'Yukta needs your input';
@@ -70,7 +71,7 @@ export function useDesktopNotifications() {
         : new Notification(GENERIC_TITLE, { tag: item.id });
       pop.onclick = () => {
         window.focus();
-        navigate(`/inbox?item=${encodeURIComponent(item.id)}`);
+        navigate(notificationHref(item));
         pop.close();
       };
     }
