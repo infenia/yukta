@@ -285,6 +285,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/assistant/proxy/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Relay an assistant model call
+         * @description Sends the body to Anthropic (provider anthropic) or an OpenAI-compatible endpoint (provider openai) with the key from X-Assistant-Key and streams the reply back. An OpenAI-compatible base URL (X-Assistant-Base-Url) must name a host in yukta.assistant.allowed-base-urls.
+         */
+        post: operations["proxy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/config": {
         parameters: {
             query?: never;
@@ -7806,6 +7826,27 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ApiResponseListInfo"];
                 };
+            };
+        };
+    };
+    proxy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description anthropic or openai */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -58,6 +58,15 @@ class ApiRoleTest {
   }
 
   @Test
+  void everyRoleMayUseTheAssistantRelayButNotWalkOutOfIt() {
+    for (final ApiRole role : ApiRole.values()) {
+      assertThat(role.allows(HttpMethod.POST, "/api/assistant/proxy/anthropic")).isTrue();
+    }
+    assertThat(ApiRole.VIEWER.allows(HttpMethod.POST, "/api/assistant/../sessions")).isFalse();
+    assertThat(ApiRole.VIEWER.allows(HttpMethod.POST, "/api/assistantx")).isFalse();
+  }
+
+  @Test
   void everyRoleChangesItsOwnInboxButNotOtherPaths() {
     for (final ApiRole role : ApiRole.values()) {
       assertThat(role.allows(HttpMethod.POST, "/api/notifications/read")).isTrue();
