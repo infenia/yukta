@@ -14,6 +14,7 @@ export function PanelState({
   empty,
   emptyText,
   onRetry,
+  inline = false,
   children,
 }: {
   isPending: boolean;
@@ -21,6 +22,8 @@ export function PanelState({
   empty: boolean;
   emptyText: string;
   onRetry?: () => void;
+  /** an empty panel says so in one muted line, not in a message block */
+  inline?: boolean;
   children: ReactNode;
 }) {
   if (isPending) {
@@ -47,6 +50,11 @@ export function PanelState({
       >
         {error.message}
       </StateMessage>
+    );
+  }
+  if (empty && inline) {
+    return (
+      <p className="text-body-sm text-on-surface-variant py-1">{emptyText}</p>
     );
   }
   if (empty) return <StateMessage compact title={emptyText} />;

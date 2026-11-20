@@ -197,7 +197,7 @@ describe('ActivityPanel', () => {
     const user = userEvent.setup();
     renderActivity('');
     expect(
-      await screen.findByRole('heading', { name: 'Execution limits' })
+      await screen.findByRole('heading', { name: 'Capacity' })
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Activity' }));
@@ -209,7 +209,7 @@ describe('ActivityPanel', () => {
     await user.click(screen.getByRole('tab', { name: 'Overview' }));
     expect(screen.getByTestId('where')).not.toHaveTextContent('tab=');
     expect(
-      await screen.findByRole('heading', { name: 'Execution limits' })
+      await screen.findByRole('heading', { name: 'Capacity' })
     ).toBeInTheDocument();
   });
 

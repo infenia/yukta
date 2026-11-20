@@ -52,17 +52,16 @@ describe('SupervisorsSummary', () => {
       ])
     );
     renderWithProviders(<SupervisorsSummary />);
-    const tile = (label: string) => {
-      const name = screen
-        .getAllByText(label)
-        .find((e) => e.classList.contains('text-label-md'));
-      return name?.closest('div') as HTMLElement;
-    };
+    const tile = (label: string) =>
+      screen.getByText(label, { selector: 'dt' }).closest('div') as HTMLElement;
     await waitFor(() => expect(tile('Supervisors')).toHaveTextContent('2'));
     expect(tile('Assignments')).toHaveTextContent('3');
-    expect(tile('Under direct control')).toHaveTextContent('3');
-    expect(tile('Applied')).toHaveTextContent('2');
-    expect(tile('Refused')).toHaveTextContent('1');
+    expect(tile('Direct control')).toHaveTextContent('3');
+    expect(tile('Direct control')).toHaveAttribute(
+      'title',
+      '3 workflows nobody supervises'
+    );
+    expect(tile('Applied / refused')).toHaveTextContent('2 / 1');
     expect(screen.getByText(/Last 3 decisions/)).toBeInTheDocument();
     expect(
       screen.getByRole('img', { name: /Supervisor decisions/ })

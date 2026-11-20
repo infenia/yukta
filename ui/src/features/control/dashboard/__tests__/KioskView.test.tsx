@@ -7,22 +7,20 @@ import { KioskView, KIOSK_CYCLE_MS } from '../KioskView';
 
 // The panels fetch their own data; here each is a named stand-in so the groups can be told apart.
 vi.mock('../HealthPanels', () => ({
-  AiUsagePanel: () => <div>ai</div>,
-  WorkerSlotsPanel: () => <div>slots</div>,
+  SystemPanel: () => <div>system</div>,
 }));
 vi.mock('../CapacityPanel', () => ({
   CapacityPanel: () => <div>capacity</div>,
 }));
 vi.mock('../ChartPanels', () => ({
-  LatencyPanel: () => <div>latency</div>,
+  OverheadPanel: () => <div>overhead</div>,
   ThroughputPanel: () => <div>throughput</div>,
 }));
 vi.mock('../CommandStrip', () => ({
   CommandStrip: () => <div>strip</div>,
 }));
 vi.mock('../RunPanels', () => ({
-  HeatPanel: () => <div>heat</div>,
-  LeaderboardPanel: () => <div>leaders</div>,
+  NodesPanel: () => <div>nodes</div>,
   LiveRunsPanel: () => <div>live-runs</div>,
 }));
 vi.mock('@/features/metrics/hooks', () => ({
@@ -47,9 +45,9 @@ describe('KioskView', () => {
     render(<KioskView onExit={vi.fn()} />);
     expect(screen.getByText('throughput')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(KIOSK_CYCLE_MS));
-    expect(screen.getByText('latency')).toBeInTheDocument();
+    expect(screen.getByText('overhead')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(KIOSK_CYCLE_MS));
-    expect(screen.getByText('slots')).toBeInTheDocument();
+    expect(screen.getByText('system')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(KIOSK_CYCLE_MS));
     expect(screen.getByText('throughput')).toBeInTheDocument();
   });
@@ -62,7 +60,7 @@ describe('KioskView', () => {
         .getByRole('button', { name: 'Group 3' })
         .getAttribute('aria-pressed')
     ).toBe('true');
-    expect(screen.getByText('heat')).toBeInTheDocument();
+    expect(screen.getByText('system')).toBeInTheDocument();
   });
 
   it('holds the current group while the pointer is over it', () => {
@@ -73,7 +71,7 @@ describe('KioskView', () => {
     expect(screen.getByText('throughput')).toBeInTheDocument();
     fireEvent.mouseLeave(kiosk);
     act(() => vi.advanceTimersByTime(KIOSK_CYCLE_MS));
-    expect(screen.getByText('latency')).toBeInTheDocument();
+    expect(screen.getByText('overhead')).toBeInTheDocument();
   });
 
   it('renders in the body, above the header, and locks page scroll', () => {

@@ -4,11 +4,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useDashboardParams, useMetricStream } from '@/features/metrics/hooks';
-import { AiUsagePanel, WorkerSlotsPanel } from './HealthPanels';
+import { SystemPanel } from './HealthPanels';
 import { CapacityPanel } from './CapacityPanel';
-import { LatencyPanel, ThroughputPanel } from './ChartPanels';
+import { OverheadPanel, ThroughputPanel } from './ChartPanels';
 import { CommandStrip } from './CommandStrip';
-import { HeatPanel, LeaderboardPanel, LiveRunsPanel } from './RunPanels';
+import { LiveRunsPanel, NodesPanel } from './RunPanels';
 
 /** How long each group of panels stays on screen. */
 export const KIOSK_CYCLE_MS = 15_000;
@@ -28,21 +28,17 @@ export function KioskView({ onExit }: { onExit: () => void }) {
     exit.current = onExit;
   });
   const groups = [
-    <div key="runs" className="grid gap-4 lg:grid-cols-2">
+    <div key="runs" className="grid items-start gap-4 lg:grid-cols-2">
       <ThroughputPanel scope={scope} range={range} live={live} />
       <LiveRunsPanel scope={scope} live={live} />
     </div>,
-    <div key="latency" className="grid gap-4 lg:grid-cols-2">
-      <LatencyPanel scope={scope} range={range} live={live} />
-      <LeaderboardPanel scope={scope} range={range} live={live} />
+    <div key="nodes" className="grid items-start gap-4 lg:grid-cols-2">
+      <NodesPanel scope={scope} range={range} live={live} />
+      <OverheadPanel scope={scope} range={range} live={live} />
     </div>,
-    <div key="health" className="grid gap-4 lg:grid-cols-3">
+    <div key="health" className="grid items-start gap-4 lg:grid-cols-2">
       <CapacityPanel live={live} />
-      <WorkerSlotsPanel live={live} />
-      <div className="lg:col-span-2">
-        <HeatPanel scope={scope} live={live} />
-      </div>
-      <AiUsagePanel scope={scope} />
+      <SystemPanel scope={scope} live={live} />
     </div>,
   ];
 
