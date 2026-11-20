@@ -687,6 +687,20 @@ test.describe('Workflow Details Page', () => {
       }
       await expect(toggle).toHaveAttribute('aria-description', 'Current: dark');
       await page.evaluate(() => document.fonts.ready);
+      // The theme switch re-fits the canvas; capture only once the viewport stops moving.
+      const viewport = page.locator('.react-flow__viewport');
+      let last = '';
+      await expect
+        .poll(
+          async () => {
+            const now = (await viewport.getAttribute('style')) ?? '';
+            const settled = now === last;
+            last = now;
+            return settled;
+          },
+          { intervals: [400], timeout: 10_000 }
+        )
+        .toBe(true);
 
       await expect(page).toHaveScreenshot(
         'workflow-details-full-page-dark.webp',
