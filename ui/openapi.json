@@ -1229,6 +1229,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListNodeRow" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/NodeRow"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListNotificationView" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -4081,8 +4127,14 @@
           "reason" : {
             "type" : "string"
           },
+          "sessionId" : {
+            "type" : "string"
+          },
           "time" : {
             "format" : "date-time",
+            "type" : "string"
+          },
+          "workflowId" : {
             "type" : "string"
           }
         },
@@ -5433,6 +5485,12 @@
       },
       "LiveRun" : {
         "properties" : {
+          "currentNodes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "elapsedMs" : {
             "format" : "int64",
             "type" : "integer"
@@ -5455,6 +5513,9 @@
           "p95Ms" : {
             "format" : "double",
             "type" : "number"
+          },
+          "paused" : {
+            "type" : "boolean"
           },
           "sessionId" : {
             "type" : "string"
@@ -5711,6 +5772,42 @@
           }
         },
         "required" : [ "nodeId", "type" ],
+        "type" : "object"
+      },
+      "NodeRow" : {
+        "properties" : {
+          "failures" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "lastExecutionId" : {
+            "type" : "string"
+          },
+          "module" : {
+            "type" : "string"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "p50Ms" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "p95Ms" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "runs" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
         "type" : "object"
       },
       "NodeStatusChanged" : {
@@ -10595,6 +10692,52 @@
           }
         },
         "summary" : "Plugin leaderboard",
+        "tags" : [ "Metrics API" ]
+      }
+    },
+    "/api/metrics/nodes" : {
+      "get" : {
+        "description" : "Runs, failures and duration percentiles per node of a workflow of a session",
+        "operationId" : "nodes",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "range",
+          "required" : false,
+          "schema" : {
+            "default" : "1h",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "scope",
+          "required" : false,
+          "schema" : {
+            "default" : "global",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 10,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListNodeRow"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Slowest nodes",
         "tags" : [ "Metrics API" ]
       }
     },

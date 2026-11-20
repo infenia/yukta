@@ -29,6 +29,8 @@ The server registers the Micrometer meters below; standard JVM and process meter
 | `yukta.executions.queued` | gauge | none | Executions waiting for a slot |
 | `yukta.executions.rejected` | counter | `reason` | Starts refused; one series per reason below |
 | `yukta.execution.queue.wait` | timer | none | Time an execution waited in the queue before running |
+| `yukta.engine.start` | timer | none | Engine overhead: from a run getting its slot to its first node being wired and a plugin called |
+| `yukta.engine.handoff` | timer | none | Engine overhead: from a message taking its node's turn to the plugin being called with it (not the plugin's own time, not the wait behind earlier messages) |
 | `yukta.execution.duration` | timer | `status` | Run time of ended executions, by terminal status |
 
 ### Reject reasons

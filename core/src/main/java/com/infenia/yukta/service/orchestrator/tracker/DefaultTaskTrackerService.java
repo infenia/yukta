@@ -18,6 +18,7 @@ import com.infenia.yukta.model.workflow.WorkflowKey;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.redact.SecretScrubber;
+import com.infenia.yukta.service.review.EngineLatency;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.util.SinkEmit;
@@ -95,6 +96,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Metrics and observations of runs and nodes. */
   private final RunTelemetry telemetry;
+
+  /** Takes the engine timings to the run analytics. */
+  private final ExecutionEventFeed eventFeed;
 
   /** Map of session ID to workflow states. */
   private final Map<String, Map<String, WorkflowState>> sessionStates = new ConcurrentHashMap<>();
@@ -178,6 +182,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     this.maxSessions = settings.maxSessions();
 
     this.telemetry = new RunTelemetry(meters, observations);
+    this.eventFeed = eventFeed;
     Gauge.builder(
             "yukta.tracker.queue.depth",
             eventSink,
@@ -502,6 +507,31 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   @Override
   public void recordRetry(final String module) {
     telemetry.retried(module);
+  }
+
+  @Override
+  public void recordPluginStart(final String executionId) {
+    final Duration took = telemetry.pluginStarted(executionId);
+    if (took != null) {
+      publishLatency(executionId, EngineLatency.Stage.START, took);
+    }
+  }
+
+  @Override
+  public void recordHandoff(final String executionId, final Duration latency) {
+    telemetry.handedOff(latency);
+    // ponytail: one feed event per message; sample here if a hot workflow makes this a cost
+    publishLatency(executionId, EngineLatency.Stage.HANDOFF, latency);
+  }
+
+  private void publishLatency(
+      final String executionId, final EngineLatency.Stage stage, final Duration took) {
+    final WorkflowState state = findState(executionId);
+    if (state != null) {
+      eventFeed.publishLatency(
+          new EngineLatency(
+              executionId, state.sessionId, state.workflowId, stage, took.toNanos() / 1e6));
+    }
   }
 
   @Override

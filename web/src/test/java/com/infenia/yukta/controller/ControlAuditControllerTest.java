@@ -3,10 +3,14 @@
 package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.dto.response.ControlAuditEntry;
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +19,11 @@ import org.junit.jupiter.api.Test;
 class ControlAuditControllerTest {
 
   private static ControlAuditController controller() {
+    final TaskTrackerService tracker = mock(TaskTrackerService.class);
+    final WorkflowProgress run = mock(WorkflowProgress.class);
+    when(run.sessionId()).thenReturn("s1");
+    when(run.workflowId()).thenReturn("w1");
+    when(tracker.getProgressByExecutionId("e1")).thenReturn(run);
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     log.append(ExecutionLogEvent.control(true, "e1", "PauseWorkflowCommand [by key:bob]", null));
     log.append(
@@ -22,7 +31,7 @@ class ControlAuditControllerTest {
     log.append(ExecutionLogEvent.idempotencyKey("e2", "k"));
     log.append(ExecutionLogEvent.control(true, "e2", "SetLimits(2, 0)", null));
     log.append(ExecutionLogEvent.idempotencyKey("e3", "k2"));
-    return new ControlAuditController(log);
+    return new ControlAuditController(log, tracker);
   }
 
   @Test
@@ -41,6 +50,36 @@ class ControlAuditControllerTest {
             org.assertj.core.groups.Tuple.tuple(
                 "StopWorkflowCommand", "rules", false, "deny: busy"),
             org.assertj.core.groups.Tuple.tuple("PauseWorkflowCommand", "key:bob", true, null));
+  }
+
+  @Test
+  void list_namesTheSessionAndWorkflowOfRunsTheTrackerStillHolds() {
+    final var entries =
+        java.util.Objects.requireNonNull(controller().list(100, null).block()).data();
+
+    assertThat(entries)
+        .extracting(
+            ControlAuditEntry::executionId,
+            ControlAuditEntry::sessionId,
+            ControlAuditEntry::workflowId)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("e2", null, null),
+            org.assertj.core.groups.Tuple.tuple("e1", "s1", "w1"),
+            org.assertj.core.groups.Tuple.tuple("e1", "s1", "w1"));
+  }
+
+  @Test
+  void list_leavesTheRunWithoutAnIdUnresolved() {
+    final var log = new InMemoryExecutionLogStore();
+    log.append(ExecutionLogEvent.control(true, "", "SetLimits(1, 0)", null));
+    final var entries =
+        java.util.Objects.requireNonNull(
+                new ControlAuditController(log, mock(TaskTrackerService.class))
+                    .list(10, null)
+                    .block())
+            .data();
+
+    assertThat(entries).singleElement().satisfies(e -> assertThat(e.sessionId()).isNull());
   }
 
   @Test

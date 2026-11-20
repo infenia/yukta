@@ -222,6 +222,28 @@ public interface TaskTrackerService extends ExecutionLog {
   void recordRetry(String module);
 
   /**
+   * Notes that a plugin of the run was called. The first call of a run times the start of the run,
+   * from its slot to this call.
+   *
+   * @param executionId the run
+   */
+  default void recordPluginStart(final String executionId) {
+    // nothing to time without a tracker that keeps the run
+  }
+
+  /**
+   * Records how long a message took from taking its node's turn to the plugin being called with it:
+   * what the engine added, without the plugin's own time or the wait behind the node's earlier
+   * messages.
+   *
+   * @param executionId the run
+   * @param latency the time
+   */
+  default void recordHandoff(final String executionId, final java.time.Duration latency) {
+    // nothing to time without a tracker that keeps the run
+  }
+
+  /**
    * Records a message that an edge buffer dropped because the node could not keep up.
    *
    * @param module the node type

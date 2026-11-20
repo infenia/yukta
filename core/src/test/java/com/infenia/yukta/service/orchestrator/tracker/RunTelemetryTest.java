@@ -54,6 +54,35 @@ class RunTelemetryTest {
   }
 
   @Test
+  void theStartOfTheRunIsTimedOnceFromItsSlot() {
+    assertThat(telemetry.pluginStarted("never-ran")).isNull();
+
+    telemetry.runStatus("e1", TaskStatus.RUNNING, false, null, null);
+    // a second RUNNING does not move the slot
+    telemetry.runStatus("e1", TaskStatus.RUNNING, false, null, null);
+
+    assertThat(telemetry.pluginStarted("e1")).isGreaterThanOrEqualTo(java.time.Duration.ZERO);
+    assertThat(telemetry.pluginStarted("e1")).isNull();
+    assertThat(meters.get("yukta.engine.start").timer().count()).isEqualTo(1);
+  }
+
+  @Test
+  void theRunThatEndsBeforeAnyPluginRanLeavesNoSlotBehind() {
+    final Instant now = Instant.now();
+    telemetry.runStatus("e1", TaskStatus.RUNNING, false, null, null);
+    telemetry.runStatus("e1", TaskStatus.SUCCESS, true, now.minusSeconds(1), now);
+
+    assertThat(telemetry.pluginStarted("e1")).isNull();
+  }
+
+  @Test
+  void handOffIsTimed() {
+    telemetry.handedOff(java.time.Duration.ofMillis(4));
+
+    assertThat(meters.get("yukta.engine.handoff").timer().count()).isEqualTo(1);
+  }
+
+  @Test
   void nodeDurationIsOnlyRecordedWhenTheNodeActuallyRan() {
     telemetry.nodeEnded(null);
     final Instant now = Instant.now();

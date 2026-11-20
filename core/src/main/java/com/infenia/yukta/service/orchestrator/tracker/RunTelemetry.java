@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The metrics and observations of runs and nodes, kept apart from the tracker's state.
@@ -45,6 +46,9 @@ final class RunTelemetry {
 
   /** When a run began waiting for a slot (System.nanoTime), by execution. */
   private final Map<String, Long> queuedAt = new ConcurrentHashMap<>();
+
+  /** When a run got its slot (System.nanoTime), by execution; gone once its start is timed. */
+  private final Map<String, Long> slotAt = new ConcurrentHashMap<>();
 
   /* default */ RunTelemetry(final MeterRegistry meters, final ObservationRegistry observations) {
     this.meters = meters;
@@ -81,6 +85,7 @@ final class RunTelemetry {
     if (status == TaskStatus.QUEUED) {
       queuedAt.put(executionId, System.nanoTime());
     } else if (status == TaskStatus.RUNNING) {
+      slotAt.putIfAbsent(executionId, System.nanoTime());
       final Long since = queuedAt.remove(executionId);
       if (since != null) {
         meters
@@ -90,6 +95,7 @@ final class RunTelemetry {
     }
     if (terminal) {
       queuedAt.remove(executionId);
+      slotAt.remove(executionId);
       closeNodeSpans(executionId);
       meters
           .timer("yukta.execution.duration", STATUS, status.name())
@@ -100,6 +106,27 @@ final class RunTelemetry {
         run.stop();
       }
     }
+  }
+
+  /**
+   * Times the start of a run at its first plugin call.
+   *
+   * @return the time from the slot to now, or null when this is not the first call or the slot is
+   *     not known
+   */
+  /* default */ @Nullable Duration pluginStarted(final String executionId) {
+    final Long since = slotAt.remove(executionId);
+    if (since == null) {
+      return null;
+    }
+    final Duration took = Duration.ofNanos(System.nanoTime() - since);
+    meters.timer("yukta.engine.start").record(took);
+    return took;
+  }
+
+  /** Times what the engine added between a message taking its node's turn and the plugin call. */
+  /* default */ void handedOff(final Duration latency) {
+    meters.timer("yukta.engine.handoff").record(latency);
   }
 
   /** Opens an observation when a node starts running and closes it when the node ends. */
@@ -166,9 +193,5 @@ final class RunTelemetry {
   /* default */ void edgeDropped(final String type) {
     // not tagged with the node id: ids are user-chosen and a meter is never evicted
     meters.counter("yukta.edge.dropped", "type", type).increment();
-  }
-
-  /* default */ void logAppendFailed(final String name, final String type) {
-    meters.counter(name, "type", type).increment();
   }
 }

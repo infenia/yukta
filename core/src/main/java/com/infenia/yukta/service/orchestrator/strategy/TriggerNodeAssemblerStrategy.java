@@ -91,6 +91,7 @@ public class TriggerNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .log("Starting trigger stream");
 
       final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
+      tracker.recordPluginStart(context.executionId());
       Flux<Message<?>> stream =
           channel.outbound(node.nodeId(), context.executionId(), trigger.start(node.config()));
       if (trigger.isBlocking()) {
