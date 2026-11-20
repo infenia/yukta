@@ -31,7 +31,7 @@ class TemplateControllerTest {
         .jsonPath("$.data[?(@.id=='01-hello-world')].title")
         .isEqualTo("Hello world")
         .jsonPath("$.data[?(@.id=='01-hello-world')].pluginTypes[0]")
-        .isEqualTo("CONSOLE_TERMINAL")
+        .isEqualTo("API_TRIGGER")
         .jsonPath("$.data[?(@.id=='dogfood')]")
         .isEmpty()
         .jsonPath("$.data.length()")

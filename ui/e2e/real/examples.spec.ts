@@ -109,11 +109,31 @@ test.describe('examples from the UI on a real server', () => {
     expect(errors).toEqual([]);
   });
 
-  test('01 hello world runs and prints its greeting', async ({ page }) => {
+  test('01 hello world takes a text, branches on its digit and greets', async ({
+    page,
+  }) => {
+    const errors = watchConsole(page);
+    await createFromTemplate(page, templates, '01-hello-world');
+    const executionId = await startRun(
+      page,
+      example('1-standalone/01-hello-world/even.json')
+    );
+    await expect(
+      page.getByText('Hello, Lovelace! Digit 8 is even.').first()
+    ).toBeVisible();
+    await expect.poll(() => status(page, executionId)).toBe('SUCCESS');
+    expect(errors).toEqual([]);
+  });
+
+  test('01 hello world uses its default text when none is given', async ({
+    page,
+  }) => {
     const errors = watchConsole(page);
     await createFromTemplate(page, templates, '01-hello-world');
     const executionId = await startRun(page);
-    await expect(page.getByText('Hello from Yukta').first()).toBeVisible();
+    await expect(
+      page.getByText('Hello, Yukta! Digit 5 is odd.').first()
+    ).toBeVisible();
     await expect.poll(() => status(page, executionId)).toBe('SUCCESS');
     expect(errors).toEqual([]);
   });

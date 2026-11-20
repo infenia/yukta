@@ -7,7 +7,7 @@
 # the rest of the basics: supervisors, approvals, sub-workflows, file and key-value steps, the
 # schedule trigger and MCP. A native image fails here where a JVM test does not (reflection data).
 #
-# The examples ExamplesE2eTest runs (01, 03, 04, 10) are skipped here; set EXAMPLES_SKIP to run them anyway.
+# The examples ExamplesE2eTest runs (03, 04, 10) are skipped here; set EXAMPLES_SKIP to run them anyway.
 #
 # Fails when an example fails, or when one is skipped that is not named in SMOKE_ALLOW_SKIP.
 #
@@ -22,7 +22,7 @@
 #   EXAMPLES_SKIP     examples not run at all (see examples/run-all.sh)
 #
 # The server under test needs YUKTA_PLUGINS_ENABLED=all (the examples use plugins that are off by default)
-# and YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 for examples 01, 02, 11 and 12.
+# and YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 for examples 02, 11 and 12.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -39,7 +39,7 @@ allow_skip=" ${SMOKE_ALLOW_SKIP:-07-input-pull 08-supervisor-profiles 09-supervi
 log "running the examples against $YUKTA_URL"
 set +e
 # 01, 03, 04 and 10 are run by ExamplesE2eTest (the e2e suite); the rest need the run.sh scripts.
-EXAMPLES_SKIP="${EXAMPLES_SKIP:-01-hello-world 03-pr-risk-gate 04-dependency-updates 10-inbox-notification}"
+EXAMPLES_SKIP="${EXAMPLES_SKIP:-03-pr-risk-gate 04-dependency-updates 10-inbox-notification}"
 [[ -z "${SMOKE_IN_CONTAINER:-}" ]] || EXAMPLES_SKIP+=" 12-alert-triage"
 output="$(EXAMPLES_SKIP="${EXAMPLES_SKIP:-}" bash "$REPO_ROOT/examples/run-all.sh" 2>&1)"
 code=$?
