@@ -10,7 +10,7 @@ Boot is the executable. It contains almost no logic of its own: it pulls the eng
 | Property | What it means |
 |---|---|
 | Thin assembly | One class starts Spring; component scanning finds every module's beans. The behaviour you see comes from other modules, boot decides what is included and how it is configured. |
-| Profile decides safety | With no profile the app runs as dev: verbose logs including message payloads, extra management endpoints. A native binary forces prod instead. The same code is more or less exposed depending on one setting. |
+| Profile decides safety | With no profile the app runs as prod, in a JVM jar and in a native binary: quiet logs, API description and Swagger UI off. `bootRun` runs dev, which logs at DEBUG. The same code is more or less exposed depending on one setting. |
 | Loopback by default | The server listens on 127.0.0.1 unless YUKTA_SERVER_ADDRESS says otherwise, so a fresh install is not reachable from the network. The container image opts in to 0.0.0.0. |
 | Plugins fixed at build | Optional plugins are compiled in or left out with -Pyukta.plugins. There is no way to add or remove one on a running server. |
 
@@ -67,9 +67,9 @@ A cold start of the native binary, up to a user pasting the link /sessions/x int
 <Step title="Pick a profile">
 **What happens.** In a native image with no --spring.profiles.active= (or -Dspring.profiles.active=) argument, main() sets prod. In a normal JVM, no profile means the default, prod; bootRun passes dev.
 
-**Why it is built this way.** A native binary is what you ship, so it should be safe without extra flags. A developer running from the IDE wants verbose logs, so dev is the default.
+**Why it is built this way.** What you ship should be safe without extra flags: the base YAML makes prod the default for a JVM jar, and a native binary sets it itself. A developer running `bootRun` gets dev, with verbose logs.
 
-**Can go wrong.** A JVM jar started with no flags runs as dev: debug logs including message payloads and extra management endpoints. The choice is easy to forget.
+**Can go wrong.** Naming only another profile replaces prod: `SPRING_PROFILES_ACTIVE=postgres` runs without prod (its quiet logs and disabled Swagger UI), so name both, `prod,postgres`. Running with `dev` on a shared server logs at DEBUG.
 
 </Step>
 <Step title="Build context">
@@ -154,17 +154,17 @@ there is no cluster logic; everything is one process with in-memory defaults.
 Starts the application and chooses the profile in the one case where it must not be left to chance: a native image started without a profile.
 
 - main() first calls Hooks.enableAutomaticContextPropagation(). This makes Reactor copy context values (request id, tracing) from one thread to the next. Reason: Yukta is reactive, and without this the request id in log lines would vanish whenever work moves to another thread.
-- If the process is a native image and no argument starts with --spring.profiles.active= or -Dspring.profiles.active=, main() sets the system property to prod. Example: ./yukta runs as prod; ./yukta --spring.profiles.active=dev runs as dev.
+- If the process is a native image, no argument starts with --spring.profiles.active= or -Dspring.profiles.active= and the SPRING_PROFILES_ACTIVE variable is not set, main() sets the system property to prod. Example: ./yukta runs as prod; ./yukta --spring.profiles.active=dev runs as dev.
 - In a normal JVM the launcher does nothing about profiles. The default profile in the base YAML, prod, applies. Example: java -jar boot.jar with no flags logs at INFO and exposes only health, info and metrics.
 - Before Spring starts, main() also handles `--version` and `--help`, the daemon commands (`start|stop|status|restart|logs`, class `Daemon`) and resolves the run mode (class `RunMode`: `--plain`, `--mode`, `YUKTA_MODE`, else console on a TTY). In console mode the `console` package takes over the screen (`ConsoleRunner`, JLine) and sends logs to a ring buffer (`ConsoleLogs`). See [Run modes](/guides/build/control-a-run).
-- Only command-line arguments are checked. If a native image is started with only the SPRING_PROFILES_ACTIVE environment variable, main() still sets the system property to prod; which of the two Spring then prefers was not tested.
+- Both the arguments and the SPRING_PROFILES_ACTIVE variable are checked (`YuktaApplication.profileChosen`). When the variable is set, main() leaves the profile to Spring, because a system property it set would beat the variable.
 
 - **Guarantees.** Context propagation is on before any Spring code runs. An explicit profile argument is never overwritten.
 - **State.** No state. The profile choice lives in a JVM system property for the rest of the process.
 - **Ceiling.** One class, no scaling concern.
 - **On failure.** If Spring fails to start (bad config, port in use) the process exits with the Spring error. There is no custom start-up diagnostics.
 
-**Settings:** `Hooks.enableAutomaticContextPropagation()`, `--spring.profiles.active=<name> (also -D form)`, `SPRING_PROFILES_ACTIVE is not checked by main()`
+**Settings:** `Hooks.enableAutomaticContextPropagation()`, `--spring.profiles.active=<name> (also -D form)`, `SPRING_PROFILES_ACTIVE (checked by main(), so a native image does not force prod over it)`
 
 ### Layered Configuration
 
@@ -284,7 +284,7 @@ Decides at build time which optional plugins are linked into the app.
 Compiles the app into a standalone executable with fast start and low memory.
 
 - nativeCompile builds a binary named yukta from the main class, with --no-fallback (fail rather than build a JVM-needing fallback). The build JVM gets -J-Xmx16g. The size flags are -H:+RemoveUnusedSymbols, -H:+StripDebugInfo and -H:-AddAllCharsets.
-- Optimization: the build uses BellSoft Liberica Native Image Kit (built from GraalVM Community Edition) at its default optimization level (-O2), with no PGO profile; Oracle GraalVM options (-O3, --pgo, --enable-sbom) are not used, so the binaries stay free of Oracle licence terms. -march=compatibility keeps the binary runnable on any x86-64 or arm64 CPU, and -Pnative.quick builds with -Ob instead. The SBOM (yukta.sbom.json, CycloneDX) is written next to the binary by the exportSbom task after nativeCompile. Only linux-amd64 is built today.
+- Optimization: the build uses BellSoft Liberica Native Image Kit (built from GraalVM Community Edition) at its default optimization level (-O2), with no PGO profile; Oracle GraalVM options (-O3, --pgo, --enable-sbom) are not used, so the binaries stay free of Oracle licence terms. -march=compatibility keeps the binary runnable on any x86-64 or arm64 CPU, and -Pnative.quick builds with -Ob instead. The SBOM (yukta.sbom.json, CycloneDX) is written next to the binary by the exportSbom task after nativeCompile. The release builds linux-amd64, linux-arm64, darwin-amd64 (macOS on Intel) and windows-amd64 (`.github/workflows/release.yml`).
 - Build arguments -Dspring.profiles.active=prod and -Dspring.aot.enabled=true are also set. Spring AOT precomputes the bean wiring at build time, which is what makes native start-up fast.
 - Whether the -D profile argument reaches the running binary was not verified: it is passed to the native-image builder. The launcher's own prod rule in main() is the part that is covered by a test.
 - The Dockerfile builds the image in a Liberica NIK stage (glibc variant), optionally compresses the binary with UPX, then copies it into a distroless nonroot image that exposes 9858 and sets YUKTA_SERVER_ADDRESS=0.0.0.0. There is no shell in the final image.

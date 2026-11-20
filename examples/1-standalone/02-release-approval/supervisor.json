@@ -1,0 +1,18 @@
+{
+  "id": "example-02-release-guard",
+  "type": "rules",
+  "dryRun": false,
+  "settings": {
+    "operatorAccess": ["StartWorkflowCommand", "AnswerInputCommand", "StopWorkflowCommand"],
+    "rules": [
+      {
+        "id": "no-kill-during-release",
+        "deny": {
+          "command": "StopWorkflow",
+          "if": "mode == 'KILL'",
+          "reason": "use DRAIN or CANCEL on a release: KILL can leave production half deployed"
+        }
+      }
+    ]
+  }
+}

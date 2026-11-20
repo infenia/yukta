@@ -1,13 +1,21 @@
 ---
 title: "Example workflows for real jobs: approvals, pipelines and AI agents"
 sidebarTitle: "Examples"
-description: "Seventeen ready-to-run example workflows. Ten are templates for a real pain point in a different domain; the rest show the building blocks, MCP and how Yukta checks itself."
+description: "Ready-to-run example workflows, grouped by what they need: nothing extra, free tools, or paid AI tools."
 keywords: ["examples", "sample workflows", "templates", "approval", "data pipeline", "agents"]
 ---
 
-Each example is a complete workflow for a job you probably recognise: an agent that must not skip verification, a deploy that needs approval, a PR risk gate, a nightly event load that must reject bad rows. Find the one closest to yours, run it, then change it. The ten use-case examples are written to be copied: each README lists which nodes to change and which stand-in to swap for a model call.
+Each example is a complete workflow for a job you probably recognise: an agent that must not skip verification, a deploy that needs approval, a PR risk gate, a nightly event load that must reject bad rows. Find the one closest to yours, run it, then change it. The use-case examples are written to be copied: each README lists which nodes to change and which stand-in to swap for a model call.
 
-They run offline with fixed rules and no model, so you can try them anywhere. Every example is a folder in the repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) directory with a `session.json` and a `run.sh` that applies the session, starts the run, answers any approval itself and prints `PASS` or `FAIL`.
+Every example is a folder in the repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) directory with a `session.json` and a `run.sh` that applies the session, starts the run, answers any approval itself and prints `PASS` or `FAIL`. The examples are grouped by what they need to run.
+
+## Categories
+
+| Category | What you need | Examples |
+|---|---|---|
+| **1. Standalone** | Only the Yukta server. Allow the `sh` and `echo` commands. | Release approval, PR risk gate, dependency updates, model promotion, security findings, input pull, supervisor profiles, supervisor workflow, inbox notification, hello world |
+| **2. Free dependencies** | Free tools on the machine (`git`, `python3`, `go`) or a stand-in for an outside service that the example starts itself. | Agent verification, alert triage, an MCP agent, supervisor agents |
+| **3. Paid tools** | An AI agent CLI (Claude Code, Codex) or a hosted model. The examples run against a fake agent unless you configure the real tool. | Agent session walkthrough, agent console |
 
 ## Run one
 
@@ -15,37 +23,38 @@ You need a running server, `curl`, `jq` and a copy of the repository.
 
 ```bash
 git clone https://github.com/infenia/yukta.git && cd yukta
-./examples/04-pr-risk-gate/run.sh   # one example
-./examples/run-all.sh                # all of them
+./examples/1-standalone/03-pr-risk-gate/run.sh   # one example
+./examples/run-all.sh 1                          # one category: 1, 2, 3 or all
 ```
 
 <Note>
-  Examples 01, 02, 03 and 08 run operating-system commands, which Yukta refuses by default. Allow only what they need, for example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`; each README names its set. Example 08 also needs `python3`. Example 09 needs an LLM endpoint (OpenAI-compatible, Anthropic or Ollama). Set `YUKTA_API_KEY` if your server requires a key. See [Security](/guides/operate/secure-the-server).
+  Examples in categories 1 and 2 run operating-system commands, which Yukta refuses by default. Allow only what they need, for example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`; each README names its set. Example 12 also needs `python3`. Set `YUKTA_API_KEY` if your server requires a key. See [Security](/guides/operate/secure-the-server).
 </Note>
 
 ## Use-case templates
 
 | # | Pain point | What it shows |
 |---|---|---|
-| [02](https://github.com/infenia/yukta/tree/main/examples/02-agent-verification) | An AI coding agent skips tests and says "done" | Verification gates and a bounded fix loop before "done" exists |
-| [03](https://github.com/infenia/yukta/tree/main/examples/03-release-approval) | Production deploy that needs a person, then a check | Approval with a timeout, smoke check, rollback |
-| [04](https://github.com/infenia/yukta/tree/main/examples/04-pr-risk-gate) | Merging risky PRs, or reviewing every routine one | Risk scoring, reviewer gate, secrets stripped from messages |
-| [05](https://github.com/infenia/yukta/tree/main/examples/05-dependency-updates) | Dependency bumps that are either routine or dangerous | Risk routing, maintainer review queue, changelog |
-| [08](https://github.com/infenia/yukta/tree/main/examples/08-alert-triage) | Alerts that need a restart before anyone is paged | Bounded auto-remediation, then page and incident record |
-| [12](https://github.com/infenia/yukta/tree/main/examples/12-model-promotion) | A retrained model promoted without a real check | Eval checks, reviewer gate, retrain limit, registry promotion |
-| [14](https://github.com/infenia/yukta/tree/main/examples/14-security-findings) | Hundreds of scanner findings and nobody triaging them | Batch scoring, secrets redacted, engineer decides fix, accept or suppress |
+| [11](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/11-agent-verification) | An AI coding agent skips tests and says "done" | Verification gates and a bounded fix loop before "done" exists |
+| [02](https://github.com/infenia/yukta/tree/main/examples/1-standalone/02-release-approval) | Production deploy that needs a person, then a check | Approval with a timeout, smoke check, rollback |
+| [03](https://github.com/infenia/yukta/tree/main/examples/1-standalone/03-pr-risk-gate) | Merging risky PRs, or reviewing every routine one | Risk scoring, reviewer gate, secrets stripped from messages |
+| [04](https://github.com/infenia/yukta/tree/main/examples/1-standalone/04-dependency-updates) | Dependency bumps that are either routine or dangerous | Risk routing, maintainer review queue, changelog |
+| [12](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/12-alert-triage) | Alerts that need a restart before anyone is paged | Bounded auto-remediation, then page and incident record |
+| [05](https://github.com/infenia/yukta/tree/main/examples/1-standalone/05-model-promotion) | A retrained model promoted without a real check | Eval checks, reviewer gate, retrain limit, registry promotion |
+| [06](https://github.com/infenia/yukta/tree/main/examples/1-standalone/06-security-findings) | Hundreds of scanner findings and nobody triaging them | Batch scoring, secrets redacted, engineer decides fix, accept or suppress |
 
 ## Building blocks and reference
 
 | # | Job | What it shows |
 |---|---|---|
-| [01](https://github.com/infenia/yukta/tree/main/examples/01-hello-world) | Smallest end-to-end check | One trigger, one processor, one terminal |
-| [10](https://github.com/infenia/yukta/tree/main/examples/10-mcp-agent) | An AI agent creates and runs a workflow | Using Yukta over MCP |
-
+| [01](https://github.com/infenia/yukta/tree/main/examples/1-standalone/01-hello-world) | Smallest end-to-end check | One trigger, one processor, one terminal |
+| [13](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/13-mcp-agent) | An AI agent creates and runs a workflow | Using Yukta over MCP |
+| [10](https://github.com/infenia/yukta/tree/main/examples/1-standalone/10-inbox-notification) | A workflow needs someone to see a result | A notification in the inbox |
+| [16](https://github.com/infenia/yukta/tree/main/examples/3-paid-tools/16-agent-console) | Two agents work in the agent console | Scripted agents through the agent harness |
 
 ## How Yukta develops itself
 
-[Example 11](https://github.com/infenia/yukta-dogfood) is the workflow the Yukta team runs on its own code. It runs the full `gradle check` as a staged workflow. When a stage fails, a repair chain applies a formatter fix, then asks headless Claude Code for a fix, and runs the stage again. It lives in its own repository, needs a Yukta checkout and Claude Code, so it is a reference rather than a starter.
+The workflow the Yukta team runs on its own code lives in its own repository, [yukta-dogfood](https://github.com/infenia/yukta-dogfood). It runs the full `gradle check` as a staged workflow. When a stage fails, a repair chain applies a formatter fix, then asks headless Claude Code for a fix, and runs the stage again. It needs a Yukta checkout and Claude Code, so it is a reference rather than a starter.
 
 ## Next steps
 

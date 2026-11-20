@@ -108,7 +108,7 @@ By default a request has one tier that any supervisor or operator may answer, wi
   </Step>
 
   <Step title="Or let an agent pull">
-    An external agent that cannot be called lists open requests (`GET /api/inputs`, MCP `list_pending_inputs`), follows `GET /api/events/stream?type=InputRequested,InputEscalated`, and answers with `POST /api/executions/{executionId}/inputs/{requestId}/answer` and an `OPERATOR` key. [Example 15](https://github.com/infenia/yukta/tree/main/examples/15-input-pull) is a `curl` script that does it. Such a key counts as a person for the risk rule.
+    An external agent that cannot be called lists open requests (`GET /api/inputs`, MCP `list_pending_inputs`), follows `GET /api/events/stream?type=InputRequested,InputEscalated`, and answers with `POST /api/executions/{executionId}/inputs/{requestId}/answer` and an `OPERATOR` key. [Example 07](https://github.com/infenia/yukta/tree/main/examples/1-standalone/07-input-pull) is a `curl` script that does it. Such a key counts as a person for the risk rule.
   </Step>
 </Steps>
 

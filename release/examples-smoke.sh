@@ -7,14 +7,14 @@
 # the rest of the basics: supervisors, approvals, sub-workflows, file and key-value steps, the
 # schedule trigger and MCP. A native image fails here where a JVM test does not (reflection data).
 #
-# The examples ExamplesE2eTest runs (01, 04, 05, 20) are skipped here; set EXAMPLES_SKIP to run them anyway.
+# The examples ExamplesE2eTest runs (01, 03, 04, 10) are skipped here; set EXAMPLES_SKIP to run them anyway.
 #
 # Fails when an example fails, or when one is skipped that is not named in SMOKE_ALLOW_SKIP.
 #
 # Usage: release/examples-smoke.sh <base-url> [api-key]
 #   SMOKE_ALLOW_SKIP  space separated example names that may be skipped. The default names the
 #                     examples that need an LLM endpoint or are a walkthrough without run.sh.
-#   SMOKE_IN_CONTAINER set for a server in a Docker container with a published port: example 02 needs git,
+#   SMOKE_IN_CONTAINER set for a server in a Docker container with a published port: example 11 needs git,
 #                     which the image does not ship, so it may skip, and 08 is not run, because its local pager
 #                     listens on this machine's 127.0.0.1 and the container cannot reach it (run the
 #                     container with --network host to try it). The container needs the directory mount
@@ -22,7 +22,7 @@
 #   EXAMPLES_SKIP     examples not run at all (see examples/run-all.sh)
 #
 # The server under test needs YUKTA_PLUGINS_ENABLED=all (the examples use plugins that are off by default)
-# and YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 for examples 01, 02, 03 and 08.
+# and YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 for examples 01, 02, 11 and 12.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -32,15 +32,15 @@ export YUKTA_URL="${1%/}"
 need curl
 need jq
 
-allow_skip=" ${SMOKE_ALLOW_SKIP:-15-input-pull 16-supervisor-profiles 17-supervisor-workflow 19-agent-session} "
-[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || allow_skip+="02-agent-verification 21-agent-console "
+allow_skip=" ${SMOKE_ALLOW_SKIP:-07-input-pull 08-supervisor-profiles 09-supervisor-workflow 15-agent-session} "
+[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || allow_skip+="11-agent-verification 16-agent-console "
 
 # run-all.sh ends with one line per example: "PASS  name", "SKIP  name" or "FAIL  name (exit N)".
 log "running the examples against $YUKTA_URL"
 set +e
-# 01, 04, 05 and 20 are run by ExamplesE2eTest (the e2e suite); the rest need the run.sh scripts.
-EXAMPLES_SKIP="${EXAMPLES_SKIP:-01-hello-world 04-pr-risk-gate 05-dependency-updates 20-inbox-notification}"
-[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || EXAMPLES_SKIP+=" 08-alert-triage"
+# 01, 03, 04 and 10 are run by ExamplesE2eTest (the e2e suite); the rest need the run.sh scripts.
+EXAMPLES_SKIP="${EXAMPLES_SKIP:-01-hello-world 03-pr-risk-gate 04-dependency-updates 10-inbox-notification}"
+[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || EXAMPLES_SKIP+=" 12-alert-triage"
 output="$(EXAMPLES_SKIP="${EXAMPLES_SKIP:-}" bash "$REPO_ROOT/examples/run-all.sh" 2>&1)"
 code=$?
 set -e

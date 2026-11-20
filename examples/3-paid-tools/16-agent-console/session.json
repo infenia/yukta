@@ -1,0 +1,44 @@
+{
+  "sessionId": "example-16-agent-console",
+  "name": "Agent console",
+  "description": "Two scripted agents in a row. Each opens a conversation: watch them in the Agents tab, with yukta-cli attach, or at GET /api/conversations.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "16-agent-console" },
+  "workflows": {
+    "chain": {
+      "workflowId": "chain",
+      "description": "review then fix, each run by an agent",
+      "nodes": [
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "review",
+          "type": "AGENT_SESSION",
+          "config": { "harness": "fake-agent", "prompt": "the diff", "timeout": 60 }
+        },
+        {
+          "nodeId": "fix",
+          "type": "AGENT_SESSION",
+          "config": { "harness": "fake-agent", "prompt": "the review", "timeout": 60 }
+        },
+        {
+          "nodeId": "done",
+          "type": "OUTCOME_TERMINAL",
+          "config": { "outcome": "SUCCESS", "reason": "both agents finished" }
+        },
+        {
+          "nodeId": "failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": { "outcome": "ESCALATE", "reason": "an agent failed" }
+        }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "review" },
+        { "source": "review", "target": "fix", "sourcePort": "success" },
+        { "source": "review", "target": "failed", "sourcePort": "failure" },
+        { "source": "fix", "target": "done", "sourcePort": "success" },
+        { "source": "fix", "target": "failed", "sourcePort": "failure" }
+      ]
+    }
+  }
+}

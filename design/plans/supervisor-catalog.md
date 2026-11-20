@@ -73,7 +73,7 @@ The outcome: a **Supervisors** area modelled on Plugins (catalog, configured sup
 - CLI: `cli/internal/client/admin.go` changes `GetSupervisors` to `/api/supervisors/status`, and adds `yukta supervisors types|list|show`.
 - Callers that must change **in the same PR**, because the dev server is built from `origin/main`:
   - `examples/dogfood/src/ticket/yk-ticket.ts` (lines 283-284, `profile.json`/`binding.json`)
-  - `examples/dogfood/supervisor/*.json`, `examples/16-supervisor-profiles`, `examples/17-supervisor-workflow`
+  - `examples/dogfood/supervisor/*.json`, `examples/1-standalone/08-supervisor-profiles`, `examples/1-standalone/09-supervisor-workflow`
   - `boot` `WorkflowSupervisorAcceptanceTest`, Bruno collections, the UI `features/control/api/supervisors.ts` (kept compiling)
   - #1923's dogfood supervisor workflow files, if #1923 has landed
 - Regenerate `ui/openapi.json`, `docs/api/openapi.json` and `ui/src/types/api.generated.ts` with the project task. Update `docs/api/` and `docs/running/supervisors.mdx` (endpoints).

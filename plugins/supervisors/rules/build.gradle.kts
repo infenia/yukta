@@ -13,7 +13,7 @@ dependencies {
 
 // A test loads the example profile under examples/, so a broken example fails the build.
 tasks.withType<Test>().configureEach {
-    val example = rootProject.layout.projectDirectory.file("examples/16-supervisor-profiles/input-requests.json")
+    val example = rootProject.layout.projectDirectory.file("examples/1-standalone/08-supervisor-profiles/input-requests.json")
     inputs.file(example).withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("yukta.example.input-rules", example.asFile.absolutePath)
 }

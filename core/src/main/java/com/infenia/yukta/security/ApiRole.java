@@ -25,6 +25,9 @@ public enum ApiRole {
   /** What a person does with their own inbox: any role may, nobody else's state is touched. */
   private static final String INBOX_PATH = "/api/notifications/";
 
+  /** The effective configuration: paths, hosts and allow-lists, so reading it needs ADMIN. */
+  private static final String CONFIG_PATH = "/api/config";
+
   /**
    * Whether this role may make the request.
    *
@@ -34,9 +37,10 @@ public enum ApiRole {
    */
   public boolean allows(final HttpMethod method, final String path) {
     final boolean read =
-        HttpMethod.GET.equals(method)
-            || HttpMethod.HEAD.equals(method)
-            || HttpMethod.OPTIONS.equals(method);
+        (HttpMethod.GET.equals(method)
+                || HttpMethod.HEAD.equals(method)
+                || HttpMethod.OPTIONS.equals(method))
+            && !(CONFIG_PATH.equals(path) || path.startsWith(CONFIG_PATH + "/"));
     // no ".." segments: a prefix match must not be a way out of the prefix
     return this == ADMIN
         || read

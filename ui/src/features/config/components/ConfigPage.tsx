@@ -2,10 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { Fragment, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { Callout } from '@/components/common/Callout';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { Tabs } from '@/components/ui/tabs';
+import { PackagingGuide } from './PackagingGuide';
+import { CapacityPanel } from '@/features/control/dashboard/CapacityPanel';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import {
@@ -25,6 +29,7 @@ import {
   type ConfigOption,
 } from '../lib/catalog';
 import { howToSet } from '../lib/howToSet';
+import { useConfigValues } from '../hooks/useConfigValues';
 
 const WHEN_LABEL: Record<AppliesWhen, string> = {
   startup: 'Restart',
@@ -57,13 +62,17 @@ function Details({ option }: { option: ConfigOption }) {
   );
 }
 
-/** Every way to configure Yukta: what an option does, when a change applies and how to set it. */
-export function ConfigPage() {
+/** The catalog of startup options: what each does, when a change applies and how to set it. */
+function OptionCatalog() {
   const [query, setQuery] = useState('');
   const [area, setArea] = useState('');
   const [when, setWhen] = useState('');
   const [native, setNative] = useState('');
+  const [set, setSet] = useState('');
   const [open, setOpen] = useState<string | null>(null);
+
+  const live = useConfigValues();
+  const values = live.status === 'ready' ? live.values : null;
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -72,16 +81,13 @@ export function ConfigPage() {
         (!area || o.area === area) &&
         (!when || o.appliesWhen === when) &&
         (!native || o.native) &&
+        (!set || (values?.get(o.key)?.source ?? 'default') !== 'default') &&
         (!q || `${o.key} ${envName(o)} ${o.purpose}`.toLowerCase().includes(q))
     );
-  }, [query, area, when, native]);
+  }, [query, area, when, native, set, values]);
 
   return (
     <div>
-      <PageHeader
-        title="Configuration"
-        description="Every option that configures Yukta: what it does, when a change takes effect and how to set it."
-      />
       <Callout title="How configuration works" className="mb-4">
         Most options are read once at start, so change them and restart. A value
         is taken from, in order: a command-line argument, an environment
@@ -125,7 +131,32 @@ export function ConfigPage() {
           <option value="">JVM, native and Docker</option>
           <option value="native">Differs in native and Docker</option>
         </NativeSelect>
+        {values && (
+          <NativeSelect
+            aria-label="Value"
+            value={set}
+            onChange={(e) => setSet(e.target.value)}
+          >
+            <option value="">Any value</option>
+            <option value="set">Set on this server</option>
+          </NativeSelect>
+        )}
       </div>
+      {live.status === 'denied' && (
+        <Callout compact className="mb-3">
+          Current values need an ADMIN key.
+        </Callout>
+      )}
+      {live.status === 'loading' && (
+        <p className="text-body-sm text-on-surface-variant mb-3">
+          Loading current values…
+        </p>
+      )}
+      {live.status === 'error' && (
+        <Callout kind="warning" compact className="mb-3">
+          Could not load the current values.
+        </Callout>
+      )}
       {rows.length === 0 ? (
         <StateMessage tone="neutral" title="No options match.">
           Clear the search or a filter.
@@ -137,6 +168,8 @@ export function ConfigPage() {
               <TableRow>
                 <TableHead>Option</TableHead>
                 <TableHead>Default</TableHead>
+                {values && <TableHead>Current value</TableHead>}
+                {values && <TableHead>Source</TableHead>}
                 <TableHead>Applies</TableHead>
                 <TableHead>Area</TableHead>
               </TableRow>
@@ -144,6 +177,7 @@ export function ConfigPage() {
             <TableBody>
               {rows.map((o) => {
                 const expanded = open === o.key;
+                const now = values?.get(o.key);
                 return (
                   <Fragment key={o.key}>
                     <TableRow>
@@ -163,12 +197,22 @@ export function ConfigPage() {
                       <TableCell className="text-code-sm">
                         {o.default}
                       </TableCell>
+                      {values && (
+                        <TableCell className="text-code-sm">
+                          {now ? (now.value ?? 'Not set') : '—'}
+                        </TableCell>
+                      )}
+                      {values && (
+                        <TableCell>
+                          {now && now.source !== 'default' ? now.source : '—'}
+                        </TableCell>
+                      )}
                       <TableCell>{WHEN_LABEL[o.appliesWhen]}</TableCell>
                       <TableCell>{o.area}</TableCell>
                     </TableRow>
                     {expanded && (
                       <TableRow>
-                        <TableCell colSpan={4}>
+                        <TableCell colSpan={values ? 6 : 4}>
                           <Details option={o} />
                         </TableCell>
                       </TableRow>
@@ -180,6 +224,69 @@ export function ConfigPage() {
           </Table>
         </TableFrame>
       )}
+    </div>
+  );
+}
+
+/** What can change without a restart. Everything else in the catalog is read once at start. */
+function RuntimeTab() {
+  return (
+    <div className="max-w-2xl space-y-4">
+      <Callout title="Changes here are live, but not saved">
+        These limits apply at once and are lost when the server restarts; it
+        starts again with <code>yukta.execution.max-concurrent</code> and{' '}
+        <code>yukta.execution.max-concurrent-per-workflow</code>. Every other
+        option needs a restart.
+      </Callout>
+      <CapacityPanel live />
+    </div>
+  );
+}
+
+type Tab = 'options' | 'runtime' | 'packaging';
+const TABS = [
+  { id: 'options', label: 'Options' },
+  { id: 'runtime', label: 'Runtime' },
+  { id: 'packaging', label: 'Packaging' },
+] as const;
+
+/** Every way to configure Yukta, and the few settings that change while it runs. */
+export function ConfigPage() {
+  const [params, setParams] = useSearchParams();
+  const requested = params.get('tab');
+  const tab: Tab =
+    requested === 'runtime' || requested === 'packaging'
+      ? requested
+      : 'options';
+  const choose = (next: Tab) => {
+    const updated = new URLSearchParams(params);
+    if (next === 'options') updated.delete('tab');
+    else updated.set('tab', next);
+    setParams(updated, { replace: true });
+  };
+  return (
+    <div>
+      <PageHeader
+        title="Configuration"
+        description="Every option that configures Yukta: what it does, when a change takes effect and how to set it."
+      />
+      <Tabs
+        items={TABS}
+        value={tab}
+        onChange={choose}
+        ariaLabel="Configuration sections"
+        idPrefix="config"
+      />
+      <div
+        id="config-tabpanel"
+        role="tabpanel"
+        aria-labelledby={`config-tab-${tab}`}
+        className="pt-4"
+      >
+        {tab === 'options' && <OptionCatalog />}
+        {tab === 'runtime' && <RuntimeTab />}
+        {tab === 'packaging' && <PackagingGuide />}
+      </div>
     </div>
   );
 }
