@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 [versions]
-jline = "4.5.0"
+jline = "4.7.0"
 springBoot = "4.1.2"
 springDependencyManagement = "1.1.7"
 graalvmBuildtools = "1.1.18"
@@ -21,7 +21,7 @@ spotbugs = "6.5.13"
 spotbugsAnnotations = "4.10.3"
 errorprone = "2.52.0"
 errorpronePlugin = "5.2.0"
-cyclonedx = "3.5.1"
+cyclonedx = "3.6.0"
 handlebars = "4.5.8"
 graalvmPolyglot = "25.5.5.0.3"
 nodeGradle = "7.1.0"
