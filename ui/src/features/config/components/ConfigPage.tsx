@@ -8,6 +8,7 @@ import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Tabs } from '@/components/ui/tabs';
+import { PackagingGuide } from './PackagingGuide';
 import { CapacityPanel } from '@/features/control/dashboard/CapacityPanel';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
@@ -198,16 +199,21 @@ function RuntimeTab() {
   );
 }
 
-type Tab = 'options' | 'runtime';
+type Tab = 'options' | 'runtime' | 'packaging';
 const TABS = [
   { id: 'options', label: 'Options' },
   { id: 'runtime', label: 'Runtime' },
+  { id: 'packaging', label: 'Packaging' },
 ] as const;
 
 /** Every way to configure Yukta, and the few settings that change while it runs. */
 export function ConfigPage() {
   const [params, setParams] = useSearchParams();
-  const tab: Tab = params.get('tab') === 'runtime' ? 'runtime' : 'options';
+  const requested = params.get('tab');
+  const tab: Tab =
+    requested === 'runtime' || requested === 'packaging'
+      ? requested
+      : 'options';
   const choose = (next: Tab) => {
     const updated = new URLSearchParams(params);
     if (next === 'options') updated.delete('tab');
@@ -233,7 +239,9 @@ export function ConfigPage() {
         aria-labelledby={`config-tab-${tab}`}
         className="pt-4"
       >
-        {tab === 'runtime' ? <RuntimeTab /> : <OptionCatalog />}
+        {tab === 'options' && <OptionCatalog />}
+        {tab === 'runtime' && <RuntimeTab />}
+        {tab === 'packaging' && <PackagingGuide />}
       </div>
     </div>
   );
