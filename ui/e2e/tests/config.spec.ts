@@ -131,7 +131,8 @@ test.describe('Configuration page', () => {
       page.getByRole('row', { name: /yukta\.api-keys\[0\]\.key/ })
     ).toContainText('******');
 
-    await page.getByLabel('Value').selectOption('set');
+    await page.getByRole('combobox', { name: 'Value' }).click();
+    await page.getByRole('option', { name: 'Set on this server' }).click();
     await expect(page.getByRole('row')).toHaveCount(3);
   });
 
