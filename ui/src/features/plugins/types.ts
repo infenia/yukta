@@ -11,6 +11,10 @@ export interface PluginSummary {
   category: PluginCategory;
   tier?: 'CORE' | 'EXTENDED' | 'SPECIFIC';
   restricted?: boolean;
+  /** False when the plugin is on the classpath but the operator has not switched it on. */
+  enabled?: boolean;
+  /** What an operator sets to switch it on; null when it already is. */
+  enableWith?: string | null;
 }
 
 export type ConfigFieldType =

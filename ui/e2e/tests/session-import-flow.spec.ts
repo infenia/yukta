@@ -86,31 +86,32 @@ async function mockImport(
   return { saves, validated };
 }
 
-const paste = (page: Page, text: string) =>
-  page.getByLabel('Or paste the JSON').fill(text);
-const check = (page: Page) =>
-  page.getByRole('button', { name: 'Check' }).click();
+const paste = async (page: Page, text: string) => {
+  // the one button offers the other source: already pasting when it says "Upload a file"
+  const toggle = page.getByRole('button', {
+    name: /^(Paste JSON|Upload a file)$/,
+  });
+  if ((await toggle.textContent())?.trim() === 'Paste JSON') {
+    await toggle.click();
+  }
+  await page.getByLabel('Paste the JSON').fill(text);
+};
 
 test.describe('Session import - the page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/sessions/import');
   });
 
-  test('explains itself and starts with nothing to check', async ({ page }) => {
+  test('starts with nothing to check', async ({ page }) => {
     await expect(
       page.getByRole('heading', { level: 1, name: 'Import session' })
-    ).toBeVisible();
-    await expect(
-      page.getByText('Nothing is saved until you apply it.')
     ).toBeVisible();
     await expect(
       page.getByText('Drop a .json file here, or click to browse')
     ).toBeVisible();
     await expect(
-      page.getByText('The JSON is checked as you type.')
-    ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Check' })).toBeDisabled();
-    await expect(page.getByRole('status')).toHaveCount(0);
+      page.getByRole('button', { name: 'Import session' })
+    ).toBeDisabled();
   });
 
   test('shows that the JSON is valid as you type, with the session and workflow count', async ({
@@ -118,21 +119,17 @@ test.describe('Session import - the page', () => {
   }) => {
     await paste(page, JSON.stringify(session()));
 
-    await expect(page.getByRole('status')).toContainText(
-      'Valid JSON: session imported, 1 workflow(s).'
-    );
-    await expect(page.getByLabel('Or paste the JSON')).toHaveAttribute(
+    await expect(page.getByLabel('Paste the JSON')).toHaveAttribute(
       'aria-invalid',
       'false'
     );
-    await expect(page.getByRole('button', { name: 'Check' })).toBeEnabled();
   });
 
   test('shows where the JSON is broken as you type', async ({ page }) => {
     await paste(page, '{\n  "sessionId": "x",\n  nope\n}');
 
-    await expect(page.getByRole('status')).toContainText('Invalid JSON');
-    await expect(page.getByLabel('Or paste the JSON')).toHaveAttribute(
+    await expect(page.getByRole('alert')).toContainText('Invalid JSON');
+    await expect(page.getByLabel('Paste the JSON')).toHaveAttribute(
       'aria-invalid',
       'true'
     );
@@ -143,10 +140,9 @@ test.describe('Session import - the page', () => {
   }) => {
     await paste(page, '{"name": "no id"}');
 
-    await expect(page.getByRole('status')).toContainText(
+    await expect(page.getByRole('alert')).toContainText(
       'This is not a session: it needs a sessionId and workflows.'
     );
-    await check(page);
     await expect(page.getByRole('alert')).toContainText(
       'This cannot be imported'
     );
@@ -165,10 +161,10 @@ test.describe('Session import - the page', () => {
     });
 
     await expect(page.getByText('my-session.json')).toBeVisible();
-    await expect(page.getByLabel('Or paste the JSON')).toHaveValue(
+    await page.getByRole('button', { name: 'Paste JSON' }).click();
+    await expect(page.getByLabel('Paste the JSON')).toHaveValue(
       JSON.stringify(session())
     );
-    await expect(page.getByRole('status')).toContainText('Valid JSON');
   });
 
   test('typing after loading a file forgets its name', async ({ page }) => {
@@ -181,6 +177,7 @@ test.describe('Session import - the page', () => {
 
     await paste(page, '{}');
 
+    await page.getByRole('button', { name: 'Upload a file' }).click();
     await expect(page.getByText('my-session.json')).toBeHidden();
     await expect(
       page.getByText('Drop a .json file here, or click to browse')
@@ -196,14 +193,13 @@ test.describe('Session import - checking', () => {
     await page.goto('/sessions/import');
 
     await paste(page, JSON.stringify(session()));
-    await check(page);
 
     const review = page.getByRole('region', { name: 'Review' });
     await expect(review).toContainText(
       'New session imported with 1 workflow(s).'
     );
     expect(validated).toHaveLength(1);
-    await review.getByRole('button', { name: 'Import session' }).click();
+    await page.getByRole('button', { name: 'Import session' }).click();
 
     await expect(page).toHaveURL(/\/sessions\/imported$/);
     expect(saves).toEqual([session()]);
@@ -216,7 +212,6 @@ test.describe('Session import - checking', () => {
     await page.goto('/sessions/import');
 
     await paste(page, JSON.stringify(session()));
-    await check(page);
 
     const problems = page.getByRole('alert');
     await expect(problems).toContainText('This cannot be imported');
@@ -237,7 +232,6 @@ test.describe('Session import - checking', () => {
     await page.goto('/sessions/import');
 
     await paste(page, JSON.stringify(session()));
-    await check(page);
 
     await expect(page.getByRole('alert')).toContainText(
       'main: validator crashed'
@@ -251,17 +245,17 @@ test.describe('Session import - checking', () => {
     await page.goto('/sessions/import');
 
     await paste(page, JSON.stringify(session()));
-    await check(page);
 
     await expect(page.getByRole('alert')).toContainText('config store is down');
     await expect(page.getByRole('region', { name: 'Review' })).toHaveCount(0);
   });
 
-  test('editing the JSON after a check clears the review', async ({ page }) => {
+  test('editing the JSON drops the review until it is checked again', async ({
+    page,
+  }) => {
     await mockImport(page);
     await page.goto('/sessions/import');
     await paste(page, JSON.stringify(session()));
-    await check(page);
     await expect(page.getByRole('region', { name: 'Review' })).toBeVisible();
 
     await paste(page, JSON.stringify({ ...session(), name: 'Changed' }));
@@ -275,7 +269,6 @@ test.describe('Session import - checking', () => {
     await mockImport(page, { saveStatus: 409 });
     await page.goto('/sessions/import');
     await paste(page, JSON.stringify(session()));
-    await check(page);
 
     await page.getByRole('button', { name: 'Import session' }).click();
 
@@ -294,7 +287,6 @@ test.describe('Session import - checking', () => {
     const redacted = session(workflow(['a', 'z'], [['a', 'z']], '******'));
 
     await paste(page, JSON.stringify(redacted));
-    await check(page);
 
     await expect(page.getByRole('region', { name: 'Review' })).toContainText(
       'Secrets are redacted in this file (******)'
@@ -324,7 +316,6 @@ test.describe('Session import - replacing an existing session', () => {
     );
 
     await paste(page, JSON.stringify(incoming));
-    await check(page);
 
     const review = page.getByRole('region', { name: 'Review' });
     await expect(review).toContainText(
@@ -343,7 +334,7 @@ test.describe('Session import - replacing an existing session', () => {
       await expect(review.getByText(line, { exact: true })).toBeVisible();
     }
     await expect(
-      review.getByRole('button', { name: 'Replace session' })
+      page.getByRole('button', { name: 'Replace session' })
     ).toBeVisible();
   });
 
@@ -361,7 +352,6 @@ test.describe('Session import - replacing an existing session', () => {
     };
 
     await paste(page, JSON.stringify(incoming));
-    await check(page);
 
     const review = page.getByRole('region', { name: 'Review' });
     await expect(review.getByText('no changes')).toBeVisible();
@@ -377,7 +367,6 @@ test.describe('Session import - replacing an existing session', () => {
     incoming.workflows.main.nodes[1].config = { level: 'debug' } as never;
 
     await paste(page, JSON.stringify(incoming));
-    await check(page);
 
     await expect(page.getByText('~ node z', { exact: true })).toBeVisible();
   });
@@ -389,7 +378,6 @@ test.describe('Session import - replacing an existing session', () => {
       workflow(['a', 'z'], [['a', 'z']], 'new description')
     );
     await paste(page, JSON.stringify(incoming));
-    await check(page);
 
     await page.getByRole('button', { name: 'Replace session' }).click();
 
