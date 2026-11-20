@@ -95,7 +95,7 @@ docker run --rm -p 127.0.0.1:9858:9858 \
   ghcr.io/infenia/yukta:0.1.0-alpha.4
 ```
 
-A container listens on all its interfaces, so the server refuses to start without an API key. Replace `change-me` with a long random value. Every `curl` call to this server then needs `-H "X-API-Key: <your key>"`, `yukta-cli` reads the key from `YUKTA_TOKEN`, and the web UI asks for it on first use. The image has no shell, runs as an unprivileged user and keeps data in memory unless you mount a folder, see [Deploy Yukta](/guides/operate/deploy).
+A container listens on all its interfaces, so the server refuses to start without an API key. Replace `change-me` with a long random value. Every `curl` call to this server then needs `-H "X-API-Key: <your key>"`, `yukta-cli` reads the key from `YUKTA_TOKEN`, and the web UI asks for it on first use. The image has a minimal BusyBox shell but no package manager, runs as an unprivileged user and keeps everything in memory, so a restart gives a clean server. To bring your workflows back, mount a folder of session files and set `YUKTA_BOOTSTRAP_DIR`, see [Persist sessions](/guides/operate/persist-sessions) and [Deploy Yukta](/guides/operate/deploy).
 
 ## Install only the client
 
