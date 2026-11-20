@@ -36,7 +36,7 @@ export function NeedsPlugins({
         {brief ? (
           <>
             Switched off. Set{' '}
-            <code className="text-code-sm select-all">
+            <code className="text-code-sm break-all select-all">
               {enableSetting(types)}
             </code>{' '}
             and restart.
@@ -44,7 +44,7 @@ export function NeedsPlugins({
         ) : (
           <>
             Switched off on this server, so a run fails until you set{' '}
-            <code className="text-code-sm select-all">
+            <code className="text-code-sm break-all select-all">
               {enableSetting(types)}
             </code>{' '}
             (or <code className="text-code-sm">yukta.plugins.enabled</code>, or{' '}
