@@ -209,4 +209,42 @@ describe('runAgent', () => {
       result: 'Interrupted before it ran.',
     });
   });
+
+  it('runs a tool of its own here, not on the server, and cuts or reports its result like any other', async () => {
+    const docs: ToolSpec = {
+      name: 'search_docs',
+      description: '',
+      inputSchema: {},
+      annotations: { readOnlyHint: true },
+    };
+    const local = {
+      search_docs: vi
+        .fn()
+        .mockResolvedValueOnce('x'.repeat(RESULT_LIMIT + 5))
+        .mockRejectedValueOnce(new Error('index missing')),
+    };
+    const { done, changes } = run(
+      scripted([
+        [
+          call('c1', 'search_docs', { query: 'q' }),
+          call('c2', 'search_docs'),
+          call('c3', 'list_sessions'),
+        ],
+        [text('done')],
+      ]),
+      { tools: [...tools, docs], local }
+    );
+
+    await done;
+
+    const results = last(changes).filter((m) => m.role === 'tool') as {
+      result: string;
+      isError: boolean;
+    }[];
+    expect(local.search_docs).toHaveBeenCalledWith({ query: 'q' });
+    expect(results[0].result).toContain('5 more characters');
+    expect(results[1]).toMatchObject({ result: 'index missing', isError: true });
+    expect(results[2].result).toBe('ok');
+    expect(mcp.callTool).toHaveBeenCalledTimes(1);
+  });
 });

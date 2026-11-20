@@ -3,10 +3,11 @@
 
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Chat } from '../components/Chat';
 import * as mcp from '../lib/mcpClient';
+import { resetDocs } from '../lib/docsSearch';
 import { pageContext } from '../lib/pageContext';
 import { call, scriptedModel, text } from '../testFixtures';
 import type { ChatModel, ToolSpec } from '../types';
@@ -45,6 +46,8 @@ beforeEach(() => {
     .mockReset()
     .mockResolvedValue({ text: '{"count":2}', isError: false });
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('Chat', () => {
   it('greets with suggestions for the page and focuses the message box', () => {
@@ -187,5 +190,34 @@ describe('Chat', () => {
     );
 
     expect(screen.getByLabelText('Message')).toHaveFocus();
+  });
+
+  it('looks a question up in the documentation, here in the browser', async () => {
+    resetDocs();
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json([
+        {
+          t: 'Install',
+          h: 'Docker',
+          u: 'https://docs/install',
+          x: 'Run docker compose to start the server.',
+        },
+      ])
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    show(
+      scriptedModel([
+        [call('c1', 'search_docs', { query: 'docker' })],
+        [text('Use docker compose.')],
+      ])
+    );
+
+    await userEvent.type(screen.getByLabelText('Message'), 'how do I install?{Enter}');
+
+    expect(await screen.findByText('Use docker compose.')).toBeInTheDocument();
+    expect(screen.getByText('search_docs')).toBeInTheDocument();
+    expect(screen.getByText('Done')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/assistant-docs.json');
+    expect(mcp.callTool).not.toHaveBeenCalled();
   });
 });

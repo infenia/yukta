@@ -19,9 +19,10 @@ const OPTIONS = {
 
 /**
  * The tools offered to the on-device model. Its context is small and it picks badly from sixty,
- * so it gets the ones a question about runs needs, and the two that start and steer them.
+ * so it gets the documentation search, the ones a question about runs needs, and the two that start and steer them.
  */
 export const NANO_TOOLS = new Set([
+  'search_docs',
   'list_sessions',
   'get_session_details',
   'get_workflow_details',
