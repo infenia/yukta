@@ -184,16 +184,29 @@ describe('AgentList', () => {
       'aria-pressed',
       'true'
     );
-    expect(screen.getByText(/claude-code · Working/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/codex · acp · Waiting for you/)
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /review/ })).toHaveTextContent(
+      'claude-code · Working'
+    );
+    expect(screen.getByRole('button', { name: /fix/ })).toHaveTextContent(
+      'codex · Waiting for you'
+    );
     expect(screen.getByText('2 agents, 1 waiting')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /fix/ }));
     expect(onSelect).toHaveBeenCalledWith('c2');
     await userEvent.click(screen.getByRole('button', { name: /^All/ }));
     expect(onSelect).toHaveBeenCalledWith(null);
+  });
+
+  it('says one queued message in the singular', () => {
+    render(
+      <AgentList
+        conversations={[createConversation({ id: 'q1', queued: 1 })]}
+        selected={null}
+        onSelect={vi.fn()}
+      />
+    );
+    expect(screen.getByText('1 queued')).toBeInTheDocument();
   });
 });
 
@@ -318,10 +331,55 @@ describe('the look of an item', () => {
       />
     );
 
-    expect(screen.getByText(/Prompt from the workflow/)).toBeInTheDocument();
-    expect(screen.getByText(/you \(ann\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Queued ·/)).toBeInTheDocument();
+    // who wrote it is clear from the shading: no caption names the prompt or its author
+    expect(
+      screen.queryByText(/Prompt from the workflow/)
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/you \(ann\)/)).not.toBeInTheDocument();
+    expect(screen.getByText('the prompt')).toBeInTheDocument();
+    expect(screen.getByText('a hint')).toBeInTheDocument();
+    expect(screen.getByText('Queued')).toBeInTheDocument();
     expect(screen.getByText(/a queued one/)).toBeInTheDocument();
+  });
+
+  it('folds a long message and opens it again with its toggle', async () => {
+    const user = userEvent.setup();
+    const long = 'x'.repeat(600);
+    only({
+      at: AT,
+      key: 'long',
+      conversationId: 'c1',
+      kind: 'message',
+      role: 'user',
+      author: 'prompt',
+      text: long,
+      queued: false,
+    });
+    const more = screen.getByRole('button', { name: 'Show more' });
+    await user.click(more);
+    expect(
+      screen.getByRole('button', { name: 'Show less' })
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(
+      screen.getByRole('button', { name: 'Show more' })
+    ).toBeInTheDocument();
+  });
+
+  it('folds a message of many lines behind a toggle', () => {
+    only({
+      at: AT,
+      key: 'lines',
+      conversationId: 'c1',
+      kind: 'message',
+      role: 'user',
+      author: 'prompt',
+      text: Array.from({ length: 9 }, (_, i) => `line ${i}`).join('\n'),
+      queued: false,
+    });
+    expect(
+      screen.getByRole('button', { name: 'Show more' })
+    ).toBeInTheDocument();
   });
 
   it('shows what the agent was thinking, quietly', () => {
@@ -357,6 +415,118 @@ describe('the look of an item', () => {
 
     only({ ...open, conversationId: 'gone' }, 'gone');
     expect(screen.getByText('Waiting for you')).toBeInTheDocument();
+  });
+
+  it('folds the tool calls of one agent in a row into one line', () => {
+    const tool = (
+      key: string,
+      title: string,
+      status: string,
+      conversationId = 'c1'
+    ): AgentItem => ({
+      at: AT,
+      key,
+      conversationId,
+      kind: 'tool',
+      title,
+      status,
+      input: '',
+      output: '',
+      truncated: false,
+    });
+    renderWithProviders(
+      <AgentTimeline
+        items={[
+          tool('a', 'ls', 'completed'),
+          tool('b', 'ls', 'completed'),
+          tool('c', 'grep', 'failed'),
+          tool('d', 'read', 'running'),
+          tool('e', 'other', 'completed', 'c2'),
+        ]}
+        conversations={[review, fix]}
+        selected={null}
+      />
+    );
+
+    expect(screen.getByText('4 tool calls')).toBeInTheDocument();
+    expect(screen.getByText('ls ×2, grep, read')).toBeInTheDocument();
+    expect(screen.getByText('1 failed')).toBeInTheDocument();
+    expect(screen.getByText('other')).toBeInTheDocument();
+  });
+
+  it('shows a group of tool calls that all completed as completed', () => {
+    renderWithProviders(
+      <AgentTimeline
+        items={[
+          {
+            at: AT,
+            key: 'g1',
+            conversationId: 'c1',
+            kind: 'tool',
+            title: 'ls',
+            status: 'completed',
+            input: '',
+            output: '',
+            truncated: false,
+          },
+          {
+            at: AT,
+            key: 'g2',
+            conversationId: 'c1',
+            kind: 'tool',
+            title: 'cat',
+            status: 'done',
+            input: '',
+            output: '',
+            truncated: false,
+          },
+        ]}
+        conversations={[review]}
+        selected="c1"
+      />
+    );
+
+    expect(screen.getByText('2 tool calls')).toBeInTheDocument();
+    expect(screen.getByText('ls, cat')).toBeInTheDocument();
+    expect(screen.queryByText(/failed$/)).not.toBeInTheDocument();
+  });
+
+  it('shows a group with a tool still running, and none failed, as running', () => {
+    renderWithProviders(
+      <AgentTimeline
+        items={[
+          {
+            at: AT,
+            key: 'r1',
+            conversationId: 'c1',
+            kind: 'tool',
+            title: 'ls',
+            status: 'completed',
+            input: '',
+            output: '',
+            truncated: false,
+          },
+          {
+            at: AT,
+            key: 'r2',
+            conversationId: 'c1',
+            kind: 'tool',
+            title: 'cat',
+            status: 'running',
+            input: '',
+            output: '',
+            truncated: false,
+          },
+        ]}
+        conversations={[review]}
+        selected="c1"
+      />
+    );
+
+    expect(screen.getByText('2 tool calls')).toBeInTheDocument();
+    expect(screen.queryByText(/failed$/)).not.toBeInTheDocument();
+    // the group's icon and the running call's icon both carry the status
+    expect(screen.getAllByTitle('running')).toHaveLength(2);
   });
 
   it('colours a tool by how it went', () => {
@@ -421,11 +591,48 @@ describe('AgentsPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: /review/ }));
 
     expect(screen.getByRole('heading', { name: 'review' })).toBeInTheDocument();
-    expect(screen.getByText('jsonl')).toBeInTheDocument();
-    expect(screen.getByText('message')).toBeInTheDocument();
+    expect(screen.getByText('Chat')).toBeInTheDocument();
+    // what it can do is in the info popover, not as icons in the header
+    expect(
+      screen.queryByRole('img', { name: 'You can send it messages' })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('textbox', { name: 'Message to review' })
     ).toBeEnabled();
+  });
+
+  it('explains an agent and what a person can do with it, from its info button', async () => {
+    const quiet = createConversation({
+      id: 'c3',
+      nodeId: 'quiet',
+      capabilities: [],
+      protocol: 'PTY',
+    });
+    renderWithProviders(
+      <AgentsPanel conversations={[review, quiet]} items={items} />
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /review/ }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'About this agent' })
+    );
+    expect(await screen.findByText('How you talk to it')).toBeInTheDocument();
+    expect(screen.getByText('What you can do')).toBeInTheDocument();
+    expect(screen.getByText('Messages.')).toBeInTheDocument();
+    expect(
+      screen.getByText(/A message conversation \(JSONL protocol\)\./)
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /quiet/ }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'About this agent' })
+    );
+    expect(
+      await screen.findByText('Nothing: this agent only reports what it does.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/An interactive terminal session \(PTY\)\./)
+    ).toBeInTheDocument();
   });
 
   it('switches the timeline to the agent that is picked', async () => {

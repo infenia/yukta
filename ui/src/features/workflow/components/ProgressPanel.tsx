@@ -5,7 +5,12 @@ import { useContext, useState } from 'react';
 import { Link } from 'react-router';
 import { Callout } from '@/components/common/Callout';
 import { SubWorkflowLinks } from '../hooks/useSubWorkflowLinks';
-import { isTerminalExecStatus, toNodeUiStatus } from '../lib/statusMapper';
+import {
+  isTerminalExecStatus,
+  toNodeUiStatus,
+  toStatusDisplay,
+} from '../lib/statusMapper';
+import { StatusPill } from './StatusPill';
 import { ResultsExplorer } from './ResultsExplorer';
 import { ExecutionResultBlock } from './ExecutionResultBlock';
 import { ExecutionSummaryBlock } from './ExecutionSummaryBlock';
@@ -83,22 +88,37 @@ export function ProgressPanel({
     progress && isTerminalExecStatus(progress.status) ? progress : null;
   return (
     <aside
-      className="animate-in border-border bg-background fade-in-0 slide-in-from-right-4 flex w-95 shrink-0 flex-col overflow-y-auto border-l duration-150"
+      className="animate-in border-border bg-background fade-in-0 slide-in-from-right-4 flex w-full shrink-0 flex-col overflow-y-auto border-l duration-150"
       data-testid="progress-panel"
       aria-label="Workflow progress"
     >
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <h2 className="text-label-md text-on-surface">Workflow progress</h2>
+      <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
+        <div className="flex min-w-0 items-center gap-3">
+          {/* the run's status as a tile, as the node panel does for a node */}
+          <StatusPill
+            status={progress?.status}
+            iconOnly
+            className="size-11 rounded-xl [&_.material-symbols-outlined]:text-[24px]!"
+          />
+          <div className="min-w-0">
+            <h2 className="text-headline-md text-on-surface">
+              Workflow progress
+            </h2>
+            <p className="text-label-md text-on-surface-variant">
+              {toStatusDisplay(progress?.status).label}
+            </p>
+          </div>
+        </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close workflow progress panel"
-          className="text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface flex size-7 items-center justify-center rounded-lg"
+          className="text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface flex size-8 shrink-0 items-center justify-center rounded-lg"
         >
-          <span className="material-symbols-outlined text-lg">close</span>
+          <span className="material-symbols-outlined">close</span>
         </button>
       </div>
-      <div role="tablist" className="border-border flex gap-5 border-b px-4">
+      <div role="tablist" className="border-border flex gap-x-4 border-b px-4">
         {(
           [
             ['progress', 'Progress'],
@@ -112,7 +132,7 @@ export function ProgressPanel({
             role="tab"
             aria-selected={tab === name}
             onClick={() => setTab(name)}
-            className={`text-label-md -mb-px border-b-2 py-2 ${
+            className={`text-label-md -mb-px h-9 shrink-0 border-b-2 px-0.5 ${
               tab === name
                 ? 'border-primary text-on-surface'
                 : 'text-on-surface-variant hover:text-on-surface border-transparent'
@@ -146,7 +166,6 @@ export function ProgressPanel({
             />
             {finished ? (
               <ResultsExplorer
-                graph={graph}
                 sessionId={sessionId}
                 executionId={finished.executionId}
               />

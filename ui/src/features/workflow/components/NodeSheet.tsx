@@ -12,14 +12,16 @@ import { getWorkflowDefinition } from '../api/getWorkflowDefinition';
 import { useExecutionResults } from '../hooks/useExecutionResults';
 import { categoryAccent } from '../lib/categoryAccent';
 import { startPaths, startValue } from '../lib/startValues';
-import { toNodeUiStatus } from '../lib/statusMapper';
+import { toNodeStatusLabel, toNodeUiStatus } from '../lib/statusMapper';
 import { formatDuration } from '../lib/timeFormat';
 import { DateTimeStamp, Stamp } from './DateTimeStamp';
 import type { TaskProgress, WorkflowGraphNode } from '../types/workflow';
 import { Button } from '@/components/ui/button';
+import { Tip } from '@/components/ui/tooltip';
 import { ICON_TONE } from '@/components/ui/iconTone';
 import { nodeActionSlots, type NodeCommand } from './NodeControlsMenu';
 import { StatusPill } from './StatusPill';
+import { PanelSection as Section } from './PanelSection';
 
 /** The icon on each action button. */
 const ACTION_ICONS: Record<string, string> = {
@@ -45,19 +47,6 @@ const ACTION_TONE: Partial<Record<NodeCommand, keyof typeof ICON_TONE>> = {
   retry: 'primary',
   'restart-from': 'primary',
 };
-
-const Section = ({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) => (
-  <section className="flex flex-col gap-1.5">
-    <h3 className="text-overline text-on-surface-variant">{title}</h3>
-    {children}
-  </section>
-);
 
 const Empty = ({ children }: { children: ReactNode }) => (
   <p className="text-body-sm text-on-surface-variant">{children}</p>
@@ -147,9 +136,18 @@ function Config({
   const paths = startPaths(config);
   return (
     <>
-      <CodeBlock code={JSON.stringify(config, null, 2)} label="configuration" />
+      <CodeBlock
+        code={JSON.stringify(config, null, 2)}
+        label="configuration"
+        grow
+      />
       {executionId && paths.length > 0 && (
-        <StartValues executionId={executionId} paths={paths} />
+        <>
+          <h4 className="text-overline text-on-surface-variant mt-2">
+            Resolved start values
+          </h4>
+          <StartValues executionId={executionId} paths={paths} />
+        </>
       )}
     </>
   );
@@ -182,6 +180,7 @@ function Results({
           key={event.sequence}
           code={JSON.stringify(event.payload, null, 2)}
           label="result"
+          grow
         />
       ))}
     </div>
@@ -209,7 +208,7 @@ const NODE_CAPABILITY: Record<string, string> = {
 export type SheetTab = 'node' | 'supervisor';
 
 const TABS: [SheetTab, string][] = [
-  ['node', 'Node'],
+  ['node', 'Overview'],
   ['supervisor', 'Supervisor'],
 ];
 
@@ -268,20 +267,29 @@ export function NodeSheet({
       )}
     >
       <>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h2
-              id="node-sheet-title"
-              className="text-headline-md text-on-surface break-all"
-            >
-              {node.nodeId}
-            </h2>
-            <p
-              className="text-body-sm text-on-surface-variant"
-              style={{ color: categoryAccent(node.category) }}
-            >
-              {node.type}
-            </p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {/* a status tile the height of the title and type together, so the pair reads as one card */}
+            <StatusPill
+              status={task?.status}
+              scope="node"
+              iconOnly
+              className="size-11 rounded-xl [&_.material-symbols-outlined]:text-[24px]!"
+            />
+            <div className="min-w-0">
+              <h2
+                id="node-sheet-title"
+                className="text-headline-md text-on-surface break-all"
+              >
+                {node.nodeId}
+              </h2>
+              <p
+                className="text-label-md text-on-surface-variant"
+                style={{ color: categoryAccent(node.category) }}
+              >
+                {node.type}
+              </p>
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {onShowLogs && (
@@ -343,16 +351,13 @@ export function NodeSheet({
           />
         ) : (
           <>
-            <Section title="Status">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <StatusPill status={task?.status} scope="node" iconOnly />
-              </div>
-              <dl className="grid grid-cols-[repeat(auto-fit,minmax(6rem,1fr))] gap-x-3 gap-y-2">
+            <Section title="Timing">
+              <dl className="flex flex-wrap gap-x-6 gap-y-2">
                 <Stamp label="Start">
-                  <DateTimeStamp iso={task?.startTime} />
+                  <DateTimeStamp iso={task?.startTime} inline />
                 </Stamp>
                 <Stamp label="End">
-                  <DateTimeStamp iso={task?.endTime} />
+                  <DateTimeStamp iso={task?.endTime} inline />
                 </Stamp>
                 <Stamp label="Dur">
                   {formatDuration(task?.startTime, task?.endTime)}
@@ -363,7 +368,7 @@ export function NodeSheet({
             {actions.length > 0 && (
               <Section title="Actions">
                 {/* Every action keeps its cell; the ones that do not apply now are disabled */}
-                <div className="border-border bg-surface-container-low grid w-full grid-cols-6 gap-1 rounded-xl border p-1">
+                <div className="border-border bg-surface-container-low grid w-full grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-0.5 rounded-xl border p-1">
                   {actions.map((item) => (
                     <RequireControl
                       key={item.command}
@@ -371,30 +376,41 @@ export function NodeSheet({
                       command={NODE_CAPABILITY[item.command] ?? item.command}
                       target={{ execution: executionId, node: node.nodeId }}
                     >
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={item.label}
-                        title={
-                          item.enabled
-                            ? item.label
-                            : `${item.label.replace('…', '')}: not available while ${status}`
+                      <Tip
+                        label={
+                          item.enabled ? (
+                            item.label
+                          ) : (
+                            <span className="flex flex-col gap-0.5">
+                              <span>{item.label.replace('…', '')}</span>
+                              <span className="opacity-70">
+                                Unavailable: node is{' '}
+                                {toNodeStatusLabel(status).toLowerCase()}
+                              </span>
+                            </span>
+                          )
                         }
                         disabled={!item.enabled}
-                        className={cn(
-                          'transition-standard h-9 w-full rounded-lg disabled:opacity-30',
-                          ICON_TONE[ACTION_TONE[item.command] ?? 'neutral']
-                        )}
-                        onClick={() => onCommand(node.nodeId, item.command)}
                       >
-                        <span
-                          aria-hidden="true"
-                          className="material-symbols-outlined text-lg"
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label={item.label}
+                          className={cn(
+                            'transition-standard h-9 w-full min-w-0 rounded-lg disabled:opacity-30',
+                            ICON_TONE[ACTION_TONE[item.command] ?? 'neutral']
+                          )}
+                          onClick={() => onCommand(node.nodeId, item.command)}
                         >
-                          {ACTION_ICONS[item.command]}
-                        </span>
-                      </Button>
+                          <span
+                            aria-hidden="true"
+                            className="material-symbols-outlined text-lg"
+                          >
+                            {ACTION_ICONS[item.command]}
+                          </span>
+                        </Button>
+                      </Tip>
                     </RequireControl>
                   ))}
                 </div>
@@ -406,6 +422,7 @@ export function NodeSheet({
                 <CodeBlock
                   code={prettyJson(task.metadata.input)}
                   label="input"
+                  grow
                 />
               </Section>
             )}

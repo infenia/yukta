@@ -130,7 +130,7 @@ curl http://localhost:9858/actuator/health
 
 ```bash
 git clone --depth 1 https://github.com/infenia/yukta
-./yukta/examples/01-hello-world/run.sh
+./yukta/examples/1-standalone/01-hello-world/run.sh
 # expected: status SUCCESS and the log line stdout=Hello from Yukta!
 ```
 

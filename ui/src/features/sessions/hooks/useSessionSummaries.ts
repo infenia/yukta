@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useQuery } from '@tanstack/react-query';
+import { LIVE_LIST } from '@/lib/queryClient';
 import { getSessionSummaries } from '../api/getSessionSummaries';
 
 export function useSessionSummaries() {
   return useQuery({
     queryKey: ['sessions', 'summaries'],
     queryFn: () => getSessionSummaries(),
+    ...LIVE_LIST,
   });
 }

@@ -66,8 +66,28 @@ export function useStageView(
     [grouped, stages, open, onToggle]
   );
 
+  /**
+   * The URL change that opens the stage holding a node, so the node is on the canvas (a closed
+   * stage is one box). Apply it in the same `setSearchParams` as any other change: the setter
+   * reads the URL of the last render, so two calls in one handler overwrite each other.
+   */
+  const revealParams = (nodeId: string) => (next: URLSearchParams) => {
+    const stage = [...stages].find(([, members]) =>
+      members.some((member) => member.nodeId === nodeId)
+    )?.[0];
+    if (grouped && stage && !open.has(stage)) {
+      next.set('open', [...open, stage].join(','));
+    }
+  };
+
   const setGrouped = (value: boolean) =>
     update((p) => (value ? p.delete('stages') : p.set('stages', 'all')));
 
-  return { stageView, hasStages: stages.size > 0, grouped, setGrouped };
+  return {
+    stageView,
+    hasStages: stages.size > 0,
+    grouped,
+    setGrouped,
+    revealParams,
+  };
 }

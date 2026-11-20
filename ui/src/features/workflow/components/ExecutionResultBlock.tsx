@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { CodeBlock } from '@/components/common/CodeBlock';
-import { Card } from '@/components/ui/card';
+import { PanelSection } from './PanelSection';
 import { useExecutionResults } from '../hooks/useExecutionResults';
 
 function formatPayload(payload: unknown): string {
@@ -30,40 +30,47 @@ export function ExecutionResultBlock({
   }
 
   return (
-    <Card className="p-4" data-testid="execution-result">
-      <h3 className="text-overline mb-2 flex items-center gap-2">
-        Result
-        {isStreaming && (
-          <span
-            role="status"
-            className="text-label-sm text-primary"
-            data-testid="result-streaming"
-          >
-            LIVE
-          </span>
-        )}
-      </h3>
-      {results.length === 0 ? (
-        <p className="text-body-sm text-on-surface-variant">
-          {complete
-            ? 'The execution produced no result.'
-            : 'Waiting for a result…'}
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {results.map((result) => (
-            <li key={result.sequence}>
-              <span className="text-body-sm text-on-surface-variant">
-                {result.nodeId}
+    <div data-testid="execution-result">
+      <PanelSection
+        title={
+          <>
+            Output
+            {isStreaming && (
+              <span
+                role="status"
+                className="text-label-sm text-primary"
+                data-testid="result-streaming"
+              >
+                LIVE
               </span>
-              <CodeBlock
-                code={formatPayload(result.payload)}
-                label={`${result.nodeId} result`}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
+            )}
+          </>
+        }
+      >
+        <p className="text-body-sm text-on-surface-variant">
+          What the run&apos;s final nodes produced, live.
+        </p>
+        {results.length === 0 ? (
+          <p className="text-body-sm text-on-surface-variant">
+            {complete
+              ? 'The execution produced no result.'
+              : 'Waiting for a result…'}
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {results.map((result) => (
+              <li key={result.sequence}>
+                <CodeBlock
+                  title={result.nodeId ?? undefined}
+                  code={formatPayload(result.payload)}
+                  label={`${result.nodeId} result`}
+                  grow
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </PanelSection>
+    </div>
   );
 }

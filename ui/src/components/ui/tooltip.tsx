@@ -60,7 +60,7 @@ function Tip({
           <TooltipPrimitive.Popup
             data-slot="tooltip-content"
             className={cn(
-              'text-label-sm bg-foreground text-background max-w-xs rounded-md px-2.5 py-1.5 font-sans shadow-md',
+              'bg-foreground text-label-md text-background max-w-xs rounded-md px-2.5 py-1.5 font-sans shadow-md',
               className
             )}
           >

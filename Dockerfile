@@ -16,7 +16,7 @@
 # limitations under the License.
 
 # Stage 1: Build native image with BellSoft Liberica Native Image Kit (NIK)
-FROM bellsoft/liberica-native-image-kit-container:jdk-25-nik-25-glibc AS builder
+FROM bellsoft/liberica-native-image-kit-container:jdk-25-nik-25.0.4.1-glibc AS builder
 
 # The base image ships Liberica NIK 25 (JDK 25), built from GraalVM Community Edition (GPLv2 with the
 # Classpath Exception, so the binaries can be redistributed under Apache-2.0 and AGPL-3.0; matches the

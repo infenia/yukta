@@ -1,0 +1,17 @@
+{
+  "id": "fake-agent",
+  "description": "A script that plays an agent: it says what it reads and ends with a result. For the example 08-agent-console; no account needed.",
+  "command": [
+    "sh",
+    "-c",
+    "printf '{\"type\":\"message\",\"text\":\"reading %s\"}\\n{\"type\":\"result\",\"text\":\"done: %s\"}\\n' \"$1\" \"$1\"",
+    "fake-agent",
+    "{prompt}"
+  ],
+  "capabilities": { "stream": true },
+  "output": {
+    "resultWhen": { "type": "result" },
+    "captures": [{ "when": { "type": "result" }, "path": "text", "into": "text" }],
+    "live": [{ "when": { "type": "message" }, "text": "text" }]
+  }
+}

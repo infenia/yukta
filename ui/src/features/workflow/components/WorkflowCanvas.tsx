@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import {
   Background,
   BackgroundVariant,
-  Controls,
+  Panel,
   MiniMap,
   ReactFlow,
   useReactFlow,
@@ -19,6 +19,8 @@ import { StageFrame, StageNodeCard } from './nodes/StageNodes';
 import { findNodes } from '../lib/findNodes';
 import { layoutGraph } from '../lib/layout';
 import type { TaskProgress, WorkflowGraph } from '../types/workflow';
+
+import { IconButton } from '@/components/common/IconButton';
 
 const NODE_TYPES = {
   workflowNode: WorkflowNodeCard,
@@ -48,25 +50,59 @@ function FollowNodes({ ids }: { ids: string }) {
   return null;
 }
 
-/** Centres one node when asked (a search result picked), once the layout has settled. */
+/**
+ * Centres one node when asked (a search result picked). The node may only appear after the layout
+ * settles (an opened stage, a side panel narrowing the canvas), so wait until it is measured.
+ */
 function CenterNode({ target }: { target?: { id: string; nonce: number } }) {
-  const { fitView } = useReactFlow();
+  const { fitView, getNode } = useReactFlow();
   useEffect(() => {
     if (!target) return undefined;
-    // a closed side panel opens with the pick and narrows the canvas; wait for that
-    const timer = setTimeout(
-      () =>
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (getNode(target.id)?.measured?.width || tries > 20) {
+        clearInterval(timer);
         void fitView({
           nodes: [{ id: target.id }],
           padding: 0.5,
           maxZoom: 1,
           duration: 400,
-        }),
-      160
-    );
-    return () => clearTimeout(timer);
-  }, [target, fitView]);
+        });
+      }
+    }, 100);
+    return () => clearInterval(timer);
+  }, [target, fitView, getNode]);
   return null;
+}
+
+/** Zoom in, zoom out and fit: one more vertical pill, as the canvas tools above it. */
+function ZoomControls() {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const buttons: [string, string, () => void][] = [
+    ['add', 'Zoom in', () => void zoomIn({ duration: 150 })],
+    ['remove', 'Zoom out', () => void zoomOut({ duration: 150 })],
+    ['fullscreen', 'Fit view', () => void fitView({ duration: 300 })],
+  ];
+  return (
+    <div
+      role="toolbar"
+      aria-orientation="vertical"
+      aria-label="Zoom"
+      className="border-border bg-card/80 shadow-card pointer-events-auto flex flex-col items-center gap-1 rounded-full border p-1 backdrop-blur-sm"
+    >
+      {buttons.map(([icon, label, onClick]) => (
+        <IconButton
+          key={label}
+          icon={icon}
+          label={label}
+          onClick={onClick}
+          tone="neutral"
+          className="size-8 rounded-full border-0"
+        />
+      ))}
+    </div>
+  );
 }
 
 /** The workflow DAG canvas: pan/zoom viewport of backend-driven node placeholders. */
@@ -80,6 +116,7 @@ export function WorkflowCanvas({
   follow = false,
   find = '',
   centerOn,
+  tools,
 }: {
   graph: WorkflowGraph;
   tasksByNode: Record<string, TaskProgress | undefined>;
@@ -101,6 +138,8 @@ export function WorkflowCanvas({
   find?: string;
   /** Pan to this node (a new nonce centres it again). */
   centerOn?: { id: string; nonce: number };
+  /** Tool buttons for the top left of the canvas (the page's, such as search and views). */
+  tools?: ReactNode;
 }) {
   const connectable = onConnect !== undefined;
   const { nodes, edges } = useMemo(() => {
@@ -163,7 +202,15 @@ export function WorkflowCanvas({
         )}
         <CenterNode target={centerOn} />
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} />
-        <Controls showInteractive={false} />
+        {/* One column on the left: the page's tools at the top, zoom at the bottom, so the two can
+            never overlap; it is inside the flow, which clips it when the canvas is covered */}
+        <Panel
+          position="top-left"
+          className="pointer-events-none m-3! flex h-[calc(100%-1.5rem)] flex-col justify-between gap-2"
+        >
+          <div>{tools}</div>
+          <ZoomControls />
+        </Panel>
         <MiniMap
           // No room for a minimap on a phone-sized canvas (! beats xyflow's unlayered CSS)
           className="max-md:hidden!"

@@ -65,7 +65,7 @@ import { Diagram } from "/snippets/diagram.jsx";
           ghcr.io/infenia/yukta:0.1.0-alpha.4
         ```
 
-        The image has no shell and no `curl`. It runs as the unprivileged user 65532.
+        The image is a minimal Debian-based distroless image. It has a BusyBox shell (`sh`, `echo`, `cat`) but no package manager and no `curl`, and it runs as the unprivileged user 65532. It keeps everything in memory (the release image is the Community edition); mount a folder of session files and set `YUKTA_BOOTSTRAP_DIR` to bring your workflows back after a restart, see [Persist sessions](/guides/operate/persist-sessions).
       </Tab>
       <Tab title="Linux package" icon="linux">
         Install the `.deb` or `.rpm` from the release page. The package adds a `yukta` user and a `systemd` unit, and leaves the service stopped. Put the address and the key in `/etc/yukta/yukta.env`:
@@ -159,7 +159,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     For named keys with limited roles per person or agent, see [Secure the server](/guides/operate/secure-the-server). Do not hand the first administrator key to every client.
   </Step>
   <Step title="Give it time to stop">
-    On a stop signal the server refuses new starts and gives running runs `yukta.execution.shutdown-timeout` (30 seconds by default) to finish. The packaged `systemd` unit waits 45 seconds. In an orchestrator, set the stop grace period above 30 seconds. Use `GET /actuator/health` as the probe: the image has no shell for an exec probe.
+    On a stop signal the server refuses new starts and gives running runs `yukta.execution.shutdown-timeout` (30 seconds by default) to finish. The packaged `systemd` unit waits 45 seconds. In an orchestrator, set the stop grace period above 30 seconds. Use `GET /actuator/health` as an HTTP probe. The image declares no `HEALTHCHECK` and has no `curl`, so probe from outside the container.
   </Step>
 </Steps>
 

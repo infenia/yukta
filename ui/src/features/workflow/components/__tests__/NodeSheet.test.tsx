@@ -74,10 +74,10 @@ beforeEach(() => {
 });
 
 describe('NodeSheet', () => {
-  it('shows the Node tab by default and moves to the Supervisor tab on a click', async () => {
+  it('shows the Overview tab by default and moves to the Supervisor tab on a click', async () => {
     const onTab = vi.fn();
     open({ onTab });
-    expect(screen.getByRole('tab', { name: 'Node' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
       'aria-selected',
       'true'
     );
@@ -152,19 +152,17 @@ describe('NodeSheet', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('keeps every action in its cell and disables those that do not apply', () => {
+  it('keeps every action in its cell and disables those that do not apply', async () => {
     open();
     expect(screen.getByRole('button', { name: 'Pause node' })).toBeEnabled();
     const resume = screen.getByRole('button', { name: 'Resume node' });
     expect(resume).toBeDisabled();
-    expect(resume).toHaveAttribute(
-      'title',
-      'Resume node: not available while running'
-    );
-    expect(screen.getByRole('button', { name: 'Stop node…' })).toHaveAttribute(
-      'title',
-      'Stop node…'
-    );
+    await userEvent.hover(resume);
+    expect(
+      await screen.findByText('Unavailable: node is running')
+    ).toBeInTheDocument();
+    await userEvent.hover(screen.getByRole('button', { name: 'Stop node…' }));
+    expect(await screen.findByText('Stop node…')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Set breakpoint…' })
     ).toBeEnabled();

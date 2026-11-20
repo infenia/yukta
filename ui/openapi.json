@@ -677,6 +677,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListConfigValue" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigValue"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListControlAuditEntry" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -3955,6 +4001,26 @@
           }
         },
         "required" : [ "name", "sessionId", "workflows" ],
+        "type" : "object"
+      },
+      "ConfigValue" : {
+        "description" : "One setting as the running server sees it",
+        "properties" : {
+          "key" : {
+            "description" : "The property key that was asked for",
+            "example" : "server.port",
+            "type" : "string"
+          },
+          "source" : {
+            "description" : "Where the value comes from, or `default` when nothing sets it",
+            "example" : "environment variable",
+            "type" : "string"
+          },
+          "value" : {
+            "description" : "The value in use, ****** for a secret, or null when nothing sets it and the built-in default applies",
+            "type" : [ "string", "null" ]
+          }
+        },
         "type" : "object"
       },
       "Consulted" : {
@@ -8510,6 +8576,37 @@
         },
         "summary" : "List AI backends",
         "tags" : [ "AI Backend API" ]
+      }
+    },
+    "/api/config" : {
+      "get" : {
+        "description" : "Returns, for each `key` asked for, the value the server uses and where it comes from (argument, system property, environment variable, configuration file). A key nothing sets has a null value and the source `default`: the built-in default applies. Keys must start with yukta., server., spring., management., logging. or springdoc.; at most 500. Secrets (keys, tokens, passwords, credentials, and passwords in URLs) are masked as ******. Needs an ADMIN key.",
+        "operationId" : "show_2",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "key",
+          "required" : true,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListConfigValue"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Show the effective values of settings",
+        "tags" : [ "Configuration API" ]
       }
     },
     "/api/control/audit" : {
@@ -13843,6 +13940,9 @@
   }, {
     "description" : "Endpoints for discovering model and agent backends",
     "name" : "AI Backend API"
+  }, {
+    "description" : "Effective values of the server's settings",
+    "name" : "Configuration API"
   }, {
     "description" : "Who may do what to a node, a run or the server",
     "name" : "Supervision API"

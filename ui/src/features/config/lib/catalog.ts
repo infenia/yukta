@@ -32,6 +32,9 @@ export interface ConfigOption {
   native?: string;
 }
 
+/** The prefixes `GET /api/config` reads; any other key makes the whole request fail with 400. */
+const READABLE = /^(yukta|server|spring|management|logging|springdoc)\./;
+
 /** The environment variable for a key: upper case, dots and dashes become underscores. */
 export const envName = (o: ConfigOption) =>
   o.env ?? o.key.toUpperCase().replace(/[.-]/g, '_');
@@ -830,3 +833,7 @@ export const CATALOG: ConfigOption[] = [
     },
   ]),
 ];
+
+/** The catalog keys the server can report a value for (not variable-only names like YUKTA_HOME). */
+export const readableKeys = (): string[] =>
+  CATALOG.map((o) => o.key).filter((key) => READABLE.test(key));

@@ -11,6 +11,7 @@ com.infenia.yukta.controller.AgentApiController
 com.infenia.yukta.controller.AgentCredentialController
 com.infenia.yukta.controller.AgentMcpController
 com.infenia.yukta.controller.AiBackendController
+com.infenia.yukta.controller.ConfigController
 com.infenia.yukta.controller.ControlAuditController
 com.infenia.yukta.controller.ControlBusController
 com.infenia.yukta.controller.ConversationsController

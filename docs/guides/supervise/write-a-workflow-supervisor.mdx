@@ -16,7 +16,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
 
 **Use this when** the decision should be visible and editable as a flowchart, and may use any node: a `BRANCH`, an `HTTP_REQUEST`, an `LLM_CALL` or a decision plugin. For each event you list, the server starts the workflow with the event and reads how it ended.
 
-**Prerequisites:** [Ask for input](/guides/ai/ask-for-input) (the `approvals` session) and [Assign a supervisor](/guides/supervise/assign-a-supervisor). Defining a session and a supervisor needs an `ADMIN` key; add `-H "X-API-Key: $YUKTA_API_KEY"` to every `curl` if your server has keys. This guide follows [example 17](https://github.com/infenia/yukta/tree/main/examples/17-supervisor-workflow).
+**Prerequisites:** [Ask for input](/guides/ai/ask-for-input) (the `approvals` session) and [Assign a supervisor](/guides/supervise/assign-a-supervisor). Defining a session and a supervisor needs an `ADMIN` key; add `-H "X-API-Key: $YUKTA_API_KEY"` to every `curl` if your server has keys. This guide follows [example 09](https://github.com/infenia/yukta/tree/main/examples/1-standalone/09-supervisor-workflow).
 
 ## Steps
 
