@@ -3,11 +3,14 @@
 
 import type { Provider } from './proxy';
 
+/** Where the model comes from: this device's built-in model, or a provider with the person's key. */
+export type ProviderChoice = Provider | 'nano';
+
 /** What the person chose; kept in this browser, never sent to Yukta except as the relay's headers. */
 export interface Settings {
   /** The floating button is hidden (the command palette brings it back). */
   hidden: boolean;
-  provider: Provider;
+  provider: ProviderChoice;
   model: string;
   /** The OpenAI-compatible endpoint; empty means api.openai.com. */
   baseUrl: string;
@@ -35,13 +38,19 @@ function safe<T>(fn: () => T, fallback: T): T {
   }
 }
 
+/** A browser with the built-in model starts on it; the rest start on a provider. */
+const firstChoice = (): Settings => ({
+  ...DEFAULT_SETTINGS,
+  provider: 'LanguageModel' in globalThis ? 'nano' : DEFAULT_SETTINGS.provider,
+});
+
 export const readSettings = (): Settings =>
   safe(
     () => ({
-      ...DEFAULT_SETTINGS,
+      ...firstChoice(),
       ...JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}'),
     }),
-    DEFAULT_SETTINGS
+    firstChoice()
   );
 
 export const writeSettings = (settings: Settings): void =>

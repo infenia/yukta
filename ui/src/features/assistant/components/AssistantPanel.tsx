@@ -6,6 +6,7 @@ import { useLocation } from 'react-router';
 import { IconButton } from '@/components/common/IconButton';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useNano } from '../hooks/useNano';
 import { buildModel } from '../lib/models';
 import { pageContext } from '../lib/pageContext';
 import type { Settings } from '../lib/settings';
@@ -36,7 +37,11 @@ export default function AssistantPanel({
     () => pageContext(pathname, search),
     [pathname, search]
   );
-  const model = useMemo(() => buildModel(settings, apiKey), [settings, apiKey]);
+  const nano = useNano();
+  const model = useMemo(
+    () => buildModel(settings, apiKey, nano.state),
+    [settings, apiKey, nano.state]
+  );
   const [configuring, setConfiguring] = useState(false);
   const [chat, setChat] = useState(0);
 
@@ -54,7 +59,7 @@ export default function AssistantPanel({
         'border-border bg-card shadow-raised fixed z-60 flex flex-col overflow-hidden rounded-xl border',
         'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
         'max-sm:inset-x-2 max-sm:top-16 max-sm:bottom-20',
-        'sm:right-5 sm:w-[26rem]',
+        'sm:right-5 sm:w-[28rem]',
         lifted
           ? 'sm:bottom-[21rem] sm:h-[max(16rem,min(40rem,calc(100dvh-26rem)))]'
           : 'sm:bottom-20 sm:h-[min(40rem,calc(100dvh-7rem))]'
@@ -97,6 +102,7 @@ export default function AssistantPanel({
         <SetupView
           settings={settings}
           apiKey={apiKey}
+          nano={nano}
           onSave={(next, key) => {
             onSave(next, key);
             setConfiguring(false);

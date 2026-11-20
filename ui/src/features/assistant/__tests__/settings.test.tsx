@@ -41,6 +41,16 @@ describe('settings', () => {
     expect(readKey()).toBe('device');
   });
 
+  it('starts on the built-in model in a browser that has it, and on a provider elsewhere', () => {
+    expect(readSettings().provider).toBe('anthropic');
+
+    vi.stubGlobal('LanguageModel', {});
+    expect(readSettings().provider).toBe('nano');
+    writeSettings({ ...DEFAULT_SETTINGS, provider: 'openai' });
+    expect(readSettings().provider).toBe('openai');
+    vi.unstubAllGlobals();
+  });
+
   it('carries on when storage throws', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('blocked');
@@ -84,6 +94,16 @@ describe('buildModel', () => {
   it('needs a key and a model', () => {
     expect(buildModel(DEFAULT_SETTINGS, null)).toBeNull();
     expect(buildModel({ ...DEFAULT_SETTINGS, model: '' }, 'k')).toBeNull();
+  });
+
+  it('builds the built-in model once it is downloaded, whatever key there is', () => {
+    const nano = { ...DEFAULT_SETTINGS, provider: 'nano' as const };
+
+    expect(buildModel(nano, null, 'downloadable')).toBeNull();
+    expect(buildModel(nano, null)).toBeNull();
+    expect(buildModel(nano, null, 'available')?.label).toBe(
+      'Gemini Nano · on this device'
+    );
   });
 
   it('builds the provider the settings name', () => {

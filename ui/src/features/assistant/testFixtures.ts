@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { vi } from 'vitest';
 import type { ChatModel, ModelEvent, Msg } from './types';
 
 /** A streaming Response whose body arrives as the given text chunks. */
@@ -57,5 +58,33 @@ export function scriptedModel(turns: (ModelEvent | Error)[][]): ChatModel & {
         yield item;
       }
     },
+  };
+}
+
+/**
+ * A fake of the browser's built-in model session. `answers` are what constrained `prompt` calls
+ * return, one after the other; `chunks` is what `promptStreaming` sends. `clone` gives a probe
+ * with its own `prompt` and `destroy`, so the planning step can be told from the answer.
+ */
+export function nanoSession(answers: string[] = [], chunks: string[] = ['ok']) {
+  const queue = [...answers];
+  const probe = {
+    prompt: vi.fn(() => Promise.resolve(queue.shift() as string)),
+    destroy: vi.fn(),
+  };
+  return {
+    probe,
+    prompt: vi.fn(),
+    promptStreaming: vi.fn(
+      () =>
+        new ReadableStream<string>({
+          start(controller) {
+            for (const chunk of chunks) controller.enqueue(chunk);
+            controller.close();
+          },
+        })
+    ),
+    clone: vi.fn(() => Promise.resolve(probe)),
+    destroy: vi.fn(),
   };
 }

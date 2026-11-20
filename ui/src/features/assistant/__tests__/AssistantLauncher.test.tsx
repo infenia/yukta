@@ -16,7 +16,7 @@ import { resetTools } from '../lib/mcpClient';
 import { AssistantLauncher } from '../components/AssistantLauncher';
 import { openAssistant } from '../lib/open';
 import { DEFAULT_SETTINGS, writeKey, writeSettings } from '../lib/settings';
-import { sseResponse } from '../testFixtures';
+import { nanoSession, sseResponse } from '../testFixtures';
 
 const answer = (words: string) =>
   sseResponse([
@@ -179,6 +179,22 @@ describe('AssistantLauncher', () => {
       expect(screen.queryByText('Hello there')).not.toBeInTheDocument()
     );
     expect(screen.getByText(/Ask about your sessions/)).toBeInTheDocument();
+  });
+
+  it('starts on the built-in model, with no key, in a browser that has it', async () => {
+    serve();
+    const session = nanoSession(['{"tool":"none"}'], ['Hi from Nano']);
+    vi.stubGlobal('LanguageModel', {
+      availability: vi.fn().mockResolvedValue('available'),
+      create: vi.fn().mockResolvedValue(session),
+    });
+    show();
+
+    await userEvent.click(opener());
+
+    expect(await screen.findByText('Gemini Nano · on this device')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Message'), 'hello{Enter}');
+    expect(await screen.findByText('Hi from Nano')).toBeInTheDocument();
   });
 
   it('sits higher on the run page, above the docked logs', async () => {
