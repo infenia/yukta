@@ -229,7 +229,7 @@ jobs:
           BINARY: dist/${{ matrix.platform }}/yukta${{ runner.os == 'Windows' && '.exe' || '' }}
           YUKTA_PLUGINS_ENABLED: all
           YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,python3
-          YUKTA_AI_PRESETS_DIR: ${{ github.workspace }}/examples/21-agent-console/agent-harnesses
+          YUKTA_AI_PRESETS_DIR: ${{ github.workspace }}/examples/3-paid-tools/16-agent-console/agent-harnesses
         run: |
           "$BINARY" &
           pid=$!

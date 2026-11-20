@@ -13,7 +13,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,8 +29,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Serves the example sessions bundled at build time ({@code examples/NN-name/session.json}) as
- * session templates, for a client that wants to start from a working definition.
+ * Serves the example sessions bundled at build time ({@code
+ * examples/<category>/NN-name/session.json}) as session templates, for a client that wants to start
+ * from a working definition.
  */
 @RestController
 @RequestMapping("/api/templates")
@@ -85,7 +87,7 @@ public class TemplateController {
     return Mono.fromCallable(
             () -> {
               final List<TemplateSummary> out = new ArrayList<>();
-              for (final String id : knownIds()) {
+              for (final String id : knownDirs().keySet()) {
                 out.add(summary(detail(id)));
               }
               out.sort(Comparator.comparing(TemplateSummary::id));
@@ -113,29 +115,37 @@ public class TemplateController {
     return new TemplateSummary(detail.id(), detail.title(), detail.summary(), detail.pluginTypes());
   }
 
-  /** The ids of the bundled templates: the folder names that hold a {@code session.json}. */
-  private static Set<String> knownIds() throws IOException {
-    final var ids = new TreeSet<String>();
-    final Pattern folder = Pattern.compile("/" + ROOT + "([^/]+)/session\\.json$");
+  /**
+   * The bundled templates: id to folder under {@code ROOT}. The examples are grouped by category
+   * ({@code templates/<category>/<id>/session.json}); the id is the example's own folder name.
+   */
+  private static Map<String, String> knownDirs() throws IOException {
+    final var dirs = new TreeMap<String, String>();
+    final Pattern folder = Pattern.compile("/" + ROOT + "([^/]+/[^/]+)/session\\.json$");
     for (final Resource resource :
         new PathMatchingResourcePatternResolver()
-            .getResources("classpath*:" + ROOT + "*/session.json")) {
-      folder.matcher(resource.getURL().getPath()).results().forEach(m -> ids.add(m.group(1)));
+            .getResources("classpath*:" + ROOT + "*/*/session.json")) {
+      folder
+          .matcher(resource.getURL().getPath())
+          .results()
+          .forEach(m -> dirs.put(m.group(1).substring(m.group(1).indexOf('/') + 1), m.group(1)));
     }
-    return ids;
+    return dirs;
   }
 
   private static TemplateDetail detail(final String requested) throws IOException {
     // the id is looked up among the bundled folders, never put into a path as sent
+    final Map<String, String> dirs = knownDirs();
     final String id =
-        knownIds().stream()
+        dirs.keySet().stream()
             .filter(requested::equals)
             .findFirst()
             .orElseThrow(() -> new NotFoundException("Template not found: " + requested));
+    final String dir = ROOT + dirs.get(id) + "/";
     final var resolver = new PathMatchingResourcePatternResolver();
-    final Resource session = resolver.getResource("classpath:" + ROOT + id + "/session.json");
+    final Resource session = resolver.getResource("classpath:" + dir + "session.json");
     final JsonNode config = JSON.readTree(session.getContentAsByteArray());
-    final Resource readmeFile = resolver.getResource("classpath:" + ROOT + id + "/README.md");
+    final Resource readmeFile = resolver.getResource("classpath:" + dir + "README.md");
     final String readme = new String(readmeFile.getContentAsByteArray(), StandardCharsets.UTF_8);
     final Heading heading =
         heading(readme, config.path("name").asString(id), config.path("description").asString(""));
