@@ -45,8 +45,9 @@ test.describe('Session import', () => {
     );
     await page.goto('/sessions/import');
 
-    await page.getByLabel('Or paste the JSON').fill(JSON.stringify(session));
-    await page.getByRole('button', { name: 'Check' }).click();
+    await page.getByRole('button', { name: 'Paste JSON' }).click();
+
+    await page.getByLabel('Paste the JSON').fill(JSON.stringify(session));
     await expect(page.getByText(/New session imported/)).toBeVisible();
     await page.getByRole('button', { name: 'Import session' }).click();
 
@@ -56,8 +57,8 @@ test.describe('Session import', () => {
 
   test('refuses invalid JSON before saving anything', async ({ page }) => {
     await page.goto('/sessions/import');
-    await page.getByLabel('Or paste the JSON').fill('{nope');
-    await page.getByRole('button', { name: 'Check' }).click();
+    await page.getByRole('button', { name: 'Paste JSON' }).click();
+    await page.getByLabel('Paste the JSON').fill('{nope');
 
     await expect(page.getByRole('alert')).toContainText('Invalid JSON');
   });
