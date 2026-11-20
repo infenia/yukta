@@ -14,7 +14,9 @@ async function mockControlPage(page: Page) {
     'runs.finished': 120,
     'runs.success': 100,
     'runs.failure': 20,
-    'duration.p95': 1800,
+    'overhead.handoff.p50': 2,
+    'overhead.handoff.p95': 4,
+    'overhead.start.p95': 12,
   });
   const empty = [
     '**/api/supervisors',
@@ -33,6 +35,35 @@ async function mockControlPage(page: Page) {
   for (const pattern of empty) {
     await page.route(pattern, (route) => route.fulfill(envelope(pattern, [])));
   }
+  // the slowest nodes name the node, its workflow and its session
+  await page.route('**/api/metrics/nodes*', (route) =>
+    route.fulfill(
+      envelope('/metrics/nodes', [
+        {
+          sessionId: 'ci',
+          workflowId: 'check',
+          nodeId: 'gradle',
+          module: 'PROCESS_EXECUTOR',
+          runs: 14,
+          failures: 1,
+          p50Ms: 220_000,
+          p95Ms: 410_000,
+          lastExecutionId: 'run-1',
+        },
+        {
+          sessionId: 'ci',
+          workflowId: 'check',
+          nodeId: 'lint',
+          module: 'PROCESS_EXECUTOR',
+          runs: 14,
+          failures: 0,
+          p50Ms: 21_000,
+          p95Ms: 33_000,
+          lastExecutionId: 'run-1',
+        },
+      ])
+    )
+  );
   await page.route('**/api/supervisor-engines', (route) =>
     route.fulfill(envelope('/types', [{ type: 'rule-supervisor' }]))
   );
@@ -73,7 +104,7 @@ test.describe('Control dashboard screenshots', () => {
       await mockControlPage(page);
       await page.goto('/control');
       const strip = page.getByTestId('command-strip');
-      await expect(strip).toContainText('1.8 s');
+      await expect(strip).toContainText('4 ms');
       // The charts load lazily and show a skeleton of another height until they do
       await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
       await page.waitForLoadState('networkidle');

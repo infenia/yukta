@@ -60,7 +60,9 @@ test.describe('Control page', () => {
     const control = new ControlPage(page);
     await control.goto();
 
-    await expect(page.getByText('No workers connected.')).toBeVisible();
+    await expect(
+      page.getByText('No workers connected', { exact: true })
+    ).toBeVisible();
   });
 
   test('shows the live activity feed and filters it', async ({ page }) => {
@@ -89,11 +91,13 @@ test.describe('Control page', () => {
     const control = new ControlPage(page);
     await control.goto('activity');
 
-    await expect(page.getByText('ingest → RUNNING')).toBeVisible();
-    await expect(page.getByText('load → FAILURE')).toBeVisible();
+    const row = (text: string) =>
+      page.getByRole('row').filter({ hasText: text });
+    await expect(row('ingest')).toContainText('RUNNING');
+    await expect(row('load')).toContainText('FAILURE');
     await page.getByRole('button', { name: 'ERROR' }).click();
-    await expect(page.getByText('ingest → RUNNING')).toHaveCount(0);
-    await expect(page.getByText('load → FAILURE')).toBeVisible();
+    await expect(row('ingest')).toHaveCount(0);
+    await expect(row('load')).toBeVisible();
     await expect(page).toHaveURL(/severity=ERROR/);
   });
 
@@ -118,7 +122,7 @@ test.describe('Control page', () => {
     const control = new ControlPage(page);
     await control.goto();
 
-    await expect(page.getByText('Unlimited')).toBeVisible();
+    await expect(page.getByText('at most unlimited')).toBeVisible();
     await page.getByRole('button', { name: 'Edit limits' }).click();
     await page.getByLabel(/Max concurrent/).fill('8');
     await page.getByLabel(/Max per workflow/).fill('2');
@@ -138,7 +142,10 @@ test.describe('Control page', () => {
       route.fulfill(
         envelope('/metrics/snapshot', {
           time: Date.now(),
-          values: { 'runs.finished': 120, 'duration.p95': 1800 },
+          values: {
+            'runs.finished': 120,
+            'overhead.handoff.p95': 4,
+          },
         })
       )
     );
@@ -154,6 +161,8 @@ test.describe('Control page', () => {
             nodesDone: 1,
             nodesSeen: 4,
             p95Ms: 30_000,
+            paused: false,
+            currentNodes: ['build'],
           },
         ])
       )
@@ -185,8 +194,8 @@ test.describe('Control page', () => {
     await control.goto();
 
     const strip = page.getByTestId('command-strip');
-    await expect(strip).toContainText('2.0');
-    await expect(strip).toContainText('1.8 s');
+    await expect(strip).toContainText('of 4');
+    await expect(strip).toContainText('4 ms');
     await expect(strip).toContainText('90%');
     const slow = page.getByRole('listitem').filter({ hasText: 'wf-slow' });
     await expect(slow).toContainText('(slow)');
@@ -237,8 +246,8 @@ test.describe('Control page', () => {
     await control.goto();
 
     const section = page.getByRole('region', { name: 'Supervisors' });
-    await expect(section).toContainText('Under direct control2');
-    await expect(section).toContainText('Applied1');
+    await expect(section).toContainText('Direct control2');
+    await expect(section).toContainText('Applied / refused1 / 0');
     await section.getByRole('link', { name: 'guard' }).click();
     await expect(page).toHaveURL(/\/supervisors\?supervisor=guard/);
   });
@@ -294,13 +303,13 @@ test.describe('Control page', () => {
     await control.goto();
     await expect(control.root).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Who did what' })
+      page.getByRole('heading', { name: 'Control audit' })
     ).toHaveCount(0);
 
     await page.getByRole('tab', { name: 'Audit' }).click();
     await expect(page).toHaveURL(/tab=audit/);
     await expect(
-      page.getByRole('heading', { name: 'Who did what' })
+      page.getByRole('heading', { name: 'Control audit' })
     ).toBeVisible();
     await expect(control.root).toHaveCount(0);
   });
@@ -388,8 +397,8 @@ test.describe('Control page', () => {
     const control = new ControlPage(page);
     await control.goto();
 
-    const approvals = page.getByRole('group', {
-      name: /Approvals waiting: 2\./,
+    const approvals = page.getByRole('link', {
+      name: /Inputs waiting: 2\./,
     });
     await expect(approvals).toBeVisible();
     const ai = page.getByRole('region', { name: 'AI usage' });
@@ -414,6 +423,8 @@ test.describe('Control page', () => {
             nodesDone: 2,
             nodesSeen: 3,
             p95Ms: null,
+            paused: true,
+            currentNodes: [],
           },
         ])
       )

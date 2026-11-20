@@ -252,7 +252,10 @@ export function AiUsagePanel({ scope }: { scope: Scope }) {
 /** A subsection of the System panel. */
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="border-border flex flex-col gap-1 border-t pt-2">
+    <section
+      aria-label={title}
+      className="border-border flex flex-col gap-1 border-t pt-2"
+    >
       <h3 className="text-overline text-on-surface-variant">{title}</h3>
       {children}
     </section>
