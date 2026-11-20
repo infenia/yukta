@@ -62,6 +62,10 @@ export default defineConfig({
         target: 'http://localhost:9858',
         changeOrigin: true,
       },
+      '/mcp': {
+        target: 'http://localhost:9858',
+        changeOrigin: true,
+      },
       '/actuator': {
         target: 'http://localhost:9858',
         changeOrigin: true,

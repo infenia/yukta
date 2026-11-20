@@ -12,6 +12,7 @@ import { usePageTransition } from '@/lib/usePageTransition';
 import { NotificationsProvider } from '@/features/inbox/NotificationsProvider';
 import { DesktopNotifier } from '@/features/inbox/DesktopNotifier';
 import { Toaster } from '@/features/inbox/Toaster';
+import { AssistantLauncher } from '@/features/assistant/components/AssistantLauncher';
 
 export default function App() {
   const mainRef = useRef<HTMLElement>(null);
@@ -42,6 +43,7 @@ export default function App() {
         <CommandPalette />
         <Toaster />
         <DesktopNotifier />
+        <AssistantLauncher />
       </div>
     </NotificationsProvider>
   );
