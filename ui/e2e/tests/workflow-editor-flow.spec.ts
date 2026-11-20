@@ -217,6 +217,44 @@ test.describe('Workflow editor - loading', () => {
     ).toBeVisible();
   });
 
+  test('an empty workflow asks for a trigger, and the one picked starts it', async ({
+    page,
+  }) => {
+    await mockEditor(page);
+    await page.goto('/sessions/session-1/workflow/fresh/edit');
+
+    await expect(
+      page.getByRole('heading', { name: 'Start with a trigger' })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Pick a trigger' }).click();
+    // only triggers are offered
+    await expect(page.getByRole('region', { name: 'Terminals' })).toHaveCount(
+      0
+    );
+    await page.getByLabel('Search steps').fill('OneShotTrigger');
+    await page.keyboard.press('Enter');
+
+    await expect(nodeButton(page, 'oneshottrigger-1')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Start with a trigger' })
+    ).toHaveCount(0);
+  });
+
+  test('Undo takes back the last change and Redo brings it back', async ({
+    page,
+  }) => {
+    await open(page);
+    await addNode(page, 'ShellProcessor');
+    await expect(nodeButton(page, 'shellprocessor-1')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(nodeButton(page, 'shellprocessor-1')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Redo' }).click();
+    await expect(nodeButton(page, 'shellprocessor-1')).toBeVisible();
+  });
+
   test('shows a loading state, and an error when the session cannot be loaded', async ({
     page,
   }) => {

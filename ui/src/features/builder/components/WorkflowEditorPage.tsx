@@ -35,7 +35,10 @@ import { supervisorProblems } from '@/features/supervisors/lib/supervisorProblem
 import type { SupervisorRef } from '@/features/supervisors/types';
 import { NativeSelect } from '@/components/ui/native-select';
 import { ProblemsPanel } from './ProblemsPanel';
+import { ShortcutsHelp } from './ShortcutsHelp';
+import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
 import { StepPicker } from './StepPicker';
+import { useDraftHistory } from './useDraftHistory';
 import { issueCounts, problemsOf, type InspectorTab } from './validationIssues';
 import {
   connectionProblem,
@@ -77,7 +80,8 @@ function Editor({
   const [restored] = useState(() =>
     readDraft(session.sessionId, initial.workflowId, initial)
   );
-  const [workflow, setWorkflow] = useState(restored ?? initial);
+  const history = useDraftHistory(restored ?? initial);
+  const workflow = history.value;
   const [showRestored, setShowRestored] = useState(restored !== null);
   const firstNode = initial.nodes[0]?.nodeId ?? null;
   const [selected, setSelected] = useState<string | null>(firstNode);
@@ -161,7 +165,7 @@ function Editor({
   // Bumped by Discard, so the inspector's fields drop the text they hold
   const [revision, setRevision] = useState(0);
   const discard = () => {
-    setWorkflow(initial);
+    history.reset(initial);
     setSelected(firstNode);
     setResult(null);
     setError(null);
@@ -189,8 +193,9 @@ function Editor({
   const leaving = useRef(false);
 
   // The result stays until the next one arrives, so the problems do not blink on every edit
-  const update = (patch: Partial<DraftWorkflow>) => {
-    setWorkflow((current) => ({ ...current, ...patch }));
+  // `coalesce` names a text edit, so a burst of typing in one place is one step to undo
+  const update = (patch: Partial<DraftWorkflow>, coalesce?: string) => {
+    history.set((current) => ({ ...current, ...patch }), coalesce ?? null);
   };
 
   // Validates the draft when the user pauses, so the problems and the ports are always current
@@ -319,7 +324,16 @@ function Editor({
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]'))
         return;
-      if (event.key === 'Escape') setSelected(null);
+      const mod = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+      if (mod && key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) history.redo();
+        else history.undo();
+      } else if (mod && key === 'y') {
+        event.preventDefault();
+        history.redo();
+      } else if (event.key === 'Escape') setSelected(null);
       else if (
         (event.key === 'Delete' || event.key === 'Backspace') &&
         selected
@@ -411,10 +425,31 @@ function Editor({
           placeholder="Description"
           value={workflow.description}
           maxLength={256}
-          onChange={(event) => update({ description: event.target.value })}
+          onChange={(event) =>
+            update({ description: event.target.value }, 'description')
+          }
           className="w-full sm:w-72"
         />
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <button
+            type="button"
+            className={buttonVariants({ variant: 'ghost' })}
+            disabled={!history.canUndo}
+            title="Undo (Ctrl+Z)"
+            onClick={history.undo}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className={buttonVariants({ variant: 'ghost' })}
+            disabled={!history.canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            onClick={history.redo}
+          >
+            Redo
+          </button>
+          <ShortcutsHelp />
           {dirty && (
             <>
               <span
@@ -722,7 +757,7 @@ function Editor({
                 </button>
               </div>
               <p className="text-body-sm text-on-surface-variant">
-                Validate to list a node&apos;s ports for its configuration.
+                A node&apos;s ports are listed once the draft has been checked.
               </p>
             </div>
           )}
@@ -732,6 +767,37 @@ function Editor({
           data-testid="editor-canvas"
           className="relative h-80 min-w-0 shrink-0 lg:h-auto lg:flex-1"
         >
+          {workflow.nodes.length === 0 && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+              <div className="border-border bg-surface shadow-card pointer-events-auto flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-dashed p-6 text-center">
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-3xl"
+                  style={{
+                    color: categoryAccent('TRIGGER'),
+                  }}
+                >
+                  input
+                </span>
+                <h2 className="text-headline-md text-on-surface">
+                  Start with a trigger
+                </h2>
+                <p className="text-body-md text-muted-foreground">
+                  A trigger starts the workflow: a request, a schedule or a
+                  fixed input. Add the steps that follow once it is there.
+                </p>
+                <StepPicker
+                  plugins={plugins.data ?? []}
+                  allowed={['TRIGGER']}
+                  onPick={addNode}
+                >
+                  <button type="button" className={buttonVariants()}>
+                    Pick a trigger
+                  </button>
+                </StepPicker>
+              </div>
+            </div>
+          )}
           {stages.size > 0 && (
             <GroupingSwitch grouped={grouped} onChange={setGrouped} />
           )}
@@ -777,24 +843,30 @@ function Editor({
                 onRename={(id) => renameNode(node.nodeId, id)}
                 onRemove={() => removeNode(node.nodeId)}
                 onGroupChange={(group) =>
-                  update({
-                    // an undefined group is left out of the saved JSON
-                    nodes: workflow.nodes.map((n) =>
-                      n.nodeId === node.nodeId
-                        ? { ...n, group: group ?? undefined }
-                        : n
-                    ),
-                  })
+                  update(
+                    {
+                      // an undefined group is left out of the saved JSON
+                      nodes: workflow.nodes.map((n) =>
+                        n.nodeId === node.nodeId
+                          ? { ...n, group: group ?? undefined }
+                          : n
+                      ),
+                    },
+                    `group:${node.nodeId}`
+                  )
                 }
                 onDescriptionChange={(description) =>
-                  update({
-                    // a null description is left out of the saved JSON
-                    nodes: workflow.nodes.map((n) =>
-                      n.nodeId === node.nodeId
-                        ? { ...n, description: description ?? undefined }
-                        : n
-                    ),
-                  })
+                  update(
+                    {
+                      // a null description is left out of the saved JSON
+                      nodes: workflow.nodes.map((n) =>
+                        n.nodeId === node.nodeId
+                          ? { ...n, description: description ?? undefined }
+                          : n
+                      ),
+                    },
+                    `description:${node.nodeId}`
+                  )
                 }
                 groupColor={workflow.groupColors?.[stageOf(node)]}
                 onColorChange={(color) =>
@@ -836,11 +908,14 @@ function Editor({
                   });
                 }}
                 onChange={(config) =>
-                  update({
-                    nodes: workflow.nodes.map((n) =>
-                      n.nodeId === node.nodeId ? { ...n, config } : n
-                    ),
-                  })
+                  update(
+                    {
+                      nodes: workflow.nodes.map((n) =>
+                        n.nodeId === node.nodeId ? { ...n, config } : n
+                      ),
+                    },
+                    `config:${node.nodeId}`
+                  )
                 }
               />
             </JsonValidityContext.Provider>
