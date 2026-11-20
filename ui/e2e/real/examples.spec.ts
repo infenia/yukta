@@ -160,8 +160,9 @@ test.describe('examples from the UI on a real server', () => {
       page,
       example('1-standalone/03-pr-risk-gate/borderline.json')
     );
-    await expect(page.getByText('Waiting for an answer')).toBeVisible();
+    // the request lives in the Inputs tab of the logs dock, not on the canvas
     await page.getByRole('tab', { name: /^Inputs/ }).click();
+    await expect(page.getByText('Waiting for an answer')).toBeVisible();
     await page
       .getByRole('main')
       .getByRole('button', { name: 'Approve', exact: true })
