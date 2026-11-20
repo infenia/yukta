@@ -87,9 +87,39 @@ for ((i = 0; i < 90; i++)); do
 done
 curl -fsS "$url/actuator/health" | grep -q '"status":"UP"' || die "the server never reported UP"
 
+# Both halves run even when the first fails, so one run reports everything that is broken.
 # Every example, also the four the e2e suite runs in the JVM: this checks the binary, not the code.
-EXAMPLES_SKIP="${EXAMPLES_SKIP:- }" "$RELEASE_DIR/examples-smoke.sh" "$url" "$key"
+failed=()
+set +e
+EXAMPLES_SKIP="${EXAMPLES_SKIP:- }" "$RELEASE_DIR/examples-smoke.sh" "$url" "$key" >"$work/examples.out" 2>&1
+[[ $? -eq 0 ]] || failed+=(examples)
 if $ui; then
-  YUKTA_API_KEY="$key" "$RELEASE_DIR/ui-smoke.sh" "$url"
+  YUKTA_API_KEY="$key" "$RELEASE_DIR/ui-smoke.sh" "$url" >"$work/ui.out" 2>&1
+  [[ $? -eq 0 ]] || failed+=(ui)
 fi
-log "examples verified on $mode"
+set -e
+cat "$work/examples.out"
+if $ui; then tail -n 20 "$work/ui.out"; fi
+
+echo
+echo "=================== verify report ($mode)"
+if [[ ${#failed[@]} -eq 0 ]]; then
+  log "examples verified on $mode"
+  exit 0
+fi
+for half in "${failed[@]}"; do
+  echo "FAILED: $half on $mode. The error:"
+  if [[ $half == examples ]]; then
+    grep -E '^(FAIL |    FAIL|examples smoke:)' "$work/examples.out" | sed 's/^/  /'
+  else
+    # Playwright's failed tests and their first error lines
+    grep -E '✘|^\s+(Error|TypeError|Expected|Received)|error:|[0-9]+ failed' "$work/ui.out" | head -30 | sed 's/^/  /'
+  fi
+done
+echo "Server log, errors and warnings (last 15):"
+if [[ -n "$container" ]]; then docker logs "$container" 2>&1; else cat "$work/server.log"; fi | grep -E " (ERROR|WARN) " | tail -n 15 | sed 's/^/  /' || true
+mkdir -p "$REPO_ROOT/build"
+cp "$work/examples.out" "$REPO_ROOT/build/examples-verify.examples.log"
+[[ ! -f "$work/ui.out" ]] || cp "$work/ui.out" "$REPO_ROOT/build/examples-verify.ui.log"
+log "full output: build/examples-verify.examples.log, build/examples-verify.ui.log"
+exit 1
