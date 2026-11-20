@@ -222,6 +222,23 @@ function Editor({
     setSelected(null);
   };
 
+  // Delete removes the selected node and Escape deselects it, unless the user is typing
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]'))
+        return;
+      if (event.key === 'Escape') setSelected(null);
+      else if (
+        (event.key === 'Delete' || event.key === 'Backspace') &&
+        selected
+      )
+        removeNode(selected);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   /** Adds an edge from the Edges form, or one drawn on the canvas, unless it is a loop or a copy. */
   const addEdge = (next: DraftEdge = edge) => {
     if (!next.source || !next.target) return;
@@ -633,16 +650,18 @@ function Editor({
           {stages.size > 0 && (
             <GroupingSwitch grouped={grouped} onChange={setGrouped} />
           )}
-          {/* Re-keyed on selection so the view opens on the selected node and its neighbours */}
+          {/* Re-keyed when a node is added or removed, so the view fits again; selecting keeps the
+              view where the user put it */}
           <NodeSupervisors value={nodeSupervisors}>
             <WorkflowCanvas
-              key={`${workflow.nodes.length}/${selected ?? ''}`}
+              key={workflow.nodes.length}
               graph={graph}
               tasksByNode={NO_TASKS}
               stageView={stageView}
               onConnect={(source, target, sourcePort) =>
                 addEdge({ source, target, sourcePort })
               }
+              onNodeClick={setSelected}
               focusOn={
                 selected
                   ? [

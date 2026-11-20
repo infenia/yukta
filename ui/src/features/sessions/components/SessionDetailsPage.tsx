@@ -54,7 +54,7 @@ function NewWorkflowDialog({
           if (typeof id === 'string' && id.trim()) {
             navigate(
               `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(id.trim())}/edit`,
-              { state: { supervisors } }
+              { state: { assignments: supervisors } }
             );
           }
         }}
