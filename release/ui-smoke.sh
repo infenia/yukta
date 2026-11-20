@@ -9,16 +9,15 @@
 #
 # Usage: release/ui-smoke.sh <base-url>        e.g. release/ui-smoke.sh http://127.0.0.1:9858
 # Needs: the UI's dependencies (cd ui && pnpm install) and a Chromium for Playwright
-#        (cd ui && pnpm exec playwright install chromium), and a server started as the examples need it:
+#        (cd ui && node_modules/.bin/playwright install chromium), and a server started as the examples need it:
 #        YUKTA_PLUGINS_ENABLED=all YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 (examples/README.md)
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 [[ $# -ge 1 ]] || die "usage: ui-smoke.sh <base-url>"
-need pnpm
 [[ -d "$REPO_ROOT/ui/node_modules/@playwright/test" ]] || die "ui smoke: run 'pnpm install' in ui/ first"
 
 log "driving the UI of ${1%/}"
 cd "$REPO_ROOT/ui"
-YUKTA_URL="${1%/}" pnpm exec playwright test -c playwright.real.config.ts --project=chromium
+YUKTA_URL="${1%/}" node_modules/.bin/playwright test -c playwright.real.config.ts --project=chromium
 log "ui smoke passed"

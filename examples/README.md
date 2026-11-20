@@ -38,6 +38,11 @@ Two examples need something the image does not have: **02** needs `git` where th
 place of `-p`, and set `SERVER_PORT` if 9858 is taken, to run 08; its pager also needs `python3` here. Example 09 needs an
 LLM endpoint and `YUKTA_SECRET_LLM_API_KEY` set on the server (see its README).
 
+To check all of it in one command, as often as you like, `release/examples-verify.sh jar|native|docker [--no-ui]` starts the
+server in that form on a free port, runs every example, drives the UI (templates, a session from each, runs) and stops the server.
+It needs the artifact built first (`yk gradle :boot:bootJar`, `release/build-server.sh`, `release/build-image.sh`; `YUKTA_IMAGE`
+names the image) and, for the UI half, `ui/node_modules` and a Playwright Chromium.
+
 The same examples from the browser: `release/ui-smoke.sh <url>` (Playwright against the real server, `ui/e2e/real/`) creates a
 session from each template and runs examples through the UI.
 
