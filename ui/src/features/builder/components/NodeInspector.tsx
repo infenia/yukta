@@ -9,6 +9,11 @@ import {
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { usePlugin } from '@/features/plugins/hooks/usePlugins';
 import { useState } from 'react';
+import {
+  categoryAccent,
+  categoryTint,
+} from '@/features/workflow/lib/categoryAccent';
+import { pluginIcon, pluginLabel } from '@/features/workflow/lib/pluginIcons';
 import type { InspectorTab } from './validationIssues';
 import { Input } from '@/components/ui/input';
 import { textareaFieldClassName } from '@/components/ui/native-select';
@@ -26,6 +31,55 @@ const TABS: [Tab, string][] = [
   ['policy', 'Policy'],
   ['json', 'JSON'],
 ];
+
+/**
+ * The node's ID, renamed when the user leaves the field or presses Enter. `onRename` answers
+ * with what is wrong (a taken or blank ID), or null once the node has the new ID.
+ */
+function NodeIdField({
+  nodeId,
+  onRename,
+}: {
+  nodeId: string;
+  onRename: (nodeId: string) => string | null;
+}) {
+  const [draft, setDraft] = useState(nodeId);
+  const [problem, setProblem] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col gap-1">
+      <label
+        htmlFor="node-id"
+        className="text-label-sm text-on-surface font-semibold"
+      >
+        Node ID
+      </label>
+      <Input
+        id="node-id"
+        value={draft}
+        aria-invalid={problem !== null}
+        aria-describedby="node-id-hint"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => setProblem(onRename(draft))}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            setProblem(onRename(draft));
+          } else if (event.key === 'Escape') {
+            setDraft(nodeId);
+            setProblem(null);
+          }
+        }}
+      />
+      <span
+        id="node-id-hint"
+        className={`text-body-sm ${problem ? 'text-error' : 'text-on-surface-variant'}`}
+      >
+        {problem ??
+          'Names the node on the canvas, in edges and in logs. An expression that mentions the old ID is not renamed.'}
+      </span>
+    </div>
+  );
+}
 
 /** One edge in the Connections list: the other node, the port, and a way to remove it. */
 function EdgeRow({
@@ -111,6 +165,7 @@ export function NodeInspector({
   edges = [],
   onRemoveEdge,
   onAddEdge,
+  onRename,
   initialTab = 'config',
 }: {
   node: DraftNode;
@@ -130,6 +185,8 @@ export function NodeInspector({
   onRemoveEdge?: (edge: DraftEdge) => void;
   /** Start a new edge from this node (in the Edges tab, with its checks). */
   onAddEdge?: () => void;
+  /** Gives the node a new ID: answers with what is wrong with it, or null when it is done. */
+  onRename?: (nodeId: string) => string | null;
   /** The tab it opens on (a problem sends you to the one where it is fixed). */
   initialTab?: Tab;
 }) {
@@ -147,18 +204,36 @@ export function NodeInspector({
 
   return (
     <section className="flex flex-col gap-4" aria-label={`Node ${node.nodeId}`}>
-      <header className="flex items-center gap-2">
-        <h2 className="text-headline-md text-on-surface">{node.nodeId}</h2>
-        <span className="text-code-sm text-on-surface-variant">
-          {node.type}
-        </span>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="text-label-sm text-error ml-auto font-semibold"
-        >
-          Remove node
-        </button>
+      <header className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined flex size-8 shrink-0 items-center justify-center rounded-lg text-xl"
+            style={{
+              color: categoryAccent(plugin.data?.category ?? null),
+              background: categoryTint(plugin.data?.category ?? null),
+            }}
+          >
+            {pluginIcon(node.type, plugin.data?.category ?? null)}
+          </span>
+          <h2 className="text-headline-md text-on-surface">{node.nodeId}</h2>
+          <span className="text-code-sm text-on-surface-variant">
+            {node.type}
+          </span>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-label-sm text-error ml-auto font-semibold"
+          >
+            Remove node
+          </button>
+        </div>
+        {plugin.data?.description && (
+          <p className="text-body-sm text-on-surface-variant">
+            <span className="font-semibold">{pluginLabel(node.type)}.</span>{' '}
+            {plugin.data.description}
+          </p>
+        )}
       </header>
 
       <div
@@ -186,6 +261,7 @@ export function NodeInspector({
 
       {tab === 'config' && (
         <>
+          {onRename && <NodeIdField nodeId={node.nodeId} onRename={onRename} />}
           <div className="flex flex-col gap-1">
             <label
               htmlFor="node-group"

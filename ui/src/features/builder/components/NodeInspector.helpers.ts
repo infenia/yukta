@@ -3,6 +3,15 @@
 
 import type { ConfigField } from '../../plugins/types';
 
+const numberField = (name: string, description: string): ConfigField => ({
+  name,
+  type: 'NUMBER',
+  required: false,
+  defaultValue: null,
+  options: [],
+  description,
+});
+
 /** Engine-level failure policy, available on every node (core `NodePolicy`). */
 export const ENGINE_FIELDS: ConfigField[] = [
   {
@@ -28,8 +37,12 @@ export const ENGINE_FIELDS: ConfigField[] = [
     required: false,
     defaultValue: null,
     options: [],
-    description:
-      '{"maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000} (processors).',
+    description: 'Try a failing message again before giving up (processors).',
+    fields: [
+      numberField('maxAttempts', 'Total attempts, the first one included.'),
+      numberField('backoffMs', 'How long to wait before the second attempt.'),
+      numberField('maxBackoffMs', 'The longest wait between two attempts.'),
+    ],
   },
   {
     name: 'elementTimeoutMs',
@@ -54,6 +67,13 @@ export const ENGINE_FIELDS: ConfigField[] = [
     defaultValue: null,
     options: [],
     description:
-      '{"maxFailures": 10, "windowMs": 60000}; needs onError CONTINUE or ROUTE.',
+      'Fail the node when too many messages fail; needs On error to be CONTINUE or ROUTE.',
+    fields: [
+      numberField(
+        'maxFailures',
+        'Failures allowed within the window; one more fails the node.'
+      ),
+      numberField('windowMs', 'How long the window is.'),
+    ],
   },
 ];

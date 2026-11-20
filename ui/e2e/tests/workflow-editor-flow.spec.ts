@@ -324,6 +324,28 @@ test.describe('Workflow editor - the node inspector', () => {
     await nodeButton(page, 'compile').click();
   });
 
+  test('a node is renamed, and its retry is set with inputs instead of JSON', async ({
+    page,
+  }) => {
+    await open(page);
+    await nodeButton(page, 'compile').click();
+
+    await inspector(page).getByLabel('Node ID').fill('build-step');
+    await page.keyboard.press('Enter');
+    await expect(nodeButton(page, 'build-step')).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    await expect(nodeButton(page, 'compile')).toHaveCount(0);
+
+    await inspector(page).getByRole('tab', { name: 'Policy' }).click();
+    await inspector(page).getByLabel('Max attempts').fill('3');
+    await inspector(page).getByRole('tab', { name: 'JSON' }).click();
+    await expect(inspector(page).getByLabel(/The node's config/)).toHaveValue(
+      /"maxAttempts": 3/
+    );
+  });
+
   test('has Config, Connections, Policy and JSON tabs, opening on Config', async ({
     page,
   }) => {
@@ -484,15 +506,13 @@ test.describe('Workflow editor - edges', () => {
     ).toBeVisible();
   });
 
-  test('the port list of a node appears after Validate', async ({ page }) => {
+  test('the port list of a node arrives from the check of the draft, with no Validate', async ({
+    page,
+  }) => {
     await outline(page).getByLabel('Edge source').selectOption('compile');
-    await expect(
-      outline(page).getByLabel('Edge port').locator('option')
-    ).toHaveText(['no port (default)', 'all ports']);
 
-    await page.getByRole('button', { name: 'Validate' }).click();
+    // the draft is checked on its own once it has opened
     await expect(page.getByText('Workflow is valid.')).toBeVisible();
-
     await expect(
       outline(page).getByLabel('Edge port').locator('option')
     ).toHaveText(['no port (default)', 'all ports', 'success', 'failure']);

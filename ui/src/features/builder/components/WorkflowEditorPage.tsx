@@ -231,6 +231,45 @@ function Editor({
   };
 
   /**
+   * Gives a node a new ID everywhere the draft names it: its edges, its ports and the nodes the
+   * supervisors own. Answers with what is wrong with the ID, or null when it was renamed.
+   */
+  const renameNode = (from: string, to: string): string | null => {
+    const id = to.trim();
+    if (id === from) return null;
+    if (!id || /\s/.test(id)) return 'An ID cannot be blank or hold spaces.';
+    if (workflow.nodes.some((n) => n.nodeId === id)) {
+      return `Another node already has the ID ${id}.`;
+    }
+    const swap = (nodeId: string) => (nodeId === from ? id : nodeId);
+    update({
+      nodes: workflow.nodes.map((n) =>
+        n.nodeId === from ? { ...n, nodeId: id } : n
+      ),
+      edges: workflow.edges.map((e) => ({
+        ...e,
+        source: swap(e.source),
+        target: swap(e.target),
+      })),
+      ...(workflow.assignments && {
+        assignments: workflow.assignments.map((a) =>
+          a.nodes ? { ...a, nodes: a.nodes.map(swap) } : a
+        ),
+      }),
+    });
+    setPorts((current) =>
+      Object.fromEntries(Object.entries(current).map(([k, v]) => [swap(k), v]))
+    );
+    setEdge((draft) => ({
+      ...draft,
+      source: swap(draft.source),
+      target: swap(draft.target),
+    }));
+    setSelected(id);
+    return null;
+  };
+
+  /**
    * Adds a step of `type`; when a node that can have a successor is selected, the new step is
    * connected after it (a trigger starts a workflow, so it never is).
    */
@@ -735,6 +774,7 @@ function Editor({
                 key={`${node.nodeId}/${revision}/${go?.n ?? 0}`}
                 initialTab={go?.nodeId === node.nodeId ? go.tab : 'config'}
                 node={node}
+                onRename={(id) => renameNode(node.nodeId, id)}
                 onRemove={() => removeNode(node.nodeId)}
                 onGroupChange={(group) =>
                   update({

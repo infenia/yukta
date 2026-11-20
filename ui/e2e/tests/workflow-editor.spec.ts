@@ -63,6 +63,9 @@ async function mockEditorApi(page: Page) {
     );
     return route.fulfill(envelope(`/api/plugins/${type}`, plugins[type]));
   });
+  // The editor checks the draft a moment after it opens and shows the result; these shots are
+  // of the layout, so the check fails (which the editor ignores) and nothing shifts mid-shot.
+  await page.route('**/api/sessions/validate', (route) => route.abort());
   await page.route('**/api/sessions/session-1/config', (route) =>
     route.fulfill(
       envelope('/api/sessions/session-1/config', {
