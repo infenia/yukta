@@ -364,6 +364,7 @@ test.describe('Supervision on a workflow', () => {
       )
     );
     await page.goto(WORKFLOW_URL);
+    await page.getByRole('tab', { name: /^Inputs/ }).click();
     const panel = page.getByRole('region', { name: 'Inputs' });
     await expect(panel.getByLabel('Approval chain')).toHaveText(
       'Asked build-agent (asked for approval), then release-lead (silent), now you.'

@@ -451,6 +451,7 @@ test.describe('Workflow Details Page', () => {
     });
     await page.goto(WORKFLOW_URL);
 
+    await page.getByRole('tab', { name: /^Inputs/ }).click();
     const panel = page.getByRole('region', { name: 'Inputs' });
     await expect(panel).toContainText('Release to production?');
     await panel.getByRole('button', { name: 'Approve' }).click();
