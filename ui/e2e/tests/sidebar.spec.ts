@@ -10,17 +10,18 @@ const SECTIONS = [
   { label: 'Plugins', path: '/plugins' },
   { label: 'Supervisors', path: '/supervisors' },
   { label: 'Control', path: '/control' },
+  { label: 'Config', path: '/config' },
 ];
 
 test.describe('Sidebar (desktop rail)', () => {
-  test('lists the five sections in order', async ({ page }) => {
+  test('lists the six sections in order', async ({ page }) => {
     await page.goto('/sessions');
 
     const links = page
       .getByRole('navigation', { name: 'Primary' })
       .first()
       .getByRole('link');
-    await expect(links).toHaveCount(5);
+    await expect(links).toHaveCount(6);
     await expect(links).toHaveText(
       SECTIONS.map((s) => new RegExp(`${s.label}$`))
     );
