@@ -2,10 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { StateMessage } from '@/components/common/StateMessage';
+import { IconButton } from '@/components/common/IconButton';
 import { Button } from '@/components/ui/button';
+import { iconButton } from '@/components/ui/iconTone';
+import { Tip } from '@/components/ui/tooltip';
 import { NativeSelect } from '@/components/ui/native-select';
 import {
   Sheet,
@@ -22,7 +25,11 @@ import {
   remaining,
 } from '@/features/workflow/components/InputRow';
 import type { AppNotification, NotificationSeverity } from './api';
+import { formatRelative } from '@/features/workflow/lib/timeFormat';
+import { api } from '@/lib/apiClient';
+import { NotificationLink } from './NotificationLink';
 import { useNotifications } from './NotificationsContext';
+import { workflowHref } from './notificationLink';
 import { plain, SEVERITY_DOT, SEVERITY_LABEL } from './severity';
 
 type Tab = 'needs-action' | 'all' | 'resolved';
@@ -44,6 +51,42 @@ const inTab = (n: AppNotification, tab: Tab) =>
     : tab === 'needs-action'
       ? n.kind === 'ACTION' && n.state === 'ACTIVE'
       : true;
+
+const CHIP =
+  'text-label-sm text-on-surface-variant hover:text-primary hover:bg-muted rounded-full border px-2 py-0.5';
+
+/** Session, workflow and node of an item, each a link to its page. */
+function Where({ item }: { item: AppNotification }) {
+  const { sessionId, workflowId, nodeId } = item;
+  const workflow = workflowHref({ ...item, executionId: null, nodeId: null });
+  const node = nodeId ? workflowHref(item) : null;
+  if (!sessionId && !workflowId && !nodeId) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {sessionId && (
+        <Link to={api`/sessions/${sessionId}`} className={CHIP}>
+          {sessionId}
+        </Link>
+      )}
+      {workflowId &&
+        (workflow ? (
+          <Link to={workflow} className={CHIP}>
+            {workflowId}
+          </Link>
+        ) : (
+          <span className={CHIP}>{workflowId}</span>
+        ))}
+      {nodeId &&
+        (node ? (
+          <Link to={node} className={CHIP}>
+            {nodeId}
+          </Link>
+        ) : (
+          <span className={CHIP}>{nodeId}</span>
+        ))}
+    </div>
+  );
+}
 
 function Row({
   item,
@@ -67,62 +110,93 @@ function Row({
       ref={ref}
       id={`item-${item.id}`}
       aria-current={selected ? 'true' : undefined}
-      className={`border-border bg-card flex flex-col gap-2 rounded-xl border p-3 ${selected ? 'ring-primary ring-2' : ''}`}
+      className={`flex flex-col gap-2 p-4 ${selected ? 'bg-primary/5 ring-primary ring-2 ring-inset' : ''}`}
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-start gap-3">
         <span
           aria-hidden="true"
-          className={`size-2 rounded-full ${SEVERITY_DOT[item.severity]}`}
+          className={`mt-2 size-2 flex-none rounded-full ${SEVERITY_DOT[item.severity]}`}
         />
-        <span className="text-label-sm">{SEVERITY_LABEL[item.severity]}</span>
-        {input && (
-          <span className="text-label-sm rounded-md border px-1.5">
-            {input.risk.toLowerCase()} risk
-          </span>
-        )}
-        <span className="text-body-sm text-on-surface-variant">
-          {[item.sessionId, item.workflowId, item.nodeId]
-            .filter(Boolean)
-            .join(' · ')}
-        </span>
-        {input?.deadline && live && (
-          <span className="text-label-sm text-on-surface-variant">
-            tier {input.tier} · {remaining(input.deadline, now)}
-          </span>
-        )}
-        {!item.read && <span className="text-label-sm text-primary">New</span>}
-      </div>
-      <p className="text-body-md font-medium">{plain(item.title)}</p>
-      {item.body && (
-        <p className="text-body-sm text-on-surface-variant whitespace-pre-wrap">
-          {plain(item.body)}
-        </p>
-      )}
-      {input && <ApprovalChain request={input} you />}
-      {!live && (
-        <p role="status" className="text-body-sm text-on-surface-variant">
-          {item.resolution ? plain(item.resolution) : 'Done'}
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        {live && input && !needsSheet(item) && (
-          <InputAnswerForm request={input} />
-        )}
-        {live && needsSheet(item) && (
-          <Button size="sm" onClick={onAnswer}>
-            Answer…
-          </Button>
-        )}
-        {!item.read && (
-          <Button size="sm" variant="ghost" onClick={() => markRead([item.id])}>
-            Mark read
-          </Button>
-        )}
-        {!(live && item.kind === 'ACTION') && (
-          <Button size="sm" variant="ghost" onClick={() => dismiss(item.id)}>
-            Dismiss
-          </Button>
-        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <NotificationLink
+              item={item}
+              className={`text-body-md hover:text-primary ${item.read ? '' : 'font-semibold'}`}
+            >
+              {plain(item.title)}
+            </NotificationLink>
+            {!item.read && (
+              <span
+                className="bg-primary size-1.5 rounded-full"
+                role="img"
+                aria-label="New"
+              />
+            )}
+          </div>
+          <div className="text-label-sm text-on-surface-variant flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>{SEVERITY_LABEL[item.severity]}</span>
+            {input && <span>{input.risk.toLowerCase()} risk</span>}
+            {input?.deadline && live && (
+              <span>
+                tier {input.tier} · {remaining(input.deadline, now)}
+              </span>
+            )}
+            <span>{formatRelative(item.createdAt, now)}</span>
+          </div>
+          <Where item={item} />
+          {item.body && (
+            <p className="text-body-sm text-on-surface-variant whitespace-pre-wrap">
+              {plain(item.body)}
+            </p>
+          )}
+          {input && <ApprovalChain request={input} you />}
+          {!live && (
+            <p role="status" className="text-body-sm text-on-surface-variant">
+              {item.resolution ? plain(item.resolution) : 'Done'}
+            </p>
+          )}
+          {live && input && !needsSheet(item) && (
+            <InputAnswerForm request={input} />
+          )}
+        </div>
+        <div className="flex flex-none gap-1.5">
+          {live && needsSheet(item) && (
+            <IconButton
+              icon="reply"
+              label="Answer…"
+              tone="primary"
+              onClick={onAnswer}
+            />
+          )}
+          <Tip label="Open">
+            <NotificationLink
+              item={item}
+              aria-label="Open"
+              className={iconButton('neutral')}
+            >
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-base"
+              >
+                open_in_new
+              </span>
+            </NotificationLink>
+          </Tip>
+          {!item.read && (
+            <IconButton
+              icon="mark_email_read"
+              label="Mark read"
+              onClick={() => markRead([item.id])}
+            />
+          )}
+          {!(live && item.kind === 'ACTION') && (
+            <IconButton
+              icon="close"
+              label="Dismiss"
+              onClick={() => dismiss(item.id)}
+            />
+          )}
+        </div>
       </div>
     </li>
   );
@@ -228,77 +302,79 @@ export function InboxPage() {
   };
 
   return (
-    <div className="px-spacing-md mx-auto flex w-full max-w-4xl flex-col gap-3 py-6 sm:px-6">
+    <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
       <PageHeader
+        backdrop
         title="Inbox"
         description="Questions that wait for you, what you were told and what has ended."
         actions={
           <div className="flex gap-2">
             <PreferencesSheet sessions={sessions} />
-            <Button
-              variant="outline"
+            <IconButton
+              icon="done_all"
+              label="Mark all read"
               disabled={unread.length === 0}
               onClick={() => markRead()}
-            >
-              Mark all read
-            </Button>
+            />
           </div>
         }
       />
       {!connected && (
-        <p role="status" className="text-body-sm bg-muted rounded-lg px-3 py-2">
+        <p role="status" className="bg-muted text-body-sm rounded-lg px-3 py-2">
           Live updates are paused: the list is refreshed every 30 s.
         </p>
       )}
-      <Tabs
-        ariaLabel="Inbox"
-        idPrefix="inbox"
-        value={tab}
-        onChange={setTab}
-        items={[
-          {
-            id: 'needs-action',
-            label: 'Needs action',
-            count: counts['needs-action'],
-          },
-          { id: 'all', label: 'All', count: counts.all },
-          { id: 'resolved', label: 'Resolved', count: counts.resolved },
-        ]}
-      />
-      <div className="flex flex-wrap gap-2">
-        <NativeSelect
-          aria-label="Severity"
-          value={severity}
-          onChange={(e) => setSeverity(e.target.value)}
-        >
-          <option value="">Any severity</option>
-          <option value="WARN">Warning or above</option>
-          <option value="ERROR">Error</option>
-        </NativeSelect>
-        <NativeSelect
-          aria-label="Session"
-          value={session}
-          onChange={(e) => setSession(e.target.value)}
-        >
-          <option value="">All sessions</option>
-          {sessions.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          aria-label="Category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
-          <option value="">Any category</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </NativeSelect>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Tabs
+          ariaLabel="Inbox"
+          idPrefix="inbox"
+          value={tab}
+          onChange={setTab}
+          items={[
+            {
+              id: 'needs-action',
+              label: 'Needs action',
+              count: counts['needs-action'],
+            },
+            { id: 'all', label: 'All', count: counts.all },
+            { id: 'resolved', label: 'Resolved', count: counts.resolved },
+          ]}
+        />
+        <div className="flex flex-wrap gap-2">
+          <NativeSelect
+            aria-label="Severity"
+            value={severity}
+            onChange={(e) => setSeverity(e.target.value)}
+          >
+            <option value="">Any severity</option>
+            <option value="WARN">Warning or above</option>
+            <option value="ERROR">Error</option>
+          </NativeSelect>
+          <NativeSelect
+            aria-label="Session"
+            value={session}
+            onChange={(e) => setSession(e.target.value)}
+          >
+            <option value="">All sessions</option>
+            {sessions.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </NativeSelect>
+          <NativeSelect
+            aria-label="Category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="">Any category</option>
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
       </div>
       <div
         id="inbox-tabpanel"
@@ -308,7 +384,7 @@ export function InboxPage() {
         {wanted && loaded && !target && (
           <p
             role="alert"
-            className="text-body-md border-border mb-3 rounded-xl border p-3"
+            className="border-border text-body-md mb-3 rounded-xl border p-3"
           >
             This item is not available to you. It may have been removed, or it
             was meant for someone else.
@@ -329,7 +405,7 @@ export function InboxPage() {
             Questions from your workflows and alerts show up here.
           </StateMessage>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="divide-border border-border bg-card shadow-card divide-y overflow-hidden rounded-xl border">
             {shown.map((item) => (
               <Row
                 key={item.id}

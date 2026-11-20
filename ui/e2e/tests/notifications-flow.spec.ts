@@ -244,27 +244,31 @@ test.describe('Notifications - toasts', () => {
     const toast = toasts.getByTestId('toast');
     await expect(toast).toContainText('Deploy to production?');
     await expect(toast).toContainText('low risk');
-    await expect(toast.getByRole('link', { name: 'View' })).toHaveAttribute(
+    await expect(toast.getByRole('link', { name: 'Open' })).toHaveAttribute(
       'href',
-      '/inbox?item=q-r1'
+      '/sessions/s1/workflow/nightly?exec=e9&node=export'
     );
 
     await toast.getByRole('button', { name: 'Dismiss' }).click();
     await expect(toasts).toHaveCount(0);
   });
 
-  test('an error alert is announced assertively and View opens it in the inbox', async ({
+  test('an error alert is announced assertively and Open goes to the run it came from', async ({
     page,
+    mockWorkflowApi,
   }) => {
+    await mockWorkflowApi(page);
     await mockNotifications(page, [], { stream: created(FAILED) });
     await page.goto('/sessions');
 
     const toast = page.getByTestId('toast');
     await expect(toast).toHaveAttribute('role', 'alert');
     await expect(toast).toContainText('Nightly run failed');
-    await toast.getByRole('link', { name: 'View' }).click();
+    await toast.getByRole('link', { name: 'Open' }).click();
 
-    await expect(page).toHaveURL(/\/inbox\?item=a1$/);
+    await expect(page).toHaveURL(
+      /\/sessions\/s1\/workflow\/nightly\?exec=e9&node=export$/
+    );
     await expect(page.getByTestId('toast')).toHaveCount(0);
   });
 
