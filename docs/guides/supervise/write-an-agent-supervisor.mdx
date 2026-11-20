@@ -56,7 +56,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
   </Step>
 
   <Step title="Run your program">
-    The quickest way is `yukta-cli supervisors agent`: it streams the signals to a program's standard input, one JSON line each, and sends every JSON line the program prints as a directive. A shell script is enough (this is `examples/18-supervisor-agents/cpu_guard.sh`, trimmed):
+    The quickest way is `yukta-cli supervisors agent`: it streams the signals to a program's standard input, one JSON line each, and sends every JSON line the program prints as a directive. A shell script is enough (this is `examples/2-free-deps/14-supervisor-agents/cpu_guard.sh`, trimmed):
 
     ```sh cpu_guard.sh
     #!/bin/sh
@@ -82,7 +82,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
 
     A directive has a unique `key` (applied once), a `cause`, a `reason`, an optional `ifStatus` (dropped as `precondition-failed` if the run is not in that status) and the `command`. `"target":"held"` means the runs this supervisor paused. Other targets: `execution:<id>`, `workflow:<id>`, `owned.running`; each is expanded to at most 200 runs, each applied and audited on its own.
 
-    Prefer your own client? Python and Go versions are in [example 18](https://github.com/infenia/yukta/tree/main/examples/18-supervisor-agents). The calls are plain HTTP with `Authorization: Bearer <token>` on `/api/agent/v1`:
+    Prefer your own client? Python and Go versions are in [example 14](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/14-supervisor-agents). The calls are plain HTTP with `Authorization: Bearer <token>` on `/api/agent/v1`:
 
     | Call | Use |
     |---|---|

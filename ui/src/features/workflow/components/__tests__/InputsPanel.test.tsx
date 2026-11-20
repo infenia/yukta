@@ -111,12 +111,14 @@ const panel = (live = true) =>
 const viewer = { role: 'VIEWER', permissions: { controlRuns: false } } as Me;
 
 describe('InputsPanel', () => {
-  it('shows nothing while no request has been asked', async () => {
+  it('says nothing is waiting while no request has been asked', async () => {
     const view = panel();
     await waitFor(() =>
       expect(queries[0]).toBe('?state=OPEN,ESCALATED&workflowId=wf&limit=200')
     );
-    expect(view.container).toBeEmptyDOMElement();
+    expect(
+      await within(view.container).findByText('No input requests are waiting.')
+    ).toBeInTheDocument();
   });
 
   it('has a history tab once a request is there', async () => {

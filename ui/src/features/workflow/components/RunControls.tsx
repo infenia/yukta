@@ -266,22 +266,22 @@ export function RunControls({
             command="stop"
             target={{ execution: executionId }}
           >
-            <DropdownMenuTrigger
-              className={cn(toolbarSegment('destructive'), 'pr-1')}
-              disabled={!live}
-              aria-label="Stop options"
-              title="Stop"
-            >
-              <span aria-hidden="true" className={GLYPH}>
-                stop
-              </span>
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined -ml-0.5 text-sm opacity-70"
+            <Tip label="Stop" disabled={!live}>
+              <DropdownMenuTrigger
+                className={cn(toolbarSegment('destructive'), 'pr-1')}
+                aria-label="Stop options"
               >
-                expand_more
-              </span>
-            </DropdownMenuTrigger>
+                <span aria-hidden="true" className={GLYPH}>
+                  stop
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined -ml-0.5 text-sm opacity-70"
+                >
+                  expand_more
+                </span>
+              </DropdownMenuTrigger>
+            </Tip>
           </RequireControl>
           <DropdownMenuContent align="end" className="w-max">
             <DropdownMenuItem
@@ -358,15 +358,16 @@ export function RunControls({
           </RequireControl>
         )}
         <DropdownMenu>
-          <DropdownMenuTrigger
-            className={cn(toolbarSegment('neutral'), copyTone(copied))}
-            aria-label="Copy as"
-            title="Copy as command…"
-          >
-            <span aria-hidden="true" className={GLYPH}>
-              {copyIcon(copied, 'terminal')}
-            </span>
-          </DropdownMenuTrigger>
+          <Tip label="Copy as command…">
+            <DropdownMenuTrigger
+              className={cn(toolbarSegment('neutral'), copyTone(copied))}
+              aria-label="Copy as"
+            >
+              <span aria-hidden="true" className={GLYPH}>
+                {copyIcon(copied, 'terminal')}
+              </span>
+            </DropdownMenuTrigger>
+          </Tip>
           <DropdownMenuContent align="end" className="w-max">
             <CopyAsMenu choices={choices} onCopy={copy} />
           </DropdownMenuContent>

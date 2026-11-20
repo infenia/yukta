@@ -20,7 +20,10 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import tools.jackson.databind.json.JsonMapper;
 
-/** The example profile in {@code examples/16-supervisor-profiles} loads and does what it says. */
+/**
+ * The example profile in {@code examples/1-standalone/08-supervisor-profiles} loads and does what
+ * it says.
+ */
 @NoArgsConstructor
 class InputRulesExampleTest {
 
@@ -31,7 +34,7 @@ class InputRulesExampleTest {
                 "yukta.example.input-rules",
                 // PIT runs the tests in its own JVM without the Gradle property; its working
                 // directory is the module's (#2134).
-                "../../../examples/16-supervisor-profiles/input-requests.json"));
+                "../../../examples/1-standalone/08-supervisor-profiles/input-requests.json"));
     return JsonMapper.builder().build().readValue(Files.readString(file), Supervisor.class);
   }
 

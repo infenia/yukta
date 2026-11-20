@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useQuery } from '@tanstack/react-query';
+import { LIVE_LIST } from '@/lib/queryClient';
 import { getSessionWorkflows } from '../api/getSessionWorkflows';
 
 export function useSessionWorkflows(sessionId: string) {
@@ -9,5 +10,6 @@ export function useSessionWorkflows(sessionId: string) {
     queryKey: ['sessions', sessionId, 'workflows'],
     queryFn: () => getSessionWorkflows(sessionId),
     enabled: Boolean(sessionId),
+    ...LIVE_LIST,
   });
 }

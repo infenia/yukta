@@ -396,7 +396,7 @@ describe('WorkflowDetailsPage', () => {
           within(sheet).getByText('supervisor of vectorize-batch')
         ).toBeInTheDocument();
 
-        await user.click(within(sheet).getByRole('tab', { name: 'Node' }));
+        await user.click(within(sheet).getByRole('tab', { name: 'Overview' }));
         expect(
           within(sheet).getByRole('button', { name: 'Close node details' })
         ).toBeInTheDocument();

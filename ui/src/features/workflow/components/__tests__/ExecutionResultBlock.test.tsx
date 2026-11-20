@@ -71,6 +71,26 @@ describe('ExecutionResultBlock', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows a result that has no node id without a title', () => {
+    render(<ExecutionResultBlock sessionId="s1" executionId="e1" />);
+
+    act(() => {
+      MockEventSource.latest().open();
+      MockEventSource.latest().emit({
+        kind: 'RESULT',
+        nodeId: null,
+        sequence: 0,
+        payload: 'anonymous answer',
+        status: null,
+        truncated: false,
+        timestamp: '2026-01-01T00:00:00Z',
+      });
+    });
+
+    expect(screen.getByText('anonymous answer')).toBeInTheDocument();
+    expect(screen.queryByText('null')).not.toBeInTheDocument();
+  });
+
   it('shows an empty line for a result without a payload', () => {
     render(<ExecutionResultBlock sessionId="s1" executionId="e1" />);
 

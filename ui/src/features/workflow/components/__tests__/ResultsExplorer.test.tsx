@@ -11,7 +11,7 @@ import {
   afterEach,
   vi,
 } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -40,6 +40,8 @@ const event = (
 });
 
 let events: ResultEvent[] = [];
+/** Enough results for the filter row to show. */
+const filler = Array.from({ length: 6 }, (_, i) => event(50 + i, 'filler'));
 let truncated = false;
 let fail = false;
 
@@ -87,13 +89,7 @@ afterEach(() => {
 afterAll(() => server.close());
 
 const explorer = () =>
-  renderWithProviders(
-    <ResultsExplorer
-      graph={createMockGraph()}
-      sessionId="s1"
-      executionId="e1"
-    />
-  );
+  renderWithProviders(<ResultsExplorer sessionId="s1" executionId="e1" />);
 
 describe('ResultsExplorer', () => {
   it('pages the results, 20 at a time', async () => {
@@ -116,6 +112,7 @@ describe('ResultsExplorer', () => {
       event(0, 'sink-storage'),
       event(1, 'other'),
       event(2, 'sink-storage', 'NODE_END'),
+      ...filler,
     ];
     const user = userEvent.setup();
     explorer();
@@ -125,14 +122,31 @@ describe('ResultsExplorer', () => {
     expect(screen.queryByText('sink-storage · #2')).not.toBeInTheDocument();
 
     const filter = screen.getByLabelText('Filter by node');
-    expect(
-      within(filter)
-        .getAllByRole('option')
-        .map((o) => o.textContent)
-    ).toEqual(['All terminal nodes', 'sink-storage']);
-    await user.selectOptions(filter, 'sink-storage');
+    await user.type(filter, 'sink');
     expect(screen.queryByText('other · #1')).not.toBeInTheDocument();
     expect(screen.getByText('sink-storage · #0')).toBeInTheDocument();
+  });
+
+  it('leaves out results without a node id when filtering by node', async () => {
+    events = [
+      event(0, 'sink-storage'),
+      { ...event(1, 'other'), nodeId: null },
+      ...filler,
+    ];
+    const user = userEvent.setup();
+    explorer();
+    await screen.findByText('sink-storage · #0');
+
+    await user.type(screen.getByLabelText('Filter by node'), 'sink');
+    expect(screen.getByText('sink-storage · #0')).toBeInTheDocument();
+    expect(screen.getByText('1 result')).toBeInTheDocument();
+  });
+
+  it('shows the filter only when there are enough results to look through', async () => {
+    events = [event(0, 'sink-storage')];
+    explorer();
+    await screen.findByText('sink-storage · #0');
+    expect(screen.queryByLabelText('Filter by node')).not.toBeInTheDocument();
   });
 
   it('downloads the matching results as one JSON array', async () => {
@@ -154,7 +168,6 @@ describe('ResultsExplorer', () => {
 
   it('says so when there are no results, for a node or at all, and when some were cut', async () => {
     truncated = true;
-    const user = userEvent.setup();
     explorer();
 
     expect(await screen.findByText('No results.')).toBeInTheDocument();
@@ -162,10 +175,14 @@ describe('ResultsExplorer', () => {
     expect(
       screen.getByRole('button', { name: 'Download JSON' })
     ).toBeDisabled();
-    await user.selectOptions(
-      screen.getByLabelText('Filter by node'),
-      'sink-storage'
-    );
+  });
+
+  it('says so when a filter matches nothing', async () => {
+    events = [...filler, event(0, 'other')];
+    const user = userEvent.setup();
+    explorer();
+    await screen.findByText('other · #0');
+    await user.type(screen.getByLabelText('Filter by node'), 'sink-storage');
     expect(
       screen.getByText('No results from sink-storage.')
     ).toBeInTheDocument();

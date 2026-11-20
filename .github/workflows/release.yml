@@ -184,7 +184,7 @@ jobs:
 
       # Liberica NIK (same as the Docker builder image). On Windows the action also sets up the
       # MSVC toolchain native-image needs.
-      - uses: graalvm/setup-graalvm@f70bc8032f90a104502824a54bcb94b6f01715bc # v1.6.8
+      - uses: graalvm/setup-graalvm@d6eca2595046623d69d636041513c80abf745406 # v1.6.9
         if: runner.os != 'Linux'
         with:
           java-version: '25'
@@ -229,7 +229,7 @@ jobs:
           BINARY: dist/${{ matrix.platform }}/yukta${{ runner.os == 'Windows' && '.exe' || '' }}
           YUKTA_PLUGINS_ENABLED: all
           YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,python3
-          YUKTA_AI_PRESETS_DIR: ${{ github.workspace }}/examples/21-agent-console/agent-harnesses
+          YUKTA_AI_PRESETS_DIR: ${{ github.workspace }}/examples/3-paid-tools/16-agent-console/agent-harnesses
         run: |
           "$BINARY" &
           pid=$!

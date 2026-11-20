@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useQuery } from '@tanstack/react-query';
+import { LIVE_LIST } from '@/lib/queryClient';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { cn } from '@/lib/utils';
@@ -120,11 +121,13 @@ function Runs() {
     queryKey: ['runs', filters, limit],
     queryFn: () => searchExecutions(filters, limit),
     placeholderData: (previous) => previous,
+    ...LIVE_LIST,
   });
   const workflows = useSessionWorkflows(filters.session);
   const counts = useQuery({
     queryKey: ['runs', 'counts'],
     queryFn: getRunCounts,
+    ...LIVE_LIST,
   });
   // Each chip is a filter: the same status (and, for failures, the last 24 hours)
   const chips: [keyof RunCounts, string, Partial<RunFilters>][] = [
