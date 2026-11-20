@@ -28,6 +28,9 @@ import {
   MAX_EVENTS,
   appendBounded,
   describe as describeEvent,
+  groupOf,
+  matches,
+  typesOf,
   type ActivityEvent,
   type Entry,
 } from '../../lib/activity';
@@ -112,6 +115,9 @@ function Where() {
   const location = useLocation();
   return <output data-testid="where">{location.search}</output>;
 }
+/** The rows of the event table, without its header row. */
+const bodyRows = () =>
+  within(screen.getByTestId('activity-list')).getAllByRole('row').slice(1);
 function renderActivity(search = '?tab=activity') {
   return render(
     <QueryClientProvider client={createTestQueryClient()}>
@@ -142,19 +148,17 @@ describe('activity helpers', () => {
       severity: 'INFO',
       event: { executionId: 'x', timestamp: 't', ...event },
     });
-    expect(describeEvent(node('a', 'RUNNING'))).toBe('a → RUNNING');
+    expect(describeEvent(node('a', 'RUNNING'))).toBe('RUNNING');
     expect(
       describeEvent(
         e('WorkflowStatusChanged', { workflowId: 'w', status: 'SUCCESS' })
       )
-    ).toBe('w → SUCCESS');
+    ).toBe('SUCCESS');
     expect(describeEvent(outcome)).toBe('PAUSE refused: no such run');
     expect(
       describeEvent(e('ControlOutcome', { command: 'STOP', applied: true }))
     ).toBe('STOP applied');
-    expect(describeEvent(e('LogLine', { nodeId: 'n', line: 'hi' }))).toBe(
-      'n: hi'
-    );
+    expect(describeEvent(e('LogLine', { nodeId: 'n', line: 'hi' }))).toBe('hi');
     expect(describeEvent(e('EventsMissed', { count: 3 }))).toBe(
       '3 events missed'
     );
@@ -176,6 +180,35 @@ describe('activity helpers', () => {
     expect(describeEvent(e('InputCancelled', { reason: 'run-ended' }))).toBe(
       'input request cancelled: run-ended'
     );
+  });
+
+  it('groups the event types and matches a run, workflow or node by text', () => {
+    expect(groupOf('NodeStatusChanged')).toBe('nodes');
+    expect(groupOf('InputExpired')).toBe('inputs');
+    expect(groupOf('Unknown')).toBeUndefined();
+    expect(typesOf(['runs', 'logs'])).toEqual([
+      'WorkflowStatusChanged',
+      'LogLine',
+    ]);
+    const e: ActivityEvent = {
+      ...base,
+      type: 'NodeStatusChanged',
+      severity: 'INFO',
+      event: {
+        executionId: 'Exec-1',
+        timestamp: 't',
+        workflowId: 'Build',
+        nodeId: 'Lint',
+      },
+    };
+    const f = (text: string) => ({ types: [], severities: [], text });
+    expect(matches(e, f(''))).toBe(true);
+    expect(matches(e, f('exec'))).toBe(true);
+    expect(matches(e, f('build'))).toBe(true);
+    expect(matches(e, f('LINT'))).toBe(true);
+    expect(matches(e, f('deploy'))).toBe(false);
+    // an event without a workflow or node only matches on its run
+    expect(matches(node('x', 'RUNNING'), f('build'))).toBe(false);
   });
 
   it('keeps at most the newest events and counts what it dropped', () => {
@@ -213,53 +246,118 @@ describe('ActivityPanel', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows live events newest first, and a placeholder before any', async () => {
+  it('shows live events newest first as a table, and a placeholder before any', async () => {
     renderActivity();
-    expect(screen.getByText('No events yet.')).toBeInTheDocument();
+    expect(screen.getByText(/No events yet\./)).toBeInTheDocument();
     expect(screen.getByText('Reconnecting…')).toBeInTheDocument();
 
     await push(node('first', 'RUNNING'), node('second', 'SUCCESS'));
-    const rows = within(screen.getByTestId('activity-list')).getAllByRole(
-      'listitem'
-    );
-    expect(rows[0]).toHaveTextContent('second → SUCCESS');
-    expect(rows[1]).toHaveTextContent('first → RUNNING');
+    const rows = bodyRows();
+    expect(rows[0]).toHaveTextContent('second');
+    expect(rows[0]).toHaveTextContent('SUCCESS');
+    expect(rows[0]).toHaveTextContent('Nodes');
+    expect(rows[1]).toHaveTextContent('first');
     expect(screen.getByText('Live')).toBeInTheDocument();
+    // no session known: the link searches the runs
     expect(within(rows[0]).getByRole('link')).toHaveAttribute(
       'href',
       '/runs?text=exec-second-0000'
     );
   });
 
-  it('filters by type, severity and execution id, all in the URL', async () => {
+  it('names the workflow and links to the run when the session is known', async () => {
+    renderActivity();
+    await push({
+      ...base,
+      type: 'WorkflowStatusChanged',
+      severity: 'INFO',
+      event: {
+        executionId: 'exec-w-0000',
+        timestamp: '2026-07-26T14:22:01',
+        sessionId: 's1',
+        workflowId: 'build',
+        status: 'RUNNING',
+      },
+    });
+    const row = bodyRows()[0];
+    expect(row).toHaveTextContent('build');
+    expect(row).toHaveTextContent('Runs');
+    expect(within(row).getByRole('link')).toHaveAttribute(
+      'href',
+      '/sessions/s1/workflow/build?exec=exec-w-0000'
+    );
+  });
+
+  it('hides the log lines until Logs is turned on', async () => {
+    const user = userEvent.setup();
+    renderActivity();
+    await push(node('a', 'RUNNING'), {
+      ...base,
+      type: 'LogLine',
+      severity: 'INFO',
+      event: {
+        executionId: 'exec-l-0000',
+        timestamp: '2026-07-26T14:22:03',
+        nodeId: 'a',
+        line: 'compiling',
+      },
+    });
+    expect(bodyRows()).toHaveLength(1);
+    // the chip counts what it would add
+    expect(screen.getByRole('button', { name: /^Logs/ })).toHaveTextContent(
+      '1'
+    );
+
+    await user.click(screen.getByRole('button', { name: /^Logs/ }));
+    expect(bodyRows()).toHaveLength(2);
+    expect(screen.getByText('compiling')).toBeInTheDocument();
+    expect(screen.getByTestId('where')).toHaveTextContent('group=logs');
+  });
+
+  it('filters by kind, severity and text, all in the URL', async () => {
     const user = userEvent.setup();
     renderActivity();
     await push(node('a', 'RUNNING'), node('b', 'FAILURE', 'ERROR'), outcome);
 
-    await user.click(screen.getByRole('button', { name: 'ControlOutcome' }));
-    expect(screen.getAllByRole('listitem')).toHaveLength(1);
-    expect(screen.getByTestId('where')).toHaveTextContent(
-      'type=ControlOutcome'
-    );
-    await user.click(screen.getByRole('button', { name: 'ControlOutcome' }));
+    // turning Nodes off leaves the control outcome
+    await user.click(screen.getByRole('button', { name: /^Nodes/ }));
+    expect(bodyRows()).toHaveLength(1);
+    expect(screen.getByTestId('where')).not.toHaveTextContent('group=nodes');
+    await user.click(screen.getByRole('button', { name: /^Nodes/ }));
+    expect(bodyRows()).toHaveLength(3);
 
     await user.click(screen.getByRole('button', { name: 'ERROR' }));
-    expect(screen.getAllByRole('listitem')).toHaveLength(1);
-    expect(screen.getByText('b → FAILURE')).toBeInTheDocument();
+    expect(bodyRows()).toHaveLength(1);
+    expect(screen.getByText('FAILURE')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'ERROR' }));
 
-    await user.type(screen.getByLabelText('Execution id'), 'exec-a');
-    expect(screen.getAllByRole('listitem')).toHaveLength(1);
-    expect(screen.getByTestId('where')).toHaveTextContent('execution=exec-a');
+    const box = screen.getByLabelText('Run, workflow or node');
+    await user.type(box, 'exec-a');
+    expect(bodyRows()).toHaveLength(1);
+    expect(screen.getByTestId('where')).toHaveTextContent('q=exec-a');
+    await user.clear(box);
+    expect(screen.getByTestId('where')).not.toHaveTextContent('q=');
+    expect(bodyRows()).toHaveLength(3);
   });
 
-  it('reads its filters from the URL', async () => {
-    renderActivity('?tab=activity&severity=WARN&type=ControlOutcome');
+  it('reads its filters from the URL, an older run link included', async () => {
+    renderActivity('?tab=activity&severity=WARN&group=control');
     await push(node('a', 'RUNNING'), outcome);
-    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    expect(bodyRows()).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'WARN' })).toHaveAttribute(
       'aria-pressed',
       'true'
+    );
+    expect(screen.getByRole('button', { name: /^Control/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
+
+  it('takes the run of an older link into the text box', () => {
+    renderActivity('?tab=activity&execution=exec-9');
+    expect(screen.getByLabelText('Run, workflow or node')).toHaveValue(
+      'exec-9'
     );
   });
 
@@ -270,11 +368,11 @@ describe('ActivityPanel', () => {
 
     await user.click(screen.getByRole('button', { name: 'Pause' }));
     await push(node('b', 'RUNNING'), node('c', 'RUNNING'));
-    expect(screen.getAllByRole('listitem')).toHaveLength(1);
+    expect(bodyRows()).toHaveLength(1);
     expect(screen.getByText(/2 new while paused/)).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Resume' }));
-    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(bodyRows()).toHaveLength(3);
   });
 
   it('pauses on an empty list and draws only the newest rows of a long one', async () => {
@@ -286,9 +384,21 @@ describe('ActivityPanel', () => {
     await push(
       ...Array.from({ length: 2100 }, (_, i) => node(`n${i}`, 'RUNNING'))
     );
-    expect(screen.getAllByRole('listitem')).toHaveLength(200);
+    expect(bodyRows()).toHaveLength(200);
     expect(screen.getByText(/100 oldest dropped/)).toBeInTheDocument();
-    expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('n2099');
+    expect(bodyRows()[0]).toHaveTextContent('n2099');
+  });
+
+  it('says that log lines are hidden when only they would fill an empty list', () => {
+    renderActivity();
+    expect(
+      screen.getByText(/Log lines are hidden: turn on Logs/)
+    ).toBeInTheDocument();
+  });
+
+  it('does not mention hidden logs when Logs is on', () => {
+    renderActivity('?tab=activity&group=logs');
+    expect(screen.queryByText(/Log lines are hidden/)).toBeNull();
   });
 });
 
