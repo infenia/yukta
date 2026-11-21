@@ -9,10 +9,8 @@ import { StateMessage } from '@/components/common/StateMessage';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  NativeSelect,
-  textareaFieldClassName,
-} from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
+import { textareaFieldClassName } from '@/components/ui/native-select';
 import { ApiError } from '@/lib/apiClient';
 import {
   useCreateSupervisor,
@@ -128,18 +126,18 @@ function SupervisorForm({
       </label>
       <label className="flex flex-col gap-1">
         <span className="text-label-md">Decision maker</span>
-        <NativeSelect
-          aria-label="Decision maker"
+        <Select
+          ariaLabel="Decision maker"
           value={values.type}
-          onChange={(e) => set({ type: e.target.value })}
-        >
-          <option value="">Choose…</option>
-          {(types.data ?? []).map((t) => (
-            <option key={t.type} value={t.type}>
-              {t.displayName}
-            </option>
-          ))}
-        </NativeSelect>
+          onValueChange={(type) => set({ type })}
+          options={[
+            { value: '', label: 'Choose…' },
+            ...(types.data ?? []).map((t) => ({
+              value: t.type,
+              label: t.displayName,
+            })),
+          ]}
+        />
         {existing && (
           <span className="text-body-sm text-muted-foreground">
             Changing it replaces the settings below.

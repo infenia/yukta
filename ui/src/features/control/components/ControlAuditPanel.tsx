@@ -7,7 +7,7 @@ import { useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { NativeSelect } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import { api } from '@/lib/apiClient';
 import { useFallbackPoll } from '../context/ControlEventsContext';
 import { fetchApi } from '@/lib/apiClient';
@@ -74,12 +74,12 @@ const runLink = (e: ControlAuditEntry) =>
 /** Applied or refused, as a badge: the reason of a refusal reads next to it. */
 function ResultBadge({ entry }: { entry: ControlAuditEntry }) {
   return entry.applied ? (
-    <span className="bg-success/10 text-success text-label-sm rounded-full px-2 py-0.5">
+    <span className="bg-success/10 text-label-sm text-success rounded-full px-2 py-0.5">
       Applied
     </span>
   ) : (
     <span className="flex flex-wrap items-center gap-1">
-      <span className="bg-destructive/10 text-destructive text-label-sm rounded-full px-2 py-0.5">
+      <span className="bg-destructive/10 text-label-sm text-destructive rounded-full px-2 py-0.5">
         Refused
       </span>
       {entry.reason && (
@@ -126,39 +126,36 @@ export function ControlAuditPanel() {
         Control audit
       </h2>
       <div className="flex flex-wrap items-center gap-2">
-        <NativeSelect
-          aria-label="Result"
+        <Select
+          ariaLabel="Result"
           value={result}
-          onChange={(e) => setResult(e.target.value as Result)}
-        >
-          <option value="all">Any result</option>
-          <option value="applied">Applied</option>
-          <option value="refused">Refused</option>
-        </NativeSelect>
-        <NativeSelect
-          aria-label="Command"
+          onValueChange={(v) => setResult(v as Result)}
+          options={[
+            { value: 'all', label: 'Any result' },
+            { value: 'applied', label: 'Applied' },
+            { value: 'refused', label: 'Refused' },
+          ]}
+        />
+        <Select
+          searchable
+          ariaLabel="Command"
           value={command}
-          onChange={(e) => setCommand(e.target.value)}
-        >
-          <option value="">Any command</option>
-          {commands.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          aria-label="Actor"
+          onValueChange={setCommand}
+          options={[
+            { value: '', label: 'Any command' },
+            ...commands.map((c) => ({ value: c, label: c })),
+          ]}
+        />
+        <Select
+          searchable
+          ariaLabel="Actor"
           value={actor}
-          onChange={(e) => setActor(e.target.value)}
-        >
-          <option value="">Any actor</option>
-          {actors.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </NativeSelect>
+          onValueChange={setActor}
+          options={[
+            { value: '', label: 'Any actor' },
+            ...actors.map((a) => ({ value: a, label: a })),
+          ]}
+        />
         {execution && (
           <p className="text-body-sm text-on-surface-variant flex items-center gap-2">
             Commands of run <span className="text-code-sm">{execution}</span>

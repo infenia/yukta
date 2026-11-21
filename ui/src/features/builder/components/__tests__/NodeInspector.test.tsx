@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import {
   describe,
   it,
@@ -142,16 +143,14 @@ describe('NodeInspector', () => {
     await screen.findByLabelText(/Url/);
     await user.click(screen.getByRole('tab', { name: 'Policy' }));
 
-    await user.selectOptions(screen.getByLabelText('Trigger'), 'ALL_DONE');
+    await choose(user, screen.getByLabelText('Trigger'), 'ALL_DONE');
     expect(config()).toBe(
       '{"url":"a","engine":{"onError":"ROUTE","trigger":"ALL_DONE"}}'
     );
 
-    await user.selectOptions(
-      screen.getByLabelText('On error'),
-      'Default (FAIL)'
-    );
-    await user.selectOptions(
+    await choose(user, screen.getByLabelText('On error'), 'Default (FAIL)');
+    await choose(
+      user,
       screen.getByLabelText('Trigger'),
       'Default (ALL_SUCCESS)'
     );

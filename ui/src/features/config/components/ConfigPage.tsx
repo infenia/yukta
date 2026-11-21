@@ -118,7 +118,7 @@ function OptionCatalog() {
             { value: '', label: 'All areas' },
             ...AREAS.map((a) => ({ value: a, label: a })),
           ]}
-          className="w-44"
+          className="h-9 w-44"
         />
         <Select
           ariaLabel="Applies"
@@ -129,7 +129,7 @@ function OptionCatalog() {
             { value: 'startup', label: 'Needs a restart' },
             { value: 'runtime', label: 'Changes live' },
           ]}
-          className="w-44"
+          className="h-9 w-44"
         />
         <Select
           ariaLabel="Mode"
@@ -139,7 +139,7 @@ function OptionCatalog() {
             { value: '', label: 'JVM, native and Docker' },
             { value: 'native', label: 'Differs in native and Docker' },
           ]}
-          className="w-56"
+          className="h-9 w-56"
         />
         {values && (
           <Select
@@ -150,7 +150,7 @@ function OptionCatalog() {
               { value: '', label: 'Any value' },
               { value: 'set', label: 'Set on this server' },
             ]}
-            className="w-44"
+            className="h-9 w-44"
           />
         )}
         <Popover>

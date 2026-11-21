@@ -3,6 +3,7 @@
 
 import { sessionJson, shell, unique } from './api';
 import { expect, test } from './fixtures';
+import { choose } from '../utils';
 
 const outline = (page: import('@playwright/test').Page) =>
   page.getByRole('complementary', { name: 'Nodes and edges' });
@@ -35,10 +36,8 @@ test('a node and an edge are added, validated and saved, and the server keeps th
   await expect(page.getByText('Unsaved changes')).toBeVisible();
 
   await outline(page).getByRole('tab', { name: /Edges/ }).click();
-  await outline(page).getByLabel('Edge source').selectOption('p');
-  await outline(page)
-    .getByLabel('Edge target')
-    .selectOption('console-terminal-1');
+  await choose(outline(page).getByLabel('Edge source'), 'p');
+  await choose(outline(page).getByLabel('Edge target'), 'console-terminal-1');
   await outline(page).getByRole('button', { name: 'Add edge' }).click();
 
   await page.getByRole('button', { name: 'Validate' }).click();

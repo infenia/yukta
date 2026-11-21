@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import {
   describe,
   it,
@@ -121,7 +122,7 @@ describe('the supervisors of a workflow in the editor', () => {
     renderEditor();
     await user.click(await screen.findByText(/Supervisors \(1\)/));
 
-    await user.selectOptions(screen.getByLabelText('Supervisor 1'), 'watch');
+    await choose(user, screen.getByLabelText('Supervisor 1'), 'watch');
     expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
     await user.click(screen.getByLabelText('Selected nodes'));
     await user.click(await screen.findByLabelText('build.a'));

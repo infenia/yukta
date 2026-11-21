@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import {
   describe,
   it,
@@ -158,18 +159,18 @@ describe('the Activity list', () => {
     const user = userEvent.setup();
     show();
     await rows();
-    await user.selectOptions(screen.getByLabelText('Cause'), 'tick');
+    await choose(user, screen.getByLabelText('Cause'), 'tick');
     expect(await rows()).toHaveLength(1);
-    await user.selectOptions(screen.getByLabelText('Cause'), '');
-    await user.selectOptions(screen.getByLabelText('Workflow'), 'build');
+    await choose(user, screen.getByLabelText('Cause'), '');
+    await choose(user, screen.getByLabelText('Workflow'), 'build');
     expect(await rows()).toHaveLength(1);
-    await user.selectOptions(screen.getByLabelText('Outcome'), 'dry-run');
+    await choose(user, screen.getByLabelText('Outcome'), 'dry-run');
     expect(
       screen.getByText('Nothing matches these filters.')
     ).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Outcome'), '');
-    await user.selectOptions(screen.getByLabelText('Workflow'), '');
-    await user.selectOptions(screen.getByLabelText('Supervisor'), 'legacy');
+    await choose(user, screen.getByLabelText('Outcome'), '');
+    await choose(user, screen.getByLabelText('Workflow'), '');
+    await choose(user, screen.getByLabelText('Supervisor'), 'legacy');
     expect(await rows()).toHaveLength(1);
   });
 

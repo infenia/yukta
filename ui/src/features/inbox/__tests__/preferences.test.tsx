@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -62,12 +63,16 @@ describe('PreferencesSheet', () => {
   it('shows the levels, never offers off for input, and saves levels and muted sessions', async () => {
     await open();
     const input = await screen.findByLabelText('input');
+    await userEvent.click(input);
     expect(
-      Array.from((input as HTMLSelectElement).options).map((o) => o.value)
+      (await screen.findAllByRole('option')).map((o) =>
+        o.getAttribute('data-value')
+      )
     ).toEqual(['INBOX', 'DESKTOP']);
-    expect(screen.getByLabelText('run.failed')).toHaveValue('OFF');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByLabelText('run.failed')).toHaveTextContent('Off');
 
-    await userEvent.selectOptions(input, 'DESKTOP');
+    await choose(userEvent, input, 'DESKTOP');
     await userEvent.click(screen.getByRole('checkbox', { name: 's1' }));
     await userEvent.click(screen.getByRole('checkbox', { name: 'gone' }));
     await userEvent.click(screen.getByRole('checkbox', { name: 's2' }));

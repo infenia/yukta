@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import {
   describe,
   it,
@@ -426,14 +427,15 @@ describe('RunsPage', () => {
     await screen.findByRole('link', { name: '0000xyz-' });
     expect(screen.getByLabelText('Workflow')).toBeDisabled();
 
-    await user.selectOptions(screen.getByLabelText('Session'), 's1');
-    await user.selectOptions(
+    await choose(user, screen.getByLabelText('Session'), 's1');
+    await choose(
+      user,
       await screen.findByRole('combobox', { name: 'Workflow' }),
       'wf'
     );
-    await user.selectOptions(screen.getByLabelText('Status'), 'FAILURE');
+    await choose(user, screen.getByLabelText('Status'), 'FAILURE');
     await user.type(screen.getByLabelText('Run id contains'), 'ab');
-    await user.selectOptions(screen.getByLabelText('Time range'), '1h');
+    await choose(user, screen.getByLabelText('Time range'), '1h');
 
     await waitFor(() => {
       const last = requests.at(-1) as URLSearchParams;
@@ -460,7 +462,11 @@ describe('RunsPage', () => {
     await waitFor(() =>
       expect(requests.at(-1)?.get('since')).toBe('2026-07-01T06:00')
     );
-    expect(screen.getByRole('option', { name: 's2' })).toBeInTheDocument();
+    await user.click(screen.getByLabelText('Session'));
+    expect(
+      await screen.findByRole('option', { name: 's2' })
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
     await user.type(screen.getByLabelText('Until'), '2026-07-02T00:00');
     await waitFor(() =>
       expect(requests.at(-1)?.get('until')).toBe('2026-07-02T00:00')
@@ -480,7 +486,7 @@ describe('RunsPage', () => {
     expect(requests.at(-1)?.get('limit')).toBe('200');
     expect(screen.queryByText('Load more')).not.toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText('Status'), 'ERROR');
+    await choose(user, screen.getByLabelText('Status'), 'ERROR');
     await waitFor(() => expect(requests.at(-1)?.get('limit')).toBe('100'));
   });
 

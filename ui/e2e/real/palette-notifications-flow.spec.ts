@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { Page } from '@playwright/test';
+import { choose } from '../utils';
 import { ask, sessionJson, shell, unique } from './api';
 import { expect, test } from './fixtures';
 
@@ -106,10 +107,10 @@ test('notification preferences are saved by the server and read back', async ({
   await page.getByRole('button', { name: 'Preferences' }).click();
   const sheet = page.getByRole('dialog', { name: 'Notification preferences' });
   const level = sheet.getByRole('combobox', { name: 'run.finished' });
-  const before = await level.inputValue();
+  const before = await level.getAttribute('data-value');
   const next = before === 'OFF' ? 'INBOX' : 'OFF';
 
-  await level.selectOption(next);
+  await choose(level, next);
   await sheet.getByRole('button', { name: 'Save' }).click();
   await expect(sheet).toBeHidden();
 

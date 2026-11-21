@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { test, expect } from '../fixtures';
+import { choose } from '../utils';
 import { envelope } from '../api-envelope';
 import { RunsPage } from '../pages/RunsPage';
 
@@ -44,12 +45,12 @@ test.describe('Runs page', () => {
     await runs.goto();
     await expect(runs.run('0000abcd')).toBeVisible();
 
-    await runs.status.selectOption('FAILURE');
+    await choose(runs.status, 'FAILURE');
     await expect(page).toHaveURL(/status=FAILURE/);
     await expect(runs.run('0001abcd')).toBeVisible();
     await expect(runs.run('0000abcd')).toHaveCount(0);
 
-    await runs.status.selectOption('');
+    await choose(runs.status, '');
     await expect(runs.rows).toHaveCount(101);
     await runs.loadMore.click();
     await expect(runs.rows).toHaveCount(151);

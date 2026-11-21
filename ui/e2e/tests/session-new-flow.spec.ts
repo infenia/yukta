@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { Page } from '@playwright/test';
+import { choose } from '../utils';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
 
@@ -521,14 +522,14 @@ test.describe('New session - supervisors', () => {
     await startBlank(page);
 
     await page.getByRole('button', { name: 'Add supervisor' }).click();
-    await expect(page.getByLabel('Supervisor 1', { exact: true })).toHaveValue(
-      'gate'
-    );
+    await expect(
+      page.getByLabel('Supervisor 1', { exact: true })
+    ).toHaveAttribute('data-value', 'gate');
 
     await page.getByRole('button', { name: 'Add supervisor' }).click();
-    await expect(page.getByLabel('Supervisor 2', { exact: true })).toHaveValue(
-      'audit'
-    );
+    await expect(
+      page.getByLabel('Supervisor 2', { exact: true })
+    ).toHaveAttribute('data-value', 'audit');
     await expect(
       page.getByRole('button', { name: 'Add supervisor' })
     ).toBeDisabled();
@@ -537,9 +538,9 @@ test.describe('New session - supervisors', () => {
     await expect(page.getByLabel('Supervisor 2', { exact: true })).toHaveCount(
       0
     );
-    await expect(page.getByLabel('Supervisor 1', { exact: true })).toHaveValue(
-      'audit'
-    );
+    await expect(
+      page.getByLabel('Supervisor 1', { exact: true })
+    ).toHaveAttribute('data-value', 'audit');
   });
 
   test('the chosen supervisors are attached to the session when it is saved', async ({
@@ -564,9 +565,7 @@ test.describe('New session - supervisors', () => {
     await page.getByLabel('Description').fill('d');
     await page.getByLabel('Working directory').fill('/srv');
     await page.getByRole('button', { name: 'Add supervisor' }).click();
-    await page
-      .getByLabel('Supervisor 1', { exact: true })
-      .selectOption('audit');
+    await choose(page.getByLabel('Supervisor 1', { exact: true }), 'audit');
 
     await page.getByRole('button', { name: 'Create session' }).click();
 

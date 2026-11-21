@@ -9,7 +9,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { Button } from '@/components/ui/button';
 import { iconButton } from '@/components/ui/iconTone';
 import { Tip } from '@/components/ui/tooltip';
-import { NativeSelect } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import {
   Sheet,
   SheetClose,
@@ -341,39 +341,36 @@ export function InboxPage() {
           ]}
         />
         <div className="flex flex-wrap gap-2">
-          <NativeSelect
-            aria-label="Severity"
+          <Select
+            ariaLabel="Severity"
             value={severity}
-            onChange={(e) => setSeverity(e.target.value)}
-          >
-            <option value="">Any severity</option>
-            <option value="WARN">Warning or above</option>
-            <option value="ERROR">Error</option>
-          </NativeSelect>
-          <NativeSelect
-            aria-label="Session"
+            onValueChange={setSeverity}
+            options={[
+              { value: '', label: 'Any severity' },
+              { value: 'WARN', label: 'Warning or above' },
+              { value: 'ERROR', label: 'Error' },
+            ]}
+          />
+          <Select
+            searchable
+            ariaLabel="Session"
             value={session}
-            onChange={(e) => setSession(e.target.value)}
-          >
-            <option value="">All sessions</option>
-            {sessions.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </NativeSelect>
-          <NativeSelect
-            aria-label="Category"
+            onValueChange={setSession}
+            options={[
+              { value: '', label: 'All sessions' },
+              ...sessions.map((s) => ({ value: s, label: s })),
+            ]}
+          />
+          <Select
+            searchable
+            ariaLabel="Category"
             value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="">Any category</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </NativeSelect>
+            onValueChange={setCategory}
+            options={[
+              { value: '', label: 'Any category' },
+              ...categories.map((c) => ({ value: c, label: c })),
+            ]}
+          />
         </div>
       </div>
       <div

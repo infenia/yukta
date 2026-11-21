@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { Select } from '@/components/ui/select';
 import { RANGES } from './api';
 import { useDashboardParams } from './hooks';
 
@@ -19,33 +20,20 @@ export function ScopeBar({
 }) {
   const { scope, range, live, setScope, setRange, setLive } =
     useDashboardParams();
-  const option = (s: ScopeChoice) => (
-    <option key={s.value} value={s.value}>
-      {s.label}
-    </option>
-  );
-  const groups = [
-    ...new Set(scopes.flatMap((s) => (s.group ? [s.group] : []))),
-  ];
   return (
     <div
       className="flex flex-wrap items-center gap-2"
       role="toolbar"
       aria-label="Dashboard view"
     >
-      <select
-        aria-label="Scope"
+      <Select
+        searchable={scopes.length > 8}
+        ariaLabel="Scope"
         value={scope}
-        onChange={(e) => setScope(e.target.value)}
-        className="border-border bg-surface text-body-md h-8 max-w-full min-w-0 rounded-lg border px-2 sm:max-w-xs"
-      >
-        {scopes.filter((s) => !s.group).map(option)}
-        {groups.map((group) => (
-          <optgroup key={group} label={group}>
-            {scopes.filter((s) => s.group === group).map(option)}
-          </optgroup>
-        ))}
-      </select>
+        onValueChange={setScope}
+        options={scopes}
+        className="max-w-full min-w-0 sm:max-w-xs"
+      />
       <div role="group" aria-label="Range" className="flex gap-1">
         {RANGES.map((r) => (
           <button

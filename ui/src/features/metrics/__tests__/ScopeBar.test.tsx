@@ -3,11 +3,13 @@
 
 import { describe, it, expect } from 'vitest';
 import { screen, fireEvent, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { choose } from '@/test/utils/choose';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { ScopeBar } from '../ScopeBar';
 
 describe('ScopeBar', () => {
-  it('lists the scopes and selects one', () => {
+  it('lists the scopes and selects one', async () => {
     renderWithProviders(
       <ScopeBar
         scopes={[
@@ -16,13 +18,13 @@ describe('ScopeBar', () => {
         ]}
       />
     );
-    const scope = screen.getByLabelText('Scope') as HTMLSelectElement;
-    expect(scope.value).toBe('global');
-    fireEvent.change(scope, { target: { value: 'alpha' } });
-    expect(scope.value).toBe('alpha');
+    const scope = screen.getByLabelText('Scope');
+    expect(scope).toHaveTextContent('Global');
+    await choose(userEvent, scope, 'alpha');
+    expect(scope).toHaveTextContent('Alpha');
   });
 
-  it('lists grouped scopes under their group', () => {
+  it('lists grouped scopes under their group', async () => {
     renderWithProviders(
       <ScopeBar
         scopes={[
@@ -32,7 +34,8 @@ describe('ScopeBar', () => {
         ]}
       />
     );
-    const workflows = screen.getByRole('group', { name: 'Workflows' });
+    await userEvent.click(screen.getByLabelText('Scope'));
+    const workflows = await screen.findByRole('group', { name: 'Workflows' });
     expect(
       within(workflows).getByRole('option', { name: 'Workflow wf' })
     ).toBeTruthy();

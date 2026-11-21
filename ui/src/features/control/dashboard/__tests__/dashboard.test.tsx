@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import {
   describe,
   it,
@@ -481,14 +482,17 @@ describe('the Mission Control dashboard', () => {
     renderWithProviders(<DashboardView />);
 
     expect(await screen.findByText('queue_full: 3.0/min')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Scope' })).toHaveValue(
-      'session:s1'
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Scope' })).toHaveTextContent(
+        'Session Alpha'
+      )
     );
     expect(screen.getByRole('button', { name: '6h' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
     expect(screen.getByRole('button', { name: 'Paused' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Scope' }));
     expect(
       await screen.findByRole('option', { name: 'Session Alpha' })
     ).toBeInTheDocument();
@@ -517,13 +521,16 @@ describe('the Mission Control dashboard', () => {
     const user = userEvent.setup();
 
     // the chosen session's workflows and each session's last run
-    const own = await screen.findByRole('option', { name: 'Workflow wf-own' });
+    await user.click(await screen.findByRole('combobox', { name: 'Scope' }));
+    await screen.findByRole('option', { name: 'Workflow wf-own' });
     expect(
       screen.getByRole('option', { name: 'Workflow wf-last' })
     ).toBeInTheDocument();
-    await user.selectOptions(
+    await user.keyboard('{Escape}');
+    await choose(
+      user,
       screen.getByRole('combobox', { name: 'Scope' }),
-      own
+      'workflow:wf-own'
     );
     await waitFor(() =>
       expect(window.location.search).toContain('scope=workflow%3Awf-own')
