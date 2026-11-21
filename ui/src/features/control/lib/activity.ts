@@ -10,6 +10,7 @@ export interface ActivityEvent {
   event: {
     executionId: string;
     timestamp: string;
+    sessionId?: string;
     workflowId?: string;
     nodeId?: string;
     status?: string;
@@ -37,32 +38,56 @@ export interface Entry extends ActivityEvent {
 /** Most events kept; the oldest are dropped first and counted. */
 export const MAX_EVENTS = 2000;
 
-export const EVENT_TYPES = [
-  'NodeStatusChanged',
-  'WorkflowStatusChanged',
-  'ControlOutcome',
-  'LogLine',
-  'EventsMissed',
-  'InputRequested',
-  'InputEscalated',
-  'InputAnswered',
-  'InputExpired',
-  'InputCancelled',
+/**
+ * The kinds of event, grouped the way a person looks for them. The log lines are a flood next to
+ * the rest, so they are off until asked for.
+ */
+export const GROUPS = [
+  { id: 'runs', label: 'Runs', types: ['WorkflowStatusChanged'] },
+  { id: 'nodes', label: 'Nodes', types: ['NodeStatusChanged'] },
+  { id: 'control', label: 'Control', types: ['ControlOutcome'] },
+  {
+    id: 'inputs',
+    label: 'Inputs',
+    types: [
+      'InputRequested',
+      'InputEscalated',
+      'InputAnswered',
+      'InputExpired',
+      'InputCancelled',
+    ],
+  },
+  { id: 'logs', label: 'Logs', types: ['LogLine'] },
+  { id: 'gaps', label: 'Gaps', types: ['EventsMissed'] },
 ] as const;
+export type GroupId = (typeof GROUPS)[number]['id'];
+
+/** What is shown when no group was chosen: everything but the log lines. */
+export const DEFAULT_GROUPS: readonly GroupId[] = GROUPS.filter(
+  (g) => g.id !== 'logs'
+).map((g) => g.id);
+
+/** The group an event type belongs to. */
+export const groupOf = (type: string): GroupId | undefined =>
+  GROUPS.find((g) => (g.types as readonly string[]).includes(type))?.id;
+
+/** The event types of the chosen groups. */
+export const typesOf = (ids: readonly string[]): string[] =>
+  GROUPS.filter((g) => ids.includes(g.id)).flatMap((g) => g.types);
 export const SEVERITIES = ['INFO', 'WARN', 'ERROR'] as const;
 
-/** One line saying what happened. */
+/** One line saying what happened; the workflow and node have their own columns. */
 export function describe(e: ActivityEvent): string {
   const { event } = e;
   switch (e.type) {
     case 'NodeStatusChanged':
-      return `${event.nodeId} → ${event.status}`;
+      return String(event.status);
     case 'WorkflowStatusChanged':
-      return `${event.workflowId} → ${event.status}`;
+      return String(event.status);
     case 'ControlOutcome':
       return `${event.command} ${event.applied ? 'applied' : `refused: ${event.reason}`}`;
     case 'LogLine':
-      return `${event.nodeId}: ${event.line}`;
+      return String(event.line);
     case 'InputRequested':
       return `${event.request?.nodeId} asked for input (${event.request?.spec.kind}, ${event.request?.spec.risk} risk)`;
     case 'InputEscalated':
@@ -78,18 +103,27 @@ export function describe(e: ActivityEvent): string {
   }
 }
 
-/** What narrows the list; empty means everything. */
+/** What narrows the list; empty means everything. `text` matches the run, workflow or node. */
 export interface ActivityFilters {
   types: string[];
   severities: string[];
-  execution: string;
+  text: string;
+}
+
+/** Whether the run id, workflow or node of the event contains `text` (ignoring case). */
+export function matchesText(e: ActivityEvent, text: string): boolean {
+  if (text === '') return true;
+  const needle = text.toLowerCase();
+  return [e.event.executionId, e.event.workflowId, e.event.nodeId].some((v) =>
+    v?.toLowerCase().includes(needle)
+  );
 }
 
 export function matches(e: ActivityEvent, f: ActivityFilters): boolean {
   return (
     (f.types.length === 0 || f.types.includes(e.type)) &&
     (f.severities.length === 0 || f.severities.includes(e.severity)) &&
-    (f.execution === '' || e.event.executionId.includes(f.execution))
+    matchesText(e, f.text)
   );
 }
 

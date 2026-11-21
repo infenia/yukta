@@ -15,11 +15,12 @@ import {
 } from '@/features/metrics/api';
 import { useAnnotations, useMetricSeries } from '@/features/metrics/hooks';
 import { PanelState } from './PanelState';
+import { DayHeat } from './RunPanels';
 import { useNow } from './useNow';
 
 // Recharts is its own chunk, loaded only when this panel is on screen.
 const RunsChart = lazy(() => import('./RunsChart'));
-const LatencyChart = lazy(() => import('./LatencyChart'));
+const OverheadChart = lazy(() => import('./OverheadChart'));
 
 const loading = <StateMessage compact tone="loading" title="Loading chart" />;
 
@@ -67,29 +68,30 @@ export function ThroughputPanel({ scope, range, live }: PanelProps) {
           </div>
         </div>
       </PanelState>
+      <DayHeat scope={scope} live={live} />
     </Panel>
   );
 }
 
-/** Run duration percentiles and the time starts wait for a slot. */
-export function LatencyPanel({ scope, range }: PanelProps) {
-  const duration = useMetricSeries('duration.', range, scope);
-  const queue = useMetricSeries('queue.', range, scope);
-  const series = { ...queue.data, ...duration.data };
+/**
+ * What the engine itself added: the time from a message taking its node's turn to the plugin being
+ * called (hand-off), and from a run getting its slot to its first plugin call (start). Plugin
+ * durations are not here: they mean nothing without the node, see the slowest-nodes panel.
+ */
+export function OverheadPanel({ scope, range }: PanelProps) {
+  const overhead = useMetricSeries('overhead.', range, scope);
   return (
-    <Panel title="Latency">
+    <Panel title="Engine overhead">
       <PanelState
-        isPending={duration.isPending || queue.isPending}
-        error={duration.error ?? queue.error}
-        empty={Object.keys(series).length === 0}
-        emptyText="No timings in this range"
-        onRetry={() => {
-          void duration.refetch();
-          void queue.refetch();
-        }}
+        isPending={overhead.isPending}
+        error={overhead.error}
+        empty={Object.keys(overhead.data ?? {}).length === 0}
+        emptyText="No engine timings in this range"
+        inline
+        onRetry={() => void overhead.refetch()}
       >
         <Suspense fallback={loading}>
-          <LatencyChart series={series} />
+          <OverheadChart series={overhead.data ?? {}} />
         </Suspense>
       </PanelState>
     </Panel>

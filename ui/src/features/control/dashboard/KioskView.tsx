@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useDashboardParams, useMetricStream } from '@/features/metrics/hooks';
-import { AiUsagePanel, WorkerSlotsPanel } from './HealthPanels';
+import { SystemPanel } from './HealthPanels';
 import { CapacityPanel } from './CapacityPanel';
-import { LatencyPanel, ThroughputPanel } from './ChartPanels';
+import { OverheadPanel, ThroughputPanel } from './ChartPanels';
 import { CommandStrip } from './CommandStrip';
-import { HeatPanel, LeaderboardPanel, LiveRunsPanel } from './RunPanels';
+import { LiveRunsPanel, NodesPanel } from './RunPanels';
 
 /** How long each group of panels stays on screen. */
 export const KIOSK_CYCLE_MS = 15_000;
@@ -21,22 +22,23 @@ export function KioskView({ onExit }: { onExit: () => void }) {
   useMetricStream(live);
   const [page, setPage] = useState(0);
   const [held, setHeld] = useState(false);
+  // the parent's callback is a new function on every render; the fullscreen effect must not re-run
+  const exit = useRef(onExit);
+  useEffect(() => {
+    exit.current = onExit;
+  });
   const groups = [
-    <div key="runs" className="grid gap-4 lg:grid-cols-2">
+    <div key="runs" className="grid items-start gap-4 lg:grid-cols-2">
       <ThroughputPanel scope={scope} range={range} live={live} />
       <LiveRunsPanel scope={scope} live={live} />
     </div>,
-    <div key="latency" className="grid gap-4 lg:grid-cols-2">
-      <LatencyPanel scope={scope} range={range} live={live} />
-      <LeaderboardPanel scope={scope} range={range} live={live} />
+    <div key="nodes" className="grid items-start gap-4 lg:grid-cols-2">
+      <NodesPanel scope={scope} range={range} live={live} />
+      <OverheadPanel scope={scope} range={range} live={live} />
     </div>,
-    <div key="health" className="grid gap-4 lg:grid-cols-3">
+    <div key="health" className="grid items-start gap-4 lg:grid-cols-2">
       <CapacityPanel live={live} />
-      <WorkerSlotsPanel live={live} />
-      <div className="lg:col-span-2">
-        <HeatPanel scope={scope} live={live} />
-      </div>
-      <AiUsagePanel scope={scope} />
+      <SystemPanel scope={scope} live={live} />
     </div>,
   ];
 
@@ -48,6 +50,24 @@ export function KioskView({ onExit }: { onExit: () => void }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onExit]);
 
+  // Fullscreen where the browser allows it; a refusal leaves the overlay, which covers the app anyway.
+  // Leaving fullscreen by the browser's own Esc leaves the kiosk too.
+  useEffect(() => {
+    const root = document.documentElement;
+    void root.requestFullscreen?.().catch(() => undefined);
+    const onChange = () => {
+      if (!document.fullscreenElement) exit.current();
+    };
+    document.addEventListener('fullscreenchange', onChange);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      document.body.style.overflow = overflow;
+      if (document.fullscreenElement) void document.exitFullscreen();
+    };
+  }, []);
+
   useEffect(() => {
     if (held) return;
     const id = window.setInterval(
@@ -57,14 +77,15 @@ export function KioskView({ onExit }: { onExit: () => void }) {
     return () => window.clearInterval(id);
   }, [held, groups.length]);
 
-  return (
+  // In the body, so no stacking context of the page can put it behind the header or the sidebar.
+  return createPortal(
     <div
       role="dialog"
       aria-label="Kiosk mode"
       data-testid="kiosk"
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}
-      className="bg-background fixed inset-0 z-50 flex flex-col gap-4 overflow-auto p-3 text-base sm:p-6 sm:text-xl"
+      className="bg-background fixed inset-0 z-60 flex flex-col gap-4 overflow-auto p-3 text-base sm:p-6 sm:text-xl"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
         <div className="min-w-0 flex-1 basis-full sm:basis-0">
@@ -95,6 +116,7 @@ export function KioskView({ onExit }: { onExit: () => void }) {
           />
         ))}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

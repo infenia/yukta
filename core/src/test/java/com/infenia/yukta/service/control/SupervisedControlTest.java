@@ -112,6 +112,7 @@ class SupervisedControlTest {
     final Map<String, Function<SupervisedControl, Mono<?>>> entries =
         Map.ofEntries(
             Map.entry("startWorkflow", c -> c.startWorkflow("s", "w", Map.of(), "k")),
+            Map.entry("startDraft", c -> c.startDraft("s", null, Map.of())),
             Map.entry("pauseWorkflow", c -> c.pauseWorkflow("e")),
             Map.entry("resumeWorkflow", c -> c.resumeWorkflow("e")),
             Map.entry("pauseNode", c -> c.pauseNode("e", "n")),

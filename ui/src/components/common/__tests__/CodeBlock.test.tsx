@@ -84,4 +84,25 @@ describe('CodeBlock', () => {
     rerender(<CodeBlock code="run 1 true" />);
     expect(container.querySelector('pre span')).toBeNull();
   });
+
+  it('colors a curl or CLI command: command, options, strings and the JSON body', () => {
+    const body = '{"name":"x","n":1}';
+    const curl = `curl -X POST "http://h/api" -H 'Content-Type: application/json' -d '${body}'`;
+    const { container, rerender } = render(<CodeBlock code={curl} />);
+    const cls = (t: string) =>
+      screen.getByText(t, { selector: 'span' }).className;
+    expect(cls('curl')).toContain('text-primary');
+    expect(cls('-X')).toContain('text-attention');
+    expect(cls('"http://h/api"')).toContain('text-success');
+    expect(cls("'Content-Type: application/json'")).toContain('text-success');
+    // the JSON inside the quotes is colored like JSON, not as one string
+    expect(cls('"name"')).toContain('text-primary');
+    expect(cls('"x"')).toContain('text-success');
+    expect(container.querySelector('pre')).toHaveTextContent(curl);
+
+    rerender(<CodeBlock code="yukta-cli session list --url 'http://h'" />);
+    expect(cls('yukta-cli')).toContain('text-primary');
+    expect(cls('--url')).toContain('text-attention');
+    expect(cls("'http://h'")).toContain('text-success');
+  });
 });

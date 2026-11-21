@@ -25,6 +25,12 @@ public enum ApiRole {
   /** What a person does with their own inbox: any role may, nobody else's state is touched. */
   private static final String INBOX_PATH = "/api/notifications/";
 
+  /**
+   * The experimental assistant's model relay: it changes nothing in Yukta, and the MCP tools the
+   * assistant calls check the key's role themselves.
+   */
+  private static final String ASSISTANT_PATH = "/api/assistant/";
+
   /** The effective configuration: paths, hosts and allow-lists, so reading it needs ADMIN. */
   private static final String CONFIG_PATH = "/api/config";
 
@@ -44,7 +50,8 @@ public enum ApiRole {
     // no ".." segments: a prefix match must not be a way out of the prefix
     return this == ADMIN
         || read
-        || (path.startsWith(INBOX_PATH) && !path.contains(".."))
+        || ((path.startsWith(INBOX_PATH) || path.startsWith(ASSISTANT_PATH))
+            && !path.contains(".."))
         || (this == OPERATOR
             && !path.contains("..")
             && OPERATOR_PATHS.stream().anyMatch(path::startsWith));

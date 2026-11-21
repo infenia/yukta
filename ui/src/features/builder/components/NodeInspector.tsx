@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { Tip } from '@/components/ui/tooltip';
 import {
   PALETTE,
   paletteColor,
@@ -126,23 +127,23 @@ function ColorSwatches({
       </span>
       <div role="radiogroup" aria-label={label} className="flex gap-2">
         {[null, ...PALETTE].map((color) => (
-          <button
-            key={color ?? 'none'}
-            type="button"
-            role="radio"
-            aria-checked={(value ?? null) === color}
-            aria-label={color ?? 'none'}
-            title={color ?? 'none'}
-            onClick={() => onChange(color)}
-            className="border-outline-variant focus-visible:ring-primary flex size-6 items-center justify-center rounded-full border focus-visible:ring-2 aria-checked:ring-2 aria-checked:ring-offset-2"
-            style={{ backgroundColor: paletteColor(color) }}
-          >
-            {color === null && (
-              <span aria-hidden="true" className="text-on-surface-variant">
-                ∅
-              </span>
-            )}
-          </button>
+          <Tip key={color ?? 'none'} label={color ?? 'none'}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={(value ?? null) === color}
+              aria-label={color ?? 'none'}
+              onClick={() => onChange(color)}
+              className="border-outline-variant focus-visible:ring-primary flex size-6 items-center justify-center rounded-full border focus-visible:ring-2 aria-checked:ring-2 aria-checked:ring-offset-2"
+              style={{ backgroundColor: paletteColor(color) }}
+            >
+              {color === null && (
+                <span aria-hidden="true" className="text-on-surface-variant">
+                  ∅
+                </span>
+              )}
+            </button>
+          </Tip>
         ))}
       </div>
     </div>

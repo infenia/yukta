@@ -44,6 +44,47 @@ function highlightJson(code: string): ReactNode {
   return out;
 }
 
+// a quoted string, an option (-X, --payload) or the command itself at the start
+const SHELL_TOKEN =
+  /'(?:'\\''|[^'])*'|"(?:\\.|[^"\\])*"|(?<=^|\s)--?[A-Za-z][\w-]*|^\S+/g;
+
+/** A curl or yukta-cli command: command, options and strings colored like JSON; JSON bodies colored inside. */
+function highlightShell(code: string): ReactNode {
+  const out: ReactNode[] = [];
+  let last = 0;
+  for (const m of code.matchAll(SHELL_TOKEN)) {
+    const [text] = m;
+    out.push(code.slice(last, m.index));
+    const inner = text.startsWith("'") ? text.slice(1, -1) : '';
+    const json = highlightJson(inner);
+    out.push(
+      <Fragment key={m.index}>
+        {typeof json !== 'string' ? (
+          <>'{json}'</>
+        ) : (
+          <span
+            className={
+              text.startsWith('-')
+                ? 'text-attention'
+                : text.startsWith("'") || text.startsWith('"')
+                  ? 'text-success'
+                  : 'text-primary font-medium'
+            }
+          >
+            {text}
+          </span>
+        )}
+      </Fragment>
+    );
+    last = m.index + text.length;
+  }
+  out.push(code.slice(last));
+  return out;
+}
+
+const highlight = (code: string): ReactNode =>
+  /^(curl|yukta-cli)\s/.test(code) ? highlightShell(code) : highlightJson(code);
+
 /** Mono, scrollable block with a copy button, for JSON and usage patterns. */
 export function CodeBlock({
   code,
@@ -108,7 +149,7 @@ export function CodeBlock({
         !grow && 'max-h-64'
       )}
     >
-      {highlightJson(code)}
+      {highlight(code)}
     </pre>
   );
   const frame =

@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { useMetricSeries, useAnnotations } from '@/features/metrics/hooks';
-import { ThroughputPanel, LatencyPanel } from '../ChartPanels';
+import { ThroughputPanel, OverheadPanel } from '../ChartPanels';
 
 const nav = vi.hoisted(() => ({ to: vi.fn() }));
 
@@ -21,8 +21,11 @@ vi.mock('../useNow', () => ({ useNow: () => 1_000_000 }));
 vi.mock('../RunsChart', () => ({
   default: () => <div>runs-chart</div>,
 }));
-vi.mock('../LatencyChart', () => ({
-  default: () => <div>latency-chart</div>,
+vi.mock('../OverheadChart', () => ({
+  default: () => <div>overhead-chart</div>,
+}));
+vi.mock('../RunPanels', () => ({
+  DayHeat: () => <div>day-heat</div>,
 }));
 vi.mock('@/components/dashboard/Strips', () => ({
   ChartAnnotations: ({
@@ -52,6 +55,12 @@ describe('ThroughputPanel', () => {
   beforeEach(() => {
     nav.to.mockReset();
     series.mockReturnValue(ok({ 'runs.finished{status=ok}': [] }));
+  });
+
+  it('has the day band under the chart', () => {
+    annotations.mockReturnValue(ok([]) as never);
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
+    expect(screen.getByText('day-heat')).toBeInTheDocument();
   });
 
   it('labels marks by command, actor and whether they were applied', () => {
@@ -88,7 +97,22 @@ describe('ThroughputPanel', () => {
   });
 });
 
-describe('LatencyPanel', () => {
+describe('OverheadPanel', () => {
+  it('draws the engine timings', async () => {
+    series.mockReturnValue(ok({ 'overhead.handoff.p95': [{ t: 1, v: 2 }] }));
+    renderWithProviders(<OverheadPanel scope="global" range="1h" live />);
+    expect(await screen.findByText('overhead-chart')).toBeInTheDocument();
+    expect(series).toHaveBeenCalledWith('overhead.', '1h', 'global');
+  });
+
+  it('says in one line that nothing was timed in the range', () => {
+    series.mockReturnValue(ok({}));
+    renderWithProviders(<OverheadPanel scope="global" range="1h" live />);
+    expect(
+      screen.getByText('No engine timings in this range')
+    ).toBeInTheDocument();
+  });
+
   it('retries the timings when they fail to load', () => {
     const refetch = vi.fn();
     series.mockReturnValue({
@@ -97,7 +121,7 @@ describe('LatencyPanel', () => {
       data: undefined,
       refetch,
     } as never);
-    renderWithProviders(<LatencyPanel scope="global" range="1h" live />);
+    renderWithProviders(<OverheadPanel scope="global" range="1h" live />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
   });
