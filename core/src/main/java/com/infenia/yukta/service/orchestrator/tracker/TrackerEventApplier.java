@@ -254,7 +254,7 @@ final class TrackerEventApplier {
     } catch (
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
         final RuntimeException e) {
-      telemetry.logAppendFailed(LOG_APPEND_FAILED_METRIC, type);
+      telemetry.dropped(LOG_APPEND_FAILED_METRIC, type);
       log.atError().setCause(e).addKeyValue("executionId", logEvent.executionId()).log(message);
     }
   }

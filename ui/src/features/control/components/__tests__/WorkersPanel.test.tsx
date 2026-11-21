@@ -3,7 +3,7 @@
 
 import { expectTooltip } from '@/test/utils/testUtils';
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -100,18 +100,10 @@ describe('WorkersPanel', () => {
     expect(await screen.findByText('0/0')).toBeInTheDocument();
   });
 
-  it('says workers need the Plus edition on Community', async () => {
-    edition = 'COMMUNITY';
-    renderWithProviders(<WorkersPanel />);
-    expect(
-      await screen.findByText(/need the Plus edition/)
-    ).toBeInTheDocument();
-  });
-
-  it('explains how to connect a worker on other editions', async () => {
-    renderWithProviders(<WorkersPanel />);
-    expect(await screen.findByText(/Remote workers/)).toBeInTheDocument();
-    expect(screen.getByText('No workers connected.')).toBeInTheDocument();
+  it('shows nothing when no worker is connected: the System card says so', async () => {
+    workers = [];
+    const { container } = renderWithProviders(<WorkersPanel />);
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
   it('reports a failure and retries', async () => {

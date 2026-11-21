@@ -83,6 +83,22 @@ describe('layoutGraph', () => {
     expect(portEdge.sourceHandle).toBe('default');
   });
 
+  it('hands the edge its port as the workflow names it, not as the canvas resolves it', () => {
+    const graph = createMockGraph();
+    graph.edges[2] = { ...graph.edges[2], sourcePort: 'ghost-port' };
+    graph.edges[1] = { ...graph.edges[1], sourcePort: null };
+    const { edges } = layoutGraph(graph, {});
+    const dataOf = (source: string, target: string) =>
+      must(edges.find((e) => e.source === source && e.target === target)).data;
+
+    expect(dataOf(graph.edges[2].source, graph.edges[2].target)).toEqual({
+      sourcePort: 'ghost-port',
+    });
+    expect(dataOf(graph.edges[1].source, graph.edges[1].target)).toEqual({
+      sourcePort: null,
+    });
+  });
+
   it('falls back to the first output port when the edge has no port', () => {
     const { edges } = layoutGraph(createMockGraph(), {});
     const fallbackEdge = must(

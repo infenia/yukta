@@ -28,6 +28,8 @@ import type {
 } from '../types';
 import { JsonValidityContext } from './ConfigForm.helpers';
 import { NodeInspector } from './NodeInspector';
+import { PinnedNodes } from '@/features/workflow/hooks/pinnedNodes';
+import { PIN_EVENT, pinnedNodeIds } from '../lib/testPins';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Callout } from '@/components/common/Callout';
 import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPicker';
@@ -37,6 +39,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { ProblemsPanel } from './ProblemsPanel';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
+import { EdgeAdder, NodeAdder } from '@/features/workflow/lib/stepAdders';
 import { StepPicker } from './StepPicker';
 import { useDraftHistory } from './useDraftHistory';
 import { issueCounts, problemsOf, type InspectorTab } from './validationIssues';
@@ -48,6 +51,9 @@ import { readDraft, writeDraft } from './workflowDraft';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 const NO_TASKS = {};
+/** The round "+" that adds a step: after a node, or on an edge. */
+const PLUS_BUTTON =
+  'bg-surface border-border text-on-surface-variant hover:border-primary hover:text-primary shadow-card text-label-md flex size-6 items-center justify-center rounded-full border leading-none';
 /** How long the draft must rest before it is validated. */
 const LIVE_DELAY_MS = 600;
 
@@ -82,6 +88,23 @@ function Editor({
   );
   const history = useDraftHistory(restored ?? initial);
   const workflow = history.value;
+  // nodes holding a pinned test output; a finished test run writes one, which fires PIN_EVENT
+  const [pinTick, setPinTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setPinTick((n) => n + 1);
+    window.addEventListener(PIN_EVENT, bump);
+    return () => window.removeEventListener(PIN_EVENT, bump);
+  }, []);
+  const pinned = useMemo(
+    () =>
+      pinnedNodeIds(
+        session.sessionId,
+        workflow.workflowId,
+        workflow.nodes.map((n) => n.nodeId)
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session.sessionId, workflow.workflowId, workflow.nodes, pinTick]
+  );
   const [showRestored, setShowRestored] = useState(restored !== null);
   const firstNode = initial.nodes[0]?.nodeId ?? null;
   const [selected, setSelected] = useState<string | null>(firstNode);
@@ -275,16 +298,21 @@ function Editor({
   };
 
   /**
-   * Adds a step of `type`; when a node that can have a successor is selected, the new step is
-   * connected after it (a trigger starts a workflow, so it never is).
+   * Adds a step of `type`, connected after `afterId` (else after the node that is selected) when
+   * that node can have a successor (a terminal cannot) and the step is not a trigger, which
+   * starts a workflow and so follows nothing.
    */
-  const addNode = (type: string) => {
+  const addNode = (type: string, afterId?: string) => {
     const nodeId = uniqueNodeId(type, workflow.nodes);
-    const after =
-      node &&
-      categories[node.type] !== 'TERMINAL' &&
-      categories[type] !== 'TRIGGER'
+    const base =
+      afterId === undefined
         ? node
+        : workflow.nodes.find((n) => n.nodeId === afterId);
+    const after =
+      base &&
+      categories[base.type] !== 'TERMINAL' &&
+      categories[type] !== 'TRIGGER'
+        ? base
         : null;
     update({
       nodes: [...workflow.nodes, { nodeId, type, config: {} }],
@@ -294,6 +322,24 @@ function Editor({
           { source: after.nodeId, target: nodeId, sourcePort: null },
         ],
       }),
+    });
+    setSelected(nodeId);
+  };
+
+  /** Adds a step of `type` between the two nodes of `edge`: the edge now goes through it. */
+  const insertOnEdge = (edge: DraftEdge, type: string) => {
+    const nodeId = uniqueNodeId(type, workflow.nodes);
+    const same = (e: DraftEdge) =>
+      e.source === edge.source &&
+      e.target === edge.target &&
+      (e.sourcePort ?? null) === edge.sourcePort;
+    update({
+      nodes: [...workflow.nodes, { nodeId, type, config: {} }],
+      edges: [
+        ...workflow.edges.filter((e) => !same(e)),
+        { source: edge.source, target: nodeId, sourcePort: edge.sourcePort },
+        { source: nodeId, target: edge.target, sourcePort: null },
+      ],
     });
     setSelected(nodeId);
   };
@@ -803,31 +849,69 @@ function Editor({
           )}
           {/* Re-keyed when a node is added or removed, so the view fits again; selecting keeps the
               view where the user put it */}
-          <NodeSupervisors value={nodeSupervisors}>
-            <WorkflowCanvas
-              key={workflow.nodes.length}
-              graph={graph}
-              tasksByNode={NO_TASKS}
-              stageView={stageView}
-              onConnect={(source, target, sourcePort) =>
-                addEdge({ source, target, sourcePort })
-              }
-              onNodeClick={setSelected}
-              focusOn={
-                selected
-                  ? [
-                      selected,
-                      ...workflow.edges
-                        .filter((e) => e.source === selected)
-                        .map((e) => e.target),
-                      ...workflow.edges
-                        .filter((e) => e.target === selected)
-                        .map((e) => e.source),
-                    ]
-                  : undefined
-              }
-            />
-          </NodeSupervisors>
+          <PinnedNodes value={pinned}>
+            <NodeSupervisors value={nodeSupervisors}>
+              <NodeAdder.Provider
+                value={(from) => (
+                  <StepPicker
+                    plugins={plugins.data ?? []}
+                    allowed={['PROCESSOR', 'TERMINAL']}
+                    onPick={(type) => addNode(type, from.nodeId)}
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Add a step after ${from.nodeId}`}
+                      className={PLUS_BUTTON}
+                    >
+                      +
+                    </button>
+                  </StepPicker>
+                )}
+              >
+                <EdgeAdder.Provider
+                  value={(edge) => (
+                    <StepPicker
+                      plugins={plugins.data ?? []}
+                      allowed={['PROCESSOR']}
+                      onPick={(type) => insertOnEdge(edge, type)}
+                    >
+                      <button
+                        type="button"
+                        aria-label={`Add a step between ${edge.source} and ${edge.target}`}
+                        className={PLUS_BUTTON}
+                      >
+                        +
+                      </button>
+                    </StepPicker>
+                  )}
+                >
+                  <WorkflowCanvas
+                    key={workflow.nodes.length}
+                    graph={graph}
+                    tasksByNode={NO_TASKS}
+                    stageView={stageView}
+                    onConnect={(source, target, sourcePort) =>
+                      addEdge({ source, target, sourcePort })
+                    }
+                    onNodeClick={setSelected}
+                    focusOn={
+                      selected
+                        ? [
+                            selected,
+                            ...workflow.edges
+                              .filter((e) => e.source === selected)
+                              .map((e) => e.target),
+                            ...workflow.edges
+                              .filter((e) => e.target === selected)
+                              .map((e) => e.source),
+                          ]
+                        : undefined
+                    }
+                  />
+                </EdgeAdder.Provider>
+              </NodeAdder.Provider>
+            </NodeSupervisors>
+          </PinnedNodes>
         </div>
 
         <aside
@@ -840,6 +924,7 @@ function Editor({
                 key={`${node.nodeId}/${revision}/${go?.n ?? 0}`}
                 initialTab={go?.nodeId === node.nodeId ? go.tab : 'config'}
                 node={node}
+                testRun={{ sessionId: session.sessionId, workflow }}
                 onRename={(id) => renameNode(node.nodeId, id)}
                 onRemove={() => removeNode(node.nodeId)}
                 onGroupChange={(group) =>

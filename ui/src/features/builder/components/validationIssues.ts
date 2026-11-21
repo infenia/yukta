@@ -3,7 +3,8 @@
 
 import type { ValidationResult } from '../types';
 
-export type InspectorTab = 'config' | 'connections' | 'policy' | 'json';
+export type InspectorTab =
+  'config' | 'connections' | 'policy' | 'json' | 'test';
 
 export interface Problem {
   /** The node it is about; null for the workflow as a whole. */

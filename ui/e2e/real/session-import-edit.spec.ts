@@ -15,9 +15,8 @@ test('a session is imported, then replaced with a reviewed diff', async ({
   await page.goto('/sessions/import');
 
   // new session
-  await page.getByLabel('Or paste the JSON').fill(JSON.stringify(first));
-  await expect(page.getByRole('status')).toContainText(`session ${id}`);
-  await page.getByRole('button', { name: 'Check' }).click();
+  await page.getByRole('button', { name: 'Paste JSON' }).click();
+  await page.getByLabel('Paste the JSON').fill(JSON.stringify(first));
   await expect(page.getByRole('region', { name: 'Review' })).toContainText(
     `New session ${id} with 1 workflow(s).`
   );
@@ -28,13 +27,13 @@ test('a session is imported, then replaced with a reviewed diff', async ({
   // the same ID again, with a changed workflow: the review lists what changes
   const second = sessionJson(id, 'second', shell('p', 'echo two'));
   await page.goto('/sessions/import');
-  await page.getByLabel('Or paste the JSON').fill(JSON.stringify(second));
-  await page.getByRole('button', { name: 'Check' }).click();
+  await page.getByRole('button', { name: 'Paste JSON' }).click();
+  await page.getByLabel('Paste the JSON').fill(JSON.stringify(second));
   const review = page.getByRole('region', { name: 'Review' });
   await expect(review).toContainText(`Session ${id} exists.`);
   await expect(review.getByText('description changed')).toBeVisible();
   await expect(review.getByText('~ node p', { exact: true })).toBeVisible();
-  await review.getByRole('button', { name: 'Replace session' }).click();
+  await page.getByRole('button', { name: 'Replace session' }).click();
   await expect(page).toHaveURL(new RegExp(`/sessions/${id}$`));
 
   const body = (await (
@@ -56,8 +55,9 @@ test('the server refuses a workflow with an unknown plugin type', async ({
   });
   await page.goto('/sessions/import');
 
-  await page.getByLabel('Or paste the JSON').fill(JSON.stringify(bad));
-  await page.getByRole('button', { name: 'Check' }).click();
+  await page.getByRole('button', { name: 'Paste JSON' }).click();
+
+  await page.getByLabel('Paste the JSON').fill(JSON.stringify(bad));
 
   await expect(page.getByRole('alert')).toContainText(
     'This cannot be imported'

@@ -29,6 +29,11 @@ vi.mock('@/features/metrics/hooks', () => ({ useMetricSnapshot: vi.fn() }));
 vi.mock('@/features/supervisors/hooks/useSupervisorTypes', () => ({
   useSupervision: vi.fn(() => ({ data: undefined })),
 }));
+vi.mock('../../components/LimitsDialog', () => ({
+  LimitsDialog: ({ onClose }: { onClose: () => void }) => (
+    <button onClick={onClose}>close-limits-dialog</button>
+  ),
+}));
 vi.mock('@/components/dashboard/Gauges', () => ({
   ArcGauge: () => <div>gauge</div>,
 }));
@@ -82,6 +87,14 @@ describe('CapacityPanel', () => {
         'yukta.executions.rejected{reason=queue}': 0,
       },
     } as never);
+  });
+
+  it('shows the per-workflow limit and opens the limits editor from Edit limits', async () => {
+    renderWithProviders(<CapacityPanel live={false} />);
+    expect(await screen.findByText('at most 2')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit limits' }));
+    fireEvent.click(screen.getByText('close-limits-dialog'));
+    expect(screen.queryByText('close-limits-dialog')).toBeNull();
   });
 
   it('says so when there is no scheduler', async () => {
@@ -139,6 +152,7 @@ describe('CapacityPanel', () => {
     const knob = await screen.findByTestId('knob');
     expect(knob.getAttribute('data-disabled')).toBe('true');
     expect(screen.getByRole('switch')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Edit limits' })).toBeDisabled();
   });
 
   it('locks the controls, with the reason, when the owner of the server does not let people change them', async () => {

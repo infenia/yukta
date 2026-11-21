@@ -62,6 +62,33 @@ public class ExecutionEventFeed {
   /** Multicast sink; publishing never blocks and a slow subscriber drops events. */
   private final Sinks.Many<ExecutionEvent> sink = Sinks.many().multicast().directBestEffort();
 
+  /** Engine timings; best effort like the events, and read by the run analytics only. */
+  private final Sinks.Many<EngineLatency> latencySink = Sinks.many().multicast().directBestEffort();
+
+  /**
+   * Publishes a timing of the engine to the current subscribers.
+   *
+   * @param latency the timing
+   */
+  public void publishLatency(final EngineLatency latency) {
+    SinkEmit.offer(latencySink, latency);
+  }
+
+  /**
+   * Engine timings published from now on, on a buffer and thread of their own.
+   *
+   * @return the timings
+   */
+  public Flux<EngineLatency> latencies() {
+    return latencySink
+        .asFlux()
+        .onBackpressureBuffer(
+            SUBSCRIBER_BUFFER,
+            _ -> Metrics.counter("yukta.tracker.dropped", "kind", "latency").increment(),
+            BufferOverflowStrategy.DROP_LATEST)
+        .publishOn(Schedulers.boundedElastic(), SUBSCRIBER_PREFETCH);
+  }
+
   /**
    * Publishes an event to the current subscribers.
    *

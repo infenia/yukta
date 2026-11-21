@@ -171,6 +171,7 @@ class TerminalNodeAssemblerStrategyTest {
     assembler.assemble(context);
 
     assertThat(context.terminals()).hasSize(1);
+    verify(tracker).recordPluginStart(context.executionId());
   }
 
   @Test

@@ -30,6 +30,8 @@ class TemplateControllerTest {
         .expectBody()
         .jsonPath("$.data[?(@.id=='01-hello-world')].title")
         .isEqualTo("Hello world")
+        .jsonPath("$.data[?(@.id=='01-hello-world')].category")
+        .isEqualTo("1-standalone")
         .jsonPath("$.data[?(@.id=='01-hello-world')].pluginTypes[0]")
         .isEqualTo("API_TRIGGER")
         .jsonPath("$.data[?(@.id=='dogfood')]")

@@ -75,12 +75,106 @@ describe('ControlAuditPanel', () => {
     ];
     renderWithProviders(<ControlAuditPanel />);
 
-    expect(await screen.findByText('key:bob')).toBeInTheDocument();
-    expect(screen.getByText('PauseWorkflowCommand')).toBeInTheDocument();
-    expect(screen.getByText('Applied')).toBeInTheDocument();
-    expect(screen.getByText('api')).toBeInTheDocument();
-    expect(screen.getByText('Refused: deny: busy')).toBeInTheDocument();
-    expect(screen.getByText('Refused:')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('cell', { name: 'key:bob' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('cell', { name: 'PauseWorkflowCommand' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Applied' })).toBeInTheDocument();
+    expect(screen.getAllByText('api').length).toBeGreaterThan(0);
+    // a refusal is a badge with its reason beside it
+    expect(screen.getAllByText('Refused', { selector: 'span' })).toHaveLength(
+      2
+    );
+    expect(screen.getByText('deny: busy')).toBeInTheDocument();
+  });
+
+  it('names the workflow and session of a run and links to it, else shows the plain id', async () => {
+    entries = [
+      {
+        time: '2026-10-14T10:00:00Z',
+        executionId: 'exec-1234-5678',
+        command: 'PauseWorkflowCommand',
+        actor: 'key:bob',
+        applied: true,
+        reason: null,
+        sessionId: 's1',
+        workflowId: 'build',
+      },
+      {
+        time: '2026-10-14T10:01:00Z',
+        executionId: 'scheduler',
+        command: 'SetLimits(1, 0)',
+        actor: null,
+        applied: true,
+        reason: null,
+      },
+    ];
+    renderWithProviders(<ControlAuditPanel />);
+
+    expect(await screen.findByText('build')).toBeInTheDocument();
+    expect(screen.getByText(/· s1/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'exec-123' })).toHaveAttribute(
+      'href',
+      '/sessions/s1/workflow/build?exec=exec-1234-5678'
+    );
+    expect(screen.getByText('scheduler')).toBeInTheDocument();
+    expect(screen.getByText('–')).toBeInTheDocument();
+  });
+
+  it('filters the loaded commands by result, command and actor', async () => {
+    entries = [
+      {
+        time: '2026-10-14T10:00:00Z',
+        executionId: 'e1',
+        command: 'PauseWorkflowCommand',
+        actor: 'key:bob',
+        applied: true,
+        reason: null,
+      },
+      {
+        time: '2026-10-14T10:01:00Z',
+        executionId: 'e2',
+        command: 'StopWorkflowCommand',
+        actor: 'rules',
+        applied: false,
+        reason: 'busy',
+      },
+      {
+        time: '2026-10-14T10:02:00Z',
+        executionId: 'scheduler',
+        command: 'SetLimits(1, 0)',
+        actor: null,
+        applied: true,
+        reason: null,
+      },
+    ];
+    const user = userEvent.setup();
+    renderWithProviders(<ControlAuditPanel />);
+    await screen.findByRole('cell', { name: 'key:bob' });
+
+    await user.selectOptions(screen.getByLabelText('Result'), 'refused');
+    expect(screen.getAllByRole('row')).toHaveLength(2);
+    expect(
+      screen.getByRole('cell', { name: 'StopWorkflowCommand' })
+    ).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Result'), 'applied');
+    expect(screen.getAllByRole('row')).toHaveLength(3);
+
+    await user.selectOptions(screen.getByLabelText('Command'), 'SetLimits');
+    expect(screen.getAllByRole('row')).toHaveLength(2);
+    expect(screen.getByText('SetLimits(1, 0)')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Command'), '');
+    await user.selectOptions(screen.getByLabelText('Actor'), 'key:bob');
+    expect(screen.getAllByRole('row')).toHaveLength(2);
+
+    await user.selectOptions(screen.getByLabelText('Result'), 'refused');
+    expect(
+      screen.getByText('No commands match the filters.')
+    ).toBeInTheDocument();
   });
 
   it('says so when nothing was recorded', async () => {
@@ -131,7 +225,7 @@ describe('ControlAuditPanel filter and paging', () => {
     expect(asked[0]).toBe('?limit=50&executionId=run-7');
 
     await userEvent.click(screen.getByRole('button', { name: 'Show all' }));
-    await screen.findByText('Who did what');
+    await waitFor(() => expect(asked.at(-1)).toBe('?limit=50'));
     expect(asked.at(-1)).toBe('?limit=50');
     expect(screen.queryByText('run-7')).not.toBeInTheDocument();
   });

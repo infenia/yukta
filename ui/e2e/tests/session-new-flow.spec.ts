@@ -110,9 +110,9 @@ test.describe('New session - choosing a start', () => {
     ).toBeVisible();
     await expect(page.getByText('Smallest possible workflow')).toBeVisible();
     const types = page.getByRole('list', { name: 'Plugin types' });
-    await expect(types.getByRole('listitem')).toHaveText([
-      'CONSTANT_SOURCE',
-      'CONSOLE_TERMINAL',
+    await expect(types.getByRole('listitem')).toContainText([
+      'Constant Source',
+      'Console Terminal',
     ]);
   });
 

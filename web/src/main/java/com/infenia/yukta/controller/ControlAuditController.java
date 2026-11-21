@@ -4,8 +4,10 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.dto.response.ControlAuditEntry;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
@@ -34,6 +36,9 @@ public class ControlAuditController {
   /** The execution log. */
   private final ExecutionLogStore executionLog;
 
+  /** Knows the session and workflow of the runs it still holds. */
+  private final TaskTrackerService tracker;
+
   /**
    * List the newest control commands.
    *
@@ -53,7 +58,16 @@ public class ControlAuditController {
     return executionLog
         .newest(CONTROL, executionId, Math.clamp(limit, 1, MAX_LIMIT))
         .map(ControlAuditEntry::from)
+        .map(this::withRun)
         .collectList()
         .map(entries -> ApiResponse.success(200, "Control commands retrieved", entries));
+  }
+
+  private ControlAuditEntry withRun(final ControlAuditEntry entry) {
+    final WorkflowProgress run =
+        entry.executionId().isBlank()
+            ? null
+            : tracker.getProgressByExecutionId(entry.executionId());
+    return run == null ? entry : entry.withRun(run.sessionId(), run.workflowId());
   }
 }
