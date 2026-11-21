@@ -8,16 +8,19 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.mapper.AppConfigMapper;
+import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.orchestrator.validator.ValidationProblem;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.session.SessionService;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -46,6 +49,7 @@ class DraftRunControllerTest {
 
   private WorkflowValidator validator;
   private SupervisedControl control;
+  private SessionService sessions;
   private WebTestClient client;
 
   @BeforeEach
@@ -53,11 +57,17 @@ class DraftRunControllerTest {
     final PluginRegistry pluginRegistry = mock(PluginRegistry.class);
     validator = mock(WorkflowValidator.class);
     control = mock(SupervisedControl.class);
+    sessions = mock(SessionService.class);
+    when(sessions.getSessionConfig("s1")).thenReturn(Mono.just(mock(SessionConfigResponse.class)));
     when(pluginRegistry.get("T")).thenReturn(mock(TerminalPlugin.class));
     client =
         WebTestClient.bindToController(
                 new DraftRunController(
-                    Mappers.getMapper(AppConfigMapper.class), pluginRegistry, validator, control))
+                    Mappers.getMapper(AppConfigMapper.class),
+                    pluginRegistry,
+                    validator,
+                    control,
+                    sessions))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
   }
@@ -69,6 +79,14 @@ class DraftRunControllerTest {
         .contentType(MediaType.APPLICATION_JSON)
         .bodyValue(body)
         .exchange();
+  }
+
+  @Test
+  void unknownSessionIsNotFound() {
+    when(sessions.getSessionConfig("s1")).thenReturn(Mono.empty());
+
+    post("{" + DRAFT + "}").expectStatus().isNotFound();
+    verifyNoInteractions(control);
   }
 
   @Test
