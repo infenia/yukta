@@ -203,11 +203,42 @@ describe('AssistantLauncher', () => {
     writeKey('sk-1', false);
     show('/sessions/s1/workflow/w1');
 
-    expect(opener().className).toContain('sm:bottom-[17rem]');
+    expect(opener().className).toContain('sm:bottom-68');
     await userEvent.click(opener());
     expect((await screen.findByRole('dialog')).className).toContain(
-      'sm:bottom-[21rem]'
+      'sm:bottom-84'
     );
     expect(screen.getByText('Looking at Workflow w1')).toBeInTheDocument();
+  });
+  it('expands the card and shrinks it again, and opens the settings from the model name', async () => {
+    serve();
+    writeKey('sk-1', false);
+    show();
+    await userEvent.click(opener());
+    const card = await screen.findByRole('dialog', { name: 'Yukta assistant' });
+    expect(card).not.toHaveClass('sm:w-xl');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Expand' }));
+    expect(card).toHaveClass('sm:w-xl');
+    await userEvent.click(screen.getByRole('button', { name: 'Shrink' }));
+    expect(card).not.toHaveClass('sm:w-xl');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Change model' }));
+    expect(screen.getByLabelText('API key')).toBeInTheDocument();
+  });
+
+  it('keeps the conversation after the page reloads', async () => {
+    serve('Remembered');
+    writeKey('sk-1', false);
+    const first = show();
+    await userEvent.click(opener());
+    await userEvent.type(await screen.findByLabelText('Message'), 'hi{Enter}');
+    expect(await screen.findByText('Remembered')).toBeInTheDocument();
+    first.unmount();
+
+    show();
+    await userEvent.click(opener());
+
+    expect(await screen.findByText('Remembered')).toBeInTheDocument();
   });
 });

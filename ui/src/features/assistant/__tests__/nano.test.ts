@@ -80,6 +80,15 @@ describe('downloadNano', () => {
 });
 
 describe('nanoModel', () => {
+  it('runs on the device and reports how much of its context a turn used', async () => {
+    install(nanoSession());
+    const model = nanoModel();
+    await collect(model.stream('sys', ask, [], signal));
+
+    expect(model.onDevice).toBe(true);
+    expect(model.usage?.()).toEqual({ used: 12, total: 100 });
+  });
+
   it('is labelled as running on this device', () => {
     expect(nanoModel().label).toBe('Gemini Nano · on this device');
   });

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { IconButton } from '@/components/common/IconButton';
 import { InlineError } from '@/components/common/InlineError';
 import { Markdown } from '@/components/common/Markdown';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,18 @@ import type { PageContext } from '../lib/pageContext';
 import type { ChatModel, Msg } from '../types';
 import { ToolCard } from './ToolCard';
 
+/** The pages a `search_docs` result named, as title and link. */
+function sources(result: string | undefined): { title: string; url: string }[] {
+  return [
+    ...(result ?? '').matchAll(/^## (.+?)(?: — .*)?\n(https?:\S+)$/gm),
+  ].map(([, title, url]) => ({ title, url }));
+}
+
+const WHERE = {
+  device: 'Runs on your device; nothing leaves this browser.',
+  cloud: 'Your messages go to the model provider through this Yukta server.',
+};
+
 /** The conversation and its composer. Stays mounted while the panel is closed. */
 export function Chat({
   model,
@@ -23,10 +36,8 @@ export function Chat({
   context: PageContext;
   open: boolean;
 }) {
-  const { messages, busy, error, pending, send, stop, approve } = useAssistant(
-    model,
-    context
-  );
+  const { messages, busy, error, pending, send, retry, stop, approve } =
+    useAssistant(model, context);
   const [draft, setDraft] = useState('');
   const input = useRef<HTMLTextAreaElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
@@ -56,6 +67,7 @@ export function Chat({
     messages.flatMap((m) => (m.role === 'tool' ? [[m.id, m] as const] : []))
   );
   const last = messages.length - 1;
+  const usage = model.usage?.() ?? null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -70,13 +82,16 @@ export function Chat({
               Ask about your sessions, workflows and runs, or have me start and
               control them.
             </p>
+            <p className="text-label-sm text-on-surface-variant">
+              {model.onDevice ? WHERE.device : WHERE.cloud}
+            </p>
             <div className="flex flex-wrap gap-2">
               {context.suggestions.map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
                   onClick={() => submit(suggestion)}
-                  className="border-border text-label-md text-on-surface hover:bg-surface-container-high transition-standard rounded-full border px-3 py-1.5"
+                  className="border-border text-label-md text-on-surface transition-standard hover:bg-surface-container-high rounded-full border px-3 py-1.5"
                 >
                   {suggestion}
                 </button>
@@ -87,7 +102,7 @@ export function Chat({
           messages.map((m: Msg, index) =>
             m.role === 'user' ? (
               <div key={index} className="my-3 flex justify-end">
-                <p className="bg-surface-container-high text-body-md text-on-surface max-w-[85%] rounded-2xl px-3 py-2 break-words whitespace-pre-wrap">
+                <p className="bg-surface-container-high text-body-md text-on-surface max-w-[85%] rounded-2xl px-3 py-2 wrap-break-word whitespace-pre-wrap">
                   {m.text}
                 </p>
               </div>
@@ -109,6 +124,37 @@ export function Chat({
                     className="bg-on-surface-variant inline-block h-4 w-1.5 animate-pulse rounded-sm align-middle"
                   />
                 )}
+                <div className="flex flex-wrap gap-2">
+                  {m.calls
+                    .flatMap((c) => sources(results.get(c.id)?.result))
+                    .map(({ title, url }) => (
+                      <a
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="border-border text-label-sm text-primary transition-standard hover:bg-surface-container-high rounded-full border px-2.5 py-1"
+                      >
+                        {title}
+                      </a>
+                    ))}
+                </div>
+                {!busy && index === last && m.text && (
+                  <div className="mt-1 flex gap-1">
+                    <IconButton
+                      icon="content_copy"
+                      label="Copy answer"
+                      onClick={() =>
+                        void navigator.clipboard?.writeText(m.text)
+                      }
+                    />
+                    <IconButton
+                      icon="refresh"
+                      label="Retry"
+                      onClick={() => void retry()}
+                    />
+                  </div>
+                )}
               </div>
             ) : null
           )
@@ -116,10 +162,21 @@ export function Chat({
         <InlineError message={error} />
       </div>
       <div className="border-border flex flex-col gap-2 border-t p-3">
-        {context.label && (
-          <p className="text-label-sm text-on-surface-variant">
-            Looking at {context.label}
-          </p>
+        {(context.label || usage) && (
+          <div className="text-label-sm text-on-surface-variant flex justify-between gap-2">
+            <p>{context.label && `Looking at ${context.label}`}</p>
+            {usage && (
+              <p
+                role="meter"
+                aria-label="Context used"
+                aria-valuemin={0}
+                aria-valuemax={usage.total}
+                aria-valuenow={usage.used}
+              >
+                Context {Math.round((usage.used / usage.total) * 100)}%
+              </p>
+            )}
+          </div>
         )}
         <div className="flex items-end gap-2">
           <textarea

@@ -85,6 +85,8 @@ export function nanoSession(answers: string[] = [], chunks: string[] = ['ok']) {
         })
     ),
     clone: vi.fn(() => Promise.resolve(probe)),
+    contextUsage: 12,
+    contextWindow: 100,
     destroy: vi.fn(),
   };
 }

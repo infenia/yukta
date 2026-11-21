@@ -69,7 +69,7 @@ export function AssistantLauncher() {
             onClick={open ? close : show}
             className={cn(
               'border-border bg-card text-primary shadow-raised transition-standard fixed right-3 z-60 flex size-12 items-center justify-center rounded-full border hover:-translate-y-0.5 sm:right-5',
-              lifted ? 'bottom-20 sm:bottom-[17rem]' : 'bottom-20 sm:bottom-5',
+              lifted ? 'bottom-20 sm:bottom-68' : 'bottom-20 sm:bottom-5',
               open && 'max-sm:hidden'
             )}
           >

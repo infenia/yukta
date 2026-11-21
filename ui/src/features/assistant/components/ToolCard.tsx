@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -34,6 +34,16 @@ export function ToolCard({
   onApprove: (ok: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // only a call seen running can say how long it took; one restored with its result cannot
+  const began = useRef<number | null>(null);
+  const [took, setTook] = useState<number | null>(null);
+  const finished = result !== undefined;
+  useEffect(() => {
+    if (!finished && began.current === null) began.current = Date.now();
+  }, [finished]);
+  useEffect(() => {
+    if (finished && began.current !== null) setTook(Date.now() - began.current);
+  }, [finished]);
   const status = result
     ? result.isError
       ? { icon: 'error', tone: 'text-destructive', text: 'Failed' }
@@ -65,6 +75,7 @@ export function ToolCard({
         </span>
         <span className="text-label-sm text-on-surface-variant">
           {status.text}
+          {took !== null && ` · ${(took / 1000).toFixed(1)} s`}
         </span>
       </button>
       {expanded && (

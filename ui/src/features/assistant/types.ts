@@ -36,6 +36,10 @@ export type ModelEvent =
 export interface ChatModel {
   /** Shown in the header, for example "Claude Sonnet 5.5 · your key". */
   label: string;
+  /** The model runs in this browser: nothing leaves it. */
+  onDevice?: boolean;
+  /** How much of the model's context the last turn used, when the model can tell. */
+  usage?(): { used: number; total: number } | null;
   stream(
     system: string,
     history: Msg[],

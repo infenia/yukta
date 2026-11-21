@@ -7,6 +7,7 @@ import { IconButton } from '@/components/common/IconButton';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useNano } from '../hooks/useNano';
+import { clearChat } from '../lib/history';
 import { buildModel } from '../lib/models';
 import { pageContext } from '../lib/pageContext';
 import type { Settings } from '../lib/settings';
@@ -44,6 +45,7 @@ export default function AssistantPanel({
   );
   const [configuring, setConfiguring] = useState(false);
   const [chat, setChat] = useState(0);
+  const [wide, setWide] = useState(false);
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') onClose();
@@ -59,10 +61,12 @@ export default function AssistantPanel({
         'border-border bg-card shadow-raised fixed z-60 flex flex-col overflow-hidden rounded-xl border',
         'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
         'max-sm:inset-x-2 max-sm:top-16 max-sm:bottom-20',
-        'sm:right-5 sm:w-[28rem]',
+        wide ? 'sm:right-5 sm:w-xl' : 'sm:right-5 sm:w-md',
         lifted
-          ? 'sm:bottom-[21rem] sm:h-[max(16rem,min(40rem,calc(100dvh-26rem)))]'
-          : 'sm:bottom-20 sm:h-[min(40rem,calc(100dvh-7rem))]'
+          ? 'sm:bottom-84 sm:h-[max(16rem,min(40rem,calc(100dvh-26rem)))]'
+          : 'sm:bottom-20 sm:h-[min(40rem,calc(100dvh-7rem))]',
+        // expanded: docked full height beside the page (the run page keeps its logs clear)
+        wide && !lifted && 'sm:top-20 sm:h-auto'
       )}
     >
       <header className="border-border flex items-center gap-2 border-b px-4 py-3">
@@ -77,14 +81,28 @@ export default function AssistantPanel({
             <h2 className="text-label-md whitespace-nowrap">Yukta Assistant</h2>
             <Badge variant="outline">Experimental</Badge>
           </div>
-          <p className="text-label-sm text-on-surface-variant truncate">
+          <button
+            type="button"
+            aria-label="Change model"
+            onClick={() => setConfiguring(!configuring)}
+            className="text-label-sm text-on-surface-variant transition-standard hover:text-on-surface truncate text-left"
+          >
             {model ? model.label : 'No model connected'}
-          </p>
+          </button>
         </div>
         <IconButton
           icon="add"
           label="New chat"
-          onClick={() => setChat(chat + 1)}
+          onClick={() => {
+            clearChat();
+            setChat(chat + 1);
+          }}
+        />
+        <IconButton
+          icon={wide ? 'close_fullscreen' : 'open_in_full'}
+          label={wide ? 'Shrink' : 'Expand'}
+          className="max-sm:hidden"
+          onClick={() => setWide(!wide)}
         />
         <IconButton
           icon="settings"

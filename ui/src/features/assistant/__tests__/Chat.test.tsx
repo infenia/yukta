@@ -41,6 +41,7 @@ const stalled: ChatModel = {
 };
 
 beforeEach(() => {
+  sessionStorage.clear();
   vi.mocked(mcp.listTools).mockReset().mockResolvedValue(tools);
   vi.mocked(mcp.callTool)
     .mockReset()
@@ -222,5 +223,81 @@ describe('Chat', () => {
     expect(screen.getByText('Done')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith('/assistant-docs.json');
     expect(mcp.callTool).not.toHaveBeenCalled();
+  });
+  it('names the pages a documentation search found, as links', async () => {
+    resetDocs();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        Response.json([
+          {
+            t: 'Install',
+            h: 'Docker',
+            u: 'https://docs/install',
+            x: 'Run docker compose to start the server.',
+          },
+        ])
+      )
+    );
+    show(
+      scriptedModel([
+        [call('c1', 'search_docs', { query: 'docker' })],
+        [text('Use docker compose.')],
+      ])
+    );
+
+    await userEvent.type(screen.getByLabelText('Message'), 'install?{Enter}');
+
+    expect(
+      await screen.findByRole('link', { name: 'Install' })
+    ).toHaveAttribute('href', 'https://docs/install');
+  });
+
+  it('copies the answer and asks the question again on Retry', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    const model = scriptedModel([[text('First.')], [text('Second.')]]);
+    show(model);
+    await userEvent.type(screen.getByLabelText('Message'), 'q{Enter}');
+    expect(await screen.findByText('First.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Copy answer' }));
+    expect(writeText).toHaveBeenCalledWith('First.');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Second.')).toBeInTheDocument();
+    expect(screen.queryByText('First.')).not.toBeInTheDocument();
+    expect(model.sent[1]).toEqual([{ role: 'user', text: 'q' }]);
+  });
+
+  it('keeps the conversation across a remount, like a reload', async () => {
+    const first = show(scriptedModel([[text('Kept.')]]));
+    await userEvent.type(screen.getByLabelText('Message'), 'q{Enter}');
+    expect(await screen.findByText('Kept.')).toBeInTheDocument();
+    first.unmount();
+
+    show(scriptedModel([]));
+
+    expect(screen.getByText('Kept.')).toBeInTheDocument();
+  });
+
+  it('says where the model runs, and how much of its context is used', () => {
+    show({
+      ...scriptedModel([]),
+      onDevice: true,
+      usage: () => ({ used: 25, total: 100 }),
+    });
+
+    expect(screen.getByText(/nothing leaves this browser/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('meter', { name: 'Context used' })
+    ).toHaveTextContent('Context 25%');
+  });
+
+  it('says that a provider model goes through the server', () => {
+    show(scriptedModel([]));
+
+    expect(screen.getByText(/through this Yukta server/)).toBeInTheDocument();
+    expect(screen.queryByRole('meter')).not.toBeInTheDocument();
   });
 });

@@ -45,6 +45,7 @@ const RESULT_LIMIT = 4000;
 const MAX_TOOL_RUNS = 3;
 
 let sequence = 0;
+let usage: { used: number; total: number } | null = null;
 
 export async function nanoAvailability(): Promise<NanoState> {
   if (typeof LanguageModel === 'undefined') return 'unsupported';
@@ -191,6 +192,7 @@ async function* run(
       if (delta) yield { type: 'text', delta };
     }
   } finally {
+    usage = { used: base.contextUsage, total: base.contextWindow };
     base.destroy();
   }
 }
@@ -199,6 +201,8 @@ async function* run(
 export function nanoModel(): ChatModel {
   return {
     label: 'Gemini Nano · on this device',
+    onDevice: true,
+    usage: () => usage,
     async *stream(system, history, tools, signal) {
       const usable = tools.filter((t) => NANO_TOOLS.has(t.name));
       let started = false;
