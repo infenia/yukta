@@ -48,7 +48,7 @@ class WorkflowStarterTest {
   }
 
   @Test
-  void draftIsPreparedAndRunWithoutBeingLoadedOrCached() {
+  void draftIsPreparedAndRunWithoutBeingCached() {
     final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);
     final PreparedWorkflowCache cache = mock(PreparedWorkflowCache.class);
     final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
@@ -58,6 +58,7 @@ class WorkflowStarterTest {
         new WorkflowDefinition(
             "__test__.x", "d", java.util.List.of(), java.util.List.of(), null, null);
     when(orchestrator.prepareWorkflow(draft)).thenReturn(Mono.just(prepared));
+    when(definitions.find("s", "__test__.x")).thenReturn(Mono.empty());
     final ExecutionScheduler.Admission admission =
         new ExecutionScheduler.Admission(true, Mono.empty());
     when(scheduler.acquireStart(anyString(), anyString(), anyInt(), anyString()))
@@ -78,7 +79,6 @@ class WorkflowStarterTest {
         .verifyComplete();
 
     verify(scheduler).assertCanAccept("s", "__test__.x");
-    verify(definitions, never()).find(any(), any());
     verify(cache, never()).put(any(), any(), any(), any());
   }
 }
