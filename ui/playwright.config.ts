@@ -26,7 +26,11 @@ export default defineConfig({
 
   // Timeout configuration (CI needs longer timeouts due to resource constraints)
   timeout: process.env['CI'] ? 60 * 1000 : 30 * 1000,
-  expect: { timeout: process.env['CI'] ? 10000 : 5000 },
+  expect: {
+    timeout: process.env['CI'] ? 10000 : 5000,
+    // Same image everywhere (scripts/e2e-docker.sh, CI), so no tolerance is needed for fonts or the browser build.
+    toHaveScreenshot: { animations: 'disabled', caret: 'hide' },
+  },
 
   // Screenshot comparison (organized by test file name for better maintainability)
   snapshotDir: 'e2e/__snapshots__',
@@ -81,7 +85,7 @@ export default defineConfig({
 
   // Dev server configuration
   webServer: {
-    command: 'pnpm dev',
+    command: process.env['E2E_SERVER_CMD'] || 'pnpm dev',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env['CI'],
     timeout: 120 * 1000,

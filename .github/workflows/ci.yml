@@ -389,7 +389,7 @@ jobs:
     needs: changes
     runs-on: ubuntu-latest
     # Browsers and fonts come with the image, so local and CI screenshot baselines match.
-    # Keep the tag in sync with @playwright/test in ui/package.json (1.64.1).
+    # The tag must equal the installed @playwright/test version (checked below); scripts/e2e-docker.sh uses the same image locally.
     container: mcr.microsoft.com/playwright:v1.65.0-noble
     timeout-minutes: 30
     # Not on push to main: the merge queue just ran the same tree through this job.
@@ -418,6 +418,13 @@ jobs:
       - name: Install UI dependencies
         working-directory: ui
         run: pnpm install --frozen-lockfile
+
+      - name: Check the image matches @playwright/test
+        working-directory: ui
+        run: |
+          v=$(node -p "require('@playwright/test/package.json').version")
+          grep -q "playwright:v$v-noble" ../.github/workflows/ci.yml \
+            || { echo "::error::Bump the container tag in ci.yml to v$v-noble (ui/package.json has @playwright/test $v)"; exit 1; }
 
       # Reporters (html, json -> test-results/results.json, junit, github) come from playwright.config.ts;
       # passing --reporter here would replace that list and drop the json output path.
