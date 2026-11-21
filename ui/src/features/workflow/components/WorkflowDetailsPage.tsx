@@ -31,6 +31,7 @@ import { AgentsPanel } from './agents/AgentsPanel';
 import { useAgentStream } from '../hooks/useAgentStream';
 import { AgentsByNode, byNode } from '../lib/agentsByNode';
 import { InputsPanel, useInputQueries } from './InputsPanel';
+import { askingNodes } from '../lib/inputNodes';
 import { ProgressPanel } from './ProgressPanel';
 import { RunHistoryDropdown } from './RunHistoryDropdown';
 import { WorkflowCanvas } from './WorkflowCanvas';
@@ -207,6 +208,10 @@ export function WorkflowDetailsPage() {
     inputQueries.open.isError ||
     inputQueries.history.isError;
   if (inputsAsked && !inputsSeen) setInputsSeen(true);
+  const asking = useMemo(
+    () => askingNodes(graphQuery.data?.nodes ?? []),
+    [graphQuery.data]
+  );
   // Rollback is blocked while any run of this workflow is going, not only the one on screen: the
   // shown run's live status comes from its stream, the others from the executions list
   const anyRunLive =
@@ -219,6 +224,10 @@ export function WorkflowDetailsPage() {
   const [follow, setFollow] = useState(true);
   const [findQuery, setFindQuery] = useState('');
   const [centerOn, setCenterOn] = useState<{ id: string; nonce: number }>();
+  const pickNode = (nodeId: string) => {
+    setOpenNode(nodeId, 'node', stages.revealParams(nodeId));
+    setCenterOn((held) => ({ id: nodeId, nonce: (held?.nonce ?? 0) + 1 }));
+  };
   // only a run that is going has running nodes to follow
   const followable = progress !== null && live;
   const subWorkflowLinks = useSubWorkflowLinks(
@@ -263,7 +272,7 @@ export function WorkflowDetailsPage() {
   return (
     // Exactly the screen's height (less the phone tab bar): the workspace scrolls inside, so the logs dock stays at the bottom edge
     <div
-      className="bg-background flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col sm:h-[calc(100dvh-var(--spacing-header))]"
+      className="flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col bg-background sm:h-[calc(100dvh-var(--spacing-header))]"
       data-testid="workflow-details-page"
     >
       <WorkflowTitleBar
@@ -484,27 +493,17 @@ export function WorkflowDetailsPage() {
                             role="toolbar"
                             aria-orientation="vertical"
                             aria-label="Canvas tools"
-                            className="border-border bg-card/80 shadow-card pointer-events-auto flex flex-col items-center gap-1 rounded-full border p-1 backdrop-blur-sm"
+                            className="pointer-events-auto flex flex-col items-center gap-1 rounded-full border border-border bg-card/80 p-1 shadow-card backdrop-blur-sm"
                           >
                             <FindNodes
                               graph={graph}
                               query={findQuery}
                               onQuery={setFindQuery}
-                              onPick={(nodeId) => {
-                                setOpenNode(
-                                  nodeId,
-                                  'node',
-                                  stages.revealParams(nodeId)
-                                );
-                                setCenterOn((held) => ({
-                                  id: nodeId,
-                                  nonce: (held?.nonce ?? 0) + 1,
-                                }));
-                              }}
+                              onPick={pickNode}
                             />
                             <span
                               aria-hidden="true"
-                              className="bg-border h-px w-5"
+                              className="h-px w-5 bg-border"
                             />
                             <ViewSwitch
                               view={view}
@@ -539,7 +538,7 @@ export function WorkflowDetailsPage() {
                 </div>
                 <LogsPanel
                   inputs={
-                    inputsSeen
+                    asking.length > 0 || inputsSeen
                       ? {
                           waiting: inputQueries.open.data?.length ?? 0,
                           content: (
@@ -547,6 +546,10 @@ export function WorkflowDetailsPage() {
                               sessionId={sessionId}
                               workflowId={workflowId}
                               live={live}
+                              askingNodes={asking}
+                              hasRun={selectedExecutionId != null}
+                              currentExecutionId={selectedExecutionId ?? null}
+                              onNode={pickNode}
                             />
                           ),
                         }

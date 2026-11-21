@@ -280,7 +280,7 @@ describe('OpenRequest', () => {
     expect(
       await screen.findByRole('list', { name: 'Request the agent waits on' })
     ).toBeInTheDocument();
-    expect(screen.getByText('HIGH risk')).toBeInTheDocument();
+    expect(screen.getByText('High risk · needs a person')).toBeInTheDocument();
   });
 
   it('keeps the prompt as text when the request cannot be read', async () => {
