@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { Page } from '@playwright/test';
+import { choose, expectOptions } from '../utils';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
 import { ControlPage } from '../pages/ControlPage';
@@ -344,9 +345,7 @@ test.describe('Control page', () => {
     await control.goto();
 
     const scope = page.getByRole('combobox', { name: 'Scope' });
-    await expect(
-      scope.getByRole('option', { name: 'Workflow wf-nightly' })
-    ).toBeAttached();
+    await expectOptions(scope, ['Workflow wf-nightly'], 'contains');
     const heatmap = page.waitForRequest(
       (r) =>
         r.url().includes('/api/metrics/heatmap') &&
@@ -357,13 +356,13 @@ test.describe('Control page', () => {
         r.url().includes('/api/metrics/modules') &&
         new URL(r.url()).searchParams.get('scope') === 'workflow:wf-nightly'
     );
-    await scope.selectOption('workflow:wf-nightly');
+    await choose(scope, 'workflow:wf-nightly');
 
     await expect(page).toHaveURL(/scope=workflow%3Awf-nightly/);
     await heatmap;
     await modules;
     await page.reload();
-    await expect(scope).toHaveValue('workflow:wf-nightly');
+    await expect(scope).toHaveAttribute('data-value', 'workflow:wf-nightly');
   });
 
   test('shows the approvals waiting and the model use per provider', async ({

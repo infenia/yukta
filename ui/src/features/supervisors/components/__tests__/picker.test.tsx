@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -105,13 +106,13 @@ describe('SupervisorPicker', () => {
     await waitFor(() => expect(add).toBeEnabled());
     await user.click(add);
     expect(latest).toEqual([{ supervisor: 'guard' }]);
-    await user.selectOptions(screen.getByLabelText('Supervisor 1'), 'watch');
+    await choose(user, screen.getByLabelText('Supervisor 1'), 'watch');
     await user.click(screen.getByLabelText('Runs'));
     expect(latest).toEqual([{ supervisor: 'watch', enabled: false }]);
     expect(screen.queryByRole('option', { name: 'rules' })).toBeNull();
     await user.click(add);
     expect(latest).toHaveLength(2);
-    await user.selectOptions(screen.getByLabelText('Supervisor 2'), 'guard');
+    await choose(user, screen.getByLabelText('Supervisor 2'), 'guard');
     expect(latest[0].supervisor).toBe('watch');
     await user.click(screen.getByLabelText('Remove supervisor 1'));
     expect(latest).toEqual([{ supervisor: 'guard' }]);
@@ -125,9 +126,9 @@ describe('SupervisorPicker', () => {
         { supervisor: 'gone' },
       ],
     });
-    expect(
-      await screen.findByRole('option', { name: 'gone' })
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText('Supervisor 3')).toHaveTextContent(
+      'gone'
+    );
     expect(
       screen.getByRole('button', { name: 'Add supervisor' })
     ).toBeDisabled();
@@ -169,7 +170,8 @@ describe('SupervisorPicker', () => {
         .catch(() => null)
     ).not.toBeUndefined();
     await user.type(screen.getByLabelText('Name'), 'fresh');
-    await user.selectOptions(
+    await choose(
+      user,
       await screen.findByLabelText('Decision maker'),
       'failure-guard'
     );

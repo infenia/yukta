@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import {
   describe,
   it,
@@ -396,27 +397,28 @@ describe('WorkflowEditorPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Validate' }));
     await screen.findByText('Workflow is valid.');
-    await user.selectOptions(screen.getByLabelText('Edge source'), 'start');
-    await user.selectOptions(screen.getByLabelText('Edge port'), 'default');
-    await user.selectOptions(screen.getByLabelText('Edge target'), 'out');
+    await choose(user, screen.getByLabelText('Edge source'), 'start');
+    await choose(user, screen.getByLabelText('Edge port'), 'default');
+    await choose(user, screen.getByLabelText('Edge target'), 'out');
     await user.click(screen.getByRole('button', { name: 'Add edge' }));
     expect(screen.getByTestId('canvas')).toHaveTextContent('1 edges');
     expect(screen.getByText('start:default → out')).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText('Edge source'), 'out');
-    expect(screen.getByLabelText('Edge port')).toHaveValue('');
-
-    await user.selectOptions(screen.getByLabelText('Edge source'), 'start');
-    await user.selectOptions(screen.getByLabelText('Edge port'), 'all ports');
-    expect(screen.getByLabelText('Edge port')).toHaveValue('*');
-    await user.selectOptions(
-      screen.getByLabelText('Edge port'),
+    await choose(user, screen.getByLabelText('Edge source'), 'out');
+    expect(screen.getByLabelText('Edge port')).toHaveTextContent(
       'no port (default)'
     );
-    expect(screen.getByLabelText('Edge port')).toHaveValue('');
 
-    await user.selectOptions(screen.getByLabelText('Edge port'), 'all ports');
-    await user.selectOptions(screen.getByLabelText('Edge target'), 'out');
+    await choose(user, screen.getByLabelText('Edge source'), 'start');
+    await choose(user, screen.getByLabelText('Edge port'), 'all ports');
+    expect(screen.getByLabelText('Edge port')).toHaveTextContent('all ports');
+    await choose(user, screen.getByLabelText('Edge port'), 'no port (default)');
+    expect(screen.getByLabelText('Edge port')).toHaveTextContent(
+      'no port (default)'
+    );
+
+    await choose(user, screen.getByLabelText('Edge port'), 'all ports');
+    await choose(user, screen.getByLabelText('Edge target'), 'out');
     await user.click(screen.getByRole('button', { name: 'Add edge' }));
     expect(screen.getByText('start:* → out')).toBeInTheDocument();
   });
@@ -461,7 +463,7 @@ describe('WorkflowEditorPage', () => {
       'aria-selected',
       'true'
     );
-    expect(screen.getByLabelText('Edge source')).toHaveValue('start');
+    expect(screen.getByLabelText('Edge source')).toHaveTextContent('start');
   });
 
   it('lists validation warnings, and Fix it starts an edge from the unread port', async () => {
@@ -491,8 +493,8 @@ describe('WorkflowEditorPage', () => {
       'aria-selected',
       'true'
     );
-    expect(screen.getByLabelText('Edge source')).toHaveValue('start');
-    expect(screen.getByLabelText('Edge port')).toHaveValue('failure');
+    expect(screen.getByLabelText('Edge source')).toHaveTextContent('start');
+    expect(screen.getByLabelText('Edge port')).toHaveTextContent('failure');
     await waitFor(() =>
       expect(screen.getByLabelText('Edge target')).toHaveFocus()
     );
@@ -576,13 +578,13 @@ describe('WorkflowEditorPage', () => {
     await screen.findByRole('region', { name: 'Node start' });
     await user.click(screen.getByRole('tab', { name: /Edges/ }));
 
-    await user.selectOptions(screen.getByLabelText('Edge source'), 'start');
-    await user.selectOptions(screen.getByLabelText('Edge target'), 'out');
+    await choose(user, screen.getByLabelText('Edge source'), 'start');
+    await choose(user, screen.getByLabelText('Edge target'), 'out');
     await user.click(screen.getByRole('button', { name: 'Add edge' }));
     expect(screen.getByText('That edge already exists.')).toBeInTheDocument();
     expect(screen.getByTestId('canvas')).toHaveTextContent('1 edges');
 
-    await user.selectOptions(screen.getByLabelText('Edge target'), 'start');
+    await choose(user, screen.getByLabelText('Edge target'), 'start');
     await user.click(screen.getByRole('button', { name: 'Add edge' }));
     expect(
       screen.getByText('An edge cannot connect a node to itself.')
@@ -597,13 +599,15 @@ describe('WorkflowEditorPage', () => {
     await user.click(screen.getByRole('button', { name: 'Validate' }));
     await screen.findByText('Workflow is valid.');
     await user.click(screen.getByRole('tab', { name: /Edges/ }));
-    await user.selectOptions(screen.getByLabelText('Edge source'), 'start');
-    await user.selectOptions(screen.getByLabelText('Edge port'), 'default');
+    await choose(user, screen.getByLabelText('Edge source'), 'start');
+    await choose(user, screen.getByLabelText('Edge port'), 'default');
 
     await user.click(screen.getByRole('button', { name: 'Remove node' }));
 
-    expect(screen.getByLabelText('Edge source')).toHaveValue('');
-    expect(screen.getByLabelText('Edge port')).toHaveValue('');
+    expect(screen.getByLabelText('Edge source')).toHaveTextContent('from…');
+    expect(screen.getByLabelText('Edge port')).toHaveTextContent(
+      'no port (default)'
+    );
   });
 
   it('shows what the validator rejects and replaces it with the next check once the draft changes', async () => {

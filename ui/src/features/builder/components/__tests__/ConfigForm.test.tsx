@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import { describe, it, expect } from 'vitest';
 import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
@@ -137,13 +138,11 @@ describe('ConfigForm', () => {
         ]}
       />
     );
-    expect(
-      screen.getByRole('option', { name: 'Default (GET)' })
-    ).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: '—' })).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Method'), 'POST');
+    expect(screen.getByLabelText('Method')).toHaveTextContent('Default (GET)');
+    expect(screen.getByLabelText('Bare')).toHaveTextContent('—');
+    await choose(user, screen.getByLabelText('Method'), 'POST');
     expect(values()).toBe('{"method":"POST"}');
-    await user.selectOptions(screen.getByLabelText('Method'), 'Default (GET)');
+    await choose(user, screen.getByLabelText('Method'), 'Default (GET)');
     expect(values()).toBe('{}');
   });
 

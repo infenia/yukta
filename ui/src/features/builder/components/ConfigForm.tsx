@@ -3,9 +3,9 @@
 
 import { ReferencePicker } from './ReferencePicker';
 import type { StepReference } from '../lib/testPins';
+import { Select } from '@/components/ui/select';
 import { useContext, useEffect, useId, useRef, useState } from 'react';
 import {
-  NativeSelect,
   inputFieldClassName,
   textareaFieldClassName,
 } from '@/components/ui/native-select';
@@ -354,20 +354,24 @@ function FieldInput({
       );
     case 'ENUM':
       return (
-        <NativeSelect
+        <Select
           id={id}
+          searchable={field.options.length > 8}
           value={typeof value === 'string' ? value : ''}
-          onChange={(event) => onChange(event.target.value || undefined)}
-        >
-          <option value="">
-            {field.defaultValue ? `Default (${field.defaultValue})` : '—'}
-          </option>
-          {field.options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </NativeSelect>
+          onValueChange={(next) => onChange(next || undefined)}
+          options={[
+            {
+              value: '',
+              label: field.defaultValue
+                ? `Default (${field.defaultValue})`
+                : '—',
+            },
+            ...field.options.map((option) => ({
+              value: option,
+              label: option,
+            })),
+          ]}
+        />
       );
     case 'NUMBER':
       return (

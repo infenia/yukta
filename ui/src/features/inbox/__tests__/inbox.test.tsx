@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router';
@@ -134,23 +135,19 @@ describe('InboxPage', () => {
     open(state([f.approval, f.text, f.info, f.done, f.bare]));
     await userEvent.click(screen.getByRole('tab', { name: /All/ }));
 
-    await userEvent.selectOptions(screen.getByLabelText('Severity'), 'ERROR');
+    await choose(userEvent, screen.getByLabelText('Severity'), 'ERROR');
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
-    await userEvent.selectOptions(screen.getByLabelText('Severity'), '');
-    await userEvent.selectOptions(screen.getByLabelText('Severity'), 'WARN');
+    await choose(userEvent, screen.getByLabelText('Severity'), '');
+    await choose(userEvent, screen.getByLabelText('Severity'), 'WARN');
     expect(screen.getAllByRole('listitem')).toHaveLength(4);
-    await userEvent.selectOptions(screen.getByLabelText('Severity'), '');
-    await userEvent.selectOptions(screen.getByLabelText('Session'), 's2');
+    await choose(userEvent, screen.getByLabelText('Severity'), '');
+    await choose(userEvent, screen.getByLabelText('Session'), 's2');
     expect(screen.getAllByRole('listitem')).toHaveLength(1);
-    await userEvent.selectOptions(screen.getByLabelText('Session'), '');
-    await userEvent.selectOptions(
-      screen.getByLabelText('Category'),
-      'run.failed'
-    );
+    await choose(userEvent, screen.getByLabelText('Session'), '');
+    await choose(userEvent, screen.getByLabelText('Category'), 'run.failed');
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
-    expect(
-      within(screen.getByLabelText('Category')).getAllByRole('option').length
-    ).toBeGreaterThan(2);
+    await userEvent.click(screen.getByLabelText('Category'));
+    expect((await screen.findAllByRole('option')).length).toBeGreaterThan(2);
   });
 
   it('answers an approval in place and opens a sheet for a text question', async () => {
@@ -259,7 +256,7 @@ describe('InboxPage', () => {
   it('a deep link is never hidden by a filter, and an unknown one says so', async () => {
     const f = fixtures();
     const { unmount } = open(state([f.approval, f.info]), '/inbox?item=info');
-    await userEvent.selectOptions(screen.getByLabelText('Session'), '');
+    await choose(userEvent, screen.getByLabelText('Session'), '');
     expect(document.getElementById('item-info')).not.toBeNull();
     unmount();
 

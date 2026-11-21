@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import {
   describe,
   it,
@@ -198,10 +199,12 @@ describe('the Settings tab of a rules supervisor', () => {
     show(guard);
     const run = await screen.findByRole('combobox', { name: 'Run' });
     await waitFor(() => expect(run).toBeEnabled());
+    await user.click(run);
     expect(
-      screen.getByRole('option', { name: 'other · SUCCESS' })
+      await screen.findByRole('option', { name: 'other · SUCCESS' })
     ).toBeInTheDocument();
-    await user.selectOptions(run, 'e2');
+    await user.keyboard('{Escape}');
+    await choose(user, run, 'e2');
     await user.click(screen.getByRole('button', { name: /Replay on a run/ }));
     const table = await screen.findByRole('table');
     expect(within(table).getByText('the run')).toBeInTheDocument();
@@ -232,8 +235,8 @@ describe('the Settings tab of a rules supervisor', () => {
     show(guard);
     expect(await screen.findByText('No rules')).toBeInTheDocument();
     expect(
-      await screen.findByRole('option', { name: 'No runs yet' })
-    ).toBeInTheDocument();
+      await screen.findByRole('combobox', { name: 'Run' })
+    ).toHaveTextContent('No runs yet');
     expect(
       screen.getByRole('button', { name: /Replay on a run/ })
     ).toBeDisabled();

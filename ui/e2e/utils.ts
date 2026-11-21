@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import type { Page, Response, Locator } from '@playwright/test';
+import {
+  expect,
+  type Page,
+  type Response,
+  type Locator,
+} from '@playwright/test';
 
 /**
  * Wait for API response with optional URL/method filtering
@@ -247,4 +252,78 @@ export async function getTextContents(locator: Locator): Promise<string[]> {
   return locator.evaluateAll((elements) =>
     (elements as HTMLElement[]).map((el) => el.textContent || '')
   );
+}
+
+/**
+ * Opens a themed Select (its trigger) and chooses an option: the replacement for
+ * `locator.selectOption` on a native select. Pass the option's value, or `{ label }` for its text.
+ */
+export async function choose(
+  trigger: Locator,
+  option: string | { label?: string; value?: string }
+): Promise<void> {
+  const page = trigger.page();
+  await trigger.click();
+  // a previous popup can still be animating out: take the open one
+  const list = page.locator('[role="listbox"]:visible').last();
+  const { label, value } =
+    typeof option === 'string' ? { label: undefined, value: option } : option;
+  const byValue = list.locator(
+    `[role="option"][data-value="${(value ?? '').replace(/[\\"]/g, '\\$&')}"]`
+  );
+  await list.waitFor();
+  const target =
+    label === undefined && (await byValue.count()) > 0
+      ? byValue
+      : list.getByRole('option', { name: label ?? value, exact: true });
+  await target.click();
+  await list.waitFor({ state: 'detached' });
+}
+
+/** Closes the open Select by picking the option already chosen (Escape does not unmount it). */
+async function closeSelect(page: Page): Promise<void> {
+  const list = page.locator('[role="listbox"]:visible').last();
+  await list.locator('[role="option"][aria-selected="true"]').click();
+  await list.waitFor({ state: 'detached' });
+}
+
+/** The texts of a Select's options: the icon name that marks the chosen one is not part of them. */
+const optionTexts = (page: Page) => async () =>
+  (
+    await page
+      .locator('[role="listbox"]:visible')
+      .last()
+      .getByRole('option')
+      .allTextContents()
+  ).map((t) => t.replace(/^check/, ''));
+
+/** Opens a themed Select, asserts the texts of its options (`contains`: at least these) and closes it. */
+export async function expectOptions(
+  trigger: Locator,
+  expected: string[],
+  mode: 'exact' | 'contains' = 'exact'
+): Promise<void> {
+  const page = trigger.page();
+  await trigger.click();
+  await page.locator('[role="listbox"]:visible').last().waitFor();
+  if (mode === 'exact') await expect.poll(optionTexts(page)).toEqual(expected);
+  else
+    await expect
+      .poll(optionTexts(page))
+      .toEqual(expect.arrayContaining(expected));
+  await closeSelect(page);
+}
+
+/** Opens a themed Select and asserts the headings of its option groups. */
+export async function expectGroups(
+  trigger: Locator,
+  expected: string[]
+): Promise<void> {
+  const page = trigger.page();
+  await trigger.click();
+  const list = page.locator('[role="listbox"]:visible').last();
+  await expect(list.getByRole('group')).toHaveCount(expected.length);
+  for (const name of expected)
+    await expect(list.getByRole('group', { name })).toBeVisible();
+  await closeSelect(page);
 }

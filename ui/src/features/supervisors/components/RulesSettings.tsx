@@ -6,7 +6,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Button } from '@/components/ui/button';
-import { NativeSelect } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -101,23 +101,23 @@ function Replay({ id }: { id: string }) {
   return (
     <section aria-label="Replay on a run" className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <NativeSelect
-          aria-label="Run"
+        <Select
+          searchable
+          ariaLabel="Run"
           value={chosen}
-          onChange={(event) => setRun(event.target.value)}
+          onValueChange={setRun}
           disabled={!runs.data?.length}
-        >
-          {runs.data?.length ? (
-            runs.data.map((r) => (
-              <option key={r.executionId} value={r.executionId}>
-                {r.workflowId} · {r.status}
-                {r.startTime ? ` · ${formatDateTime(r.startTime)}` : ''}
-              </option>
-            ))
-          ) : (
-            <option value="">No runs yet</option>
-          )}
-        </NativeSelect>
+          options={
+            runs.data?.length
+              ? runs.data.map((r) => ({
+                  value: r.executionId,
+                  label: `${r.workflowId} · ${r.status}${
+                    r.startTime ? ` · ${formatDateTime(r.startTime)}` : ''
+                  }`,
+                }))
+              : [{ value: '', label: 'No runs yet' }]
+          }
+        />
         <Button
           size="sm"
           variant="outline"

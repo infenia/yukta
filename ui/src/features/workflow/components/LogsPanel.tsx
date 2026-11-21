@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -429,40 +430,21 @@ export function LogsPanel({
         )}
         <div className="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-x-4 sm:gap-y-1.5">
           {onNode && nodes.length > 0 && !showOther && (
-            <div className="relative">
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'material-symbols-outlined pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-sm',
-                  node ? 'text-primary' : 'text-on-surface-variant'
-                )}
-              >
-                filter_alt
-              </span>
-              <select
-                aria-label="Show lines of node"
-                value={node ?? ''}
-                disabled={raw}
-                onChange={(event) => onNode(event.target.value || null)}
-                className={cn(
-                  'border-input bg-card text-body-sm transition-standard focus-visible:ring-ring h-7 max-w-48 cursor-pointer appearance-none rounded-lg border px-7 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-50',
-                  node ? 'border-primary text-primary' : 'text-on-surface'
-                )}
-              >
-                <option value="">All nodes</option>
-                {nodes.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-              </select>
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-on-surface-variant pointer-events-none absolute top-1/2 right-1.5 -translate-y-1/2 text-sm"
-              >
-                expand_more
-              </span>
-            </div>
+            <Select
+              searchable
+              ariaLabel="Show lines of node"
+              value={node ?? ''}
+              disabled={raw}
+              onValueChange={(id) => onNode(id || null)}
+              options={[
+                { value: '', label: 'All nodes' },
+                ...nodes.map((id) => ({ value: id, label: id })),
+              ]}
+              className={cn(
+                'text-body-sm h-7 max-w-48 rounded-lg pl-2.5',
+                node && 'text-primary'
+              )}
+            />
           )}
           {!showEvents && !showOther && (
             <>

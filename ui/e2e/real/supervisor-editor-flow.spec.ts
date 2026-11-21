@@ -3,6 +3,7 @@
 
 import { unique } from './api';
 import { expect, test } from './fixtures';
+import { choose } from '../utils';
 
 test('a supervisor is created in dry run with a parent and opens in the list', async ({
   page,
@@ -16,7 +17,7 @@ test('a supervisor is created in dry run with a parent and opens in the list', a
 
   await page.getByLabel('Name', { exact: true }).fill(id);
   await page.getByLabel('Description').fill('created by the editor e2e');
-  await page.getByLabel('Decision maker').selectOption('rules');
+  await choose(page.getByLabel('Decision maker'), 'rules');
   await page.getByLabel('Reports to').fill(parent);
   await page.getByLabel('Settings (JSON)').fill('{"rules":[]}');
   await page.getByRole('button', { name: 'Save' }).click();
@@ -51,7 +52,7 @@ test('the editor refuses a bad name and bad JSON before sending anything', async
   const bad = unique('sup-bad');
   await page.goto('/supervisors/new');
   const save = page.getByRole('button', { name: 'Save' });
-  await page.getByLabel('Decision maker').selectOption('rules');
+  await choose(page.getByLabel('Decision maker'), 'rules');
 
   await page.getByLabel('Name', { exact: true }).fill(`${bad}!`);
   await expect(save).toBeDisabled();

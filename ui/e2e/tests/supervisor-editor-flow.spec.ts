@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { Page } from '@playwright/test';
+import { choose, expectOptions } from '../utils';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
 
@@ -117,10 +118,15 @@ test.describe('Supervisor editor - a new supervisor', () => {
     await page.goto('/supervisors/new');
 
     await expect(name(page)).toBeEnabled();
-    await expect(page.getByLabel('Decision maker')).toHaveValue('');
-    await expect(
-      page.getByLabel('Decision maker').locator('option')
-    ).toHaveText(['Choose…', 'Rules', 'External system']);
+    await expect(page.getByLabel('Decision maker')).toHaveAttribute(
+      'data-value',
+      ''
+    );
+    await expectOptions(page.getByLabel('Decision maker'), [
+      'Choose…',
+      'Rules',
+      'External system',
+    ]);
     await expect(
       page.getByRole('checkbox', {
         name: /Dry run: record its commands, apply none/,
@@ -142,7 +148,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
     await name(page).fill('good-name');
     await expect(save(page)).toBeDisabled();
 
-    await page.getByLabel('Decision maker').selectOption('rules');
+    await choose(page.getByLabel('Decision maker'), 'rules');
     await expect(save(page)).toBeEnabled();
   });
 
@@ -150,7 +156,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
     page,
   }) => {
     await page.goto('/supervisors/new');
-    await page.getByLabel('Decision maker').selectOption('rules');
+    await choose(page.getByLabel('Decision maker'), 'rules');
 
     await name(page).fill('not valid!');
 
@@ -167,7 +173,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
 
   test('a name longer than 64 characters is refused', async ({ page }) => {
     await page.goto('/supervisors/new');
-    await page.getByLabel('Decision maker').selectOption('rules');
+    await choose(page.getByLabel('Decision maker'), 'rules');
 
     await name(page).fill('a'.repeat(65));
 
@@ -181,7 +187,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
   }) => {
     await page.goto('/supervisors/new');
     await name(page).fill('s1');
-    await page.getByLabel('Decision maker').selectOption('rules');
+    await choose(page.getByLabel('Decision maker'), 'rules');
     const settings = page.getByLabel('Settings (JSON)');
 
     await settings.fill('{nope');
@@ -212,7 +218,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
 
     await name(page).fill('new-one');
     await page.getByLabel('Description').fill('A new supervisor');
-    await page.getByLabel('Decision maker').selectOption('http');
+    await choose(page.getByLabel('Decision maker'), 'http');
     await page.getByRole('checkbox', { name: /Dry run/ }).uncheck();
     await page.getByLabel('Reports to').fill(' release-lead , audit,, ');
     await page
@@ -237,7 +243,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
     const calls = await mockEditor(page);
     await page.goto('/supervisors/new');
     await name(page).fill('bare');
-    await page.getByLabel('Decision maker').selectOption('rules');
+    await choose(page.getByLabel('Decision maker'), 'rules');
 
     await save(page).click();
 
@@ -256,7 +262,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
     await mockEditor(page, { saveStatus: 409 });
     await page.goto('/supervisors/new');
     await name(page).fill('cyclic');
-    await page.getByLabel('Decision maker').selectOption('rules');
+    await choose(page.getByLabel('Decision maker'), 'rules');
 
     await save(page).click();
 
@@ -271,7 +277,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
     await mockEditor(page, { saveDelay: 800 });
     await page.goto('/supervisors/new');
     await name(page).fill('slow');
-    await page.getByLabel('Decision maker').selectOption('rules');
+    await choose(page.getByLabel('Decision maker'), 'rules');
 
     await page.getByRole('button', { name: 'Save' }).click();
 
@@ -303,7 +309,10 @@ test.describe('Supervisor editor - an existing supervisor', () => {
     await expect(page.getByLabel('Description')).toHaveValue(
       'Pauses the release when deploys keep failing.'
     );
-    await expect(page.getByLabel('Decision maker')).toHaveValue('rules');
+    await expect(page.getByLabel('Decision maker')).toHaveAttribute(
+      'data-value',
+      'rules'
+    );
     await expect(
       page.getByRole('checkbox', { name: /Dry run/ })
     ).not.toBeChecked();
@@ -412,7 +421,7 @@ test.describe('Supervisor editor - permissions and the drawer', () => {
     );
     await page.goto('/supervisors/new');
     await name(page).fill('x');
-    await page.getByLabel('Decision maker').selectOption('rules');
+    await choose(page.getByLabel('Decision maker'), 'rules');
 
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled();
   });

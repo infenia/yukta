@@ -8,7 +8,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { NativeSelect } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -181,49 +181,52 @@ function Runs() {
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <NativeSelect
-          aria-label="Session"
+        <Select
+          searchable
+          ariaLabel="Session"
           value={filters.session}
-          onChange={(event) =>
-            set({ session: event.target.value, workflow: '' })
-          }
+          onValueChange={(session) => set({ session, workflow: '' })}
+          options={[
+            { value: '', label: 'All sessions' },
+            ...(sessions.data ?? []).map((session) => ({
+              value: session.sessionId,
+              label: session.name || session.sessionId,
+            })),
+          ]}
           className="w-48"
-        >
-          <option value="">All sessions</option>
-          {sessions.data?.map((session) => (
-            <option key={session.sessionId} value={session.sessionId}>
-              {session.name || session.sessionId}
-            </option>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          aria-label="Workflow"
+        />
+        <Select
+          searchable
+          ariaLabel="Workflow"
           value={filters.workflow}
           disabled={!filters.session}
-          onChange={(event) => set({ workflow: event.target.value })}
+          onValueChange={(workflow) => set({ workflow })}
+          options={[
+            { value: '', label: 'All workflows' },
+            ...(workflows.data ?? []).map((workflow) => ({
+              value: workflow.workflowId,
+              label: workflow.workflowId,
+            })),
+          ]}
           className="w-48"
-        >
-          <option value="">All workflows</option>
-          {workflows.data?.map((workflow) => (
-            <option key={workflow.workflowId}>{workflow.workflowId}</option>
-          ))}
-        </NativeSelect>
-        <NativeSelect
-          aria-label="Status"
+        />
+        <Select
+          ariaLabel="Status"
           value={filters.status}
-          onChange={(event) => set({ status: event.target.value })}
+          onValueChange={(status) => set({ status })}
+          options={[
+            { value: '', label: 'Any status' },
+            ...RUN_STATUSES.map((status) => ({
+              value: status,
+              // FAILURE and ERROR both read "Failed"; the filter still tells them apart
+              label:
+                status === 'ERROR'
+                  ? 'Failed (error)'
+                  : toStatusDisplay(status).label,
+            })),
+          ]}
           className="w-40"
-        >
-          <option value="">Any status</option>
-          {RUN_STATUSES.map((status) => (
-            <option key={status} value={status}>
-              {/* FAILURE and ERROR both read "Failed"; the filter still tells them apart */}
-              {status === 'ERROR'
-                ? 'Failed (error)'
-                : toStatusDisplay(status).label}
-            </option>
-          ))}
-        </NativeSelect>
+        />
         <Input
           aria-label="Run id contains"
           placeholder="Run id contains…"
@@ -231,18 +234,13 @@ function Runs() {
           onChange={(event) => set({ text: event.target.value.trim() })}
           className="w-48"
         />
-        <NativeSelect
-          aria-label="Time range"
+        <Select
+          ariaLabel="Time range"
           value={filters.range}
-          onChange={(event) => set({ range: event.target.value as Range })}
+          onValueChange={(range) => set({ range: range as Range })}
+          options={RANGE_LABELS.map(([value, label]) => ({ value, label }))}
           className="w-44"
-        >
-          {RANGE_LABELS.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </NativeSelect>
+        />
         {filters.range === 'custom' && (
           <>
             <Input

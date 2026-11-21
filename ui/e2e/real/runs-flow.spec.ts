@@ -3,6 +3,7 @@
 
 import { sessionJson, shell, unique } from './api';
 import { expect, test } from './fixtures';
+import { choose } from '../utils';
 
 test('the runs page lists real runs, filters them and opens one', async ({
   page,
@@ -35,7 +36,7 @@ test('the runs page lists real runs, filters them and opens one', async ({
   await expect(rows).toHaveCount(1);
   await expect(rows.first().getByLabel('Failed')).toBeVisible();
   await expect(rows.first()).toContainText('failed at p');
-  await page.getByLabel('Status').selectOption('SUCCESS');
+  await choose(page.getByLabel('Status'), 'SUCCESS');
   await expect(page.getByText('No runs found.')).toBeVisible();
 
   // the failed chip counts the failure of the last 24 hours and filters to it
@@ -44,7 +45,10 @@ test('the runs page lists real runs, filters them and opens one', async ({
   await expect(failed).toBeVisible();
   await failed.click();
   await expect(page).toHaveURL(/status=FAILURE/);
-  await expect(page.getByLabel('Time range')).toHaveValue('24h');
+  await expect(page.getByLabel('Time range')).toHaveAttribute(
+    'data-value',
+    '24h'
+  );
 
   // a run opens on its workflow
   await page.goto(`/runs?text=${okRun.slice(0, 8)}`);

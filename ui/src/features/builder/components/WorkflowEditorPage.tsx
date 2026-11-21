@@ -35,7 +35,7 @@ import { Callout } from '@/components/common/Callout';
 import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPicker';
 import { supervisorProblems } from '@/features/supervisors/lib/supervisorProblems';
 import type { SupervisorRef } from '@/features/supervisors/types';
-import { NativeSelect } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import { ProblemsPanel } from './ProblemsPanel';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
@@ -751,49 +751,51 @@ function Editor({
                 ))}
               </ul>
               <div className="flex flex-wrap gap-1">
-                <NativeSelect
-                  aria-label="Edge source"
+                <Select
+                  searchable
+                  ariaLabel="Edge source"
                   value={edge.source}
-                  onChange={(event) =>
-                    setEdge({
-                      ...edge,
-                      source: event.target.value,
-                      sourcePort: null,
-                    })
+                  onValueChange={(source) =>
+                    setEdge({ ...edge, source, sourcePort: null })
                   }
-                >
-                  <option value="">from…</option>
-                  {workflow.nodes.map((n) => (
-                    <option key={n.nodeId}>{n.nodeId}</option>
-                  ))}
-                </NativeSelect>
-                <NativeSelect
-                  aria-label="Edge port"
+                  options={[
+                    { value: '', label: 'from…' },
+                    ...workflow.nodes.map((n) => ({
+                      value: n.nodeId,
+                      label: n.nodeId,
+                    })),
+                  ]}
+                />
+                <Select
+                  ariaLabel="Edge port"
                   value={edge.sourcePort ?? ''}
-                  onChange={(event) =>
-                    setEdge({ ...edge, sourcePort: event.target.value || null })
+                  onValueChange={(sourcePort) =>
+                    setEdge({ ...edge, sourcePort: sourcePort || null })
                   }
-                >
-                  {/* no port is the "default" port; "*" takes every port but "error" */}
-                  <option value="">no port (default)</option>
-                  <option value="*">all ports</option>
-                  {(ports[edge.source] ?? []).map((port) => (
-                    <option key={port}>{port}</option>
-                  ))}
-                </NativeSelect>
-                <NativeSelect
+                  // no port is the "default" port; "*" takes every port but "error"
+                  options={[
+                    { value: '', label: 'no port (default)' },
+                    { value: '*', label: 'all ports' },
+                    ...(ports[edge.source] ?? []).map((port) => ({
+                      value: port,
+                      label: port,
+                    })),
+                  ]}
+                />
+                <Select
+                  searchable
                   id="edge-target"
-                  aria-label="Edge target"
+                  ariaLabel="Edge target"
                   value={edge.target}
-                  onChange={(event) =>
-                    setEdge({ ...edge, target: event.target.value })
-                  }
-                >
-                  <option value="">to…</option>
-                  {workflow.nodes.map((n) => (
-                    <option key={n.nodeId}>{n.nodeId}</option>
-                  ))}
-                </NativeSelect>
+                  onValueChange={(target) => setEdge({ ...edge, target })}
+                  options={[
+                    { value: '', label: 'to…' },
+                    ...workflow.nodes.map((n) => ({
+                      value: n.nodeId,
+                      label: n.nodeId,
+                    })),
+                  ]}
+                />
                 <button
                   type="button"
                   className={BUTTON}

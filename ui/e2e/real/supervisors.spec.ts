@@ -5,6 +5,7 @@ import { SupervisorEditorPage } from '../pages/SupervisorEditorPage';
 import { SupervisorsPage } from '../pages/SupervisorsPage';
 import { sessionJson, shell, unique } from './api';
 import { expect, test } from './fixtures';
+import { choose } from '../utils';
 
 test('a supervisor is created, edited and assigned', async ({
   page,
@@ -15,7 +16,7 @@ test('a supervisor is created, edited and assigned', async ({
   const editor = new SupervisorEditorPage(page);
   await editor.gotoNew();
   await editor.name.fill(id);
-  await editor.decisionMaker.selectOption({ value: 'rules' });
+  await choose(editor.decisionMaker, { value: 'rules' });
   await editor.description.fill('made by e2e');
   await editor.settings.fill('{"rules":[]}');
   await editor.button('Save').click();

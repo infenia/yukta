@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { Page } from '@playwright/test';
+import { choose } from '../utils';
 import { test, expect } from '../fixtures';
 
 const at = '2026-11-15T10:00:00Z';
@@ -146,7 +147,7 @@ test.describe('Inbox page', () => {
     await page.goto('/inbox');
     await page.getByRole('tab', { name: /All/ }).click();
 
-    await page.getByLabel('Severity').selectOption('ERROR');
+    await choose(page.getByLabel('Severity'), 'ERROR');
     await expect(page.getByText('Nightly run failed')).toBeVisible();
     await expect(page.getByText('Deploy to production?')).toHaveCount(0);
   });

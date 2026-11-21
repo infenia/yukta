@@ -259,7 +259,7 @@ describe('WorkflowDetailsPage', () => {
       );
       expect(
         screen.getByRole('combobox', { name: 'Show lines of node' })
-      ).toHaveValue('vectorize-batch');
+      ).toHaveTextContent('vectorize-batch');
 
       await user.click(
         within(sheet).getByRole('button', { name: 'Close node details' })

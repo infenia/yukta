@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -185,7 +186,8 @@ describe('the edit form', () => {
     ).toBeInTheDocument();
     await user.clear(screen.getByRole('textbox', { name: 'Name' }));
     await user.type(screen.getByRole('textbox', { name: 'Name' }), 'fresh');
-    await user.selectOptions(
+    await choose(
+      user,
       await screen.findByRole('combobox', { name: 'Decision maker' }),
       'failure-guard'
     );
@@ -338,7 +340,8 @@ describe('the edit form', () => {
       </QueryClientProvider>
     );
     await user.type(screen.getByRole('textbox', { name: 'Name' }), 'drawer');
-    await user.selectOptions(
+    await choose(
+      user,
       await screen.findByRole('combobox', { name: 'Decision maker' }),
       'failure-guard'
     );
