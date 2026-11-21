@@ -123,6 +123,18 @@ Open **Plugins** (`/plugins`). Plugins are grouped as triggers, processors and t
 
 **Supervisors** (`/supervisors`) is a list on the left and the chosen supervisor on the right. Each row shows whether it is live or in dry run, the id of its decision maker and how many targets it owns; **Direct control** is last, for the workflows nobody owns. Selecting one shows its numbers (applied, refused, rate limited, what it owns, its last decision), a map of who decides, who it reports to and what it owns (click a supervisor, workflow or node to open it), and tabs: **Owns**, **Allowed operations**, **Hierarchy**, **Decision maker**, **Settings**, **Changes** and **Decisions**. The address keeps the choice: `?supervisor=<id>&section=<tab>`. **Decision maker types** opens the catalogue of kinds you can choose for a supervisor, and **New supervisor** (`/supervisors/new`) creates one; each supervisor has its own editor at `/supervisors/<id>/edit`. What the supervisors did, across all of them, is on the Activity tab of [Control](#check-the-server). The workflow page also shows who owns the run you are looking at. For what to do with them, see [Assign a supervisor](/guides/supervise/assign-a-supervisor).
 
+## Ask the assistant
+
+An experimental assistant sits behind the round button at the bottom right of every page. Open it with `Ctrl+J` (`⌘J`) or from the jump palette; **Hide the assistant button** in its setup view hides the button, and the palette brings it back.
+
+1. On first open, choose where the model comes from: **Anthropic** or an **OpenAI-compatible** endpoint with your own API key, or **On this device**, Chrome's built-in model (Gemini Nano, downloaded once; Chrome 148 or later on a desktop with enough disk and GPU or RAM). **Save and test** makes one test call.
+2. Ask in plain words. The assistant uses Yukta's MCP tools with the same API key and role as the UI, knows which page you are on, and can search these docs.
+3. A tool that only reads runs at once. A tool that changes something is shown first: **Approve** runs it, **Deny** tells the assistant you declined.
+
+Your provider key stays in this browser (the tab, or the device if you tick **Keep the key on this device**). The server relays the request to the provider because the page may only talk to its own origin; it passes the key in a header and does not store or log it. The conversation is kept in memory only, so a reload clears it.
+
+Three settings bound the relay: `yukta.assistant.enabled` (turns it off), `yukta.assistant.allowed-base-urls` (hosts an OpenAI-compatible base URL may name; add an Ollama or LM Studio host here) and `yukta.assistant.anthropic-url`. See [Configuration](/reference/configuration).
+
 ## Check the server
 
 <UiShot
