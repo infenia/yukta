@@ -18,7 +18,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyMethods")
 class DraftRunFilteringLogStoreTest {
 
   private final ExecutionLogStore delegate = mock(ExecutionLogStore.class);

@@ -125,7 +125,7 @@ class DefaultControlBusGatewayStartTest {
   }
 
   @Test
-  void draftRefusedByASupervisorNeverRuns() {
+  void draftRefusedBySupervisorNeverRuns() {
     when(reviewer.review(any())).thenReturn(Mono.error(new ControlRejectedException("no")));
     final WorkflowDefinition draft =
         new WorkflowDefinition("__test__.x", "d", List.of(), List.of(), null, null);
