@@ -31,7 +31,7 @@ import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
 @SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.TooManyStaticImports"})
-class TestRunControllerTest {
+class DraftRunControllerTest {
 
   private static final String URI = "/api/sessions/s1/test-runs";
 
@@ -56,7 +56,7 @@ class TestRunControllerTest {
     when(pluginRegistry.get("T")).thenReturn(mock(TerminalPlugin.class));
     client =
         WebTestClient.bindToController(
-                new TestRunController(
+                new DraftRunController(
                     Mappers.getMapper(AppConfigMapper.class), pluginRegistry, validator, control))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();

@@ -9,6 +9,7 @@ import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.service.control.SupervisedControl;
+import com.infenia.yukta.service.orchestrator.validator.ValidationProblem;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.testrun.DraftRuns;
@@ -34,7 +35,7 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/api/sessions/{sessionId}/test-runs")
 @RequiredArgsConstructor
 @Tag(name = "Session API", description = "Run a draft workflow without saving it")
-public class TestRunController {
+public class DraftRunController {
 
   /** Maps the draft to the domain model. */
   private final AppConfigMapper appConfigMapper;
@@ -83,7 +84,9 @@ public class TestRunController {
           if (!problems.isEmpty()) {
             return Mono.error(
                 new IllegalArgumentException(
-                    problems.stream().map(p -> p.message()).collect(Collectors.joining("; "))));
+                    problems.stream()
+                        .map(ValidationProblem::message)
+                        .collect(Collectors.joining("; "))));
           }
           return control.startDraft(sessionId, cut, request.payload());
         })
