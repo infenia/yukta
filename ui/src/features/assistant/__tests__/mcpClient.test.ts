@@ -45,7 +45,7 @@ describe('listTools', () => {
       .mockResolvedValueOnce(json({ result: { tools: [] } }));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(listTools()).rejects.toThrow('answered 500');
+    await expect(listTools()).rejects.toThrow('could not do that right now');
     expect(await listTools()).toEqual([]);
   });
 
@@ -115,6 +115,18 @@ describe('callTool', () => {
     );
 
     await expect(callTool('t', {})).rejects.toThrow('bad args');
-    await expect(callTool('t', {})).rejects.toThrow('role does not allow');
+    await expect(callTool('t', {})).rejects.toThrow('not allowed');
+  });
+
+  it.each([
+    [401, 'needs your API key'],
+    [429, 'Too many tries'],
+  ])('explains a %i in plain words', async (status, words) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('', { status }))
+    );
+
+    await expect(callTool('t', {})).rejects.toThrow(words);
   });
 });

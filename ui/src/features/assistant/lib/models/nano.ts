@@ -181,7 +181,13 @@ async function* run(
     // some builds refuse initial prompts ("unable to create a session"): start a plain session and
     // put the instructions and earlier turns in front of the question instead
     if ((error as Error).name !== 'NotSupportedError') throw error;
-    base = await (LanguageModel as NanoStatic).create({ ...OPTIONS, signal });
+    try {
+      base = await (LanguageModel as NanoStatic).create({ ...OPTIONS, signal });
+    } catch {
+      throw new Error(
+        "The built-in model isn't working on this device right now. Restart Chrome, or choose Auto with an API key in Settings."
+      );
+    }
     input = [
       system,
       ...all.map(

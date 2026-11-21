@@ -8,6 +8,15 @@ import { sseData } from './sse';
 let nextId = 1;
 let cached: Promise<ToolSpec[]> | null = null;
 
+/** What to tell the person when Yukta refuses a call, in plain words. */
+function refusal(status: number): string {
+  if (status === 401)
+    return 'Yukta needs your API key. Add it, then try again.';
+  if (status === 403) return 'Your API key is not allowed to do that.';
+  if (status === 429) return 'Too many tries. Wait a minute, then try again.';
+  return 'Yukta could not do that right now. Try again in a moment.';
+}
+
 /** One JSON-RPC call to Yukta's own MCP endpoint (same origin, the same key as the REST API). */
 async function rpc<T>(
   method: string,
@@ -25,11 +34,7 @@ async function rpc<T>(
     body: JSON.stringify({ jsonrpc: '2.0', id: nextId++, method, params }),
   });
   if (!res.ok) {
-    throw new Error(
-      res.status === 403
-        ? "This API key's role does not allow that."
-        : `The MCP endpoint answered ${res.status}.`
-    );
+    throw new Error(refusal(res.status));
   }
   let text = await res.text();
   if (res.headers.get('content-type')?.includes('text/event-stream')) {

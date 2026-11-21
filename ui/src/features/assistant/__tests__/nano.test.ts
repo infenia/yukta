@@ -350,4 +350,16 @@ describe('nanoModel', () => {
 
     await expect(run()).rejects.toThrow('boom');
   });
+
+  it('says in plain words when the built-in model cannot start at all', async () => {
+    const refused = Object.assign(new Error('unable to create a session'), {
+      name: 'NotSupportedError',
+    });
+    vi.stubGlobal('LanguageModel', {
+      create: vi.fn().mockRejectedValue(refused),
+      availability: vi.fn(),
+    });
+
+    await expect(run()).rejects.toThrow("isn't working on this device");
+  });
 });
