@@ -758,3 +758,95 @@
     animation: none !important;
   }
 }
+
+/* Native selects. color-scheme makes the OS list follow the theme in browsers without
+   customizable selects (Firefox, Safari). Chromium 135+ opts in with appearance: base-select,
+   which makes the open list stylable: it uses the popover tokens, so light and dark need no
+   second rule. The wrappers draw their own chevron, so the built-in one is hidden. */
+:root {
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+@supports (appearance: base-select) {
+  select,
+  select::picker(select) {
+    appearance: base-select;
+  }
+  select::picker-icon {
+    display: none;
+  }
+  select::picker(select) {
+    box-sizing: border-box;
+    min-width: anchor-size(width);
+    max-height: min(20rem, 60vh);
+    margin-top: 0.375rem;
+    padding: 0.375rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: var(--elevation-raised);
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+    transition:
+      opacity 0.14s ease,
+      transform 0.14s ease,
+      overlay 0.14s allow-discrete,
+      display 0.14s allow-discrete;
+  }
+  select:open::picker(select) {
+    opacity: 1;
+    transform: none;
+  }
+  @starting-style {
+    select:open::picker(select) {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.98);
+    }
+  }
+  select option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.625rem;
+    border-radius: 0.625rem;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    transition: background-color 0.1s ease;
+  }
+  select option:hover,
+  select option:focus-visible {
+    background: var(--accent);
+    outline: none;
+  }
+  select option:checked {
+    color: var(--primary);
+    font-weight: 500;
+  }
+  select option::checkmark {
+    order: 1;
+    margin-left: auto;
+    color: var(--primary);
+  }
+  select optgroup {
+    padding: 0.5rem 0.625rem 0.25rem;
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  select optgroup option {
+    padding-left: 1rem;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  select option:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}

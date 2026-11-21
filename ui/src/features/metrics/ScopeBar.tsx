@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { NativeSelect } from '@/components/ui/native-select';
 import { RANGES } from './api';
 import { useDashboardParams } from './hooks';
 
@@ -33,11 +34,11 @@ export function ScopeBar({
       role="toolbar"
       aria-label="Dashboard view"
     >
-      <select
+      <NativeSelect
         aria-label="Scope"
         value={scope}
         onChange={(e) => setScope(e.target.value)}
-        className="border-border bg-surface text-body-md h-8 max-w-full min-w-0 rounded-lg border px-2 sm:max-w-xs"
+        className="max-w-full min-w-0 sm:max-w-xs"
       >
         {scopes.filter((s) => !s.group).map(option)}
         {groups.map((group) => (
@@ -45,7 +46,7 @@ export function ScopeBar({
             {scopes.filter((s) => s.group === group).map(option)}
           </optgroup>
         ))}
-      </select>
+      </NativeSelect>
       <div role="group" aria-label="Range" className="flex gap-1">
         {RANGES.map((r) => (
           <button
