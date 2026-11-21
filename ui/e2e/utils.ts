@@ -269,7 +269,7 @@ export async function choose(
   const { label, value } =
     typeof option === 'string' ? { label: undefined, value: option } : option;
   const byValue = list.locator(
-    `[role="option"][data-value="${(value ?? '').replace(/"/g, '\\"')}"]`
+    `[role="option"][data-value="${(value ?? '').replace(/[\\"]/g, '\\$&')}"]`
   );
   await list.waitFor();
   const target =
