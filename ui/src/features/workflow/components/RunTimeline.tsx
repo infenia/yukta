@@ -294,11 +294,7 @@ function NodeRow({
               </div>
             </div>
             {owner && (
-              <NodeOwner
-                nodeId={row.nodeId}
-                owner={owner}
-                className="bg-muted/70 size-6"
-              />
+              <NodeOwner nodeId={row.nodeId} owner={owner} className="size-6" />
             )}
             {href && (
               <Tip label="Open the sub-workflow">

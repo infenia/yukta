@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { NodeOwnerOpener } from '../../hooks/useNodeSupervisors';
 
 /**
- * Who controls a node: a supervisor's shield, or a person for the default owner. Where a drawer
+ * Who controls a node: a supervisor's shield; nothing for direct control. Where a drawer
  * can show it, a click opens the node's Supervisor tab; elsewhere it is only a label.
  */
 export function NodeOwner({
@@ -21,14 +21,16 @@ export function NodeOwner({
   className?: string;
 }) {
   const open = useContext(NodeOwnerOpener);
+  // direct control is the norm: only a supervisor is worth an icon
+  if (owner === 'default') return null;
   const label = `Controlled by: ${ownerLabel(owner)}`;
   const icon = (
     <span aria-hidden="true" className="material-symbols-outlined text-base">
-      {owner === 'default' ? 'person' : 'shield_person'}
+      shield_person
     </span>
   );
   const base =
-    'text-on-surface-variant inline-flex items-center justify-center rounded-full';
+    'text-primary bg-primary/10 inline-flex items-center justify-center rounded-full';
   return (
     <Tip label={label}>
       {open ? (
@@ -42,7 +44,7 @@ export function NodeOwner({
           }}
           className={cn(
             base,
-            'nodrag hover:bg-muted hover:text-primary focus-visible:ring-ring transition-colors focus-visible:ring-2 focus-visible:outline-none',
+            'nodrag hover:bg-primary/20 focus-visible:ring-ring transition-colors focus-visible:ring-2 focus-visible:outline-none',
             className
           )}
         >

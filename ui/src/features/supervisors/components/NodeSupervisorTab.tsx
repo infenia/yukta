@@ -53,7 +53,10 @@ export function NodeSupervisorTab({
       />
     );
   }
-  const owner = ownership.data.nodes[nodeId] ?? 'default';
+  const nodeOwner = ownership.data.nodes[nodeId] ?? 'default';
+  // a supervisor that owns the whole run carries its nodes too
+  const viaRun = nodeOwner === 'default' && ownership.data.run !== 'default';
+  const owner = viaRun ? ownership.data.run : nodeOwner;
   const supervisor = supervisors.data?.find((s) => s.id === owner);
   const rows = NODE_COMMANDS.flatMap(([key, label]) => {
     const capability = capabilities.data?.[key];
@@ -86,7 +89,9 @@ export function NodeSupervisorTab({
         summary={
           owner === 'default'
             ? 'Nobody supervises this node: people and agents with the right role send its commands directly.'
-            : 'Controls this node'
+            : viaRun
+              ? 'Controls the whole run, including this node'
+              : 'Controls this node'
         }
       />
       <section aria-label="Node commands" className="flex flex-col gap-3">

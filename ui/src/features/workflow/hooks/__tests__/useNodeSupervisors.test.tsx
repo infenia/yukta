@@ -10,6 +10,7 @@ import { http, HttpResponse } from 'msw';
 import { createTestQueryClient } from '@/test/utils/testUtils';
 import { useNodeSupervisors } from '../useNodeSupervisors';
 
+let run = 'default';
 const server = setupServer(
   http.get('/api/supervision/ownership', () =>
     HttpResponse.json({
@@ -18,7 +19,7 @@ const server = setupServer(
       message: 'ok',
       path: '/',
       data: {
-        run: 'default',
+        run,
         defaultSupervisor: 'default',
         nodes: { ingest: 'ops-supervisor', sink: 'default' },
       },
@@ -26,7 +27,10 @@ const server = setupServer(
   )
 );
 beforeAll(() => server.listen());
-afterEach(() => server.resetHandlers());
+afterEach(() => {
+  server.resetHandlers();
+  run = 'default';
+});
 afterAll(() => server.close());
 
 const wrapper = ({ children }: { children: ReactNode }) => (
@@ -51,5 +55,14 @@ describe('useNodeSupervisors', () => {
       expect(result.current.get('ingest')).toBe('ops-supervisor')
     );
     expect(result.current.get('sink')).toBe('default');
+  });
+
+  it('gives a node nobody owns the supervisor of the whole run', async () => {
+    run = 'guard';
+    const { result } = renderHook(() => useNodeSupervisors('s1', 'w1'), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.get('sink')).toBe('guard'));
+    expect(result.current.get('ingest')).toBe('ops-supervisor');
   });
 });

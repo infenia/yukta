@@ -82,6 +82,15 @@ const owned = (owner: string) => ({
 });
 
 describe('NodeSupervisorTab', () => {
+  it('shows the supervisor of the run when only the run level is owned', async () => {
+    ownership = { ...owned('default'), run: 'lead' };
+    show();
+    expect(await screen.findByText('lead')).toBeInTheDocument();
+    expect(
+      screen.getByText('Controls the whole run, including this node')
+    ).toBeInTheDocument();
+  });
+
   it('shows the supervisor of the node and which of its commands are allowed', async () => {
     ownership = owned('lead');
     capabilities = {

@@ -73,13 +73,6 @@ export function StatusPill({
           <span aria-hidden className="material-symbols-outlined text-[15px]!">
             {iconOnly ? (BARE_ICON[icon] ?? icon) : icon}
           </span>
-        ) : iconOnly ? (
-          <span
-            aria-hidden
-            className="material-symbols-outlined animate-spin text-[15px]!"
-          >
-            progress_activity
-          </span>
         ) : (
           <span
             aria-hidden
