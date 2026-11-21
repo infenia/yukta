@@ -435,7 +435,7 @@ test.describe('Workflow editor - the node inspector', () => {
     );
   });
 
-  test('has Config, Connections, Policy and JSON tabs, opening on Config', async ({
+  test('has Config, Connections, Policy, JSON and Test tabs, opening on Config', async ({
     page,
   }) => {
     const tabs = inspector(page).getByRole('tablist', { name: 'Node' });
@@ -444,6 +444,7 @@ test.describe('Workflow editor - the node inspector', () => {
       'Connections',
       'Policy',
       'JSON',
+      'Test',
     ]);
     await expect(tabs.getByRole('tab', { name: 'Config' })).toHaveAttribute(
       'aria-selected',
