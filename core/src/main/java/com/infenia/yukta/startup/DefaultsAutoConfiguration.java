@@ -79,12 +79,11 @@ public class DefaultsAutoConfiguration {
    * @return the post-processor
    */
   @Bean
-  public static BeanPostProcessor testRunLogFilter() {
+  public static BeanPostProcessor draftRunLogFilter() {
     return new BeanPostProcessor() {
       @Override
       public Object postProcessAfterInitialization(final Object bean, final String name) {
         return bean instanceof final ExecutionLogStore store
-                && !(bean instanceof DraftRunFilteringLogStore)
             ? new DraftRunFilteringLogStore(store)
             : bean;
       }

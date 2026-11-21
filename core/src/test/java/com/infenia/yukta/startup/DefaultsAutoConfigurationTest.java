@@ -77,4 +77,15 @@ class DefaultsAutoConfigurationTest {
           assertThat(context).doesNotHaveBean(SingleServerLeader.class);
         });
   }
+
+  @Test
+  void theLogFilterWrapsOnlyExecutionLogStores() {
+    final var filter = DefaultsAutoConfiguration.draftRunLogFilter();
+    final Object other = new Object();
+    final ExecutionLogStore store = Mockito.mock(ExecutionLogStore.class);
+
+    assertThat(filter.postProcessAfterInitialization(other, "o")).isSameAs(other);
+    assertThat(filter.postProcessAfterInitialization(store, "s"))
+        .isInstanceOf(DraftRunFilteringLogStore.class);
+  }
 }
