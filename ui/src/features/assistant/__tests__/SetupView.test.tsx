@@ -269,27 +269,69 @@ describe('SetupView', () => {
     it('goes back to a provider with the model it had', async () => {
       show('k', nano('available'), { ...DEFAULT_SETTINGS, provider: 'nano' });
 
-      await userEvent.click(screen.getByRole('button', { name: 'Anthropic' }));
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Your own provider' })
+      );
 
       expect(screen.getByLabelText('Model')).toHaveValue('claude-sonnet-5-5');
     });
   });
 
-  it('auto uses a ready built-in model without a key', async () => {
+  it('a provider with the built-in fallback uses a ready built-in model without a key', async () => {
     const { onSave } = show(null, {
       state: 'available',
       progress: 1,
       download: vi.fn(),
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Auto' }));
+    await userEvent.click(
+      screen.getByLabelText('Use the built-in model when it is ready')
+    );
     await userEvent.click(
       screen.getByRole('button', { name: 'Use this model' })
     );
 
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ provider: 'auto' }),
+      expect.objectContaining({ provider: 'anthropic', device: true }),
       ''
+    );
+  });
+});
+
+describe('older settings', () => {
+  it('shows an auto setting as a provider with the built-in fallback on', () => {
+    show(
+      null,
+      { state: 'available', progress: 1, download: vi.fn() },
+      {
+        ...DEFAULT_SETTINGS,
+        provider: 'auto',
+        baseUrl: 'http://x/v1',
+      }
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'OpenAI-compatible' })
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.getByLabelText('Use the built-in model when it is ready')
+    ).toBeChecked();
+  });
+
+  it('shows an auto setting without a base URL as Anthropic', () => {
+    show(
+      null,
+      { state: 'available', progress: 1, download: vi.fn() },
+      {
+        ...DEFAULT_SETTINGS,
+        provider: 'auto',
+        baseUrl: '',
+      }
+    );
+
+    expect(screen.getByRole('button', { name: 'Anthropic' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
     );
   });
 });

@@ -125,13 +125,13 @@ Open **Plugins** (`/plugins`). Plugins are grouped as triggers, processors and t
 
 ## Ask the assistant
 
-An experimental assistant sits behind the sparkle button in the header of every page. Open it with `Ctrl+J` (`⌘J`) or from the jump palette; **Hide the assistant button** in its setup view hides the button, and the palette brings it back.
+An experimental assistant sits behind the sparkle button in the header of every page. Open it with `Ctrl+J` (`⌘J`) or from the jump palette; **Hide the assistant button** in its setup view hides the button. To bring it back, open the jump palette (`Ctrl+K`) and choose **Ask the assistant**.
 
-1. On first open, choose where the model comes from: **Anthropic** or an **OpenAI-compatible** endpoint with your own API key, or **On this device**, Chrome's built-in model (Gemini Nano, downloaded once; Chrome 148 or later on a desktop with enough disk and GPU or RAM). **Save and test** makes one test call.
+1. On first open, choose where the model comes from: **Your own provider** (pick the API format, **Anthropic** or **OpenAI-compatible**, and give your API key; tick **Use the built-in model when it is ready** to prefer the on-device one) or **On this device**, Chrome's built-in model (Gemini Nano, downloaded once; Chrome 148 or later on a desktop with enough disk and GPU or RAM). **Save and test** makes one test call.
 2. Ask in plain words. The assistant uses Yukta's MCP tools with the same API key and role as the UI, knows which page you are on, and can search these docs.
 3. A tool that only reads runs at once. A tool that changes something is shown first: **Approve** runs it, **Deny** tells the assistant you declined.
 
-Your provider key stays in this browser (the tab, or the device if you tick **Keep the key on this device**). The server relays the request to the provider because the page may only talk to its own origin; it passes the key in a header and does not store or log it. The conversation stays in this tab through a reload until you close the tab or choose **New chat**. Under the last answer, **Copy answer** copies it and **Retry** asks the question again. **Expand** widens the card, and the model name in its header opens the setup to change the model. With the on-device model the card shows how much of its context is used.
+Your provider key stays in this browser (the tab, or the device if you tick **Keep the key on this device**). The server relays the request to the provider because the page may only talk to its own origin; it passes the key in a header and does not store or log it. The conversation stays in this tab through a reload. **New chat** keeps the old one, and **History** (the clock button) lists the last 20 chats kept in this browser, to open or delete. On a wide screen the card docks to the right edge and the page makes room for it. Under the last answer, **Copy answer** copies it and **Retry** asks the question again. The model name in its header opens the setup to change the model. With the on-device model the card shows how much of its context is used.
 
 Three settings bound the relay: `yukta.assistant.enabled` (turns it off), `yukta.assistant.allowed-base-urls` (hosts an OpenAI-compatible base URL may name; add an Ollama or LM Studio host here) and `yukta.assistant.anthropic-url`. See [Configuration](/reference/configuration).
 

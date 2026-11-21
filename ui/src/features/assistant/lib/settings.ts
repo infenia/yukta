@@ -5,7 +5,7 @@ import type { Provider } from './proxy';
 
 /**
  * Where the model comes from: this device's built-in model, a provider with the person's key, or
- * `auto`: the built-in model when it is ready, else the key (Anthropic, or OpenAI-compatible with a base URL).
+ * `auto` (older settings; now a provider with `device` on): the built-in model when it is ready, else the key.
  */
 export type ProviderChoice = Provider | 'nano' | 'auto';
 
@@ -14,6 +14,8 @@ export interface Settings {
   /** The header button is hidden (the command palette brings it back). */
   hidden: boolean;
   provider: ProviderChoice;
+  /** With a provider chosen: still use the built-in model whenever this browser has one ready. */
+  device: boolean;
   model: string;
   /** The OpenAI-compatible endpoint; empty means api.openai.com. */
   baseUrl: string;
@@ -24,6 +26,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   hidden: false,
   provider: 'anthropic',
+  device: false,
   model: 'claude-sonnet-5-5',
   baseUrl: '',
   remember: false,

@@ -179,6 +179,11 @@ describe('AssistantLauncher', () => {
       expect(screen.queryByText('Hello there')).not.toBeInTheDocument()
     );
     expect(screen.getByText(/Ask about your sessions/)).toBeInTheDocument();
+
+    // the chat it left is in the history, and opens again from there
+    await userEvent.click(screen.getByRole('button', { name: 'History' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Open / }));
+    expect(await screen.findByText('Hello there')).toBeInTheDocument();
   });
 
   it('starts on the built-in model, with no key, in a browser that has it', async () => {
@@ -208,18 +213,14 @@ describe('AssistantLauncher', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Looking at Workflow w1')).toBeInTheDocument();
   });
-  it('expands the card and shrinks it again, and opens the settings from the model name', async () => {
+  it('opens the settings from the model name', async () => {
     serve();
     writeKey('sk-1', false);
     show();
     await userEvent.click(opener());
     const card = await screen.findByRole('dialog', { name: 'Yukta assistant' });
-    expect(card).not.toHaveClass('sm:w-xl');
-
-    await userEvent.click(screen.getByRole('button', { name: 'Expand' }));
-    expect(card).toHaveClass('sm:w-xl');
-    await userEvent.click(screen.getByRole('button', { name: 'Shrink' }));
-    expect(card).not.toHaveClass('sm:w-xl');
+    expect(card).toBeVisible();
+    expect(document.documentElement).toHaveAttribute('data-assistant-dock');
 
     await userEvent.click(screen.getByRole('button', { name: 'Change model' }));
     expect(screen.getByLabelText('API key')).toBeInTheDocument();

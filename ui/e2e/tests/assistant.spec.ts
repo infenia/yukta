@@ -205,14 +205,9 @@ test.describe('Assistant', () => {
     await expect(panel(page)).not.toContainText('Remembered.');
   });
 
-  test('expands, and hides the button for good', async ({ page }) => {
+  test('hides the button for good', async ({ page }) => {
     await mockAssistant(page, [text('OK')]);
     await setUp(page);
-    await panel(page).getByRole('button', { name: 'Expand' }).click();
-    await expect(
-      panel(page).getByRole('button', { name: 'Shrink' })
-    ).toBeVisible();
-
     await panel(page).getByRole('button', { name: 'Change model' }).click();
     await panel(page)
       .getByRole('button', { name: 'Hide the assistant button' })

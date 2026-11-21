@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useMemo, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react';
 import { useLocation } from 'react-router';
-import { IconButton } from '@/components/common/IconButton';
+import { Tip } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useNano } from '../hooks/useNano';
-import { clearChat } from '../lib/history';
+import { archiveChat, clearChat, restoreChat } from '../lib/history';
 import { buildModel } from '../lib/models';
 import { pageContext } from '../lib/pageContext';
 import type { Settings } from '../lib/settings';
 import { Chat } from './Chat';
+import { HistoryView } from './HistoryView';
 import { SetupView } from './SetupView';
 
 /** The assistant card: header, the conversation, and the setup when no model is connected. */
@@ -41,8 +42,18 @@ export default function AssistantPanel({
     [settings, apiKey, nano.state]
   );
   const [configuring, setConfiguring] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   const [chat, setChat] = useState(0);
-  const [wide, setWide] = useState(false);
+
+  // on wide screens the card docks to the right edge; the page makes room for it (index.css)
+  useEffect(() => {
+    const root = document.documentElement;
+    if (open) root.dataset.assistantDock = '';
+    else delete root.dataset.assistantDock;
+    return () => {
+      delete root.dataset.assistantDock;
+    };
+  }, [open]);
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') onClose();
@@ -55,23 +66,25 @@ export default function AssistantPanel({
       hidden={!open}
       onKeyDown={onKeyDown}
       className={cn(
-        'border-border bg-card shadow-raised fixed z-60 flex flex-col overflow-hidden rounded-xl border',
+        'assistant-surface border-border shadow-raised fixed z-60 flex flex-col overflow-hidden rounded-xl border',
         'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
         // a bottom sheet on phones
         'max-sm:inset-x-0 max-sm:top-24 max-sm:bottom-0 max-sm:rounded-b-none',
-        // a popover under the header's assistant button; expanded, it takes the full height
-        'sm:top-16 sm:right-5',
-        wide
-          ? 'sm:bottom-5 sm:w-xl'
-          : 'sm:h-[min(40rem,calc(100dvh-5rem))] sm:w-md'
+        // a popover under the header's assistant button
+        'sm:top-16 sm:right-5 sm:h-[min(40rem,calc(100dvh-5rem))] sm:w-md',
+        // docked beside the page on wide screens, so it never covers the content
+        'lg:top-header lg:right-0 lg:bottom-0 lg:h-auto lg:w-md lg:rounded-none lg:border-y-0 lg:border-r-0 lg:shadow-none'
       )}
     >
-      <header className="border-border flex items-center gap-2 border-b px-4 py-3">
+      <div aria-hidden="true" className="assistant-gradient h-0.5 shrink-0" />
+      <header className="border-primary/15 flex items-center gap-2.5 border-b px-4 py-3">
         <span
           aria-hidden="true"
-          className="material-symbols-outlined text-primary"
+          className="assistant-gradient flex size-7 shrink-0 items-center justify-center rounded-lg"
         >
-          auto_awesome
+          <span className="material-symbols-outlined text-base">
+            auto_awesome
+          </span>
         </span>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center gap-2">
@@ -87,31 +100,53 @@ export default function AssistantPanel({
             {model ? model.label : 'No model connected'}
           </button>
         </div>
-        <IconButton
+        <HeaderButton
           icon="add"
           label="New chat"
           onClick={() => {
+            archiveChat();
             clearChat();
+            setBrowsing(false);
+            setConfiguring(false);
             setChat(chat + 1);
           }}
         />
-        <IconButton
-          icon={wide ? 'close_fullscreen' : 'open_in_full'}
-          label={wide ? 'Shrink' : 'Expand'}
-          className="max-sm:hidden"
-          onClick={() => setWide(!wide)}
+        <HeaderButton
+          icon="history"
+          label="History"
+          active={browsing}
+          onClick={() => {
+            setConfiguring(false);
+            setBrowsing(!browsing);
+          }}
         />
-        <IconButton
+        <HeaderButton
           icon="settings"
           label="Settings"
-          onClick={() => setConfiguring(!configuring)}
+          active={configuring}
+          onClick={() => {
+            setBrowsing(false);
+            setConfiguring(!configuring);
+          }}
         />
-        <IconButton icon="close" label="Close" onClick={onClose} />
+        <HeaderButton icon="close" label="Close" onClick={onClose} />
       </header>
       {model && (
-        <div hidden={configuring} className="flex min-h-0 flex-1 flex-col">
+        <div
+          hidden={configuring || browsing}
+          className="flex min-h-0 flex-1 flex-col"
+        >
           <Chat key={chat} model={model} context={context} open={open} />
         </div>
+      )}
+      {browsing && !configuring && (
+        <HistoryView
+          onOpen={(id) => {
+            restoreChat(id);
+            setBrowsing(false);
+            setChat(chat + 1);
+          }}
+        />
       )}
       {(!model || configuring) && (
         <SetupView
@@ -126,5 +161,40 @@ export default function AssistantPanel({
         />
       )}
     </section>
+  );
+}
+
+/** A compact icon button for the header: no outline, the glyph a size down. */
+function HeaderButton({
+  icon,
+  label,
+  active = false,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Tip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-pressed={active || undefined}
+        onClick={onClick}
+        className={cn(
+          'text-on-surface-variant hover:bg-primary/10 hover:text-on-surface transition-standard flex size-7 items-center justify-center rounded-full',
+          active && 'bg-primary/15 text-on-surface'
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-base"
+        >
+          {icon}
+        </span>
+      </button>
+    </Tip>
   );
 }

@@ -16,11 +16,14 @@ export function buildModel(
   key: string | null,
   nano: NanoState = 'unsupported'
 ): ChatModel | null {
-  if (
-    settings.provider === 'nano' ||
-    (settings.provider === 'auto' && nano === 'available')
-  ) {
+  if (settings.provider === 'nano') {
     return nano === 'available' ? nanoModel() : null;
+  }
+  if (
+    (settings.provider === 'auto' || settings.device) &&
+    nano === 'available'
+  ) {
+    return nanoModel();
   }
   if (!key || !settings.model) return null;
   const openai =
