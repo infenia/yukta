@@ -35,14 +35,21 @@ export function Fold({ title, code }: { title: string; code: string }) {
   );
 }
 
+const OPTION_ICONS: Record<string, string> = {
+  approve: 'check',
+  reject: 'close',
+};
+
 function Controls({
   request,
   busy,
   submit,
+  size,
 }: {
   request: InputRequest;
   busy: boolean;
   submit: (body: AnswerBody) => void;
+  size: 'sm' | 'default' | 'lg';
 }) {
   const [text, setText] = useState('');
   const [invalid, setInvalid] = useState<string | null>(null);
@@ -55,16 +62,23 @@ function Controls({
             { id: 'reject', label: 'Reject' },
           ];
     return (
-      <div className="flex flex-wrap gap-2">
+      <div role="group" aria-label="Answer" className="flex flex-wrap gap-2">
         {options.map((option) => (
           <Button
             key={option.id}
-            size="sm"
+            size={size}
             variant={option.id === 'reject' ? 'outline' : 'default'}
             disabled={busy}
             onClick={() => submit({ decision: option.id })}
           >
-            {option.label}
+            {OPTION_ICONS[option.id] && (
+              <span aria-hidden className="material-symbols-outlined">
+                {OPTION_ICONS[option.id]}
+              </span>
+            )}
+            <span className="inline-block first-letter:uppercase">
+              {option.label}
+            </span>
           </Button>
         ))}
       </div>
@@ -91,14 +105,33 @@ function Controls({
       )}
       <textarea
         aria-label={structured ? 'Answer as JSON' : 'Answer'}
-        rows={3}
+        rows={size === 'sm' ? 3 : 4}
+        placeholder={structured ? '{ }' : 'Type your answer'}
+        aria-keyshortcuts="Control+Enter Meta+Enter"
         className={textareaFieldClassName}
         value={text}
         onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          if (
+            (event.ctrlKey || event.metaKey) &&
+            event.key === 'Enter' &&
+            !busy &&
+            text.trim() !== ''
+          ) {
+            send();
+          }
+        }}
       />
       <InlineError message={invalid} />
-      <div>
-        <Button size="sm" disabled={busy || text.trim() === ''} onClick={send}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-label-sm text-on-surface-variant">
+          Ctrl/⌘+Enter to send
+        </span>
+        <Button
+          size={size}
+          disabled={busy || text.trim() === ''}
+          onClick={send}
+        >
           Send answer
         </Button>
       </div>
@@ -143,10 +176,13 @@ export function Confirm({
 export function InputAnswerForm({
   request,
   onAnswered,
+  size = 'sm',
 }: {
   request: InputRequest;
   /** Called once the server accepted the answer. */
   onAnswered?: () => void;
+  /** `lg` in the workflow panel, `sm` in toasts and popovers. */
+  size?: 'sm' | 'default' | 'lg';
 }) {
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<AnswerBody | null>(null);
@@ -163,7 +199,12 @@ export function InputAnswerForm({
     request.risk === 'HIGH' ? setPending(body) : answer.mutate(body);
   return (
     <>
-      <Controls request={request} busy={answer.isPending} submit={submit} />
+      <Controls
+        request={request}
+        busy={answer.isPending}
+        submit={submit}
+        size={size}
+      />
       <InlineError
         message={answer.error ? inputErrorMessage(answer.error) : null}
       />
