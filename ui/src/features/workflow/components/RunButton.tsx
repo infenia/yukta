@@ -89,6 +89,7 @@ export function RunButton({
   className,
   label = 'Run workflow',
   iconOnly = false,
+  disabled = false,
 }: {
   sessionId: string;
   workflowId: string;
@@ -100,6 +101,7 @@ export function RunButton({
   label?: string;
   /** Icon only: the label moves to the tooltip. */
   iconOnly?: boolean;
+  disabled?: boolean;
 }) {
   const { start } = useExecutionControl(sessionId, workflowId);
   const [open, setOpen] = useState(false);
@@ -111,9 +113,10 @@ export function RunButton({
         command="start"
         target={{ session: sessionId, workflow: workflowId }}
       >
-        <Tip label={iconOnly ? label : undefined}>
+        <Tip label={iconOnly ? label : undefined} disabled={disabled}>
           <button
             type="button"
+            disabled={disabled}
             aria-label={label}
             className={
               className ??
