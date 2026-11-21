@@ -300,8 +300,8 @@ function ExpressionField({
   const box = useRef<HTMLTextAreaElement>(null);
   const text = typeof value === 'string' ? value : '';
   const insert = (expression: string) => {
-    const start = box.current?.selectionStart ?? text.length;
-    const end = box.current?.selectionEnd ?? text.length;
+    const { selectionStart: start, selectionEnd: end } =
+      box.current as HTMLTextAreaElement;
     onChange(`${text.slice(0, start)}${expression}${text.slice(end)}`);
   };
   return (
