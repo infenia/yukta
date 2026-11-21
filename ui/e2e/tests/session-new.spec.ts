@@ -147,16 +147,18 @@ test.describe('New session: choosing a start', () => {
     );
   });
 
-  test('previews a template with its README and a canvas', async ({ page }) => {
+  test('previews a template with its summary and its workflow', async ({
+    page,
+  }) => {
     await page.goto('/sessions/new');
     await page.getByRole('button', { name: 'Preview' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Hello world' });
+    await expect(dialog.getByText('Smallest possible workflow')).toBeVisible();
+    await expect(dialog.getByTestId('template-canvas')).toBeVisible();
     await expect(
-      dialog.getByRole('heading', { name: '01 — Hello world' })
+      dialog.getByRole('button', { name: 'Use this template' })
     ).toBeVisible();
-    await expect(dialog.getByTestId('workflow-node-start')).toBeVisible();
-    await expect(dialog.getByTestId('workflow-node-end')).toBeVisible();
   });
 
   for (const [name, scheme, width] of [

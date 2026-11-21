@@ -14,6 +14,7 @@ import {
   getHeatmap,
   getLiveRuns,
   getModules,
+  getNodes,
   getSeries,
   getSnapshot,
   type MetricPoint,
@@ -97,6 +98,13 @@ export const useModules = (range: Range, scope: Scope, live: boolean) =>
   useQuery({
     queryKey: ['metrics', 'modules', range, scope],
     queryFn: () => getModules(range, scope),
+    refetchInterval: slow(live),
+  });
+
+export const useNodes = (range: Range, scope: Scope, live: boolean) =>
+  useQuery({
+    queryKey: ['metrics', 'nodes', range, scope],
+    queryFn: () => getNodes(range, scope),
     refetchInterval: slow(live),
   });
 

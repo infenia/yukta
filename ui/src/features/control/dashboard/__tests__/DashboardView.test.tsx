@@ -34,18 +34,17 @@ vi.mock('../KioskView', () => ({
 vi.mock('../CommandStrip', () => ({ CommandStrip: () => null }));
 vi.mock('../CapacityPanel', () => ({ CapacityPanel: () => null }));
 vi.mock('../ChartPanels', () => ({
-  LatencyPanel: () => null,
+  OverheadPanel: () => null,
   ThroughputPanel: () => null,
 }));
 vi.mock('../RunPanels', () => ({
-  HeatPanel: () => null,
   LeaderboardPanel: () => null,
   LiveRunsPanel: () => null,
+  NodesPanel: () => null,
 }));
-vi.mock('../HealthPanels', () => ({
-  AiUsagePanel: () => null,
-  VitalsPanel: () => null,
-  WorkerSlotsPanel: () => null,
+vi.mock('../HealthPanels', () => ({ SystemPanel: () => null }));
+vi.mock('@/features/supervisors/components/SupervisorsSummary', () => ({
+  SupervisorsSummary: () => <div>supervisors-card</div>,
 }));
 
 describe('DashboardView', () => {

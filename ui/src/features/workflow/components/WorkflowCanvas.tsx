@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useContext, useEffect, useMemo, type ReactNode } from 'react';
 import {
   Background,
   BackgroundVariant,
@@ -14,6 +14,8 @@ import { categoryAccent } from '../lib/categoryAccent';
 import { paletteColor } from '../lib/paletteColor';
 import type { StageData, WorkflowFlowNode } from '../lib/layout';
 import '@xyflow/react/dist/style.css';
+import { EdgeAdder } from '../lib/stepAdders';
+import { InsertableEdge } from './edges/InsertableEdge';
 import { WorkflowNodeCard } from './nodes/WorkflowNodeCard';
 import { StageFrame, StageNodeCard } from './nodes/StageNodes';
 import { findNodes } from '../lib/findNodes';
@@ -27,6 +29,7 @@ const NODE_TYPES = {
   stageNode: StageNodeCard,
   stageFrame: StageFrame,
 };
+const EDGE_TYPES = { insertable: InsertableEdge };
 
 /** Above this many nodes the whole graph fits only as an unreadable strip. */
 const LARGE_GRAPH = 30;
@@ -142,12 +145,23 @@ export function WorkflowCanvas({
   tools?: ReactNode;
 }) {
   const connectable = onConnect !== undefined;
+  // the editor draws a button on each edge; the run view's edges stay as they are
+  const insertable = useContext(EdgeAdder) !== null;
   const { nodes, edges } = useMemo(() => {
     const laid = layoutGraph(graph, tasksByNode, stageView);
-    return connectable
-      ? { ...laid, nodes: laid.nodes.map((node) => ({ ...node, connectable })) }
+    const withEdges = insertable
+      ? {
+          ...laid,
+          edges: laid.edges.map((edge) => ({ ...edge, type: 'insertable' })),
+        }
       : laid;
-  }, [graph, tasksByNode, stageView, connectable]);
+    return connectable
+      ? {
+          ...withEdges,
+          nodes: withEdges.nodes.map((node) => ({ ...node, connectable })),
+        }
+      : withEdges;
+  }, [graph, tasksByNode, stageView, connectable, insertable]);
 
   // A large graph opens on its running nodes (else its first few); the minimap shows the rest
   const running = nodes.filter(
@@ -172,6 +186,7 @@ export function WorkflowCanvas({
         nodes={nodes}
         edges={edges}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         fitView
         fitViewOptions={{ nodes: focus, padding: 0.15 }}
         // fitView stops at minZoom; xyflow's default (0.5) leaves a wide graph cut off on a

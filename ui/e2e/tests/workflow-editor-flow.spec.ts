@@ -217,6 +217,95 @@ test.describe('Workflow editor - loading', () => {
     ).toBeVisible();
   });
 
+  test('an empty workflow asks for a trigger, and the one picked starts it', async ({
+    page,
+  }) => {
+    await mockEditor(page);
+    await page.goto('/sessions/session-1/workflow/fresh/edit');
+
+    await expect(
+      page.getByRole('heading', { name: 'Start with a trigger' })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Pick a trigger' }).click();
+    // only triggers are offered
+    await expect(page.getByRole('region', { name: 'Terminals' })).toHaveCount(
+      0
+    );
+    await page.getByLabel('Search steps').fill('OneShotTrigger');
+    await page.keyboard.press('Enter');
+
+    await expect(nodeButton(page, 'oneshottrigger-1')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Start with a trigger' })
+    ).toHaveCount(0);
+  });
+
+  test('the + under a node on the canvas adds a step after it', async ({
+    page,
+  }) => {
+    await open(page);
+
+    await page
+      .getByRole('button', { name: 'Add a step after compile' })
+      .click();
+    await page.getByLabel('Search steps').fill('ShellProcessor');
+    await page.keyboard.press('Enter');
+
+    await expect(
+      page.getByTestId('workflow-node-shellprocessor-1')
+    ).toBeVisible();
+    await expect(nodeButton(page, 'shellprocessor-1')).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    // a terminal ends a branch: no + under it
+    await expect(
+      page.getByRole('button', { name: 'Add a step after out' })
+    ).toHaveCount(0);
+  });
+
+  test('the + on an edge puts a step between its two nodes', async ({
+    page,
+  }) => {
+    await open(page);
+    await outline(page).getByRole('tab', { name: /Edges/ }).click();
+    await expect(
+      outline(page).getByRole('tab', { name: /Edges\s*2/ })
+    ).toBeVisible();
+
+    await page
+      .getByRole('button', { name: 'Add a step between start and compile' })
+      .click();
+    await page.getByLabel('Search steps').fill('ShellProcessor');
+    await page.keyboard.press('Enter');
+
+    await expect(
+      page.getByTestId('workflow-node-shellprocessor-1')
+    ).toBeVisible();
+    // start -> compile became start -> new -> compile: one edge more
+    await expect(
+      outline(page).getByRole('tab', { name: /Edges\s*3/ })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Add a step between start and compile' })
+    ).toHaveCount(0);
+  });
+
+  test('Undo takes back the last change and Redo brings it back', async ({
+    page,
+  }) => {
+    await open(page);
+    await addNode(page, 'ShellProcessor');
+    await expect(nodeButton(page, 'shellprocessor-1')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(nodeButton(page, 'shellprocessor-1')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
+
+    await page.getByRole('button', { name: 'Redo' }).click();
+    await expect(nodeButton(page, 'shellprocessor-1')).toBeVisible();
+  });
+
   test('shows a loading state, and an error when the session cannot be loaded', async ({
     page,
   }) => {
@@ -322,6 +411,28 @@ test.describe('Workflow editor - the node inspector', () => {
   test.beforeEach(async ({ page }) => {
     await open(page);
     await nodeButton(page, 'compile').click();
+  });
+
+  test('a node is renamed, and its retry is set with inputs instead of JSON', async ({
+    page,
+  }) => {
+    await open(page);
+    await nodeButton(page, 'compile').click();
+
+    await inspector(page).getByLabel('Node ID').fill('build-step');
+    await page.keyboard.press('Enter');
+    await expect(nodeButton(page, 'build-step')).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    await expect(nodeButton(page, 'compile')).toHaveCount(0);
+
+    await inspector(page).getByRole('tab', { name: 'Policy' }).click();
+    await inspector(page).getByLabel('Max attempts').fill('3');
+    await inspector(page).getByRole('tab', { name: 'JSON' }).click();
+    await expect(inspector(page).getByLabel(/The node's config/)).toHaveValue(
+      /"maxAttempts": 3/
+    );
   });
 
   test('has Config, Connections, Policy and JSON tabs, opening on Config', async ({
@@ -484,15 +595,13 @@ test.describe('Workflow editor - edges', () => {
     ).toBeVisible();
   });
 
-  test('the port list of a node appears after Validate', async ({ page }) => {
+  test('the port list of a node arrives from the check of the draft, with no Validate', async ({
+    page,
+  }) => {
     await outline(page).getByLabel('Edge source').selectOption('compile');
-    await expect(
-      outline(page).getByLabel('Edge port').locator('option')
-    ).toHaveText(['no port (default)', 'all ports']);
 
-    await page.getByRole('button', { name: 'Validate' }).click();
+    // the draft is checked on its own once it has opened
     await expect(page.getByText('Workflow is valid.')).toBeVisible();
-
     await expect(
       outline(page).getByLabel('Edge port').locator('option')
     ).toHaveText(['no port (default)', 'all ports', 'success', 'failure']);

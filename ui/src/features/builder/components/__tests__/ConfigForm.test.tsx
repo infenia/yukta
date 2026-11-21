@@ -46,7 +46,7 @@ describe('ConfigForm', () => {
         <ConfigForm schema={schema} values={{}} onChange={() => {}} />
       </>
     );
-    const [a, b] = screen.getAllByLabelText('trigger');
+    const [a, b] = screen.getAllByLabelText('Trigger');
     expect(a.id).not.toBe(b.id);
   });
 
@@ -62,9 +62,9 @@ describe('ConfigForm', () => {
     expect(screen.getByText('the url')).toBeInTheDocument();
     expect(screen.getByText('*')).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText(/url/), 'abc');
+    await user.type(screen.getByLabelText(/Url/), 'abc');
     expect(values()).toBe('{"url":"abc"}');
-    await user.clear(screen.getByLabelText(/url/));
+    await user.clear(screen.getByLabelText(/Url/));
     expect(values()).toBe('{}');
   });
 
@@ -79,9 +79,9 @@ describe('ConfigForm', () => {
       />
     );
     expect(screen.getByPlaceholderText('decrypted:<key>')).toBeInTheDocument();
-    await user.type(screen.getByLabelText('expr'), '#a');
+    await user.type(screen.getByLabelText('Expr'), '#a');
     expect(values()).toBe('{"expr":"#a"}');
-    await user.clear(screen.getByLabelText('expr'));
+    await user.clear(screen.getByLabelText('Expr'));
     expect(values()).toBe('{}');
   });
 
@@ -96,9 +96,9 @@ describe('ConfigForm', () => {
       />
     );
     expect(screen.getByPlaceholderText('30')).toBeInTheDocument();
-    await user.type(screen.getByLabelText('timeout'), '45');
+    await user.type(screen.getByLabelText('Timeout'), '45');
     expect(values()).toBe('{"timeout":45}');
-    await user.clear(screen.getByLabelText('timeout'));
+    await user.clear(screen.getByLabelText('Timeout'));
     expect(values()).toBe('{}');
   });
 
@@ -109,7 +109,7 @@ describe('ConfigForm', () => {
         schema={[field({ name: 'on', type: 'BOOLEAN', defaultValue: true })]}
       />
     );
-    const box = screen.getByLabelText('on');
+    const box = screen.getByLabelText('On');
     expect(box).toBeChecked();
     await user.click(box);
     expect(values()).toBe('{"on":false}');
@@ -119,7 +119,7 @@ describe('ConfigForm', () => {
 
   it('treats an unset boolean without a default as off', () => {
     render(<Harness schema={[field({ name: 'on', type: 'BOOLEAN' })]} />);
-    expect(screen.getByLabelText('on')).not.toBeChecked();
+    expect(screen.getByLabelText('On')).not.toBeChecked();
   });
 
   it('picks an enum option and goes back to the default', async () => {
@@ -141,9 +141,9 @@ describe('ConfigForm', () => {
       screen.getByRole('option', { name: 'Default (GET)' })
     ).toBeInTheDocument();
     expect(screen.getByRole('option', { name: '—' })).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('method'), 'POST');
+    await user.selectOptions(screen.getByLabelText('Method'), 'POST');
     expect(values()).toBe('{"method":"POST"}');
-    await user.selectOptions(screen.getByLabelText('method'), 'Default (GET)');
+    await user.selectOptions(screen.getByLabelText('Method'), 'Default (GET)');
     expect(values()).toBe('{}');
   });
 
@@ -152,11 +152,11 @@ describe('ConfigForm', () => {
     render(
       <Harness
         schema={[field({ name: 'headers', type: 'MAP' })]}
-        initial={{ headers: { a: '1' } }}
+        initial={{ headers: { a: 1 } }}
       />
     );
-    const box = screen.getByLabelText('headers');
-    expect(box).toHaveValue('{\n  "a": "1"\n}');
+    const box = screen.getByLabelText('Headers');
+    expect(box).toHaveValue('{\n  "a": 1\n}');
 
     await user.clear(box);
     expect(values()).toBe('{}');
@@ -176,10 +176,10 @@ describe('ConfigForm', () => {
   it('adds and removes list items as chips, dropping the field when emptied', async () => {
     const user = userEvent.setup();
     render(<Harness schema={[field({ name: 'items', type: 'LIST' })]} />);
-    await user.type(screen.getByLabelText('items'), 'prettier{Enter}');
-    await user.type(screen.getByLabelText('items'), '--check');
+    await user.type(screen.getByLabelText('Items'), 'prettier{Enter}');
+    await user.type(screen.getByLabelText('Items'), '--check');
     await user.tab();
-    await user.type(screen.getByLabelText('items'), '   {Enter}');
+    await user.type(screen.getByLabelText('Items'), '   {Enter}');
     expect(values()).toBe('{"items":["prettier","--check"]}');
     await user.click(screen.getByRole('button', { name: 'Remove prettier' }));
     await user.click(screen.getByRole('button', { name: 'Remove --check' }));
@@ -192,7 +192,7 @@ describe('ConfigForm', () => {
       <Harness schema={[field({ name: 'items', type: 'LIST' })]} />
     );
     await user.click(screen.getByRole('button', { name: 'Edit as JSON' }));
-    expect(screen.getByLabelText('items')).toHaveValue('');
+    expect(screen.getByLabelText('Items')).toHaveValue('');
     unmount();
     render(
       <Harness
@@ -200,13 +200,13 @@ describe('ConfigForm', () => {
         initial={{ items: [{ a: 1 }] }}
       />
     );
-    expect(screen.getByLabelText('items')).toHaveValue(
+    expect(screen.getByLabelText('Items')).toHaveValue(
       JSON.stringify([{ a: 1 }], null, 2)
     );
   });
 
   it('shows a non-string value in a text field as empty', () => {
     render(<Harness schema={[field({ name: 'url' })]} initial={{ url: 5 }} />);
-    expect(screen.getByLabelText('url')).toHaveValue('');
+    expect(screen.getByLabelText('Url')).toHaveValue('');
   });
 });

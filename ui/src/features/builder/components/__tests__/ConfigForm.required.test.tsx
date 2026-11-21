@@ -54,13 +54,13 @@ describe('ConfigForm required fields', () => {
     );
     expect(screen.queryByText('url is required.')).toBeNull();
 
-    await user.click(screen.getByLabelText(/^url/));
+    await user.click(screen.getByLabelText(/^Url/));
     expect(screen.queryByText('url is required.')).toBeNull();
     await user.click(screen.getByRole('button', { name: 'elsewhere' }));
     expect(screen.getByText('url is required.')).toBeInTheDocument();
 
     // an optional field is never flagged
-    await user.click(screen.getByLabelText('note'));
+    await user.click(screen.getByLabelText('Note'));
     await user.click(screen.getByRole('button', { name: 'elsewhere' }));
     expect(screen.queryByText('note is required.')).toBeNull();
   });
@@ -77,7 +77,7 @@ describe('ConfigForm required fields', () => {
         <button type="button">elsewhere</button>
       </>
     );
-    await user.click(screen.getByLabelText(/^url/));
+    await user.click(screen.getByLabelText(/^Url/));
     await user.click(screen.getByRole('button', { name: 'elsewhere' }));
     expect(screen.queryByText('url is required.')).toBeNull();
   });
