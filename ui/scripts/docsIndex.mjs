@@ -35,8 +35,13 @@ export function frontmatter(source) {
 
 /** Removes tags until none is left: one pass can leave one behind (`<<b>b>` becomes `<b>`). */
 function untag(text) {
-  const next = text.replace(/<\/?[A-Za-z][^>]*>/g, '');
-  return next === text ? text : untag(next);
+  let previous;
+  let current = text;
+  do {
+    previous = current;
+    current = current.replace(/<\/?[A-Za-z][^>]*>/g, '');
+  } while (current !== previous);
+  return current;
 }
 
 /** The page as plain Markdown: no imports, comments or JSX tags (their text stays); code, fenced or inline, stays. */
