@@ -65,7 +65,12 @@ export function SetupView({
     try {
       const model = buildModel(draft, key.trim()) as ChatModel;
       await model
-        .stream('Reply with OK.', [{ role: 'user', text: 'Hi' }], [], stop.signal)
+        .stream(
+          'Reply with OK.',
+          [{ role: 'user', text: 'Hi' }],
+          [],
+          stop.signal
+        )
         [Symbol.asyncIterator]()
         .next();
       onSave(draft, key.trim());
@@ -100,8 +105,7 @@ export function SetupView({
         className="bg-surface-container flex gap-1 rounded-lg p-1"
       >
         {CHOICES.filter(
-          ({ id }) =>
-            id !== 'nano' || nano.state !== 'unsupported' || onDevice
+          ({ id }) => id !== 'nano' || nano.state !== 'unsupported' || onDevice
         ).map(({ id, label, model }) => (
           <button
             key={id}

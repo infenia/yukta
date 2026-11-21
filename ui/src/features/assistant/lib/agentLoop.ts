@@ -22,6 +22,8 @@ export interface LoopOptions {
   tools: ToolSpec[];
   history: Msg[];
   signal: AbortSignal;
+  /** Tools that run here instead of on the server, by name (the documentation search). */
+  local?: Record<string, (args: Record<string, unknown>) => Promise<string>>;
   /** Asks the person to approve a tool that may change something. */
   confirm: (call: Call, tool: ToolSpec) => Promise<boolean>;
   /** Called with the whole conversation after every change, for display. */
@@ -31,7 +33,7 @@ export interface LoopOptions {
 /** Runs one tool call to a result message; every call gets one, so the history stays valid. */
 async function answer(
   call: Call,
-  { tools, signal, confirm }: LoopOptions,
+  { tools, signal, confirm, local }: LoopOptions,
   interrupted: boolean
 ): Promise<Msg> {
   const reply = (result: string, isError: boolean): Msg => ({
@@ -48,6 +50,8 @@ async function answer(
     return reply('The person declined this action.', true);
   }
   try {
+    const here = local?.[call.name];
+    if (here) return reply(clip(await here(call.args)), false);
     const { text, isError } = await callTool(call.name, call.args, signal);
     return reply(clip(text), isError);
   } catch (error) {

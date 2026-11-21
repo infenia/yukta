@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { runAgent } from '../lib/agentLoop';
+import { SEARCH_DOCS, searchDocs } from '../lib/docsSearch';
 import { listTools } from '../lib/mcpClient';
 import { systemPrompt, type PageContext } from '../lib/pageContext';
 import type { Call, ChatModel, Msg, ToolSpec } from '../types';
@@ -53,7 +54,8 @@ export function useAssistant(model: ChatModel, context: PageContext) {
         await runAgent({
           model,
           system: systemPrompt(context),
-          tools: await listTools(),
+          tools: [...(await listTools()), SEARCH_DOCS],
+          local: { search_docs: searchDocs },
           history,
           signal: run.signal,
           confirm: (call, tool) =>

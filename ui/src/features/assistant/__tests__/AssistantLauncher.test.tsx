@@ -192,7 +192,9 @@ describe('AssistantLauncher', () => {
 
     await userEvent.click(opener());
 
-    expect(await screen.findByText('Gemini Nano · on this device')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Gemini Nano · on this device')
+    ).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Message'), 'hello{Enter}');
     expect(await screen.findByText('Hi from Nano')).toBeInTheDocument();
   });

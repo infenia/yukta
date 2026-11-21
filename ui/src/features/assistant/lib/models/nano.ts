@@ -19,9 +19,10 @@ const OPTIONS = {
 
 /**
  * The tools offered to the on-device model. Its context is small and it picks badly from sixty,
- * so it gets the ones a question about runs needs, and the two that start and steer them.
+ * so it gets the documentation search, the ones a question about runs needs, and the two that start and steer them.
  */
 export const NANO_TOOLS = new Set([
+  'search_docs',
   'list_sessions',
   'get_session_details',
   'get_workflow_details',
@@ -81,7 +82,12 @@ function turns(history: Msg[]): NanoContent[] {
       m.role === 'user'
         ? m.text
         : m.role === 'assistant'
-          ? [m.text, ...m.calls.map((c) => `(called ${c.name} ${JSON.stringify(c.args)})`)]
+          ? [
+              m.text,
+              ...m.calls.map(
+                (c) => `(called ${c.name} ${JSON.stringify(c.args)})`
+              ),
+            ]
               .filter(Boolean)
               .join('\n')
           : `Result of ${m.name}${m.isError ? ' (failed)' : ''}:\n${m.result.slice(0, RESULT_LIMIT)}`;
@@ -124,7 +130,10 @@ async function plan(
           responseConstraint: {
             type: 'object',
             properties: {
-              tool: { type: 'string', enum: [...tools.map((t) => t.name), 'none'] },
+              tool: {
+                type: 'string',
+                enum: [...tools.map((t) => t.name), 'none'],
+              },
             },
             required: ['tool'],
             additionalProperties: false,
@@ -200,7 +209,8 @@ export function nanoModel(): ChatModel {
         }
       } catch (error) {
         // the conversation does not fit: try again with only the last few turns
-        if (started || (error as Error).name !== 'QuotaExceededError') throw error;
+        if (started || (error as Error).name !== 'QuotaExceededError')
+          throw error;
         yield* run(system, history.slice(-4), usable, signal);
       }
     },
