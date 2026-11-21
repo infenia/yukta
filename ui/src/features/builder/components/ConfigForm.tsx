@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { ReferencePicker } from './ReferencePicker';
+import type { StepReference } from '../lib/testPins';
 import { useContext, useEffect, useId, useState } from 'react';
 import {
   NativeSelect,
@@ -288,8 +290,10 @@ function FieldInput({
   field,
   value,
   onChange,
+  references,
 }: {
   id: string;
+  references?: StepReference[];
   field: ConfigField;
   value: unknown;
   onChange: (value: unknown) => void;
@@ -364,6 +368,18 @@ function FieldInput({
             value={typeof value === 'string' ? value : ''}
             onChange={(event) => onChange(event.target.value || undefined)}
           />
+          {references && references.length > 0 && (
+            <ReferencePicker
+              references={references}
+              onPick={(expression) =>
+                onChange(
+                  typeof value === 'string' && value
+                    ? `${value} ${expression}`
+                    : expression
+                )
+              }
+            />
+          )}
           <span className="text-body-sm text-on-surface-variant">
             An expression on the message, such as{' '}
             <code className="text-code-sm">payload.x</code> or{' '}
@@ -390,7 +406,10 @@ export function ConfigForm({
   schema,
   values,
   onChange,
+  references,
 }: {
+  /** The steps before this one: expression fields offer their output. */
+  references?: StepReference[];
   schema: ConfigField[];
   values: Values;
   onChange: (values: Values) => void;
@@ -435,6 +454,7 @@ export function ConfigForm({
             field={field}
             value={values[field.name]}
             onChange={(value) => set(field.name, value)}
+            references={references}
           />
           {touched.has(field.name) && isMissing(field, values[field.name]) && (
             <span className="text-body-sm text-error">

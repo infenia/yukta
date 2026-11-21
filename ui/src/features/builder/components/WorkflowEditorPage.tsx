@@ -903,6 +903,7 @@ function Editor({
                 key={`${node.nodeId}/${revision}/${go?.n ?? 0}`}
                 initialTab={go?.nodeId === node.nodeId ? go.tab : 'config'}
                 node={node}
+                testRun={{ sessionId: session.sessionId, workflow }}
                 onRename={(id) => renameNode(node.nodeId, id)}
                 onRemove={() => removeNode(node.nodeId)}
                 onGroupChange={(group) =>

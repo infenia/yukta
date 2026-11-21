@@ -48,3 +48,23 @@ export function listTemplates(): Promise<TemplateSummary[]> {
 export function getTemplate(id: string): Promise<TemplateDetail> {
   return fetchApi<TemplateDetail>(api`/api/templates/${id}`);
 }
+
+export interface TestRunRequest {
+  workflow: DraftWorkflow;
+  /** Run only this node and the nodes before it. */
+  untilNodeId?: string;
+  /** With `untilNodeId`: run that node alone, fed `payload`. */
+  stepOnly?: boolean;
+  payload?: Record<string, unknown>;
+}
+
+/** Runs an unsaved draft as a test run; the run is invisible to history and search. */
+export function startTestRun(
+  sessionId: string,
+  request: TestRunRequest
+): Promise<{ executionId: string; workflowId: string }> {
+  return fetchApi(api`/api/sessions/${sessionId}/test-runs`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
