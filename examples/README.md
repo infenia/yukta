@@ -10,7 +10,7 @@ The examples are grouped by what they need on the machine that runs them.
 
 | Category | Folder | Needs | Examples |
 |---|---|---|---|
-| 1. Standalone | [`1-standalone/`](1-standalone/) | Only the server. The process allowlist `sh,echo` is enough. | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10 |
+| 1. Standalone | [`1-standalone/`](1-standalone/) | Only the server. The process allowlist `sh,echo` is enough. | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 17 |
 | 2. Free dependencies | [`2-free-deps/`](2-free-deps/) | Free tools on the machine: `git`, `python3`, `go`. Some examples start a loopback stand-in for an outside service. | 11, 12, 13, 14 |
 | 3. Paid tools | [`3-paid-tools/`](3-paid-tools/) | An AI agent CLI (Claude Code, Codex) or a hosted model. The examples here run against a fake harness unless you configure the real tool. | 15, 16 |
 
@@ -95,6 +95,7 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 | [07](1-standalone/07-input-pull/) | 1 | An outside responder pulls and answers input requests | no session; `GET /api/inputs` | REST |
 | [15](3-paid-tools/15-agent-session/) | 3 | Run an AI agent (Claude Code, Codex) with approvals through the input request system (needs an agent CLI; walkthrough, no `run.sh`) | API_TRIGGER → AGENT_SESSION → three outcomes | REST |
 | [10](1-standalone/10-inbox-notification/) | 1 | A workflow raises a notification in the inbox | CONSTANT_SOURCE → PROCESS_EXECUTOR → NOTIFY_TERMINAL (`target: inbox`) | REST |
+| [17](1-standalone/17-ask-random-question/) | 1 | Ask yes or no; on yes ask a random question and print question and answer | CONSTANT_SOURCE → ASK_INPUT → BRANCH → PROCESS_EXECUTOR → MAPPER → ASK_INPUT → PROCESS_EXECUTOR | REST |
 | [16](3-paid-tools/16-agent-console/) | 3 | Two scripted agents in the agent console, against a fake harness | API_TRIGGER → AGENT_SESSION → OUTCOME_TERMINAL | REST |
 | [dogfood](https://github.com/infenia/yukta-dogfood) | 3 | How Yukta develops itself: this repo's `gradle check` (now its own repository) as a staged, self-healing workflow (failed stages are repaired by `spotlessApply` and headless Claude Code, then rechecked) | CONSTANT_SOURCE → PROCESS_EXECUTOR stages with `routeByExitCode` repair chains → terminal | REST / CLI |
 

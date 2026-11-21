@@ -1,0 +1,142 @@
+{
+  "sessionId": "example-17-ask-question",
+  "name": "Ask a random question",
+  "description": "Ask yes or no; on yes, ask a random question, then print the question and the answer.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "17-ask-random-question"
+  },
+  "workflows": {
+    "ask": {
+      "workflowId": "ask",
+      "description": "Yes or no, then one random question",
+      "nodes": [
+        {
+          "nodeId": "start",
+          "type": "CONSTANT_SOURCE",
+          "config": {}
+        },
+        {
+          "nodeId": "want-question",
+          "type": "ASK_INPUT",
+          "config": {
+            "prompt": "Do you want a random question?",
+            "kind": "CHOICE",
+            "options": [
+              "yes",
+              "no"
+            ],
+            "risk": "LOW",
+            "ttlSeconds": 600
+          }
+        },
+        {
+          "nodeId": "decide",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "metadata['input.decision'] == 'yes'": "yes",
+              "metadata['input.decision'] != 'yes'": "no"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "shuffle",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "shuf",
+              "-n",
+              "1",
+              "-e",
+              "What is the best thing you ate this week?",
+              "Which skill would you like to learn next?",
+              "What is a small win you had today?",
+              "Which book or film would you recommend, and why?",
+              "If you could live anywhere for a year, where?"
+            ]
+          }
+        },
+        {
+          "nodeId": "pick-question",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "question": "payload.stdout.trim()"
+            }
+          }
+        },
+        {
+          "nodeId": "ask-question",
+          "type": "ASK_INPUT",
+          "config": {
+            "prompt": "${payload.question}",
+            "kind": "TEXT",
+            "risk": "LOW",
+            "ttlSeconds": 600
+          }
+        },
+        {
+          "nodeId": "print",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "echo",
+              "Question: ${payload.question} | Answer: ${metadata.input.text}"
+            ]
+          }
+        },
+        {
+          "nodeId": "answered",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        },
+        {
+          "nodeId": "stopped",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "source": "start",
+          "target": "want-question"
+        },
+        {
+          "source": "want-question",
+          "target": "decide"
+        },
+        {
+          "source": "decide",
+          "target": "shuffle",
+          "sourcePort": "yes"
+        },
+        {
+          "source": "shuffle",
+          "target": "pick-question"
+        },
+        {
+          "source": "decide",
+          "target": "stopped",
+          "sourcePort": "no"
+        },
+        {
+          "source": "pick-question",
+          "target": "ask-question"
+        },
+        {
+          "source": "ask-question",
+          "target": "print"
+        },
+        {
+          "source": "print",
+          "target": "answered"
+        }
+      ]
+    }
+  }
+}

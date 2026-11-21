@@ -54,7 +54,8 @@ class ExamplesE2eTest {
           "05-model-promotion", "a multi-round review across sub-workflows, driven by run.sh",
           "06-security-findings", "a batch with a human decision per finding, driven by run.sh",
           "14-supervisor-agents", "needs the Python and Go agents of the example",
-          "16-agent-console", "needs the fake-agent harness (AGENT_SESSION with a PTY host)");
+          "16-agent-console", "needs the fake-agent harness (AGENT_SESSION with a PTY host)",
+          "17-ask-random-question", "needs shuf and echo; run.sh answers its two input requests");
 
   private final Api admin = Api.forRole(ApiRole.ADMIN);
 
