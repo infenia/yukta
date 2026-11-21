@@ -314,6 +314,12 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         sessionId, workflowId, payload, idempotencyKey, start -> reviewedStart(command, start));
   }
 
+  @Override
+  public Mono<String> startDraft(
+      final String sessionId, final WorkflowDefinition draft, final Map<String, Object> payload) {
+    return starter.startDraft(sessionId, draft, payload);
+  }
+
   /**
    * Asks the supervisors about a start, runs it and records the outcome under the new run's id. A
    * start that needs approval is refused: there is no run yet to park the request on.

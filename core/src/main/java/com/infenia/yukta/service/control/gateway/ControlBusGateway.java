@@ -330,6 +330,17 @@ public interface ControlBusGateway {
       String sessionId, String workflowId, Map<String, Object> payload, String idempotencyKey);
 
   /**
+   * Start a test run of a draft that is not stored. It is neither reviewed nor audited: its events
+   * are not logged.
+   *
+   * @param sessionId the session identifier
+   * @param draft the definition, under a reserved test run workflow ID
+   * @param payload the trigger payload
+   * @return a Mono containing the execution ID
+   */
+  Mono<String> startDraft(String sessionId, WorkflowDefinition draft, Map<String, Object> payload);
+
+  /**
    * Safely stop the current execution and restart the entire workflow from the beginning using the
    * original payload.
    *

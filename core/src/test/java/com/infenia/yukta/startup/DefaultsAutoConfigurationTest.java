@@ -12,6 +12,7 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.log.TestRunFilteringLogStore;
 import com.infenia.yukta.service.runtime.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import lombok.NoArgsConstructor;
@@ -34,7 +35,9 @@ class DefaultsAutoConfigurationTest {
   @Test
   void withNothingElse_theSingleServerDefaultsAreRegistered() {
     runner.run(context -> {
-      assertThat(context).hasSingleBean(InMemoryExecutionLogStore.class);
+      assertThat(context).hasSingleBean(ExecutionLogStore.class);
+      assertThat(context.getBean(ExecutionLogStore.class))
+          .isInstanceOf(TestRunFilteringLogStore.class);
       assertThat(context).hasSingleBean(InMemoryNodeCheckpointStore.class);
       assertThat(context).hasSingleBean(InMemoryExecutionControlStore.class);
       assertThat(context).hasSingleBean(SingleServerLeader.class);

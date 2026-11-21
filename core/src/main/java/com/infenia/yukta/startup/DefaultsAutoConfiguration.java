@@ -19,6 +19,7 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.log.TestRunFilteringLogStore;
 import com.infenia.yukta.service.notify.InMemoryNotificationStore;
 import com.infenia.yukta.service.notify.NotificationStore;
 import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
@@ -31,6 +32,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -68,6 +70,25 @@ public class DefaultsAutoConfiguration {
   public InMemoryExecutionLogStore inMemoryExecutionLogStore(final YuktaProperties properties) {
     return new InMemoryExecutionLogStore(
         properties.executionLog().retainedRuns(), properties.executionLog().compactAfter());
+  }
+
+  /**
+   * Wraps whichever execution log store is built (memory, files, Postgres) so test runs are never
+   * logged.
+   *
+   * @return the post-processor
+   */
+  @Bean
+  public static BeanPostProcessor testRunLogFilter() {
+    return new BeanPostProcessor() {
+      @Override
+      public Object postProcessAfterInitialization(final Object bean, final String name) {
+        return bean instanceof final ExecutionLogStore store
+                && !(bean instanceof TestRunFilteringLogStore)
+            ? new TestRunFilteringLogStore(store)
+            : bean;
+      }
+    };
   }
 
   /**

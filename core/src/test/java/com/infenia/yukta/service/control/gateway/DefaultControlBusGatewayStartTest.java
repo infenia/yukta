@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.control.OnLimit;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -106,5 +107,16 @@ class DefaultControlBusGatewayStartTest {
     assertThat(request.getValue().workflowId()).isEqualTo("w");
     // no channel in the context: the server's own start
     assertThat(audit).singleElement().satisfies(r -> assertThat(r.channel()).isEqualTo("SYSTEM"));
+  }
+
+  @Test
+  void aDraftStartIsNeitherReviewedNorLoaded() {
+    final WorkflowDefinition draft =
+        new WorkflowDefinition("__test__.x", "d", List.of(), List.of(), null, null);
+
+    StepVerifier.create(gateway().startDraft("s", draft, Map.of())).expectError().verify();
+
+    verify(reviewer, never()).review(any());
+    verify(definitions, never()).find(any(), any());
   }
 }
