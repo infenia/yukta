@@ -30,6 +30,7 @@ import com.infenia.yukta.service.sessionstore.InternalSessions;
 import com.infenia.yukta.service.supervisor.engine.DirectiveGate;
 import com.infenia.yukta.service.supervisor.engine.HoldLedger;
 import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
+import com.infenia.yukta.service.testrun.DraftRuns;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
@@ -709,6 +710,9 @@ public class SupervisorHost implements DryRunRecorder {
     return feed.events()
         .filter(event -> scope.matches(event.sessionId(), event.workflowId(), event.nodeId()))
         .filterWhen(event -> visible(event, scope, observeInternal))
+        // a test run of a draft is the editor's own; a supervisor may refuse its start, not watch
+        // it
+        .filter(event -> !DraftRuns.isTestRun(event.workflowId()))
         .filter(event ->
             !(event instanceof ExecutionEvent.ControlOutcome outcome
                 && supervisorId.equals(outcome.actor())))

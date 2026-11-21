@@ -1798,7 +1798,7 @@ export interface paths {
         put?: never;
         /**
          * Test-run a draft workflow
-         * @description Runs a draft, a node and the nodes before it, or one node alone, without saving it. The run is invisible to history, search, recovery, supervisors and analytics; read its progress and node outputs through the execution endpoints. Answers 400 with the problems when the part to run does not validate and 429 when the execution limit is reached.
+         * @description Runs a draft, a node and the nodes before it, or one node alone, without saving it. The run is invisible to history, search, recovery, supervisors and analytics; read its progress and node outputs through the execution endpoints. Answers 404 for an unknown session, 400 with the problems when the part to run does not validate and 429 when the execution limit is reached.
          */
         post: operations["testRun"];
         delete?: never;

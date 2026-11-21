@@ -162,4 +162,40 @@ class SupervisorHostInternalTest {
         });
     assertThat(global).doesNotContain("sys");
   }
+
+  @Test
+  void supervisorDoesNotSeeTestRunsOfDrafts() {
+    final List<String> workflows = new CopyOnWriteArrayList<>();
+    final SupervisorHost created = host();
+    created.attach(
+        new BoundSupervisor(
+            new SupervisorAttachment("t", "p", new SupervisorScope.Global(), true),
+            new ExecutionSupervisor() {
+              @Override
+              public String id() {
+                return "t";
+              }
+
+              @Override
+              public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+                return events
+                    .doOnNext(event -> workflows.add(event.workflowId()))
+                    .thenMany(Flux.empty());
+              }
+            },
+            false,
+            new SupervisorCapabilities(null, false, InputRisk.LOW),
+            false));
+
+    Awaitility.await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(() -> {
+          feed.publish(
+              new ExecutionEvent.WorkflowStatusChanged(
+                  "e1", "main", "__test__.abc", "RUNNING", Instant.now()));
+          feed.publish(in("main"));
+          assertThat(workflows).contains("wf");
+        });
+    assertThat(workflows).doesNotContain("__test__.abc");
+  }
 }

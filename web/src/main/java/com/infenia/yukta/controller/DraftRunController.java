@@ -8,10 +8,12 @@ import com.infenia.yukta.mapper.AppConfigMapper;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
+import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.orchestrator.validator.ValidationProblem;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.testrun.DraftRuns;
 import com.infenia.yukta.validation.SessionId;
 import io.swagger.v3.oas.annotations.Operation;
@@ -49,6 +51,9 @@ public class DraftRunController {
   /** Starts the run. */
   private final SupervisedControl control;
 
+  /** Tells whether the session exists. */
+  private final SessionService sessions;
+
   /**
    * Start a test run.
    *
@@ -61,11 +66,11 @@ public class DraftRunController {
   @Operation(
       summary = "Test-run a draft workflow",
       description =
-          "Runs a draft, a node and the nodes before it, or one node alone, without saving it."
-              + " The run is invisible to history, search, recovery, supervisors and analytics;"
-              + " read its progress and node outputs through the execution endpoints. Answers 400"
-              + " with the problems when the part to run does not validate and 429 when the"
-              + " execution limit is reached.")
+          "Runs a draft, a node and the nodes before it, or one node alone, without saving it. The"
+              + " run is invisible to history, search, recovery, supervisors and analytics; read"
+              + " its progress and node outputs through the execution endpoints. Answers 404 for an"
+              + " unknown session, 400 with the problems when the part to run does not validate and"
+              + " 429 when the execution limit is reached.")
   public Mono<ApiResponse<TestRunResponse>> testRun(
       @PathVariable @SessionId final String sessionId,
       @Valid @RequestBody final TestRunRequest request) {
@@ -78,8 +83,10 @@ public class DraftRunController {
             request.untilNodeId(),
             request.stepOnly(),
             type -> pluginRegistry.get(type) instanceof TerminalPlugin);
-    return workflowValidator
-        .validateAll(cut)
+    return sessions
+        .getSessionConfig(sessionId)
+        .switchIfEmpty(Mono.error(() -> new NotFoundException("Session not found: " + sessionId)))
+        .flatMap(_ -> workflowValidator.validateAll(cut))
         .flatMap(problems -> {
           if (!problems.isEmpty()) {
             return Mono.error(

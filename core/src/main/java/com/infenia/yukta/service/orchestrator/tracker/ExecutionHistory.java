@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.tracker;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
+import com.infenia.yukta.service.testrun.DraftRuns;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Collections;
@@ -92,6 +93,7 @@ final class ExecutionHistory {
   /** Forgets a session's history. */
   /* default */ void forget(final String sessionId) {
     finishedBySession.remove(sessionId);
+    finishedBySession.remove(testQueue(sessionId));
   }
 
   /** Remembers a finished execution and drops the oldest ones beyond the per-session cap. */
@@ -103,8 +105,11 @@ final class ExecutionHistory {
       executionIndex.remove(state.executionId);
       return;
     }
+    // test runs of drafts are many and short-lived: they must not push real runs out of the cap
+    final String queue =
+        DraftRuns.isTestRun(state.workflowId) ? testQueue(state.sessionId) : state.sessionId;
     final Deque<String> finished =
-        finishedBySession.computeIfAbsent(state.sessionId, _ -> new ArrayDeque<>());
+        finishedBySession.computeIfAbsent(queue, _ -> new ArrayDeque<>());
     // Cleanups of one session can run concurrently, so the queue is guarded by its own lock.
     synchronized (finished) {
       finished.addLast(state.executionId);
@@ -114,6 +119,10 @@ final class ExecutionHistory {
         executionIndex.remove(oldest);
       }
     }
+  }
+
+  private static String testQueue(final String sessionId) {
+    return sessionId + "#test";
   }
 
   /** A run as a history entry. */
