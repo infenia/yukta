@@ -28,18 +28,34 @@ import type {
 } from '../types';
 import { JsonValidityContext } from './ConfigForm.helpers';
 import { NodeInspector } from './NodeInspector';
+import { PinnedNodes } from '@/features/workflow/hooks/pinnedNodes';
+import { PIN_EVENT, pinnedNodeIds } from '../lib/testPins';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Callout } from '@/components/common/Callout';
 import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPicker';
 import { supervisorProblems } from '@/features/supervisors/lib/supervisorProblems';
 import type { SupervisorRef } from '@/features/supervisors/types';
 import { NativeSelect } from '@/components/ui/native-select';
-import { toPreviewGraph } from './WorkflowEditorPage.helpers';
+import { ProblemsPanel } from './ProblemsPanel';
+import { ShortcutsHelp } from './ShortcutsHelp';
+import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
+import { EdgeAdder, NodeAdder } from '@/features/workflow/lib/stepAdders';
+import { StepPicker } from './StepPicker';
+import { useDraftHistory } from './useDraftHistory';
+import { issueCounts, problemsOf, type InspectorTab } from './validationIssues';
+import {
+  connectionProblem,
+  toPreviewGraph,
+} from './WorkflowEditorPage.helpers';
 import { readDraft, writeDraft } from './workflowDraft';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
-const PLUGIN_CATEGORIES = ['TRIGGER', 'PROCESSOR', 'TERMINAL'] as const;
 const NO_TASKS = {};
+/** The round "+" that adds a step: after a node, or on an edge. */
+const PLUS_BUTTON =
+  'bg-surface border-border text-on-surface-variant hover:border-primary hover:text-primary shadow-card text-label-md flex size-6 items-center justify-center rounded-full border leading-none';
+/** How long the draft must rest before it is validated. */
+const LIVE_DELAY_MS = 600;
 
 // fetchApi only throws Error subclasses
 const errorText = (error: unknown) => (error as Error).message;
@@ -70,7 +86,25 @@ function Editor({
   const [restored] = useState(() =>
     readDraft(session.sessionId, initial.workflowId, initial)
   );
-  const [workflow, setWorkflow] = useState(restored ?? initial);
+  const history = useDraftHistory(restored ?? initial);
+  const workflow = history.value;
+  // nodes holding a pinned test output; a finished test run writes one, which fires PIN_EVENT
+  const [pinTick, setPinTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setPinTick((n) => n + 1);
+    window.addEventListener(PIN_EVENT, bump);
+    return () => window.removeEventListener(PIN_EVENT, bump);
+  }, []);
+  const pinned = useMemo(
+    () =>
+      pinnedNodeIds(
+        session.sessionId,
+        workflow.workflowId,
+        workflow.nodes.map((n) => n.nodeId)
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session.sessionId, workflow.workflowId, workflow.nodes, pinTick]
+  );
   const [showRestored, setShowRestored] = useState(restored !== null);
   const firstNode = initial.nodes[0]?.nodeId ?? null;
   const [selected, setSelected] = useState<string | null>(firstNode);
@@ -93,7 +127,6 @@ function Editor({
       return next;
     });
   }, []);
-  const [newType, setNewType] = useState('');
   const [listTab, setListTab] = useState<'nodes' | 'edges'>('nodes');
   const [nodeQuery, setNodeQuery] = useState('');
   const [edge, setEdge] = useState<DraftEdge>({
@@ -107,9 +140,10 @@ function Editor({
       Object.fromEntries((plugins.data ?? []).map((p) => [p.type, p.category])),
     [plugins.data]
   );
+  const issues = useMemo(() => issueCounts(result), [result]);
   const graph = useMemo(
-    () => toPreviewGraph(workflow, categories, ports),
-    [workflow, categories, ports]
+    () => toPreviewGraph(workflow, categories, ports, issues),
+    [workflow, categories, ports, issues]
   );
   const node = workflow.nodes.find((n) => n.nodeId === selected);
 
@@ -144,14 +178,6 @@ function Editor({
     grouped && stages.size > 0
       ? { open: openNow, onToggle: toggleStage }
       : undefined;
-  // The select lists plugins by category; until the user picks one, what it shows is the first option.
-  const selectedType =
-    newType ||
-    PLUGIN_CATEGORIES.flatMap((c) =>
-      (plugins.data ?? []).filter((p) => p.category === c)
-    )[0]?.type ||
-    '';
-
   // Unsaved: the draft differs from what was loaded (saving leaves the page)
   const dirty = JSON.stringify(workflow) !== JSON.stringify(initial);
   // problems with the declared supervisors, from Validate or from a refused save
@@ -162,7 +188,7 @@ function Editor({
   // Bumped by Discard, so the inspector's fields drop the text they hold
   const [revision, setRevision] = useState(0);
   const discard = () => {
-    setWorkflow(initial);
+    history.reset(initial);
     setSelected(firstNode);
     setResult(null);
     setError(null);
@@ -189,16 +215,132 @@ function Editor({
   // Saving navigates away on purpose; that must not ask
   const leaving = useRef(false);
 
-  const update = (patch: Partial<DraftWorkflow>) => {
-    setWorkflow((current) => ({ ...current, ...patch }));
-    setResult(null);
+  // The result stays until the next one arrives, so the problems do not blink on every edit
+  // `coalesce` names a text edit, so a burst of typing in one place is one step to undo
+  const update = (patch: Partial<DraftWorkflow>, coalesce?: string) => {
+    history.set((current) => ({ ...current, ...patch }), coalesce ?? null);
   };
 
-  const addNode = () => {
-    const type = selectedType;
-    if (!type) return;
+  // Validates the draft when the user pauses, so the problems and the ports are always current
+  // (an empty draft has nothing to check yet; a JSON field that does not parse blocks it).
+  useEffect(() => {
+    if (workflow.nodes.length === 0 || invalidJson.size > 0) return undefined;
+    let current = true;
+    const timer = setTimeout(() => {
+      validateWorkflow(workflow)
+        .then((outcome) => {
+          if (!current) return;
+          setResult(outcome);
+          setPorts(outcome.outputPorts);
+        })
+        // ponytail: a failed live check stays silent; Validate and Save show the error
+        .catch(() => undefined);
+    }, LIVE_DELAY_MS);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [workflow, invalidJson]);
+
+  // A problem about a node: select it and open the inspector tab where it is fixed
+  const [go, setGo] = useState<{
+    nodeId: string;
+    tab: InspectorTab;
+    n: number;
+  } | null>(null);
+  const [seen, setSeen] = useState(selected);
+  if (seen !== selected) {
+    setSeen(selected);
+    if (go && go.nodeId !== selected) setGo(null);
+  }
+  const goTo = (nodeId: string, tab: InspectorTab) => {
+    setSelected(nodeId);
+    setGo({ nodeId, tab, n: (go?.n ?? 0) + 1 });
+  };
+
+  /**
+   * Gives a node a new ID everywhere the draft names it: its edges, its ports and the nodes the
+   * supervisors own. Answers with what is wrong with the ID, or null when it was renamed.
+   */
+  const renameNode = (from: string, to: string): string | null => {
+    const id = to.trim();
+    if (id === from) return null;
+    if (!id || /\s/.test(id)) return 'An ID cannot be blank or hold spaces.';
+    if (workflow.nodes.some((n) => n.nodeId === id)) {
+      return `Another node already has the ID ${id}.`;
+    }
+    const swap = (nodeId: string) => (nodeId === from ? id : nodeId);
+    update({
+      nodes: workflow.nodes.map((n) =>
+        n.nodeId === from ? { ...n, nodeId: id } : n
+      ),
+      edges: workflow.edges.map((e) => ({
+        ...e,
+        source: swap(e.source),
+        target: swap(e.target),
+      })),
+      ...(workflow.assignments && {
+        assignments: workflow.assignments.map((a) =>
+          a.nodes ? { ...a, nodes: a.nodes.map(swap) } : a
+        ),
+      }),
+    });
+    setPorts((current) =>
+      Object.fromEntries(Object.entries(current).map(([k, v]) => [swap(k), v]))
+    );
+    setEdge((draft) => ({
+      ...draft,
+      source: swap(draft.source),
+      target: swap(draft.target),
+    }));
+    setSelected(id);
+    return null;
+  };
+
+  /**
+   * Adds a step of `type`, connected after `afterId` (else after the node that is selected) when
+   * that node can have a successor (a terminal cannot) and the step is not a trigger, which
+   * starts a workflow and so follows nothing.
+   */
+  const addNode = (type: string, afterId?: string) => {
     const nodeId = uniqueNodeId(type, workflow.nodes);
-    update({ nodes: [...workflow.nodes, { nodeId, type, config: {} }] });
+    const base =
+      afterId === undefined
+        ? node
+        : workflow.nodes.find((n) => n.nodeId === afterId);
+    const after =
+      base &&
+      categories[base.type] !== 'TERMINAL' &&
+      categories[type] !== 'TRIGGER'
+        ? base
+        : null;
+    update({
+      nodes: [...workflow.nodes, { nodeId, type, config: {} }],
+      ...(after && {
+        edges: [
+          ...workflow.edges,
+          { source: after.nodeId, target: nodeId, sourcePort: null },
+        ],
+      }),
+    });
+    setSelected(nodeId);
+  };
+
+  /** Adds a step of `type` between the two nodes of `edge`: the edge now goes through it. */
+  const insertOnEdge = (edge: DraftEdge, type: string) => {
+    const nodeId = uniqueNodeId(type, workflow.nodes);
+    const same = (e: DraftEdge) =>
+      e.source === edge.source &&
+      e.target === edge.target &&
+      (e.sourcePort ?? null) === edge.sourcePort;
+    update({
+      nodes: [...workflow.nodes, { nodeId, type, config: {} }],
+      edges: [
+        ...workflow.edges.filter((e) => !same(e)),
+        { source: edge.source, target: nodeId, sourcePort: edge.sourcePort },
+        { source: nodeId, target: edge.target, sourcePort: null },
+      ],
+    });
     setSelected(nodeId);
   };
 
@@ -228,7 +370,16 @@ function Editor({
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]'))
         return;
-      if (event.key === 'Escape') setSelected(null);
+      const mod = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+      if (mod && key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) history.redo();
+        else history.undo();
+      } else if (mod && key === 'y') {
+        event.preventDefault();
+        history.redo();
+      } else if (event.key === 'Escape') setSelected(null);
       else if (
         (event.key === 'Delete' || event.key === 'Backspace') &&
         selected
@@ -242,10 +393,6 @@ function Editor({
   /** Adds an edge from the Edges form, or one drawn on the canvas, unless it is a loop or a copy. */
   const addEdge = (next: DraftEdge = edge) => {
     if (!next.source || !next.target) return;
-    if (next.source === next.target) {
-      setError('An edge cannot connect a node to itself.');
-      return;
-    }
     if (
       workflow.edges.some(
         (e) =>
@@ -255,6 +402,16 @@ function Editor({
       )
     ) {
       setError('That edge already exists.');
+      return;
+    }
+    const problem = connectionProblem(
+      workflow,
+      categories,
+      next.source,
+      next.target
+    );
+    if (problem) {
+      setError(problem);
       return;
     }
     setError(null);
@@ -314,10 +471,31 @@ function Editor({
           placeholder="Description"
           value={workflow.description}
           maxLength={256}
-          onChange={(event) => update({ description: event.target.value })}
+          onChange={(event) =>
+            update({ description: event.target.value }, 'description')
+          }
           className="w-full sm:w-72"
         />
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <button
+            type="button"
+            className={buttonVariants({ variant: 'ghost' })}
+            disabled={!history.canUndo}
+            title="Undo (Ctrl+Z)"
+            onClick={history.undo}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className={buttonVariants({ variant: 'ghost' })}
+            disabled={!history.canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            onClick={history.redo}
+          >
+            Redo
+          </button>
+          <ShortcutsHelp />
           {dirty && (
             <>
               <span
@@ -390,11 +568,12 @@ function Editor({
             error ??
             (invalidJson.size > 0
               ? 'Fix the JSON field that does not parse before validating or saving.'
-              : result && !result.valid
-                ? result.message
-                : null)
+              : null)
           }
         />
+        {!error && invalidJson.size === 0 && (
+          <ProblemsPanel problems={problemsOf(result)} onGo={goTo} />
+        )}
         {result?.valid && (
           <Callout kind="success" compact>
             Workflow is valid.
@@ -471,29 +650,16 @@ function Editor({
 
           {listTab === 'nodes' && (
             <>
-              <div className="flex gap-2">
-                <NativeSelect
-                  aria-label="Plugin type"
-                  className="min-w-0 flex-1"
-                  value={selectedType}
-                  onChange={(event) => setNewType(event.target.value)}
-                >
-                  {PLUGIN_CATEGORIES.map((category) => (
-                    <optgroup key={category} label={category}>
-                      {plugins.data
-                        ?.filter((p) => p.category === category)
-                        .map((p) => (
-                          <option key={p.type} value={p.type}>
-                            {p.type}
-                          </option>
-                        ))}
-                    </optgroup>
-                  ))}
-                </NativeSelect>
-                <button type="button" className={BUTTON} onClick={addNode}>
-                  Add node
+              <StepPicker plugins={plugins.data ?? []} onPick={addNode}>
+                <button type="button" className={BUTTON}>
+                  Add step
                 </button>
-              </div>
+              </StepPicker>
+              {node && categories[node.type] !== 'TERMINAL' && (
+                <p className="text-body-sm text-muted-foreground -mt-1">
+                  A new step is connected after {node.nodeId}.
+                </p>
+              )}
 
               <input
                 type="search"
@@ -637,7 +803,7 @@ function Editor({
                 </button>
               </div>
               <p className="text-body-sm text-on-surface-variant">
-                Validate to list a node&apos;s ports for its configuration.
+                A node&apos;s ports are listed once the draft has been checked.
               </p>
             </div>
           )}
@@ -647,36 +813,105 @@ function Editor({
           data-testid="editor-canvas"
           className="relative h-80 min-w-0 shrink-0 lg:h-auto lg:flex-1"
         >
+          {workflow.nodes.length === 0 && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+              <div className="border-border bg-surface shadow-card pointer-events-auto flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-dashed p-6 text-center">
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-3xl"
+                  style={{
+                    color: categoryAccent('TRIGGER'),
+                  }}
+                >
+                  input
+                </span>
+                <h2 className="text-headline-md text-on-surface">
+                  Start with a trigger
+                </h2>
+                <p className="text-body-md text-muted-foreground">
+                  A trigger starts the workflow: a request, a schedule or a
+                  fixed input. Add the steps that follow once it is there.
+                </p>
+                <StepPicker
+                  plugins={plugins.data ?? []}
+                  allowed={['TRIGGER']}
+                  onPick={addNode}
+                >
+                  <button type="button" className={buttonVariants()}>
+                    Pick a trigger
+                  </button>
+                </StepPicker>
+              </div>
+            </div>
+          )}
           {stages.size > 0 && (
             <GroupingSwitch grouped={grouped} onChange={setGrouped} />
           )}
           {/* Re-keyed when a node is added or removed, so the view fits again; selecting keeps the
               view where the user put it */}
-          <NodeSupervisors value={nodeSupervisors}>
-            <WorkflowCanvas
-              key={workflow.nodes.length}
-              graph={graph}
-              tasksByNode={NO_TASKS}
-              stageView={stageView}
-              onConnect={(source, target, sourcePort) =>
-                addEdge({ source, target, sourcePort })
-              }
-              onNodeClick={setSelected}
-              focusOn={
-                selected
-                  ? [
-                      selected,
-                      ...workflow.edges
-                        .filter((e) => e.source === selected)
-                        .map((e) => e.target),
-                      ...workflow.edges
-                        .filter((e) => e.target === selected)
-                        .map((e) => e.source),
-                    ]
-                  : undefined
-              }
-            />
-          </NodeSupervisors>
+          <PinnedNodes value={pinned}>
+            <NodeSupervisors value={nodeSupervisors}>
+              <NodeAdder.Provider
+                value={(from) => (
+                  <StepPicker
+                    plugins={plugins.data ?? []}
+                    allowed={['PROCESSOR', 'TERMINAL']}
+                    onPick={(type) => addNode(type, from.nodeId)}
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Add a step after ${from.nodeId}`}
+                      className={PLUS_BUTTON}
+                    >
+                      +
+                    </button>
+                  </StepPicker>
+                )}
+              >
+                <EdgeAdder.Provider
+                  value={(edge) => (
+                    <StepPicker
+                      plugins={plugins.data ?? []}
+                      allowed={['PROCESSOR']}
+                      onPick={(type) => insertOnEdge(edge, type)}
+                    >
+                      <button
+                        type="button"
+                        aria-label={`Add a step between ${edge.source} and ${edge.target}`}
+                        className={PLUS_BUTTON}
+                      >
+                        +
+                      </button>
+                    </StepPicker>
+                  )}
+                >
+                  <WorkflowCanvas
+                    key={workflow.nodes.length}
+                    graph={graph}
+                    tasksByNode={NO_TASKS}
+                    stageView={stageView}
+                    onConnect={(source, target, sourcePort) =>
+                      addEdge({ source, target, sourcePort })
+                    }
+                    onNodeClick={setSelected}
+                    focusOn={
+                      selected
+                        ? [
+                            selected,
+                            ...workflow.edges
+                              .filter((e) => e.source === selected)
+                              .map((e) => e.target),
+                            ...workflow.edges
+                              .filter((e) => e.target === selected)
+                              .map((e) => e.source),
+                          ]
+                        : undefined
+                    }
+                  />
+                </EdgeAdder.Provider>
+              </NodeAdder.Provider>
+            </NodeSupervisors>
+          </PinnedNodes>
         </div>
 
         <aside
@@ -686,28 +921,37 @@ function Editor({
           {node ? (
             <JsonValidityContext.Provider value={reportJson}>
               <NodeInspector
-                key={`${node.nodeId}/${revision}`}
+                key={`${node.nodeId}/${revision}/${go?.n ?? 0}`}
+                initialTab={go?.nodeId === node.nodeId ? go.tab : 'config'}
                 node={node}
+                testRun={{ sessionId: session.sessionId, workflow }}
+                onRename={(id) => renameNode(node.nodeId, id)}
                 onRemove={() => removeNode(node.nodeId)}
                 onGroupChange={(group) =>
-                  update({
-                    // an undefined group is left out of the saved JSON
-                    nodes: workflow.nodes.map((n) =>
-                      n.nodeId === node.nodeId
-                        ? { ...n, group: group ?? undefined }
-                        : n
-                    ),
-                  })
+                  update(
+                    {
+                      // an undefined group is left out of the saved JSON
+                      nodes: workflow.nodes.map((n) =>
+                        n.nodeId === node.nodeId
+                          ? { ...n, group: group ?? undefined }
+                          : n
+                      ),
+                    },
+                    `group:${node.nodeId}`
+                  )
                 }
                 onDescriptionChange={(description) =>
-                  update({
-                    // a null description is left out of the saved JSON
-                    nodes: workflow.nodes.map((n) =>
-                      n.nodeId === node.nodeId
-                        ? { ...n, description: description ?? undefined }
-                        : n
-                    ),
-                  })
+                  update(
+                    {
+                      // a null description is left out of the saved JSON
+                      nodes: workflow.nodes.map((n) =>
+                        n.nodeId === node.nodeId
+                          ? { ...n, description: description ?? undefined }
+                          : n
+                      ),
+                    },
+                    `description:${node.nodeId}`
+                  )
                 }
                 groupColor={workflow.groupColors?.[stageOf(node)]}
                 onColorChange={(color) =>
@@ -749,11 +993,14 @@ function Editor({
                   });
                 }}
                 onChange={(config) =>
-                  update({
-                    nodes: workflow.nodes.map((n) =>
-                      n.nodeId === node.nodeId ? { ...n, config } : n
-                    ),
-                  })
+                  update(
+                    {
+                      nodes: workflow.nodes.map((n) =>
+                        n.nodeId === node.nodeId ? { ...n, config } : n
+                      ),
+                    },
+                    `config:${node.nodeId}`
+                  )
                 }
               />
             </JsonValidityContext.Provider>

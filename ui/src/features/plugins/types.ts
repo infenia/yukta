@@ -11,10 +11,12 @@ export interface PluginSummary {
   category: PluginCategory;
   tier?: 'CORE' | 'EXTENDED' | 'SPECIFIC';
   restricted?: boolean;
-  /** False when the plugin is on the classpath but the operator has not switched it on. */
+  /** False when the plugin exists but the operator has not enabled it. */
   enabled?: boolean;
-  /** What an operator sets to switch it on; null when it already is. */
+  /** What an operator sets to enable it; null when already enabled. */
   enableWith?: string | null;
+  /** What the plugin does, in a sentence or two. */
+  description?: string | null;
 }
 
 export type ConfigFieldType =
@@ -34,6 +36,11 @@ export interface ConfigField {
   defaultValue: unknown;
   options: string[];
   description: string;
+  /**
+   * Only the editor's own fields (the engine policy) set this: a MAP whose keys are known is
+   * edited as one input per key instead of JSON. Plugins' schemas from the server never have it.
+   */
+  fields?: ConfigField[];
 }
 
 export interface PluginDetails extends PluginSummary {

@@ -44,11 +44,21 @@ export interface SessionDraft {
   assignments?: SupervisorRef[];
 }
 
+/** One problem the server found: `nodeId` is null for the workflow as a whole, `path` for none in particular. */
+export interface ValidationDetail {
+  nodeId: string | null;
+  path: string | null;
+  code: string;
+  message: string;
+}
+
 export interface ValidationResult {
   valid: boolean;
   message: string | null;
   /** Every problem found, the first of them being \`message\`. */
   problems?: string[];
+  /** The same problems with the node and the place in its definition, in the same order. */
+  details?: ValidationDetail[];
   outputPorts: Record<string, string[]>;
   /** What would run but probably not as meant; `field` is a config field or an output port. */
   warnings?: { nodeId: string; field: string; message: string }[];
