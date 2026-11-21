@@ -194,6 +194,7 @@ test.describe('Command palette - what it lists', () => {
       palette(page).getByRole('group', { name: 'Actions' }).getByRole('option')
     ).toHaveText([
       /New session/,
+      /Ask the assistant/,
       /Open inbox/,
       /dark theme/,
       /Copy link to this page/,
