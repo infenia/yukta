@@ -30,7 +30,7 @@ interface SelectProps {
 }
 
 const triggerClass =
-  'bg-input/50 text-on-surface text-body-md transition-standard hover:bg-input/80 focus-visible:border-ring focus-visible:ring-ring/30 data-popup-open:border-ring data-popup-open:ring-ring/30 flex h-9 min-w-0 cursor-pointer items-center justify-between gap-2 rounded-2xl border border-transparent pr-2 pl-3 outline-none focus-visible:ring-3 data-popup-open:ring-3 data-disabled:cursor-not-allowed data-disabled:opacity-50';
+  'bg-input/50 text-on-surface text-body-md transition-standard hover:bg-input/80 focus-visible:border-ring focus-visible:ring-ring/30 data-popup-open:border-ring data-popup-open:ring-ring/30 flex h-8 min-w-0 cursor-pointer items-center justify-between gap-2 rounded-2xl border border-transparent pr-2 pl-3 outline-none focus-visible:ring-3 data-popup-open:ring-3 data-disabled:cursor-not-allowed data-disabled:opacity-50';
 const popupClass =
   'bg-popover text-popover-foreground ring-foreground/5 dark:ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 flex max-h-(--available-height) min-w-(--anchor-width) origin-(--transform-origin) flex-col overflow-hidden rounded-2xl shadow-lg ring-1 duration-100 outline-none';
 const listClass = 'min-h-0 flex-1 overflow-y-auto p-1';
