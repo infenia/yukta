@@ -14,10 +14,9 @@ import type { Settings } from '../lib/settings';
 import { Chat } from './Chat';
 import { SetupView } from './SetupView';
 
-/** The floating card: header, the conversation, and the setup when no model is connected. */
+/** The assistant card: header, the conversation, and the setup when no model is connected. */
 export default function AssistantPanel({
   open,
-  lifted,
   settings,
   apiKey,
   onSave,
@@ -25,8 +24,6 @@ export default function AssistantPanel({
   onClose,
 }: {
   open: boolean;
-  /** The run page docks its logs at the bottom, so the card sits higher there. */
-  lifted: boolean;
   settings: Settings;
   apiKey: string | null;
   onSave: (settings: Settings, key: string) => void;
@@ -62,12 +59,11 @@ export default function AssistantPanel({
         'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
         // a bottom sheet on phones
         'max-sm:inset-x-0 max-sm:top-24 max-sm:bottom-0 max-sm:rounded-b-none',
-        wide ? 'sm:right-5 sm:w-xl' : 'sm:right-5 sm:w-md',
-        lifted
-          ? 'sm:bottom-84 sm:h-[max(16rem,min(40rem,calc(100dvh-26rem)))]'
-          : 'sm:bottom-20 sm:h-[min(40rem,calc(100dvh-7rem))]',
-        // expanded: docked full height beside the page (the run page keeps its logs clear)
-        wide && !lifted && 'sm:top-20 sm:h-auto'
+        // a popover under the header's assistant button; expanded, it takes the full height
+        'sm:top-16 sm:right-5',
+        wide
+          ? 'sm:bottom-5 sm:w-xl'
+          : 'sm:h-[min(40rem,calc(100dvh-5rem))] sm:w-md'
       )}
     >
       <header className="border-border flex items-center gap-2 border-b px-4 py-3">
