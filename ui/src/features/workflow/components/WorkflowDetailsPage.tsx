@@ -272,7 +272,7 @@ export function WorkflowDetailsPage() {
   return (
     // Exactly the screen's height (less the phone tab bar): the workspace scrolls inside, so the logs dock stays at the bottom edge
     <div
-      className="flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col bg-background sm:h-[calc(100dvh-var(--spacing-header))]"
+      className="bg-background flex h-[calc(100dvh-var(--spacing-header)-4rem)] flex-col sm:h-[calc(100dvh-var(--spacing-header))]"
       data-testid="workflow-details-page"
     >
       <WorkflowTitleBar
@@ -493,7 +493,7 @@ export function WorkflowDetailsPage() {
                             role="toolbar"
                             aria-orientation="vertical"
                             aria-label="Canvas tools"
-                            className="pointer-events-auto flex flex-col items-center gap-1 rounded-full border border-border bg-card/80 p-1 shadow-card backdrop-blur-sm"
+                            className="border-border bg-card/80 shadow-card pointer-events-auto flex flex-col items-center gap-1 rounded-full border p-1 backdrop-blur-sm"
                           >
                             <FindNodes
                               graph={graph}
@@ -503,7 +503,7 @@ export function WorkflowDetailsPage() {
                             />
                             <span
                               aria-hidden="true"
-                              className="h-px w-5 bg-border"
+                              className="bg-border h-px w-5"
                             />
                             <ViewSwitch
                               view={view}
