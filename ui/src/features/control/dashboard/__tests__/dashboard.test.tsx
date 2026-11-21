@@ -26,9 +26,9 @@ vi.mock('../RunsChart', () => ({
     <div data-testid="runs-chart">{Object.keys(series).join(',')}</div>
   ),
 }));
-vi.mock('../LatencyChart', () => ({
+vi.mock('../OverheadChart', () => ({
   default: ({ series }: { series: Record<string, unknown[]> }) => (
-    <div data-testid="latency-chart">{Object.keys(series).join(',')}</div>
+    <div data-testid="overhead-chart">{Object.keys(series).join(',')}</div>
   ),
 }));
 
@@ -58,6 +58,7 @@ let drainStatus = 200;
 let metricsFail = false;
 let heat: unknown[] = [];
 let modules: unknown[] = [];
+let nodes: unknown[] = [];
 let liveRuns: unknown[] = [];
 let marks: unknown[] = [];
 let actions: string[] = [];
@@ -118,7 +119,9 @@ const server = setupServer(
           time: now,
           values: {
             'runs.finished': 120,
-            'duration.p95': 1800,
+            'runs.failed': 3,
+            'overhead.start.p95': 12,
+            'overhead.handoff.p95': 4,
             'llm.tokens{direction=input,provider=OPENAI}|rate': 2,
             'llm.tokens{direction=output,provider=OPENAI}|rate': 1,
             'yukta.mcp.heavy.refused|rate': 0.1,
@@ -140,12 +143,13 @@ const server = setupServer(
             'runs.finished': [{ time: minute, value: 4 }],
             'runs.SUCCESS': [{ time: minute, value: 3 }],
           }
-        : names.startsWith('duration')
+        : names.startsWith('overhead')
           ? {
-              'duration.p95': [
-                { time: minute - 60_000, value: 1000 },
-                { time: minute, value: 1800 },
+              'overhead.start.p95': [
+                { time: minute - 60_000, value: 6 },
+                { time: minute, value: 12 },
               ],
+              'overhead.handoff.p95': [{ time: minute, value: 4 }],
             }
           : names.startsWith('llm.cost')
             ? {
@@ -159,6 +163,10 @@ const server = setupServer(
   }),
   http.get('/api/metrics/heatmap', () => ok(heat)),
   http.get('/api/metrics/modules', () => ok(modules)),
+  http.get('/api/metrics/nodes', () => ok(nodes)),
+  http.get('/api/edition', () =>
+    ok({ edition: 'PLUS', license: 'x', features: [], source: null })
+  ),
   http.get('/api/metrics/annotations', () => ok(marks)),
   http.get('/api/metrics/runs/live', () => ok(liveRuns)),
   http.post('/api/executions/:id/:action', ({ params }) => {
@@ -180,6 +188,7 @@ afterEach(() => {
   metricsFail = false;
   heat = [];
   modules = [];
+  nodes = [];
   liveRuns = [];
   marks = [];
   actions = [];
@@ -188,7 +197,7 @@ afterEach(() => {
 afterAll(() => server.close());
 
 describe('the Mission Control dashboard', () => {
-  it('shows the command strip from the snapshot, the heat map and the workers', async () => {
+  it('shows the command strip from the snapshot, the day band and the workers', async () => {
     heat = [
       { time: minute, runs: 10, failed: 1, failedRuns: ['x'] },
       { time: minute - 60_000, runs: 10, failed: 0, failedRuns: [] },
@@ -197,25 +206,31 @@ describe('the Mission Control dashboard', () => {
 
     const strip = await screen.findByTestId('command-strip');
     await waitFor(() =>
-      expect(within(strip).getByText('2.0')).toBeInTheDocument()
+      expect(within(strip).getByText('of 8')).toBeInTheDocument()
     );
-    expect(within(strip).getByText('1.8 s')).toBeInTheDocument();
+    expect(within(strip).getByText('holds 100')).toBeInTheDocument();
     expect(within(strip).getAllByText('95%').length).toBeGreaterThan(0); // 19 of 20 in 24 h
-    expect(within(strip).getByText('3 / 1')).toBeInTheDocument();
-    expect(within(strip).getByText('6 / 8')).toBeInTheDocument();
-    expect(within(strip).getByText('+80%')).toBeInTheDocument(); // p95 1000 to 1800
-    expect(within(strip).getByText('0.50')).toBeInTheDocument(); // 0.05/s for 10 s
-    expect(within(strip).getByText('0')).toBeInTheDocument(); // no approvals
+    expect(within(strip).getByText('of 120 runs')).toBeInTheDocument();
+    expect(within(strip).getByText('12 ms')).toBeInTheDocument(); // run start p95
+    expect(within(strip).getByText('+100%')).toBeInTheDocument(); // 6 ms to 12 ms
+    expect(
+      within(strip).getByText('request to plugin · hand-off 4 ms')
+    ).toBeInTheDocument();
+    expect(within(strip).getByText('0')).toBeInTheDocument(); // no inputs waiting
+    expect(await screen.findByText('20 runs')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('meter', { name: 'w1: 6 of 8 slots' })
+    ).toBeInTheDocument();
   });
 
-  it('draws the throughput and latency charts from the series', async () => {
+  it('draws the throughput and engine overhead charts from the series', async () => {
     renderWithProviders(<DashboardView />);
 
     expect(await screen.findByTestId('runs-chart')).toHaveTextContent(
       'runs.finished,runs.SUCCESS'
     );
-    expect(await screen.findByTestId('latency-chart')).toHaveTextContent(
-      'duration.p95'
+    expect(await screen.findByTestId('overhead-chart')).toHaveTextContent(
+      'overhead.handoff.p95'
     );
   });
 
@@ -245,12 +260,11 @@ describe('the Mission Control dashboard', () => {
     renderWithProviders(<DashboardView />);
 
     expect(await screen.findByText('No run is going')).toBeInTheDocument();
+    expect(await screen.findByText('0 runs')).toBeInTheDocument();
+    // the slowest nodes and the plugins each say so in one line
     expect(
-      await screen.findByText('No runs in the last 24 hours')
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByText('No nodes finished in this range')
-    ).toBeInTheDocument();
+      await screen.findAllByText('No nodes finished in this range')
+    ).toHaveLength(2);
   });
 
   it('shows an error with a retry where a panel cannot load', async () => {
@@ -264,18 +278,36 @@ describe('the Mission Control dashboard', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('ranks plugins by failure rate and latency', async () => {
+  it('ranks plugins by executions with their failures, and names the slowest nodes', async () => {
     modules = [
       { module: 'echo', executions: 10, failures: 5, avgMs: 250 },
       { module: 'http', executions: 2, failures: 0, avgMs: 2500 },
     ];
+    nodes = [
+      {
+        sessionId: 's1',
+        workflowId: 'wf-a',
+        nodeId: 'build',
+        module: 'PROCESS_EXECUTOR',
+        runs: 3,
+        failures: 0,
+        p50Ms: 90_000,
+        p95Ms: 400_000,
+        lastExecutionId: 'r9',
+      },
+    ];
     renderWithProviders(<DashboardView />);
 
-    const rows = await screen.findAllByRole('row');
-    expect(within(rows[1]).getByText('echo')).toBeInTheDocument();
-    expect(within(rows[1]).getByText('50%')).toBeInTheDocument();
-    expect(within(rows[1]).getByText('250 ms')).toBeInTheDocument();
-    expect(within(rows[2]).getByText('2.5 s')).toBeInTheDocument();
+    const build = await screen.findByRole('link', { name: 'build' });
+    expect(build).toHaveAttribute(
+      'href',
+      '/sessions/s1/workflow/wf-a?exec=r9&node=build'
+    );
+    expect(await screen.findByText('6 m 40 s')).toBeInTheDocument(); // p95 of that node
+    const echo = (await screen.findByText('echo')).closest('tr');
+    expect(echo).toHaveTextContent('10');
+    expect(echo).toHaveTextContent('5');
+    expect(screen.queryByText('2.5 s')).toBeNull(); // no mean per plugin type
   });
 
   it('lists live runs, flags the slow one and pauses or stops from the row', async () => {
@@ -289,6 +321,8 @@ describe('the Mission Control dashboard', () => {
         nodesDone: 1,
         nodesSeen: 4,
         p95Ms: 30_000,
+        paused: false,
+        currentNodes: ['build'],
       },
       {
         executionId: 'run-fine',
@@ -299,6 +333,8 @@ describe('the Mission Control dashboard', () => {
         nodesDone: 2,
         nodesSeen: 2,
         p95Ms: null,
+        paused: false,
+        currentNodes: [] as string[],
       },
     ];
     renderWithProviders(<DashboardView />);
@@ -310,6 +346,7 @@ describe('the Mission Control dashboard', () => {
       'data-slow',
       'false'
     );
+    expect(screen.getByText('build')).toBeInTheDocument(); // the node running now
     expect(
       screen.getByRole('meter', { name: 'wf-a: 1 of 4 nodes done' })
     ).toBeInTheDocument();
@@ -343,6 +380,8 @@ describe('the Mission Control dashboard', () => {
       nodesDone: 0,
       nodesSeen: 1,
       p95Ms: null,
+      paused: false,
+      currentNodes: [] as string[],
     });
     liveRuns = [run('r1', 's1', 'wf-a'), run('r2', 's2', 'wf-b')];
     window.history.pushState({}, '', '/?scope=session:s1');
@@ -378,6 +417,8 @@ describe('the Mission Control dashboard', () => {
         nodesDone: 0,
         nodesSeen: 1,
         p95Ms: null,
+        paused: false,
+        currentNodes: [] as string[],
       },
     ];
     renderWithProviders(<DashboardView />);
@@ -465,10 +506,9 @@ describe('the Mission Control dashboard', () => {
     window.history.pushState({}, '', '/?scope=session:s1');
     renderWithProviders(<DashboardView />);
 
-    const tile = await screen.findByRole('group', {
-      name: /Approvals waiting: 1\./,
-    });
-    expect(tile).toBeInTheDocument();
+    expect(
+      await screen.findByRole('link', { name: /Inputs waiting: 1\./ })
+    ).toBeInTheDocument();
   });
 
   it('lists sessions and workflows in the scope filter and keeps the choice in the URL', async () => {
@@ -506,10 +546,9 @@ describe('the Mission Control dashboard', () => {
     window.history.pushState({}, '', '/?scope=workflow:wf');
     renderWithProviders(<DashboardView />);
 
-    const panel = (
-      await screen.findByRole('heading', { name: 'AI usage' })
-    ).closest('section') as HTMLElement;
-    expect(within(panel).getByText('Whole server')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'AI usage · whole server' })
+    ).toBeInTheDocument();
   });
 
   it('resumes a live run from its row and links to that run', async () => {
@@ -523,6 +562,8 @@ describe('the Mission Control dashboard', () => {
         nodesDone: 0,
         nodesSeen: 1,
         p95Ms: null,
+        paused: true,
+        currentNodes: [] as string[],
       },
     ];
     renderWithProviders(<DashboardView />);

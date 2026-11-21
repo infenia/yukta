@@ -9,6 +9,7 @@ import {
   beforeEach,
   afterAll,
   afterEach,
+  vi,
 } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -105,9 +106,9 @@ const page = () =>
   );
 
 async function paste(user: ReturnType<typeof userEvent.setup>, text: string) {
-  await user.click(screen.getByLabelText('Or paste the JSON'));
+  await user.click(screen.getByRole('button', { name: 'Paste JSON' }));
+  await user.click(screen.getByLabelText('Paste the JSON'));
   await user.paste(text);
-  await user.click(screen.getByRole('button', { name: 'Check' }));
 }
 
 describe('parseSession', () => {
@@ -159,14 +160,17 @@ describe('SessionImportPage', () => {
   it('validates the JSON in the page as it is pasted', async () => {
     const user = userEvent.setup();
     page();
-    await user.click(screen.getByLabelText('Or paste the JSON'));
+    await user.click(screen.getByRole('button', { name: 'Paste JSON' }));
+    await user.click(screen.getByLabelText('Paste the JSON'));
     await user.paste('{nope');
-    expect(screen.getByRole('status')).toHaveTextContent('Invalid JSON');
-    await user.clear(screen.getByLabelText('Or paste the JSON'));
+    expect(screen.getByRole('alert')).toHaveTextContent('Invalid JSON');
+    await user.clear(screen.getByLabelText('Paste the JSON'));
     await user.paste(JSON.stringify(session()));
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Valid JSON: session s1, 1 workflow(s).'
+    expect(screen.getByLabelText('Paste the JSON')).toHaveAttribute(
+      'aria-invalid',
+      'false'
     );
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('rejects JSON that is not a session before calling the server', async () => {
@@ -179,20 +183,31 @@ describe('SessionImportPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('keeps Check disabled until there is text, and reads a chosen file', async () => {
+  it('keeps Import disabled until the JSON is checked, reads a chosen file and can be cancelled', async () => {
     const user = userEvent.setup();
     page();
-    expect(screen.getByRole('button', { name: 'Check' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Import session' })
+    ).toBeDisabled();
+    expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute(
+      'href',
+      '/sessions/new'
+    );
     await user.upload(
       screen.getByLabelText('Session file (.json)'),
       new File([JSON.stringify(session())], 's.json', {
         type: 'application/json',
       })
     );
-    expect(screen.getByLabelText('Or paste the JSON')).toHaveValue(
+    await user.click(screen.getByRole('button', { name: 'Paste JSON' }));
+    expect(screen.getByLabelText('Paste the JSON')).toHaveValue(
       JSON.stringify(session())
     );
-    await user.upload(screen.getByLabelText('Session file (.json)'), []);
+    await user.click(screen.getByRole('button', { name: 'Upload a file' }));
+    // choosing nothing (a cancelled dialog) changes nothing
+    fireEvent.change(screen.getByLabelText('Session file (.json)'), {
+      target: { files: [] },
+    });
   });
 
   it('highlights the drop zone while a file is dragged over it, and reads a dropped file', async () => {
@@ -213,7 +228,8 @@ describe('SessionImportPage', () => {
       },
     });
     expect(await screen.findByText('dropped.json')).toBeInTheDocument();
-    expect(screen.getByLabelText('Or paste the JSON')).toHaveValue(
+    await userEvent.click(screen.getByRole('button', { name: 'Paste JSON' }));
+    expect(screen.getByLabelText('Paste the JSON')).toHaveValue(
       JSON.stringify(session())
     );
   });
@@ -228,9 +244,45 @@ describe('SessionImportPage', () => {
     );
 
     validateFails = true;
-    await user.click(screen.getByRole('button', { name: 'Check' }));
+    await user.clear(screen.getByLabelText('Paste the JSON'));
+    await user.paste(
+      JSON.stringify(session({ main: wf({ description: 'x' }) }))
+    );
     expect(await screen.findByText(/main: boom/)).toBeInTheDocument();
     expect(saved).toBeUndefined();
+  });
+
+  it('ignores a check that an edit has overtaken', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    server.use(
+      http.post('/api/sessions/validate', async () => {
+        calls += 1;
+        if (calls === 1) {
+          await gate;
+          return ok({ valid: false, message: 'stale', outputPorts: {} });
+        }
+        return ok({ valid: true, message: null, outputPorts: {} });
+      })
+    );
+    const user = userEvent.setup();
+    page();
+    await paste(user, JSON.stringify(session()));
+    await vi.waitFor(() => expect(calls).toBe(1));
+
+    await user.clear(screen.getByLabelText('Paste the JSON'));
+    await user.paste(
+      JSON.stringify(session({ main: wf({ description: 'x' }) }))
+    );
+    expect(
+      await screen.findByText(/New session s1 with 1 workflow/)
+    ).toBeInTheDocument();
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByText(/stale/)).toBeNull();
   });
 
   it('imports a new session and opens it; redaction markers get a warning', async () => {

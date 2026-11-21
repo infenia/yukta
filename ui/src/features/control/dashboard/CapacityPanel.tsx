@@ -21,6 +21,7 @@ import {
   setLimits,
   type SchedulerLimits,
 } from '../api/scheduler';
+import { LimitsDialog } from '../components/LimitsDialog';
 import { PanelState } from './PanelState';
 import { tagOf } from './format';
 
@@ -50,6 +51,7 @@ export function CapacityPanel({ live }: { live: boolean }) {
   const snapshot = useMetricSnapshot().data;
   const [turning, setTurning] = useState<number | null>(null);
   const [confirmDrain, setConfirmDrain] = useState(false);
+  const [editing, setEditing] = useState(false);
   // Shown disabled, with the role it needs, to a key that may not change the limits
   const me = useMe();
   // the server's owner may not let people change the limits or drain
@@ -127,6 +129,10 @@ export function CapacityPanel({ live }: { live: boolean }) {
                 <dd className="num text-on-surface">
                   {data.queued} of {data.queueCapacity}
                 </dd>
+                <dt>One workflow</dt>
+                <dd className="num text-on-surface">
+                  at most {limitText(data.maxPerWorkflow).toLowerCase()}
+                </dd>
               </dl>
             </div>
             <div className="flex items-center gap-3">
@@ -152,29 +158,41 @@ export function CapacityPanel({ live }: { live: boolean }) {
                 Limit: {limitText(knobValue)}
               </span>
             </div>
-            <label className="text-body-md flex items-center gap-2">
-              <input
-                type="checkbox"
-                role="switch"
-                checked={drain.data?.draining ?? false}
-                disabled={
-                  !mayChange || drain.isPending || toggleDrain.isPending
-                }
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-body-md flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={drain.data?.draining ?? false}
+                  disabled={
+                    !mayChange || drain.isPending || toggleDrain.isPending
+                  }
+                  title={needs}
+                  // Ending a drain is safe; starting one refuses every new start, so it asks first
+                  onChange={(e) =>
+                    e.target.checked
+                      ? setConfirmDrain(true)
+                      : toggleDrain.mutate(false)
+                  }
+                />
+                Drain: refuse new starts
+                {drain.data?.draining && (
+                  <span className="text-body-sm text-on-surface-variant">
+                    {drain.data.idle ? '(idle)' : '(running work finishes)'}
+                  </span>
+                )}
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!mayChange}
                 title={needs}
-                // Ending a drain is safe; starting one refuses every new start, so it asks first
-                onChange={(e) =>
-                  e.target.checked
-                    ? setConfirmDrain(true)
-                    : toggleDrain.mutate(false)
-                }
-              />
-              Drain: refuse new starts
-              {drain.data?.draining && (
-                <span className="text-body-sm text-on-surface-variant">
-                  {drain.data.idle ? '(idle)' : '(running work finishes)'}
-                </span>
-              )}
-            </label>
+                onClick={() => setEditing(true)}
+              >
+                Edit limits
+              </Button>
+            </div>
             {rejected.length > 0 && (
               <ul
                 aria-label="Refused starts per minute"
@@ -200,6 +218,9 @@ export function CapacityPanel({ live }: { live: boolean }) {
           </div>
         )}
       </PanelState>
+      {editing && data && (
+        <LimitsDialog limits={data} onClose={() => setEditing(false)} />
+      )}
       {confirmDrain && (
         <Modal title="Drain the server?" onClose={() => setConfirmDrain(false)}>
           <p className="text-body-md text-on-surface-variant mb-4">

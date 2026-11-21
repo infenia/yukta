@@ -307,19 +307,32 @@ describe('SessionFormPage, new', () => {
     expect(code()).toMatch(/^yukta-cli session apply '\{"sessionId":"pay"/);
   });
 
-  it('links to the JSON import, and Cancel goes home without saving', async () => {
+  it('links to the JSON import only while choosing a start, and Cancel goes home without saving', async () => {
     const user = userEvent.setup();
     window.history.pushState({}, '', '/sessions/new');
+    renderWithProviders(<SessionFormPage />);
+    expect(
+      await screen.findByRole('link', { name: 'Import session' })
+    ).toHaveAttribute('href', '/sessions/import');
+    await user.click(
+      await screen.findByRole('button', { name: 'Start blank' })
+    );
+    expect(screen.queryByRole('link', { name: 'Import session' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(window.location.pathname).toBe('/sessions');
+    expect(posted).toEqual([]);
+  });
+
+  it('edits the description in a multi-line box', async () => {
+    const user = userEvent.setup();
     renderWithProviders(<SessionFormPage />);
     await user.click(
       await screen.findByRole('button', { name: 'Start blank' })
     );
-    expect(
-      screen.getByRole('link', { name: 'Import session' })
-    ).toHaveAttribute('href', '/sessions/import');
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(window.location.pathname).toBe('/sessions');
-    expect(posted).toEqual([]);
+    const box = screen.getByLabelText('Description');
+    expect(box.tagName).toBe('TEXTAREA');
+    await user.type(box, 'line one{Enter}line two');
+    expect(box).toHaveValue('line one\nline two');
   });
 
   it('creates a session from a template with its workflows, name and a suggested ID', async () => {
@@ -361,16 +374,13 @@ describe('SessionFormPage, new', () => {
     );
   });
 
-  it('previews the README as text and uses the template from the preview', async () => {
+  it('previews the summary and the workflow, not the README, and uses the template from there', async () => {
     const user = userEvent.setup();
     renderWithProviders(<SessionFormPage />);
     await user.click(await screen.findByRole('button', { name: 'Preview' }));
     const dialog = await screen.findByRole('dialog', { name: 'Hello world' });
-    // the README is Markdown (a heading), and markup in it stays text
-    expect(
-      within(dialog).getByRole('heading', { name: '01 — Hello world' })
-    ).toBeInTheDocument();
-    expect(within(dialog).getByText(/<b>not html<\/b>/)).toBeInTheDocument();
+    expect(within(dialog).getByTestId('template-canvas')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/not html/)).toBeNull();
     await user.click(
       within(dialog).getByRole('button', { name: 'Use this template' })
     );
@@ -439,10 +449,8 @@ describe('SessionFormPage, new', () => {
     await user.click(await screen.findByRole('button', { name: 'Preview' }));
     const empty = await screen.findByRole('dialog', { name: 'Hello world' });
     expect(within(empty).queryByTestId('template-canvas')).toBeNull();
-    // a type no plugin is registered for gets the neutral colour
-    expect(screen.getByText('MYSTERY').getAttribute('style')).toContain(
-      '--color-outline'
-    );
+    // a type no plugin is registered for still gets a chip (with the generic icon)
+    expect(screen.getByText('Mystery')).toBeVisible();
     await user.click(within(empty).getByRole('button', { name: 'Close' }));
 
     server.use(
@@ -458,15 +466,13 @@ describe('SessionFormPage, new', () => {
     expect(within(one).queryByRole('tab')).toBeNull();
   });
 
-  it('colours the plugin chips by category', async () => {
+  it('shows the plugin types as labelled chips with their icon', async () => {
     renderWithProviders(<SessionFormPage />);
-    const chip = await screen.findByText('CONSOLE_TERMINAL');
-    await waitFor(() =>
-      expect(chip.getAttribute('style')).toContain('--color-cat-terminal')
+    const chip = await screen.findByText('Console Terminal');
+    expect(chip.querySelector('.material-symbols-outlined')).toHaveTextContent(
+      'terminal'
     );
-    expect(screen.getByText('CONSTANT_SOURCE').getAttribute('style')).toContain(
-      '--color-cat-trigger'
-    );
+    expect(screen.getByText('Constant Source')).toBeVisible();
   });
 
   it('closes the preview without choosing', async () => {

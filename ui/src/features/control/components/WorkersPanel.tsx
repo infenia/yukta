@@ -11,7 +11,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useEdition } from '@/features/edition/hooks/useEdition';
 import { useWorkers } from '../api/workers';
 import { relativeTime } from './WorkersPanel.helpers';
 import { Tip } from '@/components/ui/tooltip';
@@ -43,11 +42,12 @@ function Chips({ values }: { values: string[] }) {
   );
 }
 
-/** The remote workers with their pools, plugin types and how much of their capacity is in use. */
+/** The remote workers, when there are any, with their pools, plugin types and how much of their capacity is in use. */
 export function WorkersPanel() {
   const workers = useWorkers();
-  const edition = useEdition();
-  const community = edition.data?.edition === 'COMMUNITY';
+
+  // the System card says there are none; this detail table is for when there are some
+  if (workers.data?.length === 0) return null;
 
   return (
     <section aria-labelledby="workers-heading" className="flex flex-col gap-2">
@@ -63,13 +63,6 @@ export function WorkersPanel() {
         />
       ) : workers.isPending ? (
         <StateMessage tone="loading" title="Loading…" compact />
-      ) : workers.data.length === 0 ? (
-        <StateMessage title="No workers connected." icon="dns" compact>
-          Workers run nodes on other machines
-          {community
-            ? ' and need the Plus edition.'
-            : '. Start one and point it at this server (see Operations → Remote workers in the docs).'}
-        </StateMessage>
       ) : (
         <TableFrame>
           <Table>

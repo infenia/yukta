@@ -177,6 +177,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .addKeyValue("executionId", context.executionId())
           .log("Consuming stream with terminal plugin");
 
+      tracker.recordPluginStart(context.executionId());
       Mono<Void> completion =
           terminal.consume(
               channelProvider

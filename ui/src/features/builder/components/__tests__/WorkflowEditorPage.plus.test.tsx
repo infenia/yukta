@@ -10,7 +10,8 @@ import {
   afterAll,
   afterEach,
 } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
+import { writePin } from '../../lib/testPins';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { setupServer } from 'msw/node';
@@ -25,6 +26,7 @@ vi.mock('@/features/workflow/components/WorkflowCanvas', async () => {
   const { useContext } = await import('react');
   const { NodeAdder, EdgeAdder } =
     await import('@/features/workflow/lib/stepAdders');
+  const { PinnedNodes } = await import('@/features/workflow/hooks/pinnedNodes');
   return {
     WorkflowCanvas: ({
       graph,
@@ -36,11 +38,13 @@ vi.mock('@/features/workflow/components/WorkflowCanvas', async () => {
     }) => {
       const nodeAdder = useContext(NodeAdder);
       const edgeAdder = useContext(EdgeAdder);
+      const pinned = useContext(PinnedNodes);
       return (
         <ul aria-label="Canvas">
           {graph.nodes.map((n) => (
             <li key={n.nodeId}>
               node {n.nodeId}
+              {pinned.has(n.nodeId) && ' (pinned)'}
               {n.category !== 'TERMINAL' && nodeAdder?.(n as never)}
             </li>
           ))}
@@ -135,6 +139,18 @@ function renderEditor() {
 const canvas = () => within(screen.getByRole('list', { name: 'Canvas' }));
 
 describe('WorkflowEditorPage the + on the canvas', () => {
+  it('marks a node when a test run pins its output', async () => {
+    renderEditor();
+    await screen.findByRole('region', { name: 'Node start' });
+    expect(canvas().queryByText(/pinned/)).toBeNull();
+
+    act(() => writePin('s1', 'wf', 'start', { sample: '{}', output: [1] }));
+
+    expect(
+      await canvas().findByText(/node start \(pinned\)/)
+    ).toBeInTheDocument();
+  });
+
   it('adds a step after the node it is under, and not under a terminal', async () => {
     const user = userEvent.setup();
     renderEditor();
