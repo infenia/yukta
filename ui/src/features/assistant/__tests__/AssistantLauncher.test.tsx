@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { resetTools } from '../lib/mcpClient';
 import { AssistantLauncher } from '../components/AssistantLauncher';
-import { openAssistant } from '../lib/open';
+import { BUSY_ASSISTANT_EVENT, openAssistant } from '../lib/open';
 import { DEFAULT_SETTINGS, writeKey, writeSettings } from '../lib/settings';
 import { nanoSession, sseResponse } from '../testFixtures';
 
@@ -203,11 +203,57 @@ describe('AssistantLauncher', () => {
     writeKey('sk-1', false);
     show('/sessions/s1/workflow/w1');
 
-    expect(opener().className).toContain('sm:bottom-[17rem]');
+    expect(opener().className).toContain('sm:bottom-68');
     await userEvent.click(opener());
     expect((await screen.findByRole('dialog')).className).toContain(
-      'sm:bottom-[21rem]'
+      'sm:bottom-84'
     );
     expect(screen.getByText('Looking at Workflow w1')).toBeInTheDocument();
+  });
+  it('expands the card and shrinks it again, and opens the settings from the model name', async () => {
+    serve();
+    writeKey('sk-1', false);
+    show();
+    await userEvent.click(opener());
+    const card = await screen.findByRole('dialog', { name: 'Yukta assistant' });
+    expect(card).not.toHaveClass('sm:w-xl');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Expand' }));
+    expect(card).toHaveClass('sm:w-xl');
+    await userEvent.click(screen.getByRole('button', { name: 'Shrink' }));
+    expect(card).not.toHaveClass('sm:w-xl');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Change model' }));
+    expect(screen.getByLabelText('API key')).toBeInTheDocument();
+  });
+
+  it('keeps the conversation after the page reloads', async () => {
+    serve('Remembered');
+    writeKey('sk-1', false);
+    const first = show();
+    await userEvent.click(opener());
+    await userEvent.type(await screen.findByLabelText('Message'), 'hi{Enter}');
+    expect(await screen.findByText('Remembered')).toBeInTheDocument();
+    first.unmount();
+
+    show();
+    await userEvent.click(opener());
+
+    expect(await screen.findByText('Remembered')).toBeInTheDocument();
+  });
+
+  it('rings the button while the assistant works', () => {
+    show();
+    const work = (busy: boolean) =>
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent(BUSY_ASSISTANT_EVENT, { detail: busy })
+        );
+      });
+
+    work(true);
+    expect(opener()).toHaveAttribute('data-working', 'true');
+    work(false);
+    expect(opener()).toHaveAttribute('data-working', 'false');
   });
 });

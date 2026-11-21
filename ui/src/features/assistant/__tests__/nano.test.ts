@@ -80,6 +80,15 @@ describe('downloadNano', () => {
 });
 
 describe('nanoModel', () => {
+  it('runs on the device and reports how much of its context a turn used', async () => {
+    install(nanoSession());
+    const model = nanoModel();
+    await collect(model.stream('sys', ask, [], signal));
+
+    expect(model.onDevice).toBe(true);
+    expect(model.usage?.()).toEqual({ used: 12, total: 100 });
+  });
+
   it('is labelled as running on this device', () => {
     expect(nanoModel().label).toBe('Gemini Nano · on this device');
   });
@@ -304,5 +313,53 @@ describe('nanoModel', () => {
     });
     install(session);
     await expect(run(ask, [])).rejects.toThrow('late');
+  });
+
+  it('starts a plain session when the browser refuses initial prompts', async () => {
+    const session = nanoSession([], ['hi']);
+    const refused = Object.assign(new Error('unable to create a session'), {
+      name: 'NotSupportedError',
+    });
+    const create = vi
+      .fn()
+      .mockRejectedValueOnce(refused)
+      .mockResolvedValue(session);
+    vi.stubGlobal('LanguageModel', { create, availability: vi.fn() });
+
+    await run(
+      [
+        { role: 'user', text: 'earlier' },
+        { role: 'assistant', text: 'sure', calls: [] },
+        { role: 'user', text: 'now' },
+      ],
+      []
+    );
+
+    expect(create.mock.calls[1][0]).not.toHaveProperty('initialPrompts');
+    const sent = session.promptStreaming.mock.calls[0] as unknown as string[];
+    expect(sent[0]).toMatch(
+      /^sys\n\nUser: earlier\n\nAssistant: sure\n\nUser: now$/
+    );
+  });
+
+  it('does not hide other failures to create a session', async () => {
+    vi.stubGlobal('LanguageModel', {
+      create: vi.fn().mockRejectedValue(new Error('boom')),
+      availability: vi.fn(),
+    });
+
+    await expect(run()).rejects.toThrow('boom');
+  });
+
+  it('says in plain words when the built-in model cannot start at all', async () => {
+    const refused = Object.assign(new Error('unable to create a session'), {
+      name: 'NotSupportedError',
+    });
+    vi.stubGlobal('LanguageModel', {
+      create: vi.fn().mockRejectedValue(refused),
+      availability: vi.fn(),
+    });
+
+    await expect(run()).rejects.toThrow("isn't working on this device");
   });
 });

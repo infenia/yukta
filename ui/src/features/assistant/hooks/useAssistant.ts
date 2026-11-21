@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { runAgent } from '../lib/agentLoop';
+import { loadChat, saveChat } from '../lib/history';
 import { SEARCH_DOCS, searchDocs } from '../lib/docsSearch';
 import { listTools } from '../lib/mcpClient';
 import { systemPrompt, type PageContext } from '../lib/pageContext';
@@ -15,17 +16,18 @@ export interface Pending {
 
 /** One conversation: the messages, whether the model is working, and a tool waiting for approval. */
 export function useAssistant(model: ChatModel, context: PageContext) {
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<Msg[]>(loadChat);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
-  const latest = useRef<Msg[]>([]);
+  const latest = useRef<Msg[]>(messages);
   const controller = useRef<AbortController | null>(null);
   const decide = useRef<((ok: boolean) => void) | null>(null);
 
   const show = useCallback((next: Msg[]) => {
     latest.current = next;
     setMessages(next);
+    saveChat(next);
   }, []);
 
   const approve = useCallback((ok: boolean) => {
@@ -74,5 +76,13 @@ export function useAssistant(model: ChatModel, context: PageContext) {
     [model, context, show]
   );
 
-  return { messages, busy, error, pending, send, stop, approve };
+  /** Asks the last question again, dropping the answer it got. */
+  const retry = useCallback(() => {
+    const at = latest.current.map((m) => m.role).lastIndexOf('user');
+    const question = latest.current[at] as Extract<Msg, { role: 'user' }>;
+    show(latest.current.slice(0, at));
+    return send(question.text);
+  }, [send, show]);
+
+  return { messages, busy, error, pending, send, retry, stop, approve };
 }

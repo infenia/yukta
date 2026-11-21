@@ -274,4 +274,22 @@ describe('SetupView', () => {
       expect(screen.getByLabelText('Model')).toHaveValue('claude-sonnet-5-5');
     });
   });
+
+  it('auto uses a ready built-in model without a key', async () => {
+    const { onSave } = show(null, {
+      state: 'available',
+      progress: 1,
+      download: vi.fn(),
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Auto' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Use this model' })
+    );
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'auto' }),
+      ''
+    );
+  });
 });

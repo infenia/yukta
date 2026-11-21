@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { cliEquivalent } from '../lib/equivalent';
 import type { Call, Msg } from '../types';
 
 type Result = Extract<Msg, { role: 'tool' }>;
@@ -34,6 +35,16 @@ export function ToolCard({
   onApprove: (ok: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // only a call seen running can say how long it took; one restored with its result cannot
+  const began = useRef<number | null>(null);
+  const [took, setTook] = useState<number | null>(null);
+  const finished = result !== undefined;
+  useEffect(() => {
+    if (!finished && began.current === null) began.current = Date.now();
+  }, [finished]);
+  useEffect(() => {
+    if (finished && began.current !== null) setTook(Date.now() - began.current);
+  }, [finished]);
   const status = result
     ? result.isError
       ? { icon: 'error', tone: 'text-destructive', text: 'Failed' }
@@ -42,6 +53,7 @@ export function ToolCard({
       ? { icon: 'build', tone: 'text-attention', text: 'Needs approval' }
       : { icon: 'progress_activity', tone: 'text-attention', text: 'Running' };
   const expanded = open || awaiting;
+  const cli = cliEquivalent(call);
   return (
     <div className="border-border bg-surface-container-low my-2 overflow-hidden rounded-lg border">
       <button
@@ -65,11 +77,13 @@ export function ToolCard({
         </span>
         <span className="text-label-sm text-on-surface-variant">
           {status.text}
+          {took !== null && ` · ${(took / 1000).toFixed(1)} s`}
         </span>
       </button>
       {expanded && (
         <div className="border-border flex flex-col gap-2 border-t p-2">
           <CodeBlock code={pretty(call.args)} label="arguments" grow />
+          {cli && <CodeBlock code={cli} label="same in the CLI" grow />}
           {result && (
             <CodeBlock code={resultText(result.result)} label="result" grow />
           )}

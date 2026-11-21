@@ -45,6 +45,7 @@ const RESULT_LIMIT = 4000;
 const MAX_TOOL_RUNS = 3;
 
 let sequence = 0;
+let usage: { used: number; total: number } | null = null;
 
 export async function nanoAvailability(): Promise<NanoState> {
   if (typeof LanguageModel === 'undefined') return 'unsupported';
@@ -168,12 +169,33 @@ async function* run(
   signal: AbortSignal
 ): AsyncGenerator<ModelEvent> {
   const all = turns(history);
-  const input = (all.pop() as NanoContent).content;
-  const base = await (LanguageModel as NanoStatic).create({
-    ...OPTIONS,
-    signal,
-    initialPrompts: [{ role: 'system', content: system }, ...all],
-  });
+  let input = (all.pop() as NanoContent).content;
+  let base: NanoSession;
+  try {
+    base = await (LanguageModel as NanoStatic).create({
+      ...OPTIONS,
+      signal,
+      initialPrompts: [{ role: 'system', content: system }, ...all],
+    });
+  } catch (error) {
+    // some builds refuse initial prompts ("unable to create a session"): start a plain session and
+    // put the instructions and earlier turns in front of the question instead
+    if ((error as Error).name !== 'NotSupportedError') throw error;
+    try {
+      base = await (LanguageModel as NanoStatic).create({ ...OPTIONS, signal });
+    } catch {
+      throw new Error(
+        "The built-in model isn't working on this device right now. Restart Chrome, or choose Auto with an API key in Settings."
+      );
+    }
+    input = [
+      system,
+      ...all.map(
+        (t) => `${t.role === 'user' ? 'User' : 'Assistant'}: ${t.content}`
+      ),
+      `User: ${input}`,
+    ].join('\n\n');
+  }
   try {
     if (tools.length > 0 && toolRuns(history) < MAX_TOOL_RUNS) {
       const call = await plan(base, tools, signal);
@@ -191,6 +213,7 @@ async function* run(
       if (delta) yield { type: 'text', delta };
     }
   } finally {
+    usage = { used: base.contextUsage, total: base.contextWindow };
     base.destroy();
   }
 }
@@ -199,6 +222,8 @@ async function* run(
 export function nanoModel(): ChatModel {
   return {
     label: 'Gemini Nano · on this device',
+    onDevice: true,
+    usage: () => usage,
     async *stream(system, history, tools, signal) {
       const usable = tools.filter((t) => NANO_TOOLS.has(t.name));
       let started = false;

@@ -75,4 +75,40 @@ describe('ToolCard', () => {
 
     expect(onApprove.mock.calls).toEqual([[true], [false]]);
   });
+  it('says how long a call it saw running took, but not one that arrived finished', () => {
+    vi.useFakeTimers();
+    const view = show();
+    vi.advanceTimersByTime(1500);
+    view.rerender(
+      <TooltipProvider>
+        <ToolCard
+          call={call}
+          result={result('{}')}
+          awaiting={false}
+          onApprove={vi.fn()}
+        />
+      </TooltipProvider>
+    );
+    expect(screen.getByText(/Done · 1\.5 s/)).toBeInTheDocument();
+    vi.useRealTimers();
+    view.unmount();
+
+    show({ result: result('{}') });
+    expect(screen.getByText('Done')).toBeInTheDocument();
+  });
+
+  it('shows the CLI command for a call the CLI has one for', async () => {
+    show({
+      call: {
+        id: 'c1',
+        name: 'start_workflow',
+        args: { sessionId: 's', workflowId: 'w' },
+      },
+      awaiting: true,
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Copy same in the CLI' })
+    ).toBeInTheDocument();
+  });
 });

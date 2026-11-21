@@ -3,8 +3,11 @@
 
 import type { Provider } from './proxy';
 
-/** Where the model comes from: this device's built-in model, or a provider with the person's key. */
-export type ProviderChoice = Provider | 'nano';
+/**
+ * Where the model comes from: this device's built-in model, a provider with the person's key, or
+ * `auto`: the built-in model when it is ready, else the key (Anthropic, or OpenAI-compatible with a base URL).
+ */
+export type ProviderChoice = Provider | 'nano' | 'auto';
 
 /** What the person chose; kept in this browser, never sent to Yukta except as the relay's headers. */
 export interface Settings {

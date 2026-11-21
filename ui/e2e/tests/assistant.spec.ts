@@ -40,15 +40,22 @@ interface Mock {
   toolCalls: string[];
 }
 
-async function mockAssistant(page: Page, replies: string[]): Promise<Mock> {
+async function mockAssistant(
+  page: Page,
+  replies: string[],
+  seed = true
+): Promise<Mock> {
   const mock: Mock = { proxyBodies: [], toolCalls: [] };
   // a browser with a built-in model starts on it; these tests use a provider key
-  await page.addInitScript(() =>
-    localStorage.setItem(
-      'yukta.assistant',
-      JSON.stringify({ provider: 'anthropic', model: 'claude-sonnet-5-5' })
-    )
-  );
+  if (seed) {
+    await page.addInitScript(() => {
+      if (!localStorage.getItem('yukta.assistant'))
+        localStorage.setItem(
+          'yukta.assistant',
+          JSON.stringify({ provider: 'anthropic', model: 'claude-sonnet-5-5' })
+        );
+    });
+  }
   await page.route('**/api/sessions/summaries*', (r) =>
     r.fulfill(envelope('/s', []))
   );
@@ -164,5 +171,148 @@ test.describe('Assistant', () => {
     await panel(page).getByRole('button', { name: 'Deny' }).click();
     await expect(panel(page)).toContainText('Understood.');
     expect(mock.toolCalls).toEqual([]);
+  });
+  test('answers a suggestion with a read-tool card', async ({ page }) => {
+    const mock = await mockAssistant(page, [
+      text('OK'),
+      toolUse('list_workflows', {}),
+      text('Two are running.'),
+    ]);
+    await setUp(page);
+    await panel(page)
+      .getByRole('button', { name: 'What is running right now?' })
+      .click();
+    await expect(panel(page)).toContainText('Two are running.');
+    await expect(panel(page).getByText('list_workflows')).toBeVisible();
+    await expect(panel(page).getByText(/^Done/)).toBeVisible();
+    expect(mock.toolCalls).toEqual(['list_workflows']);
+  });
+
+  test('keeps the conversation across a reload and clears it on New chat', async ({
+    page,
+  }) => {
+    await mockAssistant(page, [text('OK'), text('Remembered.')]);
+    await setUp(page);
+    await panel(page).getByLabel('Message').fill('Hello');
+    await panel(page).getByRole('button', { name: 'Send' }).click();
+    await expect(panel(page)).toContainText('Remembered.');
+
+    await page.reload();
+    await page.getByRole('button', { name: 'Yukta assistant' }).click();
+    await expect(panel(page)).toContainText('Remembered.');
+
+    await panel(page).getByRole('button', { name: 'New chat' }).click();
+    await expect(panel(page)).not.toContainText('Remembered.');
+  });
+
+  test('expands, and hides the button for good', async ({ page }) => {
+    await mockAssistant(page, [text('OK')]);
+    await setUp(page);
+    await panel(page).getByRole('button', { name: 'Expand' }).click();
+    await expect(
+      panel(page).getByRole('button', { name: 'Shrink' })
+    ).toBeVisible();
+
+    await panel(page).getByRole('button', { name: 'Change model' }).click();
+    await panel(page)
+      .getByRole('button', { name: 'Hide the assistant button' })
+      .click();
+    await expect(
+      page.getByRole('button', { name: 'Yukta assistant' })
+    ).toHaveCount(0);
+
+    await page.reload();
+    await expect(
+      page.getByRole('heading', { name: 'Sessions', level: 1 })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Yukta assistant' })
+    ).toHaveCount(0);
+  });
+
+  test('runs on the built-in model, with no request to the relay', async ({
+    page,
+  }) => {
+    const mock = await mockAssistant(page, [], false);
+    await page.addInitScript(() => {
+      const session = {
+        clone: async () => ({
+          prompt: async () => '{"tool":"none"}',
+          destroy() {},
+        }),
+        promptStreaming: () =>
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue('Hello from the device');
+              controller.close();
+            },
+          }),
+        contextUsage: 5,
+        contextWindow: 100,
+        destroy() {},
+      };
+      Object.assign(globalThis, {
+        LanguageModel: {
+          availability: async () => 'available',
+          create: async () => session,
+        },
+      });
+    });
+    await page.goto('/sessions');
+    await expect(
+      page.getByRole('button', { name: 'Yukta assistant' })
+    ).toBeVisible();
+    await page.keyboard.press('Control+j');
+    await panel(page).getByLabel('Message').fill('Hi');
+    await panel(page).getByRole('button', { name: 'Send' }).click();
+    await expect(panel(page)).toContainText('Hello from the device');
+    await expect(panel(page).getByRole('meter')).toHaveText('Context 5%');
+    expect(mock.proxyBodies).toEqual([]);
+  });
+
+  test('answers on the built-in model when the browser refuses initial prompts', async ({
+    page,
+  }) => {
+    await mockAssistant(page, [], false);
+    await page.addInitScript(() => {
+      const session = {
+        clone: async () => ({
+          prompt: async () => '{"tool":"none"}',
+          destroy() {},
+        }),
+        promptStreaming: () =>
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue('Hello without initial prompts');
+              controller.close();
+            },
+          }),
+        contextUsage: 5,
+        contextWindow: 100,
+        destroy() {},
+      };
+      Object.assign(globalThis, {
+        LanguageModel: {
+          availability: async () => 'available',
+          create: async (options: { initialPrompts?: unknown }) => {
+            if (options.initialPrompts) {
+              throw new DOMException(
+                'The device is unable to create a session to run the model.',
+                'NotSupportedError'
+              );
+            }
+            return session;
+          },
+        },
+      });
+    });
+    await page.goto('/sessions');
+    await expect(
+      page.getByRole('button', { name: 'Yukta assistant' })
+    ).toBeVisible();
+    await page.keyboard.press('Control+j');
+    await panel(page).getByLabel('Message').fill('Hi');
+    await panel(page).getByRole('button', { name: 'Send' }).click();
+    await expect(panel(page)).toContainText('Hello without initial prompts');
   });
 });

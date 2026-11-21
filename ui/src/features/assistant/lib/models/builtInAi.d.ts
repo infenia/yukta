@@ -33,6 +33,9 @@ declare global {
       options?: NanoPromptOptions
     ): ReadableStream<string>;
     clone(options?: { signal?: AbortSignal }): Promise<NanoSession>;
+    /** Tokens of the context window in use, and its size. */
+    contextUsage: number;
+    contextWindow: number;
     destroy(): void;
   }
 
@@ -44,6 +47,6 @@ declare global {
   }
 
   // the API is missing from other browsers, so the global may not exist
-  // eslint-disable-next-line no-var
+
   var LanguageModel: NanoStatic | undefined;
 }

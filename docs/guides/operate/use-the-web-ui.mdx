@@ -131,7 +131,7 @@ An experimental assistant sits behind the round button at the bottom right of ev
 2. Ask in plain words. The assistant uses Yukta's MCP tools with the same API key and role as the UI, knows which page you are on, and can search these docs.
 3. A tool that only reads runs at once. A tool that changes something is shown first: **Approve** runs it, **Deny** tells the assistant you declined.
 
-Your provider key stays in this browser (the tab, or the device if you tick **Keep the key on this device**). The server relays the request to the provider because the page may only talk to its own origin; it passes the key in a header and does not store or log it. The conversation is kept in memory only, so a reload clears it.
+Your provider key stays in this browser (the tab, or the device if you tick **Keep the key on this device**). The server relays the request to the provider because the page may only talk to its own origin; it passes the key in a header and does not store or log it. The conversation stays in this tab through a reload until you close the tab or choose **New chat**. Under the last answer, **Copy answer** copies it and **Retry** asks the question again. **Expand** widens the card, and the model name in its header opens the setup to change the model. With the on-device model the card shows how much of its context is used.
 
 Three settings bound the relay: `yukta.assistant.enabled` (turns it off), `yukta.assistant.allowed-base-urls` (hosts an OpenAI-compatible base URL may name; add an Ollama or LM Studio host here) and `yukta.assistant.anthropic-url`. See [Configuration](/reference/configuration).
 

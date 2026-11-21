@@ -13,6 +13,7 @@ import type { ChatModel } from '../types';
 
 /** `model` is the name a provider starts with; the built-in model has none. */
 const CHOICES: { id: ProviderChoice; label: string; model?: string }[] = [
+  { id: 'auto', label: 'Auto' },
   { id: 'nano', label: 'On this device' },
   { id: 'anthropic', label: 'Anthropic', model: 'claude-sonnet-5-5' },
   { id: 'openai', label: 'OpenAI-compatible', model: '' },
@@ -54,7 +55,9 @@ export function SetupView({
   const onDevice = draft.provider === 'nano';
   const downloading = onDevice && nano.state === 'downloading';
   const needsDownload = onDevice && nano.state === 'downloadable';
-  const ready = onDevice
+  const auto = draft.provider === 'auto';
+  const useNano = onDevice || (auto && nano.state === 'available');
+  const ready = useNano
     ? nano.state === 'available'
     : key.trim() !== '' && draft.model.trim() !== '';
 
@@ -84,7 +87,7 @@ export function SetupView({
 
   const submit = () => {
     if (!ready || busy) return;
-    if (onDevice) {
+    if (useNano) {
       onSave(draft, key);
     } else {
       void verify();
@@ -131,6 +134,12 @@ export function SetupView({
           </button>
         ))}
       </div>
+      {auto && (
+        <p className="text-label-sm text-on-surface-variant">
+          Uses the built-in model when it is ready, otherwise the provider key
+          below.
+        </p>
+      )}
       {onDevice ? (
         <div className="flex flex-col gap-2">
           <p className="text-body-md">{NANO_TEXT[nano.state]}</p>
@@ -210,7 +219,7 @@ export function SetupView({
           <Button type="submit" disabled={!ready || busy}>
             {busy
               ? 'Checking…'
-              : onDevice
+              : useNano
                 ? downloading
                   ? 'Downloading…'
                   : 'Use this model'
