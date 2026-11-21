@@ -96,4 +96,19 @@ describe('ToolCard', () => {
     show({ result: result('{}') });
     expect(screen.getByText('Done')).toBeInTheDocument();
   });
+
+  it('shows the CLI command for a call the CLI has one for', async () => {
+    show({
+      call: {
+        id: 'c1',
+        name: 'start_workflow',
+        args: { sessionId: 's', workflowId: 'w' },
+      },
+      awaiting: true,
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Copy same in the CLI' })
+    ).toBeInTheDocument();
+  });
 });

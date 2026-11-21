@@ -269,4 +269,50 @@ test.describe('Assistant', () => {
     await expect(panel(page).getByRole('meter')).toHaveText('Context 5%');
     expect(mock.proxyBodies).toEqual([]);
   });
+
+  test('answers on the built-in model when the browser refuses initial prompts', async ({
+    page,
+  }) => {
+    await mockAssistant(page, [], false);
+    await page.addInitScript(() => {
+      const session = {
+        clone: async () => ({
+          prompt: async () => '{"tool":"none"}',
+          destroy() {},
+        }),
+        promptStreaming: () =>
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue('Hello without initial prompts');
+              controller.close();
+            },
+          }),
+        contextUsage: 5,
+        contextWindow: 100,
+        destroy() {},
+      };
+      Object.assign(globalThis, {
+        LanguageModel: {
+          availability: async () => 'available',
+          create: async (options: { initialPrompts?: unknown }) => {
+            if (options.initialPrompts) {
+              throw new DOMException(
+                'The device is unable to create a session to run the model.',
+                'NotSupportedError'
+              );
+            }
+            return session;
+          },
+        },
+      });
+    });
+    await page.goto('/sessions');
+    await expect(
+      page.getByRole('button', { name: 'Yukta assistant' })
+    ).toBeVisible();
+    await page.keyboard.press('Control+j');
+    await panel(page).getByLabel('Message').fill('Hi');
+    await panel(page).getByRole('button', { name: 'Send' }).click();
+    await expect(panel(page)).toContainText('Hello without initial prompts');
+  });
 });

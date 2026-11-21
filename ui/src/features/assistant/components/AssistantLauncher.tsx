@@ -6,7 +6,7 @@ import { useLocation } from 'react-router';
 import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useSettings } from '../hooks/useSettings';
-import { OPEN_ASSISTANT_EVENT } from '../lib/open';
+import { BUSY_ASSISTANT_EVENT, OPEN_ASSISTANT_EVENT } from '../lib/open';
 
 /** The run page docks its logs at the bottom. */
 const RUN_PAGE = /^\/sessions\/[^/]+\/workflow\/[^/]+\/?$/;
@@ -23,6 +23,7 @@ export function AssistantLauncher() {
   const { settings, key, update, save } = useSettings();
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [working, setWorking] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const { pathname } = useLocation();
 
@@ -48,11 +49,15 @@ export function AssistantLauncher() {
       setLoaded(true);
       setOpen(true);
     };
+    const onBusy = (event: Event) =>
+      setWorking((event as CustomEvent<boolean>).detail);
     document.addEventListener('keydown', onKey);
     window.addEventListener(OPEN_ASSISTANT_EVENT, onOpen);
+    window.addEventListener(BUSY_ASSISTANT_EVENT, onBusy);
     return () => {
       document.removeEventListener('keydown', onKey);
       window.removeEventListener(OPEN_ASSISTANT_EVENT, onOpen);
+      window.removeEventListener(BUSY_ASSISTANT_EVENT, onBusy);
     };
   }, [update]);
 
@@ -70,8 +75,10 @@ export function AssistantLauncher() {
             className={cn(
               'border-border bg-card text-primary shadow-raised transition-standard fixed right-3 z-60 flex size-12 items-center justify-center rounded-full border hover:-translate-y-0.5 sm:right-5',
               lifted ? 'bottom-20 sm:bottom-68' : 'bottom-20 sm:bottom-5',
-              open && 'max-sm:hidden'
+              open && 'max-sm:hidden',
+              working && 'ring-primary/60 ring-2 motion-safe:animate-pulse'
             )}
+            data-working={working}
           >
             <span
               aria-hidden="true"

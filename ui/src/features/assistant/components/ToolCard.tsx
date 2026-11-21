@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { cliEquivalent } from '../lib/equivalent';
 import type { Call, Msg } from '../types';
 
 type Result = Extract<Msg, { role: 'tool' }>;
@@ -52,6 +53,7 @@ export function ToolCard({
       ? { icon: 'build', tone: 'text-attention', text: 'Needs approval' }
       : { icon: 'progress_activity', tone: 'text-attention', text: 'Running' };
   const expanded = open || awaiting;
+  const cli = cliEquivalent(call);
   return (
     <div className="border-border bg-surface-container-low my-2 overflow-hidden rounded-lg border">
       <button
@@ -81,6 +83,7 @@ export function ToolCard({
       {expanded && (
         <div className="border-border flex flex-col gap-2 border-t p-2">
           <CodeBlock code={pretty(call.args)} label="arguments" grow />
+          {cli && <CodeBlock code={cli} label="same in the CLI" grow />}
           {result && (
             <CodeBlock code={resultText(result.result)} label="result" grow />
           )}

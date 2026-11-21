@@ -300,4 +300,21 @@ describe('Chat', () => {
     expect(screen.getByText(/through this Yukta server/)).toBeInTheDocument();
     expect(screen.queryByRole('meter')).not.toBeInTheDocument();
   });
+
+  it('draws only the latest messages of a long thread until asked for more', async () => {
+    const long = Array.from({ length: 70 }, (_, i) => [
+      { role: 'user', text: `q${i}` },
+      { role: 'assistant', text: `a${i}`, calls: [] },
+    ]).flat();
+    sessionStorage.setItem('yukta.assistant.chat', JSON.stringify(long));
+    show(scriptedModel([]));
+
+    expect(screen.queryByText('q0')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Show earlier' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show earlier' }));
+    expect(screen.getByText('q0')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Show earlier' })
+    ).not.toBeInTheDocument();
+  });
 });

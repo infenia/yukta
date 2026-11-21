@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { resetTools } from '../lib/mcpClient';
 import { AssistantLauncher } from '../components/AssistantLauncher';
-import { openAssistant } from '../lib/open';
+import { BUSY_ASSISTANT_EVENT, openAssistant } from '../lib/open';
 import { DEFAULT_SETTINGS, writeKey, writeSettings } from '../lib/settings';
 import { nanoSession, sseResponse } from '../testFixtures';
 
@@ -240,5 +240,20 @@ describe('AssistantLauncher', () => {
     await userEvent.click(opener());
 
     expect(await screen.findByText('Remembered')).toBeInTheDocument();
+  });
+
+  it('rings the button while the assistant works', () => {
+    show();
+    const work = (busy: boolean) =>
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent(BUSY_ASSISTANT_EVENT, { detail: busy })
+        );
+      });
+
+    work(true);
+    expect(opener()).toHaveAttribute('data-working', 'true');
+    work(false);
+    expect(opener()).toHaveAttribute('data-working', 'false');
   });
 });

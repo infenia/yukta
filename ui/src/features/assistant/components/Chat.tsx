@@ -10,6 +10,7 @@ import { textareaFieldClassName } from '@/components/ui/native-select';
 import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useAssistant } from '../hooks/useAssistant';
+import { BUSY_ASSISTANT_EVENT } from '../lib/open';
 import type { PageContext } from '../lib/pageContext';
 import type { ChatModel, Msg } from '../types';
 import { ToolCard } from './ToolCard';
@@ -20,6 +21,9 @@ function sources(result: string | undefined): { title: string; url: string }[] {
     ...(result ?? '').matchAll(/^## (.+?)(?: — .*)?\n(https?:\S+)$/gm),
   ].map(([, title, url]) => ({ title, url }));
 }
+
+/** Messages drawn at once; earlier ones stay behind "Show earlier" so a long thread stays quick. */
+const WINDOW = 60;
 
 const WHERE = {
   device: 'Runs on your device; nothing leaves this browser.',
@@ -39,12 +43,19 @@ export function Chat({
   const { messages, busy, error, pending, send, retry, stop, approve } =
     useAssistant(model, context);
   const [draft, setDraft] = useState('');
+  const [shown, setShown] = useState(WINDOW);
   const input = useRef<HTMLTextAreaElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) (input.current as HTMLTextAreaElement).focus();
   }, [open]);
+  // the launcher shows a ring while the assistant works, also with the card closed
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(BUSY_ASSISTANT_EVENT, { detail: busy })
+    );
+  }, [busy]);
   useEffect(() => {
     const el = scroller.current as HTMLDivElement;
     el.scrollTop = el.scrollHeight;
@@ -100,7 +111,18 @@ export function Chat({
           </div>
         ) : (
           messages.map((m: Msg, index) =>
-            m.role === 'user' ? (
+            index < messages.length - shown ? (
+              index === 0 ? (
+                <Button
+                  key="earlier"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShown(shown + WINDOW)}
+                >
+                  Show earlier
+                </Button>
+              ) : null
+            ) : m.role === 'user' ? (
               <div key={index} className="my-3 flex justify-end">
                 <p className="bg-surface-container-high text-body-md text-on-surface max-w-[85%] rounded-2xl px-3 py-2 wrap-break-word whitespace-pre-wrap">
                   {m.text}

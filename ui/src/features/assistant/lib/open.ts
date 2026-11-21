@@ -7,3 +7,6 @@ export const OPEN_ASSISTANT_EVENT = 'yukta:open-assistant';
 export function openAssistant(): void {
   window.dispatchEvent(new Event(OPEN_ASSISTANT_EVENT));
 }
+
+/** Fired by the conversation as it starts and stops working; `detail` is whether it is working. */
+export const BUSY_ASSISTANT_EVENT = 'yukta:assistant-busy';

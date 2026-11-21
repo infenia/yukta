@@ -91,6 +91,16 @@ describe('useSettings', () => {
 });
 
 describe('buildModel', () => {
+  it('auto takes the built-in model when ready, else the key', () => {
+    const auto = { ...DEFAULT_SETTINGS, provider: 'auto' as const };
+    expect(buildModel(auto, null, 'available')?.onDevice).toBe(true);
+    expect(buildModel(auto, null, 'downloadable')).toBeNull();
+    expect(buildModel(auto, 'k')?.label).toContain('claude-sonnet');
+    expect(
+      buildModel({ ...auto, model: 'm', baseUrl: 'http://x/v1' }, 'k')?.onDevice
+    ).toBeFalsy();
+  });
+
   it('needs a key and a model', () => {
     expect(buildModel(DEFAULT_SETTINGS, null)).toBeNull();
     expect(buildModel({ ...DEFAULT_SETTINGS, model: '' }, 'k')).toBeNull();

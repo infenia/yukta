@@ -169,12 +169,27 @@ async function* run(
   signal: AbortSignal
 ): AsyncGenerator<ModelEvent> {
   const all = turns(history);
-  const input = (all.pop() as NanoContent).content;
-  const base = await (LanguageModel as NanoStatic).create({
-    ...OPTIONS,
-    signal,
-    initialPrompts: [{ role: 'system', content: system }, ...all],
-  });
+  let input = (all.pop() as NanoContent).content;
+  let base: NanoSession;
+  try {
+    base = await (LanguageModel as NanoStatic).create({
+      ...OPTIONS,
+      signal,
+      initialPrompts: [{ role: 'system', content: system }, ...all],
+    });
+  } catch (error) {
+    // some builds refuse initial prompts ("unable to create a session"): start a plain session and
+    // put the instructions and earlier turns in front of the question instead
+    if ((error as Error).name !== 'NotSupportedError') throw error;
+    base = await (LanguageModel as NanoStatic).create({ ...OPTIONS, signal });
+    input = [
+      system,
+      ...all.map(
+        (t) => `${t.role === 'user' ? 'User' : 'Assistant'}: ${t.content}`
+      ),
+      `User: ${input}`,
+    ].join('\n\n');
+  }
   try {
     if (tools.length > 0 && toolRuns(history) < MAX_TOOL_RUNS) {
       const call = await plan(base, tools, signal);

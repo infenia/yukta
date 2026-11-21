@@ -60,7 +60,8 @@ export default function AssistantPanel({
       className={cn(
         'border-border bg-card shadow-raised fixed z-60 flex flex-col overflow-hidden rounded-xl border',
         'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95',
-        'max-sm:inset-x-2 max-sm:top-16 max-sm:bottom-20',
+        // a bottom sheet on phones
+        'max-sm:inset-x-0 max-sm:top-24 max-sm:bottom-0 max-sm:rounded-b-none',
         wide ? 'sm:right-5 sm:w-xl' : 'sm:right-5 sm:w-md',
         lifted
           ? 'sm:bottom-84 sm:h-[max(16rem,min(40rem,calc(100dvh-26rem)))]'
