@@ -212,7 +212,10 @@ describe('Chat', () => {
       ])
     );
 
-    await userEvent.type(screen.getByLabelText('Message'), 'how do I install?{Enter}');
+    await userEvent.type(
+      screen.getByLabelText('Message'),
+      'how do I install?{Enter}'
+    );
 
     expect(await screen.findByText('Use docker compose.')).toBeInTheDocument();
     expect(screen.getByText('search_docs')).toBeInTheDocument();

@@ -10,12 +10,29 @@ import {
 } from '../lib/docsSearch';
 import { isRead } from '../lib/toolPolicy';
 
-const p = (t: string, h: string, x: string) => ({ t, h, x, u: `https://d/${t}` });
+const p = (t: string, h: string, x: string) => ({
+  t,
+  h,
+  x,
+  u: `https://d/${t}`,
+});
 const docs = [
   p('Install', 'Docker', 'Run the server with docker compose on port 9858.'),
-  p('Workflows', 'Nodes', 'A workflow is a graph of nodes: triggers, processors and terminals.'),
-  p('Workflows', 'Retries', 'A node retries with backoff when its engine policy says so, and a retry counts.'),
-  p('Config', 'API keys', 'Set yukta.api-keys to require a key on every request.'),
+  p(
+    'Workflows',
+    'Nodes',
+    'A workflow is a graph of nodes: triggers, processors and terminals.'
+  ),
+  p(
+    'Workflows',
+    'Retries',
+    'A node retries with backoff when its engine policy says so, and a retry counts.'
+  ),
+  p(
+    'Config',
+    'API keys',
+    'Set yukta.api-keys to require a key on every request.'
+  ),
 ];
 
 describe('indexDocs', () => {
@@ -60,15 +77,22 @@ describe('searchDocs', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe('/assistant-docs.json');
-    expect(first).toContain('## Install — Docker\nhttps://d/Install\n\nRun the server');
+    expect(first).toContain(
+      '## Install — Docker\nhttps://d/Install\n\nRun the server'
+    );
   });
 
   it('leaves a missing heading out of the title and joins passages with a rule', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        Response.json([p('Intro', '', 'yukta is a server'), p('Other', 'Part', 'yukta is a tool')])
-      )
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json([
+            p('Intro', '', 'yukta is a server'),
+            p('Other', 'Part', 'yukta is a tool'),
+          ])
+        )
     );
 
     const out = await searchDocs({ query: 'yukta' });
@@ -80,7 +104,9 @@ describe('searchDocs', () => {
   it('says so when nothing matches, also for a question without a query', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(docs)));
 
-    expect(await searchDocs({ query: 'zebra' })).toBe('No documentation matched.');
+    expect(await searchDocs({ query: 'zebra' })).toBe(
+      'No documentation matched.'
+    );
     expect(await searchDocs({})).toBe('No documentation matched.');
   });
 
@@ -91,7 +117,9 @@ describe('searchDocs', () => {
       .mockResolvedValueOnce(Response.json(docs));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(searchDocs({ query: 'docker' })).rejects.toThrow('not available');
+    await expect(searchDocs({ query: 'docker' })).rejects.toThrow(
+      'not available'
+    );
     expect(await searchDocs({ query: 'docker' })).toContain('Install');
   });
 });

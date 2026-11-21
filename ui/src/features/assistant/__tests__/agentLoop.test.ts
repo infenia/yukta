@@ -243,7 +243,10 @@ describe('runAgent', () => {
     }[];
     expect(local.search_docs).toHaveBeenCalledWith({ query: 'q' });
     expect(results[0].result).toContain('5 more characters');
-    expect(results[1]).toMatchObject({ result: 'index missing', isError: true });
+    expect(results[1]).toMatchObject({
+      result: 'index missing',
+      isError: true,
+    });
     expect(results[2].result).toBe('ok');
     expect(mcp.callTool).toHaveBeenCalledTimes(1);
   });

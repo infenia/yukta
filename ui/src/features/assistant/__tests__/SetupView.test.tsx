@@ -10,7 +10,11 @@ import { sseResponse } from '../testFixtures';
 
 afterEach(() => vi.unstubAllGlobals());
 
-const noNano = { state: 'unsupported' as const, progress: 0, download: vi.fn() };
+const noNano = {
+  state: 'unsupported' as const,
+  progress: 0,
+  download: vi.fn(),
+};
 
 const show = (
   apiKey: string | null = null,
@@ -188,7 +192,9 @@ describe('SetupView', () => {
     ] as const)('says what is going on while %s', async (state, text) => {
       show(null, nano(state));
 
-      await userEvent.click(screen.getByRole('button', { name: 'On this device' }));
+      await userEvent.click(
+        screen.getByRole('button', { name: 'On this device' })
+      );
 
       expect(screen.getByText(text)).toBeInTheDocument();
       expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
@@ -197,26 +203,41 @@ describe('SetupView', () => {
     it('starts the download from its button', async () => {
       const download = vi.fn();
       show(null, nano('downloadable', 0, download));
-      await userEvent.click(screen.getByRole('button', { name: 'On this device' }));
+      await userEvent.click(
+        screen.getByRole('button', { name: 'On this device' })
+      );
 
-      await userEvent.click(screen.getByRole('button', { name: 'Download model' }));
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Download model' })
+      );
 
       expect(download).toHaveBeenCalledTimes(1);
     });
 
     it('shows the progress of the download', async () => {
       show(null, nano('downloading', 0.426));
-      await userEvent.click(screen.getByRole('button', { name: 'On this device' }));
+      await userEvent.click(
+        screen.getByRole('button', { name: 'On this device' })
+      );
 
-      expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '43');
-      expect(screen.getByRole('button', { name: 'Downloading…' })).toBeDisabled();
+      expect(screen.getByRole('progressbar')).toHaveAttribute(
+        'aria-valuenow',
+        '43'
+      );
+      expect(
+        screen.getByRole('button', { name: 'Downloading…' })
+      ).toBeDisabled();
     });
 
     it('is used as soon as it is ready, with the key that was there kept', async () => {
       const { onSave } = show('kept', nano('available'));
-      await userEvent.click(screen.getByRole('button', { name: 'On this device' }));
+      await userEvent.click(
+        screen.getByRole('button', { name: 'On this device' })
+      );
 
-      await userEvent.click(screen.getByRole('button', { name: 'Use this model' }));
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Use this model' })
+      );
 
       expect(onSave).toHaveBeenCalledWith(
         { ...DEFAULT_SETTINGS, provider: 'nano' },
@@ -226,7 +247,9 @@ describe('SetupView', () => {
 
     it('cannot be used before it is ready', async () => {
       const { onSave } = show(null, nano('unavailable'));
-      await userEvent.click(screen.getByRole('button', { name: 'On this device' }));
+      await userEvent.click(
+        screen.getByRole('button', { name: 'On this device' })
+      );
       const button = screen.getByRole('button', { name: 'Use this model' });
 
       expect(button).toBeDisabled();
@@ -237,10 +260,9 @@ describe('SetupView', () => {
     it('stays chosen, with the reason, in a browser that no longer has it', () => {
       show(null, noNano, { ...DEFAULT_SETTINGS, provider: 'nano' });
 
-      expect(screen.getByRole('button', { name: 'On this device' })).toHaveAttribute(
-        'aria-pressed',
-        'true'
-      );
+      expect(
+        screen.getByRole('button', { name: 'On this device' })
+      ).toHaveAttribute('aria-pressed', 'true');
       expect(screen.getByText(/no built-in model/)).toBeInTheDocument();
     });
 

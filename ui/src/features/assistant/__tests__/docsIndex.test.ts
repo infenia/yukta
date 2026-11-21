@@ -19,15 +19,22 @@ const paragraph = (word: string, n = 400) => `${word} `.repeat(n).trim();
 
 describe('frontmatter', () => {
   it('reads the title, quoted or not, and returns the page without the header', () => {
-    expect(frontmatter('---\ntitle: "Install Yukta"\nx: 1\n---\nBody')).toEqual({
-      title: 'Install Yukta',
-      body: 'Body',
-    });
-    expect(frontmatter('---\r\ntitle: Plain\r\n---\r\nBody').title).toBe('Plain');
+    expect(frontmatter('---\ntitle: "Install Yukta"\nx: 1\n---\nBody')).toEqual(
+      {
+        title: 'Install Yukta',
+        body: 'Body',
+      }
+    );
+    expect(frontmatter('---\r\ntitle: Plain\r\n---\r\nBody').title).toBe(
+      'Plain'
+    );
   });
 
   it('copes with a header without a title and with no header', () => {
-    expect(frontmatter('---\nx: 1\n---\nBody')).toEqual({ title: '', body: 'Body' });
+    expect(frontmatter('---\nx: 1\n---\nBody')).toEqual({
+      title: '',
+      body: 'Body',
+    });
     expect(frontmatter('Just text')).toEqual({ title: '', body: 'Just text' });
   });
 });
@@ -53,7 +60,9 @@ describe('plain', () => {
   });
 
   it('keeps code as it is, fenced or inline, even where it looks like a tag', () => {
-    const out = plain('Run `yukta start <id>` then:\n\n```bash\nimport x\n<Tag attr>\n```\n\nDone.');
+    const out = plain(
+      'Run `yukta start <id>` then:\n\n```bash\nimport x\n<Tag attr>\n```\n\nDone.'
+    );
 
     expect(out).toContain('`yukta start <id>`');
     expect(out).toContain('```bash\nimport x\n<Tag attr>\n```');
@@ -63,7 +72,10 @@ describe('plain', () => {
 describe('passages', () => {
   it('splits a page at its ## headings and links each to its section', () => {
     const out = passages(
-      page('Install', 'Intro paragraph that is long enough.\n\n## Docker\nRun it with Docker, like so.\n\n## Per-user & more!\nSomething about users here.'),
+      page(
+        'Install',
+        'Intro paragraph that is long enough.\n\n## Docker\nRun it with Docker, like so.\n\n## Per-user & more!\nSomething about users here.'
+      ),
       'get-started/install.mdx'
     );
 
@@ -81,14 +93,19 @@ describe('passages', () => {
   });
 
   it('links the index page to the folder, and drops passages that are only a few words', () => {
-    expect(passages(page('Home', 'Welcome to the documentation.'), 'index.mdx')[0].u).toBe(SITE);
+    expect(
+      passages(page('Home', 'Welcome to the documentation.'), 'index.mdx')[0].u
+    ).toBe(SITE);
     expect(passages(page('G', 'x'), 'guides/index.mdx')).toEqual([]);
     expect(passages(page('Short', '## A\nok'), 'a.mdx')).toEqual([]);
   });
 
   it('keeps the short paragraphs of a section together', () => {
     const out = passages(
-      page('Short', '## S\nThe first short paragraph.\n\nThe second short paragraph.'),
+      page(
+        'Short',
+        '## S\nThe first short paragraph.\n\nThe second short paragraph.'
+      ),
       'short.mdx'
     );
 
@@ -99,7 +116,10 @@ describe('passages', () => {
 
   it('cuts a long section at paragraphs', () => {
     const out = passages(
-      page('Long', `## S\n${paragraph('a')}\n\n${paragraph('b')}\n\n${paragraph('c')}`),
+      page(
+        'Long',
+        `## S\n${paragraph('a')}\n\n${paragraph('b')}\n\n${paragraph('c')}`
+      ),
       'long.mdx'
     );
 
@@ -112,7 +132,8 @@ describe('passages', () => {
 describe('buildDocsIndex', () => {
   const made: string[] = [];
   afterEach(() => {
-    for (const dir of made.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+    for (const dir of made.splice(0))
+      fs.rmSync(dir, { recursive: true, force: true });
   });
   const docs = (files: Record<string, string>) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'yukta-docs-'));
@@ -142,6 +163,8 @@ describe('buildDocsIndex', () => {
   });
 
   it('is empty when there is no docs folder', () => {
-    expect(buildDocsIndex(path.join(os.tmpdir(), 'yukta-no-such-docs'))).toEqual([]);
+    expect(
+      buildDocsIndex(path.join(os.tmpdir(), 'yukta-no-such-docs'))
+    ).toEqual([]);
   });
 });

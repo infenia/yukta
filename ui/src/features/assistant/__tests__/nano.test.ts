@@ -2,21 +2,23 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  downloadNano,
-  nanoAvailability,
-  nanoModel,
-} from '../lib/models/nano';
+import { downloadNano, nanoAvailability, nanoModel } from '../lib/models/nano';
 import { collect, nanoSession } from '../testFixtures';
 import type { Msg, ToolSpec } from '../types';
 
 const signal = new AbortController().signal;
-const tool = (name: string, inputSchema: Record<string, unknown> = {}): ToolSpec => ({
+const tool = (
+  name: string,
+  inputSchema: Record<string, unknown> = {}
+): ToolSpec => ({
   name,
   description: `${name} does a thing`,
   inputSchema,
 });
-const listSessions = tool('list_sessions', { type: 'object', properties: { limit: { type: 'number' } } });
+const listSessions = tool('list_sessions', {
+  type: 'object',
+  properties: { limit: { type: 'number' } },
+});
 const ask: Msg[] = [{ role: 'user', text: 'what is running?' }];
 
 /** Installs a fake LanguageModel whose `create` hands out the given session. */
@@ -57,12 +59,16 @@ describe('nanoAvailability', () => {
 describe('downloadNano', () => {
   it('reports the progress of the download and lets the session go', async () => {
     const session = nanoSession();
-    const create = vi.fn(async (options: { monitor: (m: EventTarget) => void }) => {
-      const monitor = new EventTarget();
-      options.monitor(monitor);
-      monitor.dispatchEvent(Object.assign(new Event('downloadprogress'), { loaded: 0.5 }));
-      return session;
-    });
+    const create = vi.fn(
+      async (options: { monitor: (m: EventTarget) => void }) => {
+        const monitor = new EventTarget();
+        options.monitor(monitor);
+        monitor.dispatchEvent(
+          Object.assign(new Event('downloadprogress'), { loaded: 0.5 })
+        );
+        return session;
+      }
+    );
     vi.stubGlobal('LanguageModel', { create });
     const progress = vi.fn();
 
@@ -123,8 +129,20 @@ describe('nanoModel', () => {
         text: '',
         calls: [{ id: 'a', name: 'list_sessions', args: { limit: 1 } }],
       },
-      { role: 'tool', id: 'a', name: 'list_sessions', result: 'x'.repeat(5000), isError: false },
-      { role: 'tool', id: 'b', name: 'whoami', result: 'denied', isError: true },
+      {
+        role: 'tool',
+        id: 'a',
+        name: 'list_sessions',
+        result: 'x'.repeat(5000),
+        isError: false,
+      },
+      {
+        role: 'tool',
+        id: 'b',
+        name: 'whoami',
+        result: 'denied',
+        isError: true,
+      },
     ];
 
     await run(history, []);
@@ -150,13 +168,17 @@ describe('nanoModel', () => {
       type: 'call',
       call: { name: 'list_sessions', args: { limit: 5 } },
     });
-    const [catalog, options] = session.probe.prompt.mock.calls[0] as unknown as [
+    const [catalog, options] = session.probe.prompt.mock
+      .calls[0] as unknown as [
       string,
       { responseConstraint: { properties: { tool: { enum: string[] } } } },
     ];
     expect(catalog).toContain('- list_sessions: list_sessions does a thing');
     expect(catalog).not.toContain('delete_session');
-    expect(options.responseConstraint.properties.tool.enum).toEqual(['list_sessions', 'none']);
+    expect(options.responseConstraint.properties.tool.enum).toEqual([
+      'list_sessions',
+      'none',
+    ]);
     expect(session.probe.prompt.mock.calls[1][1]).toMatchObject({
       responseConstraint: listSessions.inputSchema,
     });
@@ -165,7 +187,14 @@ describe('nanoModel', () => {
   });
 
   it('gives each call its own id', async () => {
-    install(nanoSession(['{"tool":"list_sessions"}', '{}', '{"tool":"list_sessions"}', '{}']));
+    install(
+      nanoSession([
+        '{"tool":"list_sessions"}',
+        '{}',
+        '{"tool":"list_sessions"}',
+        '{}',
+      ])
+    );
 
     const ids = [...(await run()), ...(await run())].map(
       (e) => (e as { call: { id: string } }).call.id
@@ -175,7 +204,10 @@ describe('nanoModel', () => {
   });
 
   it('answers in text when it picks none or a tool it was not given', async () => {
-    const session = nanoSession(['{"tool":"none"}', '{"tool":"made_up"}'], ['Nothing.']);
+    const session = nanoSession(
+      ['{"tool":"none"}', '{"tool":"made_up"}'],
+      ['Nothing.']
+    );
     install(session);
 
     expect(await run()).toEqual([{ type: 'text', delta: 'Nothing.' }]);
@@ -188,7 +220,9 @@ describe('nanoModel', () => {
     session.probe.prompt.mockRejectedValueOnce(new Error('NotSupportedError'));
     install(session);
 
-    expect(await run()).toMatchObject([{ call: { name: 'list_sessions', args: {} } }]);
+    expect(await run()).toMatchObject([
+      { call: { name: 'list_sessions', args: {} } },
+    ]);
   });
 
   it('does not swallow a stop while asking for arguments', async () => {
@@ -229,7 +263,9 @@ describe('nanoModel', () => {
     const session = nanoSession([], ['ok']);
     const create = vi
       .fn()
-      .mockRejectedValueOnce(Object.assign(new Error('too long'), { name: 'QuotaExceededError' }))
+      .mockRejectedValueOnce(
+        Object.assign(new Error('too long'), { name: 'QuotaExceededError' })
+      )
       .mockResolvedValue(session);
     vi.stubGlobal('LanguageModel', { create });
     const long: Msg[] = Array.from({ length: 8 }, (_, i) => ({

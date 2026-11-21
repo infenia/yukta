@@ -11,7 +11,13 @@ import path from 'node:path';
 export const SITE = 'https://yukta.infenia.com/';
 
 /** Folders that are not read, wherever they are. */
-const SKIP = new Set(['api', 'internal-style', 'contributing', 'snippets', 'images']);
+const SKIP = new Set([
+  'api',
+  'internal-style',
+  'contributing',
+  'snippets',
+  'images',
+]);
 
 /** A passage is cut at a paragraph once it passes this many characters. */
 const MAX = 1500;
@@ -99,9 +105,9 @@ export function buildDocsIndex(root) {
   if (!fs.existsSync(root)) return [];
   const out = [];
   const walk = (dir) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
-      a.name.localeCompare(b.name)
-    )) {
+    for (const entry of fs
+      .readdirSync(dir, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name))) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (!SKIP.has(entry.name)) walk(full);
