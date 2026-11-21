@@ -33,7 +33,8 @@ export function TestPanel({
         workflow,
         untilNodeId: nodeId,
         stepOnly,
-        payload: parseSample(sample) ?? {},
+        // the buttons are disabled unless the sample parses
+        payload: parseSample(sample) as Record<string, unknown>,
       }),
     onSuccess: (started) => setExecutionId(started.executionId),
   });

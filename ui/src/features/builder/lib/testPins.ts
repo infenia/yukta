@@ -57,9 +57,8 @@ export function payloadPaths(value: unknown, prefix = '', depth = 0): string[] {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     return prefix ? [prefix] : [];
   }
-  const entries = Object.entries(value);
-  if (depth >= 4) return prefix ? [prefix] : [];
-  return entries.flatMap(([key, child]) =>
+  if (depth >= 4) return [prefix];
+  return Object.entries(value).flatMap(([key, child]) =>
     payloadPaths(child, prefix ? `${prefix}.${key}` : key, depth + 1)
   );
 }
