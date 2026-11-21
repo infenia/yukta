@@ -31,14 +31,14 @@ class TestRunFilteringLogStoreTest {
   }
 
   @Test
-  void aTestRunEventIsDropped() {
+  void testRunEventIsDropped() {
     store.append(event(TestRuns.newWorkflowId()));
 
     verify(delegate, never()).append(org.mockito.ArgumentMatchers.any());
   }
 
   @Test
-  void anyOtherEventIsKept() {
+  void otherEventIsKept() {
     final ExecutionLogEvent event = event("wf");
 
     store.append(event);

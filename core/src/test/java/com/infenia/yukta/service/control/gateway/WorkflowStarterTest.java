@@ -47,7 +47,7 @@ class WorkflowStarterTest {
   }
 
   @Test
-  void aDraftIsPreparedAndRunWithoutBeingLoadedOrCached() {
+  void draftIsPreparedAndRunWithoutBeingLoadedOrCached() {
     final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);
     final PreparedWorkflowCache cache = mock(PreparedWorkflowCache.class);
     final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);

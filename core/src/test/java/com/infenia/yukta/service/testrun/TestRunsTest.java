@@ -19,7 +19,7 @@ class TestRunsTest {
 
   private static final String ID = TestRuns.PREFIX + "x";
 
-  /** t -> a -> b -> end, and a -> other -> end2 (a branch the cut drops). */
+  /** Trigger t into a, b, end; a also feeds other and end2, which a cut at b drops. */
   private static final WorkflowDefinition DRAFT =
       new WorkflowDefinition(
           "wf",
@@ -49,7 +49,7 @@ class TestRunsTest {
   }
 
   @Test
-  void aReservedIdIsRecognised() {
+  void reservedIdIsRecognised() {
     assertThat(TestRuns.isTestRun(TestRuns.newWorkflowId())).isTrue();
     assertThat(TestRuns.isTestRun("wf")).isFalse();
     assertThat(TestRuns.isTestRun(null)).isFalse();
@@ -57,7 +57,7 @@ class TestRunsTest {
   }
 
   @Test
-  void withoutANodeTheWholeDraftRunsUnderTheNewId() {
+  void withoutNodeTheWholeDraftRunsUnderTheNewId() {
     final WorkflowDefinition def = cut(null, false);
 
     assertThat(def.workflowId()).isEqualTo(ID);
@@ -68,19 +68,19 @@ class TestRunsTest {
   }
 
   @Test
-  void stepOnlyNeedsANode() {
+  void stepOnlyNeedsNode() {
     assertThatThrownBy(() -> cut(null, true)).isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
-  void anUnknownNodeIsRefused() {
+  void unknownNodeIsRefused() {
     assertThatThrownBy(() -> cut("nope", false))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("nope");
   }
 
   @Test
-  void aNodeRunsWithItsAncestorsAndASink() {
+  void nodeRunsWithItsAncestorsAndSink() {
     final WorkflowDefinition def = cut("b", false);
 
     assertThat(ids(def)).containsExactly("t", "a", "b", TestRuns.SINK);
@@ -91,7 +91,7 @@ class TestRunsTest {
   }
 
   @Test
-  void aTerminalGetsNoSink() {
+  void terminalGetsNoSink() {
     final WorkflowDefinition def = cut("end", false);
 
     assertThat(ids(def)).containsExactly("t", "a", "b", "end");
@@ -99,7 +99,7 @@ class TestRunsTest {
   }
 
   @Test
-  void aSharedAncestorIsKeptOnce() {
+  void sharedAncestorIsKeptOnce() {
     final WorkflowDefinition diamond =
         new WorkflowDefinition(
             "wf",
@@ -122,7 +122,7 @@ class TestRunsTest {
   }
 
   @Test
-  void aStepRunsAloneBehindATriggerThatEmitsTheSample() {
+  void stepRunsAloneBehindTriggerThatEmitsTheSample() {
     final WorkflowDefinition def = cut("a", true);
 
     assertThat(ids(def)).containsExactly(TestRuns.TRIGGER, "a", TestRuns.SINK);
@@ -133,7 +133,7 @@ class TestRunsTest {
   }
 
   @Test
-  void aTerminalStepGetsNoSink() {
+  void terminalStepGetsNoSink() {
     assertThat(ids(cut("end", true))).containsExactly(TestRuns.TRIGGER, "end");
   }
 }

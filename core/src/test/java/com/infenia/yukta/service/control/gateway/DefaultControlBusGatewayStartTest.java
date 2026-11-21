@@ -110,7 +110,7 @@ class DefaultControlBusGatewayStartTest {
   }
 
   @Test
-  void aDraftStartIsNeitherReviewedNorLoaded() {
+  void draftStartIsNeitherReviewedNorLoaded() {
     final WorkflowDefinition draft =
         new WorkflowDefinition("__test__.x", "d", List.of(), List.of(), null, null);
 

@@ -73,7 +73,7 @@ class TestRunControllerTest {
   }
 
   @Test
-  void aValidDraftIsRunUnderAReservedIdWithItsPayload() {
+  void validDraftIsRunUnderReservedIdWithItsPayload() {
     when(validator.validateAll(any())).thenReturn(Mono.just(List.of()));
     when(control.startDraft(eq("s1"), any(), any())).thenReturn(Mono.just("e1"));
 
@@ -93,7 +93,7 @@ class TestRunControllerTest {
   }
 
   @Test
-  void aNodeIsCutWithASinkWhenItIsNoTerminal() {
+  void nodeIsCutWithSinkWhenItIsNoTerminal() {
     when(validator.validateAll(any())).thenReturn(Mono.just(List.of()));
     when(control.startDraft(any(), any(), any())).thenReturn(Mono.just("e1"));
 
@@ -108,7 +108,7 @@ class TestRunControllerTest {
   }
 
   @Test
-  void aDraftThatDoesNotValidateIs400WithTheProblemsAndNeverRuns() {
+  void draftThatDoesNotValidateIs400WithTheProblemsAndNeverRuns() {
     when(validator.validateAll(any()))
         .thenReturn(Mono.just(List.of(new ValidationProblem("a", null, "X", "a is broken"))));
 
@@ -123,7 +123,7 @@ class TestRunControllerTest {
   }
 
   @Test
-  void aStepIsRunAloneBehindATrigger() {
+  void stepIsRunAloneBehindTrigger() {
     when(validator.validateAll(any())).thenReturn(Mono.just(List.of()));
     when(control.startDraft(any(), any(), any())).thenReturn(Mono.just("e1"));
 
@@ -138,7 +138,7 @@ class TestRunControllerTest {
   }
 
   @Test
-  void anUnknownNodeIsABadRequest() {
+  void unknownNodeIsBadRequest() {
     post("{" + DRAFT + ",\"untilNodeId\":\"nope\"}").expectStatus().isBadRequest();
   }
 }
