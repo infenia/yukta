@@ -1,25 +1,64 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { Link } from 'react-router';
+import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useMe } from '@/lib/identity';
+import { formatDateTime } from '@/features/workflow/lib/timeFormat';
 import {
   useOwnership,
   useSupervision,
+  useSupervisorDecisions,
   useSupervisors,
   useSupervisorTypes,
 } from '../hooks/useSupervisorTypes';
 import { controlledBy } from './RequireControl';
-import { Controller } from './WorkflowSupervision';
 
 /** The node commands the server names, in the order the node actions show them. */
-const NODE_COMMANDS: [key: string, label: string][] = [
-  ['pauseNode', 'Pause'],
-  ['resumeNode', 'Resume'],
-  ['stopNode', 'Stop'],
-  ['skipNode', 'Skip'],
-  ['stepNode', 'Step'],
+const NODE_COMMANDS: [key: string, label: string, icon: string][] = [
+  ['pauseNode', 'Pause', 'pause'],
+  ['resumeNode', 'Resume', 'play_arrow'],
+  ['stopNode', 'Stop', 'stop'],
+  ['skipNode', 'Skip', 'skip_next'],
+  ['stepNode', 'Step', 'step'],
 ];
+
+/** A small rounded label next to a name. */
+function Chip({
+  children,
+  tone = 'muted',
+}: {
+  children: ReactNode;
+  tone?: 'muted' | 'attention';
+}) {
+  return (
+    <span
+      className={cn(
+        'text-label-sm rounded-full border px-2 py-px',
+        tone === 'attention'
+          ? 'border-attention/30 bg-attention/10 text-attention'
+          : 'border-border bg-background/60 text-on-surface-variant'
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** The owner as a link to its page, or plain words for Direct control. */
+const OwnerLink = ({ owner }: { owner: string }) =>
+  owner === 'default' ? (
+    'Direct control'
+  ) : (
+    <Link
+      to={`/supervisors?supervisor=${encodeURIComponent(owner)}`}
+      className="text-primary hover:underline"
+    >
+      {owner}
+    </Link>
+  );
 
 /** Who controls one node, as the node drawer's Supervisor tab, and what you can do with it. */
 export function NodeSupervisorTab({
@@ -37,6 +76,7 @@ export function NodeSupervisorTab({
   const ownership = useOwnership(sessionId, workflowId);
   const supervisors = useSupervisors();
   const types = useSupervisorTypes();
+  const decisions = useSupervisorDecisions();
   const capabilities = useSupervision(
     { execution: executionId, node: nodeId },
     Boolean(executionId)
@@ -57,8 +97,24 @@ export function NodeSupervisorTab({
   // a supervisor that owns the whole run carries its nodes too
   const viaRun = nodeOwner === 'default' && ownership.data.run !== 'default';
   const owner = viaRun ? ownership.data.run : nodeOwner;
+  const direct = owner === 'default';
   const supervisor = supervisors.data?.find((s) => s.id === owner);
-  const rows = NODE_COMMANDS.flatMap(([key, label]) => {
+  const typeName = types.data?.find(
+    (t) => t.type === supervisor?.type
+  )?.displayName;
+  const parents = supervisor?.parents ?? [];
+  // what this supervisor did here: commands for this node, and for its run
+  const actions = (decisions.data ?? [])
+    .filter(
+      (d) =>
+        d.supervisorId === owner &&
+        d.workflowId === workflowId &&
+        (d.nodeId
+          ? d.nodeId === nodeId
+          : !executionId || d.executionId === executionId)
+    )
+    .slice(0, 5);
+  const rows = NODE_COMMANDS.flatMap(([key, label, icon]) => {
     const capability = capabilities.data?.[key];
     if (!capability) return [];
     const roleBlocked = Boolean(me && !me.permissions.controlRuns);
@@ -66,6 +122,7 @@ export function NodeSupervisorTab({
       {
         key,
         label,
+        icon,
         ok: capability.allowed && !roleBlocked,
         detail: capability.allowed
           ? `Needs a higher role; your key is ${me?.role}.`
@@ -73,31 +130,106 @@ export function NodeSupervisorTab({
       },
     ];
   });
-  const can = rows.filter((row) => row.ok);
-  const cannot = rows.filter((row) => !row.ok);
+  const allowed = rows.filter((row) => row.ok).length;
   return (
     <div className="flex flex-col gap-4">
-      <Controller
-        owner={owner}
-        supervisor={supervisor}
-        typeName={
-          types.data?.find((t) => t.type === supervisor?.type)?.displayName
-        }
-        runLevel={false}
-        ids={[]}
-        hideIcon
-        summary={
-          owner === 'default'
-            ? 'Nobody supervises this node: people and agents with the right role send its commands directly.'
-            : viaRun
-              ? 'Controls the whole run, including this node'
-              : 'Controls this node'
-        }
-      />
-      <section aria-label="Node commands" className="flex flex-col gap-3">
-        <h3 className="text-overline text-on-surface-variant">
-          What you can do with this node
-        </h3>
+      <section
+        aria-label="Supervisor"
+        className={cn(
+          'relative overflow-hidden rounded-xl border p-3',
+          direct
+            ? 'border-border bg-muted/30'
+            : 'border-primary/25 from-primary/15 via-primary/5 bg-linear-to-br to-transparent'
+        )}
+      >
+        {!direct && (
+          <span
+            aria-hidden="true"
+            className="bg-primary/20 pointer-events-none absolute -top-12 -right-12 size-36 rounded-full blur-3xl"
+          />
+        )}
+        <div className="relative flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className={cn(
+              'flex size-10 shrink-0 items-center justify-center rounded-lg ring-1',
+              direct
+                ? 'bg-muted text-on-surface-variant ring-border'
+                : 'bg-primary/15 text-primary ring-primary/30 shadow-card'
+            )}
+          >
+            <span className="material-symbols-outlined text-[22px]!">
+              {direct ? 'person' : 'shield_person'}
+            </span>
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-overline text-on-surface-variant">
+              {direct ? 'Control' : 'Supervised by'}
+            </p>
+            <h3 className="text-body-md text-on-surface font-semibold break-all">
+              <OwnerLink owner={owner} />
+            </h3>
+            {(typeName || supervisor?.dryRun || supervisor?.system) && (
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {typeName && <Chip>{typeName}</Chip>}
+                {supervisor?.dryRun && <Chip tone="attention">Dry run</Chip>}
+                {supervisor?.system && <Chip>Built in</Chip>}
+              </div>
+            )}
+          </div>
+        </div>
+        {supervisor?.description && (
+          <p className="text-body-sm text-on-surface-variant relative mt-2">
+            {supervisor.description}
+          </p>
+        )}
+        <div className="border-border/60 relative mt-2.5 flex flex-col gap-1 border-t pt-2.5">
+          <p className="text-body-sm text-on-surface flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-primary text-lg"
+            >
+              {viaRun ? 'account_tree' : 'hub'}
+            </span>
+            {direct
+              ? 'Nobody supervises this node: people and agents with the right role send its commands directly.'
+              : viaRun
+                ? 'Controls the whole run, including this node'
+                : 'Controls this node'}
+          </p>
+          {parents.length > 0 && (
+            <p className="text-body-sm text-on-surface-variant flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-lg"
+              >
+                arrow_forward
+              </span>
+              <span>
+                Reports to{' '}
+                {parents.map((parent, index) => (
+                  <span key={parent}>
+                    {index > 0 && ', '}
+                    <OwnerLink owner={parent} />
+                  </span>
+                ))}
+              </span>
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section aria-label="Node commands" className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <h3 className="text-overline text-on-surface-variant">
+            What you can do with this node
+          </h3>
+          {rows.length > 0 && (
+            <span className="text-label-sm text-on-surface-variant">
+              {allowed} of {rows.length} allowed
+            </span>
+          )}
+        </div>
         {rows.length === 0 && (
           <p className="text-body-sm text-on-surface-variant">
             {executionId
@@ -105,52 +237,105 @@ export function NodeSupervisorTab({
               : 'Open a run to see which commands you can send to this node.'}
           </p>
         )}
-        {can.length > 0 && (
-          <ul className="flex flex-wrap gap-1.5">
-            {can.map(({ key, label }) => (
-              <li
-                key={key}
-                className="border-success/30 bg-success/10 text-label-sm text-success inline-flex h-[22px] items-center gap-1 rounded-full border pr-2.5 pl-2"
-              >
+        <ul className="grid grid-cols-3 gap-1.5">
+          {rows.map(({ key, label, icon, ok, detail }) => (
+            <li
+              key={key}
+              className={cn(
+                'transition-standard flex flex-col gap-1 rounded-lg border p-2',
+                ok
+                  ? 'border-success/30 bg-success/5 hover:bg-success/10'
+                  : 'border-border bg-muted/30 col-span-3'
+              )}
+            >
+              <div className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className="material-symbols-outlined text-base"
+                  className={cn(
+                    'flex size-7 shrink-0 items-center justify-center rounded-md',
+                    ok
+                      ? 'bg-success/15 text-success'
+                      : 'bg-muted text-on-surface-variant'
+                  )}
                 >
-                  check
+                  <span className="material-symbols-outlined text-base">
+                    {icon}
+                  </span>
                 </span>
-                <span className="sr-only">Allowed: </span>
-                {label}
-              </li>
-            ))}
-          </ul>
-        )}
-        {cannot.length > 0 && (
-          <ul className="flex flex-col gap-1.5">
-            {cannot.map(({ key, label, detail }) => (
-              <li
-                key={key}
-                className="border-destructive/30 bg-destructive/5 flex items-start gap-2.5 rounded-lg border p-2.5"
-              >
-                <span
-                  aria-hidden="true"
-                  className="material-symbols-outlined text-destructive mt-px text-lg"
-                >
-                  lock
+                <span className="sr-only">
+                  {ok ? 'Allowed: ' : 'Not allowed: '}
                 </span>
-                <span className="sr-only">Not allowed: </span>
-                <div className="min-w-0">
-                  <div className="text-body-md text-on-surface font-medium">
-                    {label}
-                  </div>
-                  <div className="text-body-sm text-on-surface-variant">
-                    {detail}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                <span className="text-body-md text-on-surface flex-1 font-medium">
+                  {label}
+                </span>
+                {!ok && (
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-on-surface-variant text-lg"
+                  >
+                    lock
+                  </span>
+                )}
+              </div>
+              {!ok && (
+                <p className="text-body-sm text-on-surface-variant pl-9">
+                  {detail}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
       </section>
+
+      {!direct && (
+        <section
+          aria-label="Supervisor actions"
+          className="flex flex-col gap-2"
+        >
+          <h3 className="text-overline text-on-surface-variant">
+            Actions taken here
+          </h3>
+          {actions.length === 0 && (
+            <p className="text-body-sm text-on-surface-variant">
+              {decisions.isPending
+                ? 'Loading…'
+                : 'No actions taken yet by this supervisor.'}
+            </p>
+          )}
+          <ol className="border-border flex flex-col border-l">
+            {actions.map((d) => (
+              <li
+                key={`${d.time}-${d.command}-${d.executionId}-${d.nodeId ?? ''}`}
+                className="relative flex flex-col gap-0.5 py-1.5 pl-3.5"
+              >
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    'absolute top-3 -left-[4.5px] size-2 rounded-full',
+                    d.outcome === 'applied' ? 'bg-success' : 'bg-attention'
+                  )}
+                />
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-body-md text-on-surface font-medium">
+                    {d.command.replace(/(Workflow|Node)?Command$/, '')}
+                    <span className="text-label-sm text-on-surface-variant ml-1.5 font-normal">
+                      {d.nodeId ? 'this node' : 'whole run'} · {d.outcome}
+                    </span>
+                  </span>
+                  <span className="text-label-sm text-on-surface-variant shrink-0">
+                    {formatDateTime(d.time)}
+                  </span>
+                </div>
+                {(d.because ?? d.reason) && (
+                  <p className="text-body-sm text-on-surface-variant">
+                    {d.because ?? d.reason}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
     </div>
   );
 }
