@@ -19,16 +19,16 @@ import lombok.experimental.UtilityClass;
  * editor asked about. Nothing is stored under the ID, and the execution log drops its events.
  */
 @UtilityClass
-public class TestRuns {
+public class DraftRuns {
 
   /** The start of every test run's workflow ID. */
   public static final String PREFIX = "__test__.";
 
   /** The terminal added after a node that is not one, so the cut-down graph stays valid. */
-  static final String SINK = PREFIX + "sink";
+  /* default */ static final String SINK = PREFIX + "sink";
 
   /** The trigger that feeds the sample to a node tested on its own. */
-  static final String TRIGGER = PREFIX + "trigger";
+  /* default */ static final String TRIGGER = PREFIX + "trigger";
 
   /** An edge from a node on every port but "error". */
   private static final String ALL_PORTS = "*";

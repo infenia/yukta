@@ -65,6 +65,7 @@ import reactor.core.publisher.Mono;
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.GodClass",
+  "PMD.ExcessivePublicCount",
 })
 public class DefaultControlBusGateway implements ControlBusGateway, RestartCompletionSink {
 
@@ -317,7 +318,12 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   @Override
   public Mono<String> startDraft(
       final String sessionId, final WorkflowDefinition draft, final Map<String, Object> payload) {
-    return starter.startDraft(sessionId, draft, payload);
+    // reviewed and audited like any start: a test run runs the nodes' real code with the
+    // session's credentials, so supervisors and the audit must see it
+    final var command =
+        new ExecutionControlCommand.StartWorkflowCommand(
+            sessionId, draft.workflowId(), payload, null);
+    return reviewedStart(command, Mono.defer(() -> starter.startDraft(sessionId, draft, payload)));
   }
 
   /**

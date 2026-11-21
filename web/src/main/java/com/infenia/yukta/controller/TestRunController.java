@@ -11,7 +11,7 @@ import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
-import com.infenia.yukta.service.testrun.TestRuns;
+import com.infenia.yukta.service.testrun.DraftRuns;
 import com.infenia.yukta.validation.SessionId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -68,10 +68,10 @@ public class TestRunController {
   public Mono<ApiResponse<TestRunResponse>> testRun(
       @PathVariable @SessionId final String sessionId,
       @Valid @RequestBody final TestRunRequest request) {
-    final String workflowId = TestRuns.newWorkflowId();
+    final String workflowId = DraftRuns.newWorkflowId();
     final WorkflowDefinition draft = appConfigMapper.toWorkflowDefinition(request.workflow());
     final WorkflowDefinition cut =
-        TestRuns.cut(
+        DraftRuns.cut(
             draft,
             workflowId,
             request.untilNodeId(),

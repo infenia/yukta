@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings("PMD.TooManyStaticImports")
 class WorkflowStarterTest {
 
   @Test

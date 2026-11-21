@@ -17,9 +17,9 @@ import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.input.route.RouteResolver;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
+import com.infenia.yukta.service.log.DraftRunFilteringLogStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
-import com.infenia.yukta.service.log.TestRunFilteringLogStore;
 import com.infenia.yukta.service.notify.InMemoryNotificationStore;
 import com.infenia.yukta.service.notify.NotificationStore;
 import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
@@ -50,7 +50,7 @@ import tools.jackson.databind.ObjectMapper;
  * property conditions are kept, so the file and PostgreSQL stores behave as before.
  */
 @Slf4j
-@SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 @AutoConfiguration
 @EnableConfigurationProperties(YuktaProperties.class)
 @NoArgsConstructor
@@ -84,8 +84,8 @@ public class DefaultsAutoConfiguration {
       @Override
       public Object postProcessAfterInitialization(final Object bean, final String name) {
         return bean instanceof final ExecutionLogStore store
-                && !(bean instanceof TestRunFilteringLogStore)
-            ? new TestRunFilteringLogStore(store)
+                && !(bean instanceof DraftRunFilteringLogStore)
+            ? new DraftRunFilteringLogStore(store)
             : bean;
       }
     };

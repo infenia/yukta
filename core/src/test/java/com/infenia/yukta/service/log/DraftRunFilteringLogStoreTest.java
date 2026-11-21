@@ -7,7 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.service.testrun.TestRuns;
+import com.infenia.yukta.service.testrun.DraftRuns;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -18,11 +18,11 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.UnitTestShouldIncludeAssert"})
-class TestRunFilteringLogStoreTest {
+@SuppressWarnings("PMD.TooManyMethods")
+class DraftRunFilteringLogStoreTest {
 
   private final ExecutionLogStore delegate = mock(ExecutionLogStore.class);
-  private final TestRunFilteringLogStore store = new TestRunFilteringLogStore(delegate);
+  private final DraftRunFilteringLogStore store = new DraftRunFilteringLogStore(delegate);
 
   private static ExecutionLogEvent event(final String workflowId) {
     final ExecutionLogEvent event = mock(ExecutionLogEvent.class);
@@ -32,7 +32,7 @@ class TestRunFilteringLogStoreTest {
 
   @Test
   void testRunEventIsDropped() {
-    store.append(event(TestRuns.newWorkflowId()));
+    store.append(event(DraftRuns.newWorkflowId()));
 
     verify(delegate, never()).append(org.mockito.ArgumentMatchers.any());
   }

@@ -30,7 +30,7 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.TooManyStaticImports"})
 class TestRunControllerTest {
 
   private static final String URI = "/api/sessions/s1/test-runs";
@@ -44,14 +44,13 @@ class TestRunControllerTest {
        "edges":[{"source":"t","target":"a"},{"source":"a","target":"end"}]}
       """;
 
-  private PluginRegistry pluginRegistry;
   private WorkflowValidator validator;
   private SupervisedControl control;
   private WebTestClient client;
 
   @BeforeEach
   void setUp() {
-    pluginRegistry = mock(PluginRegistry.class);
+    final PluginRegistry pluginRegistry = mock(PluginRegistry.class);
     validator = mock(WorkflowValidator.class);
     control = mock(SupervisedControl.class);
     when(pluginRegistry.get("T")).thenReturn(mock(TerminalPlugin.class));

@@ -330,8 +330,8 @@ public interface ControlBusGateway {
       String sessionId, String workflowId, Map<String, Object> payload, String idempotencyKey);
 
   /**
-   * Start a test run of a draft that is not stored. It is neither reviewed nor audited: its events
-   * are not logged.
+   * Start a test run of a draft that is not stored. Supervisors review it and the audit records it
+   * like any start; only its events stay out of the execution log.
    *
    * @param sessionId the session identifier
    * @param draft the definition, under a reserved test run workflow ID

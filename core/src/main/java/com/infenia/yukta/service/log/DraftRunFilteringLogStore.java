@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.log;
 
-import com.infenia.yukta.service.testrun.TestRuns;
+import com.infenia.yukta.service.testrun.DraftRuns;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -16,14 +16,14 @@ import reactor.core.publisher.Mono;
  * call goes to the wrapped store, whichever it is.
  */
 @RequiredArgsConstructor
-public class TestRunFilteringLogStore implements ExecutionLogStore {
+public class DraftRunFilteringLogStore implements ExecutionLogStore {
 
   /** The store that keeps what is not a test run. */
   private final ExecutionLogStore delegate;
 
   @Override
   public void append(final ExecutionLogEvent event) {
-    if (!TestRuns.isTestRun(event.workflowId())) {
+    if (!DraftRuns.isTestRun(event.workflowId())) {
       delegate.append(event);
     }
   }

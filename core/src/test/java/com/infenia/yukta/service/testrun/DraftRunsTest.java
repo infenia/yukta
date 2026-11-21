@@ -14,10 +14,10 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyMethods")
-class TestRunsTest {
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+class DraftRunsTest {
 
-  private static final String ID = TestRuns.PREFIX + "x";
+  private static final String ID = DraftRuns.PREFIX + "x";
 
   /** Trigger t into a, b, end; a also feeds other and end2, which a cut at b drops. */
   private static final WorkflowDefinition DRAFT =
@@ -41,7 +41,7 @@ class TestRunsTest {
           Map.of("g", "teal"));
 
   private static WorkflowDefinition cut(final String until, final boolean stepOnly) {
-    return TestRuns.cut(DRAFT, ID, until, stepOnly, "T"::equals);
+    return DraftRuns.cut(DRAFT, ID, until, stepOnly, "T"::equals);
   }
 
   private static List<String> ids(final WorkflowDefinition def) {
@@ -50,10 +50,10 @@ class TestRunsTest {
 
   @Test
   void reservedIdIsRecognised() {
-    assertThat(TestRuns.isTestRun(TestRuns.newWorkflowId())).isTrue();
-    assertThat(TestRuns.isTestRun("wf")).isFalse();
-    assertThat(TestRuns.isTestRun(null)).isFalse();
-    assertThat(TestRuns.newWorkflowId()).isNotEqualTo(TestRuns.newWorkflowId());
+    assertThat(DraftRuns.isTestRun(DraftRuns.newWorkflowId())).isTrue();
+    assertThat(DraftRuns.isTestRun("wf")).isFalse();
+    assertThat(DraftRuns.isTestRun(null)).isFalse();
+    assertThat(DraftRuns.newWorkflowId()).isNotEqualTo(DraftRuns.newWorkflowId());
   }
 
   @Test
@@ -83,10 +83,10 @@ class TestRunsTest {
   void nodeRunsWithItsAncestorsAndSink() {
     final WorkflowDefinition def = cut("b", false);
 
-    assertThat(ids(def)).containsExactly("t", "a", "b", TestRuns.SINK);
+    assertThat(ids(def)).containsExactly("t", "a", "b", DraftRuns.SINK);
     assertThat(def.edges())
         .containsExactly(
-            new Edge("t", "a", null), new Edge("a", "b", null), new Edge("b", TestRuns.SINK, "*"));
+            new Edge("t", "a", null), new Edge("a", "b", null), new Edge("b", DraftRuns.SINK, "*"));
     assertThat(def.nodes().getLast().type()).isEqualTo("CONSOLE_TERMINAL");
   }
 
@@ -117,23 +117,23 @@ class TestRunsTest {
             List.of(),
             null);
 
-    assertThat(ids(TestRuns.cut(diamond, ID, "j", false, "T"::equals)))
-        .containsExactlyInAnyOrder("t", "l", "r", "j", TestRuns.SINK);
+    assertThat(ids(DraftRuns.cut(diamond, ID, "j", false, "T"::equals)))
+        .containsExactlyInAnyOrder("t", "l", "r", "j", DraftRuns.SINK);
   }
 
   @Test
   void stepRunsAloneBehindTriggerThatEmitsTheSample() {
     final WorkflowDefinition def = cut("a", true);
 
-    assertThat(ids(def)).containsExactly(TestRuns.TRIGGER, "a", TestRuns.SINK);
+    assertThat(ids(def)).containsExactly(DraftRuns.TRIGGER, "a", DraftRuns.SINK);
     assertThat(def.nodes().getFirst().type()).isEqualTo("API_TRIGGER");
     assertThat(def.nodes().get(1).config()).containsEntry("k", "v");
     assertThat(def.edges())
-        .containsExactly(new Edge(TestRuns.TRIGGER, "a", "*"), new Edge("a", TestRuns.SINK, "*"));
+        .containsExactly(new Edge(DraftRuns.TRIGGER, "a", "*"), new Edge("a", DraftRuns.SINK, "*"));
   }
 
   @Test
   void terminalStepGetsNoSink() {
-    assertThat(ids(cut("end", true))).containsExactly(TestRuns.TRIGGER, "end");
+    assertThat(ids(cut("end", true))).containsExactly(DraftRuns.TRIGGER, "end");
   }
 }
