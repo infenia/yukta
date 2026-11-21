@@ -257,62 +257,101 @@ describe('WorkflowEditorPage', () => {
     expect(screen.getByTestId('canvas')).toHaveTextContent('0 nodes');
   });
 
-  it('adds nodes with unique ids, the chosen type first and the first plugin by default', async () => {
+  it('adds steps with unique ids, each connected after the one selected, a trigger on its own', async () => {
     const user = userEvent.setup();
     renderEditor('other');
     await screen.findByRole('heading', { name: 'Edit other' });
-    await user.click(await screen.findByLabelText('Plugin type'));
-    await screen.findByRole('option', { name: 'BRANCH' });
-    await user.keyboard('{Escape}');
+    // a step listed under Recent is also under its category: pick from the category
+    const add = async (name: string, group: string) => {
+      await user.click(screen.getByRole('button', { name: 'Add step' }));
+      const list = within(await screen.findByRole('region', { name: group }));
+      await user.click(list.getByRole('button', { name }));
+    };
 
-    await user.click(screen.getByRole('button', { name: 'Add node' }));
-    await choose(user, screen.getByLabelText('Plugin type'), 'BRANCH');
-    await user.click(screen.getByRole('button', { name: 'Add node' }));
-    await user.click(screen.getByRole('button', { name: 'Add node' }));
+    await add('Api Trigger', 'Triggers');
+    expect(screen.getByTestId('canvas')).toHaveTextContent('1 nodes 0 edges');
+    await add('Branch', 'Processors');
+    await add('Branch', 'Processors');
 
     const nodes = within(screen.getByRole('list', { name: 'Nodes' }));
     expect(nodes.getByText('api-trigger-1')).toBeInTheDocument();
     expect(nodes.getByText('branch-1')).toBeInTheDocument();
     expect(nodes.getByText('branch-2')).toBeInTheDocument();
+    expect(screen.getByTestId('canvas')).toHaveTextContent('3 nodes 2 edges');
     expect(
       await screen.findByRole('region', { name: 'Node branch-2' })
     ).toBeInTheDocument();
+    expect(
+      screen.getByText('A new step is connected after branch-2.')
+    ).toBeInTheDocument();
+
+    // a trigger starts a workflow, so it is not connected after the selected node
+    await add('Api Trigger', 'Triggers');
+    expect(screen.getByTestId('canvas')).toHaveTextContent('4 nodes 2 edges');
   });
 
-  it('adds the plugin the select shows, even when the API lists another category first', async () => {
+  it('does not connect a step after a terminal, and says nothing about it', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByRole('region', { name: 'Node start' });
+    await user.click(screen.getByRole('button', { name: /^out/ }));
+    await screen.findByRole('region', { name: 'Node out' });
+    expect(screen.queryByText(/A new step is connected after/)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Add step' }));
+    await user.click(
+      within(
+        await screen.findByRole('region', { name: 'Processors' })
+      ).getByRole('button', { name: 'Branch' })
+    );
+    expect(screen.getByTestId('canvas')).toHaveTextContent('3 nodes 1 edges');
+  });
+
+  it('searches steps by name and description, and Enter picks the first match', async () => {
     server.use(
       http.get('/api/plugins', () =>
         ok([
-          { type: 'CONSOLE_TERMINAL', category: 'TERMINAL' },
-          { type: 'BRANCH', category: 'PROCESSOR' },
-          { type: 'API_TRIGGER', category: 'TRIGGER' },
+          {
+            type: 'API_TRIGGER',
+            category: 'TRIGGER',
+            description: 'Starts a run from a request',
+          },
+          {
+            type: 'BRANCH',
+            category: 'PROCESSOR',
+            description: 'Routes a message by a condition',
+          },
+          {
+            type: 'CONSOLE_TERMINAL',
+            category: 'TERMINAL',
+            description: 'Prints the result',
+          },
         ])
       )
     );
     const user = userEvent.setup();
     renderEditor('other');
-    await user.click(await screen.findByLabelText('Plugin type'));
-    await screen.findByRole('option', { name: 'BRANCH' });
-    await user.keyboard('{Escape}');
-
-    expect(screen.getByLabelText('Plugin type')).toHaveTextContent(
-      'API_TRIGGER'
+    await screen.findByRole('heading', { name: 'Edit other' });
+    await user.click(screen.getByRole('button', { name: 'Add step' }));
+    await user.type(
+      await screen.findByLabelText('Search steps'),
+      'condition{Enter}'
     );
-    await user.click(screen.getByRole('button', { name: 'Add node' }));
 
     expect(
-      within(screen.getByRole('list', { name: 'Nodes' })).getByText(
-        'api-trigger-1'
-      )
+      within(screen.getByRole('list', { name: 'Nodes' })).getByText('branch-1')
     ).toBeInTheDocument();
   });
 
-  it('does nothing when asked to add a node before any plugin has loaded', async () => {
+  it('says so when no plugin has loaded', async () => {
     server.use(http.get('/api/plugins', () => ok([])));
     const user = userEvent.setup();
     renderEditor('other');
     await screen.findByRole('heading', { name: 'Edit other' });
-    await user.click(screen.getByRole('button', { name: 'Add node' }));
+    await user.click(screen.getByRole('button', { name: 'Add step' }));
+    expect(
+      await screen.findByText('No plugins are available.')
+    ).toBeInTheDocument();
     expect(screen.getByTestId('canvas')).toHaveTextContent('0 nodes');
   });
 
@@ -571,7 +610,7 @@ describe('WorkflowEditorPage', () => {
     );
   });
 
-  it('shows what the validator rejects and clears it when the draft changes', async () => {
+  it('shows what the validator rejects and replaces it with the next check once the draft changes', async () => {
     validation = { valid: false, message: 'No trigger node', outputPorts: {} };
     const user = userEvent.setup();
     renderEditor();
@@ -582,7 +621,12 @@ describe('WorkflowEditorPage', () => {
       'No trigger node'
     );
 
+    validation = { valid: true, message: null, outputPorts: {} };
     await user.type(screen.getByLabelText('Description'), '!');
+    // the old problem stays until the draft has rested and been checked again
+    expect(
+      await screen.findByText('Workflow is valid.', {}, { timeout: 3000 })
+    ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 

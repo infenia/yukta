@@ -1787,6 +1787,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/test-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test-run a draft workflow
+         * @description Runs a draft, a node and the nodes before it, or one node alone, without saving it. The run is invisible to history, search, recovery, supervisors and analytics; read its progress and node outputs through the execution endpoints. Answers 404 for an unknown session, 400 with the problems when the part to run does not validate and 429 when the execution limit is reached.
+         */
+        post: operations["testRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sessionId}/workflows": {
         parameters: {
             query?: never;
@@ -5261,6 +5281,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseTestRunResponse: {
+            /** @description The response data */
+            data?: components["schemas"]["TestRunResponse"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseValidationView: {
             /** @description The response data */
             data?: components["schemas"]["ValidationView"];
@@ -7071,6 +7124,24 @@ export interface components {
             assertions?: components["schemas"]["Check"][];
             passed?: boolean;
             status?: string;
+        };
+        /** @description A test run of a draft workflow that is not saved */
+        TestRunRequest: {
+            /** @description The start payload the trigger emits; absent is empty */
+            payload?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description Run only untilNodeId, fed the payload (needs untilNodeId) */
+            stepOnly?: boolean;
+            /** @description Run only this node and every node before it; absent runs the draft */
+            untilNodeId?: string | null;
+            /** @description The draft workflow */
+            workflow: components["schemas"]["WorkflowDefinitionRequest"];
+        };
+        /** @description A started test run */
+        TestRunResponse: {
+            executionId?: string;
+            workflowId?: string;
         };
         Tick: components["schemas"]["Signal"] & {
             /** Format: date-time */
@@ -9867,6 +9938,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListInputRequestView"];
+                };
+            };
+        };
+    };
+    testRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseTestRunResponse"];
                 };
             };
         };

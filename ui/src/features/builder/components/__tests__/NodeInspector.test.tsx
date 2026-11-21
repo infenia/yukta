@@ -99,7 +99,7 @@ describe('NodeInspector', () => {
         initial={{ nodeId: 'n1', type: 'WITH_SCHEMA', config: { url: 'a' } }}
       />
     );
-    const url = await screen.findByLabelText(/url/);
+    const url = await screen.findByLabelText(/Url/);
     await user.type(url, 'b');
     expect(config()).toBe('{"url":"ab"}');
   });
@@ -140,18 +140,18 @@ describe('NodeInspector', () => {
         }}
       />
     );
-    await screen.findByLabelText(/url/);
+    await screen.findByLabelText(/Url/);
     await user.click(screen.getByRole('tab', { name: 'Policy' }));
 
-    await choose(user, screen.getByLabelText('trigger'), 'ALL_DONE');
+    await choose(user, screen.getByLabelText('Trigger'), 'ALL_DONE');
     expect(config()).toBe(
       '{"url":"a","engine":{"onError":"ROUTE","trigger":"ALL_DONE"}}'
     );
 
-    await choose(user, screen.getByLabelText('onError'), 'Default (FAIL)');
+    await choose(user, screen.getByLabelText('On error'), 'Default (FAIL)');
     await choose(
       user,
-      screen.getByLabelText('trigger'),
+      screen.getByLabelText('Trigger'),
       'Default (ALL_SUCCESS)'
     );
     expect(config()).toBe('{"url":"a"}');

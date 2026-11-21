@@ -80,7 +80,8 @@ public class PluginController {
                                 p.getTier(),
                                 p.isRestricted(),
                                 true,
-                                null)),
+                                null,
+                                p.describe().description())),
                     registry.listDisabled().stream()
                         .map(p ->
                             new PluginSummary(
@@ -89,7 +90,8 @@ public class PluginController {
                                 p.getTier(),
                                 p.isRestricted(),
                                 false,
-                                registry.enableHint(p.getType()))))
+                                registry.enableHint(p.getType()),
+                                p.describe().description())))
                 .toList())
         .map(summaries ->
             ResponseEntity.ok(

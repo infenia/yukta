@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  vi,
+} from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
@@ -220,6 +228,21 @@ describe('CommandPalette', () => {
     await user.type(input(), 'dark theme');
     await user.keyboard('{Enter}');
     expect(localStorage.getItem('theme')).toBe('dark');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('opens the assistant from an action', async () => {
+    const user = userEvent.setup();
+    const opened = vi.fn();
+    window.addEventListener('yukta:open-assistant', opened);
+    renderPalette();
+    act(() => openCommandPalette());
+
+    await user.type(input(), 'ask the assistant');
+    await user.keyboard('{Enter}');
+
+    window.removeEventListener('yukta:open-assistant', opened);
+    expect(opened).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

@@ -10,6 +10,7 @@ import com.infenia.yukta.security.ApiAuthenticator;
 import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
+import com.infenia.yukta.service.log.DraftRunFilteringLogStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.runtime.store.InMemoryExecutionControlStore;
@@ -34,7 +35,9 @@ class DefaultsAutoConfigurationTest {
   @Test
   void withNothingElse_theSingleServerDefaultsAreRegistered() {
     runner.run(context -> {
-      assertThat(context).hasSingleBean(InMemoryExecutionLogStore.class);
+      assertThat(context).hasSingleBean(ExecutionLogStore.class);
+      assertThat(context.getBean(ExecutionLogStore.class))
+          .isInstanceOf(DraftRunFilteringLogStore.class);
       assertThat(context).hasSingleBean(InMemoryNodeCheckpointStore.class);
       assertThat(context).hasSingleBean(InMemoryExecutionControlStore.class);
       assertThat(context).hasSingleBean(SingleServerLeader.class);
@@ -73,5 +76,16 @@ class DefaultsAutoConfigurationTest {
           assertThat(context).doesNotHaveBean(InMemoryNodeCheckpointStore.class);
           assertThat(context).doesNotHaveBean(SingleServerLeader.class);
         });
+  }
+
+  @Test
+  void theLogFilterWrapsOnlyExecutionLogStores() {
+    final var filter = DefaultsAutoConfiguration.draftRunLogFilter();
+    final Object other = new Object();
+    final ExecutionLogStore store = Mockito.mock(ExecutionLogStore.class);
+
+    assertThat(filter.postProcessAfterInitialization(other, "o")).isSameAs(other);
+    assertThat(filter.postProcessAfterInitialization(store, "s"))
+        .isInstanceOf(DraftRunFilteringLogStore.class);
   }
 }

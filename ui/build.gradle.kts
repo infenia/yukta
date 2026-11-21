@@ -21,6 +21,9 @@ val pnpmBuild = tasks.register<PnpmTask>("pnpmBuild") {
     pnpmCommand.set(listOf("run", "build"))
     inputs.dir(layout.projectDirectory.dir("src"))
     inputs.dir(layout.projectDirectory.dir("public"))
+    inputs.dir(layout.projectDirectory.dir("scripts"))
+    // the assistant searches these pages: the build turns them into assistant-docs.json
+    inputs.dir(rootProject.layout.projectDirectory.dir("docs")).optional()
     inputs.file(layout.projectDirectory.file("package.json"))
     inputs.file(layout.projectDirectory.file("vite.config.ts"))
     inputs.file(layout.projectDirectory.file("index.html"))

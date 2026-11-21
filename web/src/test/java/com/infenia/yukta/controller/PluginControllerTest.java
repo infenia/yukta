@@ -37,6 +37,9 @@ class PluginControllerTest {
   /** Test plugin identifier. */
   private static final String TEST_PLUGIN = "test-plugin";
 
+  /** Descriptor pattern shared by the test plugins. */
+  private static final String PATTERN = "pattern";
+
   /** Web test client for testing controller endpoints. */
   private WebTestClient webTestClient;
 
@@ -59,6 +62,8 @@ class PluginControllerTest {
     final Plugin plugin = Mockito.mock(Plugin.class);
     when(plugin.getType()).thenReturn(TEST_PLUGIN);
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(plugin.describe())
+        .thenReturn(new PluginDescriptor("Runs a test", PATTERN, Optional.empty()));
     when(registry.listPlugins()).thenReturn(List.of(plugin));
 
     final var result =
@@ -71,6 +76,8 @@ class PluginControllerTest {
             .expectBody()
             .jsonPath("$.data[0].type")
             .isEqualTo(TEST_PLUGIN)
+            .jsonPath("$.data[0].description")
+            .isEqualTo("Runs a test")
             .returnResult();
     assertThat(result.getStatus().value()).isEqualTo(200);
   }
@@ -80,11 +87,13 @@ class PluginControllerTest {
     final Plugin on = Mockito.mock(Plugin.class);
     when(on.getType()).thenReturn(TEST_PLUGIN);
     when(on.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(on.describe()).thenReturn(new PluginDescriptor("On", PATTERN, Optional.empty()));
     final Plugin off = Mockito.mock(Plugin.class);
     when(off.getType()).thenReturn("LLM_TEST");
     when(off.getCategory()).thenReturn(PluginCategory.PROCESSOR);
     when(off.getTier()).thenReturn(com.infenia.yukta.plugin.core.PluginTier.SPECIFIC);
     when(off.isRestricted()).thenReturn(true);
+    when(off.describe()).thenReturn(new PluginDescriptor("Off", PATTERN, Optional.empty()));
     when(registry.listPlugins()).thenReturn(List.of(on));
     when(registry.listDisabled()).thenReturn(List.of(off));
     when(registry.enableHint("LLM_TEST")).thenReturn("set yukta.plugins.enabled to LLM_TEST");
@@ -107,7 +116,9 @@ class PluginControllerTest {
         .jsonPath("$.data[1].restricted")
         .isEqualTo(true)
         .jsonPath("$.data[1].enableWith")
-        .isEqualTo("set yukta.plugins.enabled to LLM_TEST");
+        .isEqualTo("set yukta.plugins.enabled to LLM_TEST")
+        .jsonPath("$.data[1].description")
+        .isEqualTo("Off");
     assertThat(registry.listDisabled()).containsExactly(off);
   }
 
@@ -119,7 +130,7 @@ class PluginControllerTest {
     when(plugin.describe())
         .thenReturn(
             new PluginDescriptor(
-                "desc", "pattern", Optional.of(new UiDesign("blue", "api", "Test", 100, 100))));
+                "desc", PATTERN, Optional.of(new UiDesign("blue", "api", "Test", 100, 100))));
     when(plugin.getOutputPorts()).thenReturn(List.of("default"));
     when(plugin.getConfigSchema())
         .thenReturn(List.of(ConfigField.required("url", ConfigField.Type.STRING, "the url")));
@@ -167,7 +178,7 @@ class PluginControllerTest {
     final Plugin plugin = Mockito.mock(Plugin.class);
     when(plugin.getType()).thenReturn(TEST_PLUGIN);
     when(plugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    when(plugin.describe()).thenReturn(new PluginDescriptor("desc", "pattern", Optional.empty()));
+    when(plugin.describe()).thenReturn(new PluginDescriptor("desc", PATTERN, Optional.empty()));
     when(plugin.getOutputPorts()).thenReturn(List.of("default"));
     when(registry.get(TEST_PLUGIN)).thenReturn(plugin);
 

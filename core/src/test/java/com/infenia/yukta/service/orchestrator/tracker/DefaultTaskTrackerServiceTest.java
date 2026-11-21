@@ -624,6 +624,25 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void cleanup_testRunsDoNotPushRealRunsOutOfTheCap() {
+    StepVerifier.create(tracker.startWorkflow("exec-real", "sess-mix", "wf", List.of("n1")))
+        .verifyComplete();
+    tracker.emitWorkflowStatusEvent("exec-real", TaskStatus.SUCCESS);
+    final int total = DefaultTaskTrackerService.MAX_FINISHED_PER_SESSION + 5;
+    for (int i = 0; i < total; i++) {
+      final String id = "exec-mix-" + i;
+      StepVerifier.create(tracker.startWorkflow(id, "sess-mix", "__test__." + i, List.of("n1")))
+          .verifyComplete();
+      tracker.emitWorkflowStatusEvent(id, TaskStatus.SUCCESS);
+    }
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .untilAsserted(() -> assertThat(tracker.getProgressByExecutionId("exec-mix-0")).isNull());
+    assertThat(tracker.getProgressByExecutionId("exec-real")).isNotNull();
+  }
+
+  @Test
   void testStatusStreaming() {
     final String sessionId = "sess-1";
     final String workflowId = "wf-1";

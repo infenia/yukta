@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.StopMode;
@@ -62,6 +63,19 @@ public class SupervisedControl {
       final Map<String, Object> payload,
       @Nullable final String idempotencyKey) {
     return operator(gateway.startWorkflow(sessionId, workflowId, payload, idempotencyKey));
+  }
+
+  /**
+   * Start a test run of a draft that is not stored.
+   *
+   * @param sessionId the session
+   * @param draft the definition, under a reserved test run workflow ID
+   * @param payload the start payload
+   * @return the new execution id
+   */
+  public Mono<String> startDraft(
+      final String sessionId, final WorkflowDefinition draft, final Map<String, Object> payload) {
+    return operator(gateway.startDraft(sessionId, draft, payload));
   }
 
   /**

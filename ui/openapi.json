@@ -3397,6 +3397,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseTestRunResponse" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/TestRunResponse",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseValidationView" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -7356,6 +7399,42 @@
             "type" : "boolean"
           },
           "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "TestRunRequest" : {
+        "description" : "A test run of a draft workflow that is not saved",
+        "properties" : {
+          "payload" : {
+            "additionalProperties" : { },
+            "description" : "The start payload the trigger emits; absent is empty",
+            "type" : [ "object", "null" ]
+          },
+          "stepOnly" : {
+            "description" : "Run only untilNodeId, fed the payload (needs untilNodeId)",
+            "type" : "boolean"
+          },
+          "untilNodeId" : {
+            "description" : "Run only this node and every node before it; absent runs the draft",
+            "type" : [ "string", "null" ]
+          },
+          "workflow" : {
+            "$ref" : "#/components/schemas/WorkflowDefinitionRequest",
+            "description" : "The draft workflow"
+          }
+        },
+        "required" : [ "workflow" ],
+        "type" : "object"
+      },
+      "TestRunResponse" : {
+        "description" : "A started test run",
+        "properties" : {
+          "executionId" : {
+            "type" : "string"
+          },
+          "workflowId" : {
             "type" : "string"
           }
         },
@@ -11781,6 +11860,47 @@
         "tags" : [ "Input Requests API" ]
       }
     },
+    "/api/sessions/{sessionId}/test-runs" : {
+      "post" : {
+        "description" : "Runs a draft, a node and the nodes before it, or one node alone, without saving it. The run is invisible to history, search, recovery, supervisors and analytics; read its progress and node outputs through the execution endpoints. Answers 404 for an unknown session, 400 with the problems when the part to run does not validate and 429 when the execution limit is reached.",
+        "operationId" : "testRun",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "sessionId",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 256,
+            "minLength" : 0,
+            "pattern" : "^(?!.*\\.\\.)[^/\\\\]*$",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TestRunRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTestRunResponse"
+                }
+              }
+            },
+            "description" : "Accepted"
+          }
+        },
+        "summary" : "Test-run a draft workflow",
+        "tags" : [ "Session API" ]
+      }
+    },
     "/api/sessions/{sessionId}/workflows" : {
       "get" : {
         "description" : "All workflows of a session with node/edge counts and the latest execution status",
@@ -14070,6 +14190,9 @@
     "apiKeyAuth" : [ ]
   } ],
   "tags" : [ {
+    "description" : "Run a draft workflow without saving it",
+    "name" : "Session API"
+  }, {
     "description" : "Edition, licence and features of this build",
     "name" : "Edition API"
   }, {

@@ -11,6 +11,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
  *
  * @param type the plugin type
  * @param category the plugin category
+ * @param tier how generic the plugin is
+ * @param restricted whether the plugin reaches outside the engine
+ * @param enabled false when the operator has not enabled it
+ * @param enableWith what an operator sets to enable it
+ * @param description what the plugin does, in a sentence or two
  */
 @Schema(description = "Summary of a workflow plugin")
 public record PluginSummary(
@@ -22,10 +27,12 @@ public record PluginSummary(
     @Schema(description = "False when the plugin exists but the operator has not enabled it")
         boolean enabled,
     @Schema(description = "What an operator sets to enable it; null when already enabled")
-        String enableWith) {
+        String enableWith,
+    @Schema(description = "What the plugin does, for pickers that list many plugins")
+        String description) {
 
   /** A core, unrestricted summary. */
   public PluginSummary(final String type, final PluginCategory category) {
-    this(type, category, PluginTier.CORE, false, true, null);
+    this(type, category, PluginTier.CORE, false, true, null, null);
   }
 }

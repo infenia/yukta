@@ -61,6 +61,27 @@ function Harness({ onRemoveEdge = vi.fn(), onAddEdge = vi.fn() }) {
 }
 
 describe('NodeInspector tabs', () => {
+  it('shows the Test tab only when it is given a draft to run', async () => {
+    const { unmount } = renderWithProviders(<Harness />);
+    expect(screen.queryByRole('tab', { name: 'Test' })).not.toBeInTheDocument();
+    unmount();
+    renderWithProviders(
+      <NodeInspector
+        node={{ nodeId: 'gate', type: 'X', config: {} }}
+        onRemove={vi.fn()}
+        onChange={vi.fn()}
+        testRun={{
+          sessionId: 's',
+          workflow: { workflowId: 'w', description: '', nodes: [], edges: [] },
+        }}
+      />
+    );
+    await userEvent.click(screen.getByRole('tab', { name: 'Test' }));
+    expect(
+      screen.getByRole('button', { name: 'Test this step' })
+    ).toBeInTheDocument();
+  });
+
   it('lists the node’s edges by direction and port, and removes or adds one', async () => {
     const user = userEvent.setup();
     const onRemoveEdge = vi.fn();
