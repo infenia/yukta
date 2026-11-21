@@ -15,10 +15,8 @@ test('the control page shows the sections and the limits of the server', async (
   await expect(
     page.getByRole('tablist', { name: 'Control bus sections' }).getByRole('tab')
   ).toHaveText(['Overview', 'Activity', 'Audit']);
-  await expect(page.locator('#workers-heading')).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Execution limits' })
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Capacity' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Throughput' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Edit limits' })).toBeVisible();
 });
 
@@ -42,10 +40,10 @@ test('a run started while the activity tab is open shows in the feed and links t
   ).toBeVisible();
   await expect(page.getByText('Live', { exact: true })).toBeVisible();
 
-  await page.getByLabel('Execution id').fill(run.slice(0, 8));
-  await expect(page).toHaveURL(new RegExp(`execution=${run.slice(0, 8)}`));
-  await expect(list.getByRole('listitem').first()).toContainText(
-    /→|input|events/
+  await page.getByLabel('Run, workflow or node').fill(run.slice(0, 8));
+  await expect(page).toHaveURL(new RegExp(`q=${run.slice(0, 8)}`));
+  await expect(list.locator('tbody tr').first()).toContainText(
+    /RUNNING|SUCCESS|input|events/
   );
 });
 
@@ -63,7 +61,7 @@ test('a command sent to a run is recorded in the audit with its result', async (
   await page.goto(`/control?tab=audit&execution=${run}`);
 
   await expect(
-    page.getByRole('heading', { name: 'Who did what' })
+    page.getByRole('heading', { name: 'Control audit' })
   ).toBeVisible();
   await expect(page.locator('tbody tr').first()).toContainText(/Pause/);
   await expect(page.locator('tbody tr').first()).toContainText(

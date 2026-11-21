@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The metrics and observations of runs and nodes, kept apart from the tracker's state.
@@ -46,6 +47,12 @@ final class RunTelemetry {
   /** When a run began waiting for a slot (System.nanoTime), by execution. */
   private final Map<String, Long> queuedAt = new ConcurrentHashMap<>();
 
+  /** When a run was registered (System.nanoTime), by execution; gone once its start is timed. */
+  private final Map<String, Long> registeredAt = new ConcurrentHashMap<>();
+
+  /** Nanoseconds a run waited for a slot, by execution, once it got one. */
+  private final Map<String, Long> waited = new ConcurrentHashMap<>();
+
   /* default */ RunTelemetry(final MeterRegistry meters, final ObservationRegistry observations) {
     this.meters = meters;
     this.observations = observations;
@@ -54,6 +61,7 @@ final class RunTelemetry {
   /** Starts the run observation; returns its trace id, or null when no tracer is configured. */
   /* default */ String runStarted(
       final String executionId, final String sessionId, final String workflowId) {
+    registeredAt.put(executionId, System.nanoTime());
     final Observation run =
         Observation.createNotStarted("yukta.run", observations)
             .contextualName("run " + workflowId)
@@ -83,13 +91,15 @@ final class RunTelemetry {
     } else if (status == TaskStatus.RUNNING) {
       final Long since = queuedAt.remove(executionId);
       if (since != null) {
-        meters
-            .timer("yukta.execution.queue.wait")
-            .record(Duration.ofNanos(System.nanoTime() - since));
+        final long wait = System.nanoTime() - since;
+        waited.put(executionId, wait);
+        meters.timer("yukta.execution.queue.wait").record(Duration.ofNanos(wait));
       }
     }
     if (terminal) {
       queuedAt.remove(executionId);
+      registeredAt.remove(executionId);
+      waited.remove(executionId);
       closeNodeSpans(executionId);
       meters
           .timer("yukta.execution.duration", STATUS, status.name())
@@ -100,6 +110,33 @@ final class RunTelemetry {
         run.stop();
       }
     }
+  }
+
+  /**
+   * Times the start of a run at its first plugin call: from the run being registered to that call,
+   * without the time it waited for a slot. That wait is the scheduler holding it back on purpose,
+   * and the queue panel shows it.
+   *
+   * @return the time, or null when this is not the first call or the run is not known
+   */
+  /* default */ @Nullable Duration pluginStarted(final String executionId) {
+    final Long since = registeredAt.remove(executionId);
+    if (since == null) {
+      return null;
+    }
+    final long now = System.nanoTime();
+    // the slot is granted before its RUNNING event is applied, so a run may still look queued
+    final Long stillQueued = queuedAt.get(executionId);
+    final long held =
+        stillQueued == null ? waited.getOrDefault(executionId, 0L) : now - stillQueued;
+    final Duration took = Duration.ofNanos(Math.max(0, now - since - held));
+    meters.timer("yukta.engine.start").record(took);
+    return took;
+  }
+
+  /** Times what the engine added between a message taking its node's turn and the plugin call. */
+  /* default */ void handedOff(final Duration latency) {
+    meters.timer("yukta.engine.handoff").record(latency);
   }
 
   /** Opens an observation when a node starts running and closes it when the node ends. */
@@ -166,9 +203,5 @@ final class RunTelemetry {
   /* default */ void edgeDropped(final String type) {
     // not tagged with the node id: ids are user-chosen and a meter is never evicted
     meters.counter("yukta.edge.dropped", "type", type).increment();
-  }
-
-  /* default */ void logAppendFailed(final String name, final String type) {
-    meters.counter(name, "type", type).increment();
   }
 }

@@ -49,4 +49,16 @@ class TaskTrackerServiceDefaultsTest {
     verify(tracker).setInitiator(EXECUTION, "yk check");
     verifyNoMoreInteractions(tracker);
   }
+
+  @Test
+  void engineTimingDefaultsRecordNothing() {
+    final TaskTrackerService tracker = mock(TaskTrackerService.class, CALLS_REAL_METHODS);
+
+    tracker.recordPluginStart(EXECUTION);
+    tracker.recordHandoff(EXECUTION, java.time.Duration.ofMillis(1));
+
+    verify(tracker).recordPluginStart(EXECUTION);
+    verify(tracker).recordHandoff(EXECUTION, java.time.Duration.ofMillis(1));
+    verifyNoMoreInteractions(tracker);
+  }
 }

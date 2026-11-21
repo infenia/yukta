@@ -3414,6 +3414,54 @@ class DefaultTaskTrackerServiceTest {
         .isEqualTo(1);
   }
 
+  @Test
+  void testEngineTimingsGoToTheMetersAndTheFeedWithTheRunsScope() {
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final var feed = new ExecutionEventFeed();
+    final DefaultTaskTrackerService timed =
+        TrackerFactory.tracker(
+            Duration.ofMillis(200),
+            statusHistoryCache,
+            new InMemoryExecutionLogStore(),
+            meters,
+            io.micrometer.observation.ObservationRegistry.NOOP,
+            feed);
+    timed.init();
+    StepVerifier.create(timed.startWorkflow("t-exec", "t-sess", "t-wf", List.of("a")))
+        .verifyComplete();
+    final var seen =
+        new java.util.concurrent.CopyOnWriteArrayList<
+            com.infenia.yukta.service.review.EngineLatency>();
+    final var subscription = feed.latencies().subscribe(seen::add);
+    await().atMost(5, TimeUnit.SECONDS).until(() -> feed.subscriberCount() >= 0);
+
+    timed.emitWorkflowStatusEvent("t-exec", TaskStatus.RUNNING);
+    await()
+        .atMost(2, TimeUnit.SECONDS)
+        .untilAsserted(() ->
+            assertThat(timed.getProgressByExecutionId("t-exec").status())
+                .isEqualTo(TaskStatus.RUNNING));
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(() -> {
+          timed.recordPluginStart("t-exec");
+          timed.recordHandoff("t-exec", Duration.ofMillis(7));
+          assertThat(seen).extracting(l -> l.stage().name()).contains("START", "HANDOFF");
+        });
+    // an unknown run is timed in the meters but not published
+    final int before = seen.size();
+    timed.recordHandoff("nobody", Duration.ofMillis(1));
+    // no start was taken for an unknown run, so there is nothing to time or publish
+    timed.recordPluginStart("nobody");
+    subscription.dispose();
+
+    assertThat(meters.get("yukta.engine.start").timer().count()).isEqualTo(1);
+    assertThat(meters.get("yukta.engine.handoff").timer().count()).isGreaterThanOrEqualTo(2);
+    assertThat(seen).hasSize(before);
+    assertThat(seen.getFirst().sessionId()).isEqualTo("t-sess");
+    assertThat(seen.getFirst().workflowId()).isEqualTo("t-wf");
+  }
+
   /** Lets fire-and-forget events drain; the caller asserts nothing broke (no event, no signal). */
   private static void settle() {
     await().during(Duration.ofMillis(200)).atMost(Duration.ofSeconds(5)).until(() -> true);

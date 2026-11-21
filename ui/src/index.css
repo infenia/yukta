@@ -606,6 +606,18 @@
   transition: background 300ms ease;
 }
 
+/* An edge a run is travelling along (template card preview): dashes that move towards the target */
+.flow-edge-live {
+  stroke-dasharray: 4 4;
+  animation: flow-edge 600ms linear infinite;
+}
+
+@keyframes flow-edge {
+  to {
+    stroke-dashoffset: -8;
+  }
+}
+
 /* Indeterminate progress: a soft ring that swells and fades, no spinning */
 .node-pulse {
   animation: node-pulse 2s var(--ease-out-soft) infinite;

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.review.EngineLatency;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
 import java.time.Clock;
 import java.time.Duration;
@@ -329,6 +330,12 @@ class RunAnalyticsTest {
         null,
         at,
         null);
+  }
+
+  private void control(final String id, final String command, final boolean applied) {
+    analytics.accept(
+        new ExecutionEvent.ControlOutcome(
+            id, "s1", "w1", command, null, applied, applied ? null : "no", T0.plusSeconds(510)));
   }
 
   @Test
@@ -810,10 +817,148 @@ class RunAnalyticsTest {
 
   @Test
   void liveRunKeepsEveryFieldWhenTheNodeTotalIsFilledIn() {
-    final var run = new RunAnalytics.LiveRun("e", "s", "w", 1L, 2L, 3, 4, 5.0, null);
+    final var run =
+        new RunAnalytics.LiveRun("e", "s", "w", 1L, 2L, 3, 4, 5.0, true, List.of("n"), null);
 
     assertThat(run.withNodesTotal(9))
-        .isEqualTo(new RunAnalytics.LiveRun("e", "s", "w", 1L, 2L, 3, 4, 5.0, 9));
+        .isEqualTo(
+            new RunAnalytics.LiveRun("e", "s", "w", 1L, 2L, 3, 4, 5.0, true, List.of("n"), 9));
+  }
+
+  private void latency(final EngineLatency.Stage stage, final double ms) {
+    analytics.onLatency(new EngineLatency("e", "s1", "w1", stage, ms));
+  }
+
+  @Test
+  void engineTimingsAreSeriesAndSnapshotValuesPerScope() {
+    latency(EngineLatency.Stage.START, 10);
+    latency(EngineLatency.Stage.HANDOFF, 2);
+    latency(EngineLatency.Stage.HANDOFF, 8);
+
+    assertThat(analytics.snapshot(RunAnalytics.GLOBAL))
+        .containsEntry("overhead.start.p95", 10.0)
+        .containsEntry("overhead.handoff.p95", 8.0);
+    assertThat(analytics.snapshot("workflow:w1")).containsKey("overhead.start.p95");
+    assertThat(analytics.series(RunAnalytics.GLOBAL, List.of("overhead."), HOUR))
+        .containsOnlyKeys(
+            "overhead.start.p50",
+            "overhead.start.p95",
+            "overhead.handoff.p50",
+            "overhead.handoff.p95");
+    assertThat(analytics.series("workflow:none", List.of("overhead."), HOUR)).isEmpty();
+    // a minute without any is left out, not zero
+    assertThat(analytics.series(RunAnalytics.GLOBAL, List.of("runs."), HOUR)).isEmpty();
+  }
+
+  @Test
+  void engineTimingsFromTheFeedAreFollowed() {
+    analytics.start();
+    try {
+      await().atMost(10, TimeUnit.SECONDS).until(() -> feed.subscriberCount() >= 0);
+      await()
+          .atMost(10, TimeUnit.SECONDS)
+          .untilAsserted(() -> {
+            feed.publishLatency(new EngineLatency("e", "s1", "w1", EngineLatency.Stage.START, 5));
+            assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsKey("overhead.start.p95");
+          });
+      assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsKey("overhead.start.p95");
+    } finally {
+      analytics.stop();
+    }
+  }
+
+  private void nodeOf(
+      final String id,
+      final String session,
+      final String workflow,
+      final String node,
+      final int startMs,
+      final int endMs,
+      final String status) {
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            id, session, workflow, node, "echo", "RUNNING", Map.of(), T0.plusMillis(startMs)));
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            id, session, workflow, node, "echo", status, Map.of(), T0.plusMillis(endMs)));
+  }
+
+  @Test
+  void nodesAreRankedByTheirSlowestTimeAndNameTheirSessionAndWorkflow() {
+    nodeOf("e1", "s1", "w1", "fast", 0, 10, SUCCESS);
+    nodeOf("e1", "s1", "w1", "slow", 0, 5000, SUCCESS);
+    nodeOf("e2", "s1", "w1", "slow", 0, 7000, FAILURE);
+    nodeOf("e3", "s2", "w2", "mid", 0, 300, SUCCESS);
+    // ended without running: counted, never timed
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            "e4", "s2", "w2", "skipped", "echo", "SKIPPED", Map.of(), T0.plusMillis(1)));
+
+    final var rows = analytics.nodes(RunAnalytics.GLOBAL, HOUR, 10);
+
+    assertThat(rows)
+        .extracting(RunAnalytics.NodeRow::nodeId)
+        .containsExactly("slow", "mid", "fast", "skipped");
+    final var slow = rows.getFirst();
+    assertThat(slow.sessionId()).isEqualTo("s1");
+    assertThat(slow.workflowId()).isEqualTo("w1");
+    assertThat(slow.module()).isEqualTo("echo");
+    assertThat(slow.runs()).isEqualTo(2);
+    assertThat(slow.failures()).isEqualTo(1);
+    assertThat(slow.p95Ms()).isEqualTo(7000.0);
+    assertThat(slow.p50Ms()).isEqualTo(5000.0);
+    assertThat(slow.lastExecutionId()).isEqualTo("e2");
+    assertThat(rows.getLast().p95Ms()).isZero();
+    assertThat(rows.getLast().p50Ms()).isZero();
+    assertThat(analytics.nodes("session:s2", HOUR, 10))
+        .extracting(RunAnalytics.NodeRow::nodeId)
+        .containsExactly("mid", "skipped");
+    assertThat(analytics.nodes("workflow:w1", HOUR, 10)).hasSize(2);
+    assertThat(analytics.nodes(RunAnalytics.GLOBAL, HOUR, 1)).hasSize(1);
+    assertThat(analytics.nodes(RunAnalytics.GLOBAL, Duration.ZERO, 10)).isEmpty();
+  }
+
+  @Test
+  void nodeStatsKeepAtMostFiftyNodesPerMinute() {
+    for (int i = 0; i < 51; i++) {
+      nodeOf("e", "s1", "w1", "n" + i, 0, 10, SUCCESS);
+    }
+    // a node already kept still counts after the cap is reached
+    nodeOf("again", "s1", "w1", "n0", 20, 30, SUCCESS);
+
+    final var rows = analytics.nodes(RunAnalytics.GLOBAL, HOUR, 100);
+
+    assertThat(rows).hasSize(50);
+    assertThat(rows)
+        .filteredOn(r -> "n0".equals(r.nodeId()))
+        .singleElement()
+        .satisfies(r -> assertThat(r.runs()).isEqualTo(2));
+  }
+
+  @Test
+  void liveRunNamesItsCurrentNodesAndWhetherItIsPaused() {
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged(
+            "now", "s1", "w1", "RUNNING", T0.plusSeconds(500)));
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            "now", "s1", "w1", "b", "echo", "RUNNING", Map.of(), T0.plusSeconds(501)));
+    analytics.accept(
+        new ExecutionEvent.NodeStatusChanged(
+            "now", "s1", "w1", "a", "echo", "RUNNING", Map.of(), T0.plusSeconds(501)));
+    assertThat(analytics.liveRuns().getFirst().currentNodes()).containsExactly("a", "b");
+    assertThat(analytics.liveRuns().getFirst().paused()).isFalse();
+
+    control("now", "PauseWorkflowCommand", false);
+    assertThat(analytics.liveRuns().getFirst().paused()).isFalse();
+    control("now", "SetLimitsCommand", true);
+    assertThat(analytics.liveRuns().getFirst().paused()).isFalse();
+    control("other", "PauseWorkflowCommand", true);
+    assertThat(analytics.liveRuns().getFirst().paused()).isFalse();
+    control("now", "PauseWorkflowCommand", true);
+    assertThat(analytics.liveRuns().getFirst().paused()).isTrue();
+    control("now", "ResumeWorkflowCommand", true);
+    assertThat(analytics.liveRuns().getFirst().paused()).isFalse();
   }
 
   @Test

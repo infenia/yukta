@@ -74,6 +74,23 @@ class WorkflowStarter {
         () -> guard.apply(Mono.defer(() -> startOnce(sessionId, workflowId, payload))));
   }
 
+  /**
+   * Runs a draft that is not stored: it is prepared for this run only and never cached.
+   *
+   * @param sessionId the session whose project path, tags and credentials the nodes use
+   * @param draft the definition, under a reserved test run workflow ID
+   * @param payload what the trigger emits
+   * @return the new execution id
+   */
+  /* default */ Mono<String> startDraft(
+      final String sessionId, final WorkflowDefinition draft, final Map<String, Object> payload) {
+    return Mono.defer(() -> {
+      scheduler.assertCanAccept(sessionId, draft.workflowId());
+      return prepareAndExecute(
+          sessionId, draft.workflowId(), draft, UUID.randomUUID().toString(), payload, false);
+    });
+  }
+
   /** The version a start asks for with the payload key {@code yukta.version}, or null. */
   private static String pinnedVersion(final Map<String, Object> payload) {
     final Object version = payload == null ? null : payload.get(StartOptions.VERSION_KEY);

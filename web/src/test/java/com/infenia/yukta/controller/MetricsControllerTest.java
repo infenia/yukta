@@ -142,6 +142,18 @@ class MetricsControllerTest {
         .assertNext(r ->
             assertThat(r.data()).extracting(RunAnalytics.ModuleRow::module).containsExactly("echo"))
         .verifyComplete();
+    StepVerifier.create(controller.nodes(ONE_HOUR, RunAnalytics.GLOBAL, 5000))
+        .assertNext(r ->
+            assertThat(r.data())
+                .singleElement()
+                .satisfies(n -> {
+                  assertThat(n.nodeId()).isEqualTo("n");
+                  assertThat(n.sessionId()).isEqualTo("s1");
+                }))
+        .verifyComplete();
+    StepVerifier.create(controller.nodes(ONE_HOUR, "workflow:none", 0))
+        .assertNext(r -> assertThat(r.data()).isEmpty())
+        .verifyComplete();
     StepVerifier.create(controller.annotations(ONE_HOUR, RunAnalytics.GLOBAL))
         .assertNext(r ->
             assertThat(r.data())

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { Tip } from '@/components/ui/tooltip';
 import {
   PALETTE,
   paletteColor,
@@ -21,6 +22,9 @@ import type { DraftEdge, DraftNode } from '../types';
 import { ConfigForm, JsonField } from './ConfigForm';
 import { StateMessage } from '@/components/common/StateMessage';
 import { ENGINE_FIELDS } from './NodeInspector.helpers';
+import { TestPanel } from './TestPanel';
+import { payloadPaths, readPin, type StepReference } from '../lib/testPins';
+import type { DraftWorkflow } from '../types';
 
 type Config = Record<string, unknown>;
 
@@ -30,6 +34,7 @@ const TABS: [Tab, string][] = [
   ['connections', 'Connections'],
   ['policy', 'Policy'],
   ['json', 'JSON'],
+  ['test', 'Test'],
 ];
 
 /**
@@ -126,23 +131,23 @@ function ColorSwatches({
       </span>
       <div role="radiogroup" aria-label={label} className="flex gap-2">
         {[null, ...PALETTE].map((color) => (
-          <button
-            key={color ?? 'none'}
-            type="button"
-            role="radio"
-            aria-checked={(value ?? null) === color}
-            aria-label={color ?? 'none'}
-            title={color ?? 'none'}
-            onClick={() => onChange(color)}
-            className="border-outline-variant focus-visible:ring-primary flex size-6 items-center justify-center rounded-full border focus-visible:ring-2 aria-checked:ring-2 aria-checked:ring-offset-2"
-            style={{ backgroundColor: paletteColor(color) }}
-          >
-            {color === null && (
-              <span aria-hidden="true" className="text-on-surface-variant">
-                ∅
-              </span>
-            )}
-          </button>
+          <Tip key={color ?? 'none'} label={color ?? 'none'}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={(value ?? null) === color}
+              aria-label={color ?? 'none'}
+              onClick={() => onChange(color)}
+              className="border-outline-variant focus-visible:ring-primary flex size-6 items-center justify-center rounded-full border focus-visible:ring-2 aria-checked:ring-2 aria-checked:ring-offset-2"
+              style={{ backgroundColor: paletteColor(color) }}
+            >
+              {color === null && (
+                <span aria-hidden="true" className="text-on-surface-variant">
+                  ∅
+                </span>
+              )}
+            </button>
+          </Tip>
         ))}
       </div>
     </div>
@@ -167,6 +172,7 @@ export function NodeInspector({
   onAddEdge,
   onRename,
   initialTab = 'config',
+  testRun,
 }: {
   node: DraftNode;
   onChange: (config: Config) => void;
@@ -189,6 +195,8 @@ export function NodeInspector({
   onRename?: (nodeId: string) => string | null;
   /** The tab it opens on (a problem sends you to the one where it is fixed). */
   initialTab?: Tab;
+  /** The draft and its session: adds the Test tab, which runs the unsaved draft. */
+  testRun?: { sessionId: string; workflow: DraftWorkflow };
 }) {
   const [tab, setTab] = useState<Tab>(initialTab);
   const plugin = usePlugin(node.type);
@@ -201,6 +209,20 @@ export function NodeInspector({
       : nextPlugin;
 
   const schema = plugin.data?.configSchema ?? [];
+  // the steps right before this one, with the fields of what they last gave in a test
+  const references: StepReference[] | undefined = testRun
+    ? [
+        ...new Set(
+          edges.filter((e) => e.target === node.nodeId).map((e) => e.source)
+        ),
+      ].map((nodeId) => ({
+        nodeId,
+        paths: payloadPaths(
+          readPin(testRun.sessionId, testRun.workflow.workflowId, nodeId)
+            ?.output?.[0]
+        ),
+      }))
+    : undefined;
 
   return (
     <section className="flex flex-col gap-4" aria-label={`Node ${node.nodeId}`}>
@@ -241,22 +263,24 @@ export function NodeInspector({
         aria-label="Node"
         className="border-border flex gap-4 border-b"
       >
-        {TABS.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            className={`text-label-md -mb-px border-b-2 py-2 ${
-              tab === key
-                ? 'border-primary text-on-surface'
-                : 'text-on-surface-variant hover:text-on-surface border-transparent'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+        {TABS.filter(([key]) => key !== 'test' || testRun).map(
+          ([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              className={`text-label-md -mb-px border-b-2 py-2 ${
+                tab === key
+                  ? 'border-primary text-on-surface'
+                  : 'text-on-surface-variant hover:text-on-surface border-transparent'
+              }`}
+            >
+              {label}
+            </button>
+          )
+        )}
       </div>
 
       {tab === 'config' && (
@@ -332,6 +356,7 @@ export function NodeInspector({
           ) : schema.length > 0 ? (
             <ConfigForm
               schema={schema}
+              references={references}
               values={pluginConfig}
               onChange={(next) => onChange(join(next, engineValues))}
             />
@@ -419,6 +444,15 @@ export function NodeInspector({
           schema={ENGINE_FIELDS}
           values={engineValues}
           onChange={(next) => onChange(join(pluginConfig, next))}
+        />
+      )}
+
+      {tab === 'test' && testRun && (
+        <TestPanel
+          key={node.nodeId}
+          sessionId={testRun.sessionId}
+          workflow={testRun.workflow}
+          nodeId={node.nodeId}
         />
       )}
 
