@@ -763,6 +763,24 @@ export const CATALOG: ConfigOption[] = [
       purpose: 'Calls per minute for heavy tools.',
     },
     {
+      key: 'yukta.assistant.enabled',
+      default: 'true',
+      purpose:
+        'The relay behind the experimental UI assistant (`POST /api/assistant/proxy/{provider}`); false answers 404.',
+    },
+    {
+      key: 'yukta.assistant.allowed-base-urls',
+      default:
+        'api.openai.com, generativelanguage.googleapis.com, openrouter.ai',
+      purpose:
+        'Hosts an OpenAI-compatible base URL of the assistant may name. An empty list allows none; list Ollama or LM Studio hosts here.',
+    },
+    {
+      key: 'yukta.assistant.anthropic-url',
+      default: 'https://api.anthropic.com/v1/messages',
+      purpose: 'Where the assistant relay sends Anthropic requests.',
+    },
+    {
       key: 'yukta.mcp.start-dedupe-window',
       default: '30s',
       purpose: 'Identical start calls inside this window return the same run.',

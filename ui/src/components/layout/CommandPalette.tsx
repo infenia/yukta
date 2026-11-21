@@ -18,6 +18,7 @@ import { searchExecutions } from '@/features/runs/api/searchExecutions';
 import { parseFilters } from '@/features/runs/lib/filters';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
 import type { WorkflowSummary } from '@/features/sessions/types/session';
+import { openAssistant } from '@/features/assistant/lib/open';
 import { OPEN_EVENT } from './CommandPalette.helpers';
 
 /** Results shown per group, so one busy group cannot push the others out of view. */
@@ -239,6 +240,16 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
       icon: 'add',
       label: 'New session',
       perform: go('/sessions/new'),
+    },
+    {
+      id: 'action:assistant',
+      group: 'Actions',
+      icon: 'auto_awesome',
+      label: 'Ask the assistant',
+      perform: () => {
+        onClose();
+        openAssistant();
+      },
     },
     {
       id: 'action:inbox',

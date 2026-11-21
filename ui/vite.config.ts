@@ -5,9 +5,35 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
+import type { Plugin } from 'vite';
+import { buildDocsIndex } from './scripts/docsIndex.mjs';
+
+/**
+ * The documentation as searchable passages (`/assistant-docs.json`) for the UI assistant: emitted
+ * with the build, and built on request by the dev server. Without a docs folder it is empty.
+ */
+function assistantDocs(): Plugin {
+  const docs = path.resolve(__dirname, '../docs');
+  return {
+    name: 'assistant-docs',
+    configureServer(server) {
+      server.middlewares.use('/assistant-docs.json', (_request, response) => {
+        response.setHeader('Content-Type', 'application/json');
+        response.end(JSON.stringify(buildDocsIndex(docs)));
+      });
+    },
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'assistant-docs.json',
+        source: JSON.stringify(buildDocsIndex(docs)),
+      });
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), assistantDocs()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -59,6 +85,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
+        target: 'http://localhost:9858',
+        changeOrigin: true,
+      },
+      '/mcp': {
         target: 'http://localhost:9858',
         changeOrigin: true,
       },

@@ -11,6 +11,8 @@
 *.log
 .DS_Store
 docs
+# the UI build turns the pages into the assistant's search index
+!docs/**/*.mdx
 README.md
 .env
 .env.local
