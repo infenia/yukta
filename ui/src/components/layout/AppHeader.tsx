@@ -7,6 +7,7 @@ import IdentityChip from './IdentityChip';
 import AccountMenu from './AccountMenu';
 import ThemeToggle from './ThemeToggle';
 import { Tip } from '@/components/ui/tooltip';
+import { AssistantLauncher } from '@/features/assistant/components/AssistantLauncher';
 import { NotificationBell } from '@/features/inbox/NotificationBell';
 import { openCommandPalette } from './CommandPalette.helpers';
 
@@ -141,6 +142,7 @@ export default function AppHeader() {
             </span>
           </a>
         </Tip>
+        <AssistantLauncher />
         <NotificationBell />
         <div className="hidden items-center sm:flex">
           <IdentityChip />

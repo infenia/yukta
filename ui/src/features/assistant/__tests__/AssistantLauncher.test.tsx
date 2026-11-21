@@ -68,7 +68,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('AssistantLauncher', () => {
-  it('shows only the round button until it is opened', () => {
+  it('shows only the header button until it is opened', () => {
     show();
 
     expect(opener()).toHaveAttribute('aria-expanded', 'false');
@@ -199,15 +199,13 @@ describe('AssistantLauncher', () => {
     expect(await screen.findByText('Hi from Nano')).toBeInTheDocument();
   });
 
-  it('sits higher on the run page, above the docked logs', async () => {
+  it('shows the page it is on, from the header button', async () => {
     writeKey('sk-1', false);
     show('/sessions/s1/workflow/w1');
 
-    expect(opener().className).toContain('sm:bottom-68');
     await userEvent.click(opener());
-    expect((await screen.findByRole('dialog')).className).toContain(
-      'sm:bottom-84'
-    );
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Looking at Workflow w1')).toBeInTheDocument();
   });
   it('expands the card and shrinks it again, and opens the settings from the model name', async () => {

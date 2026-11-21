@@ -11,7 +11,7 @@ export type ProviderChoice = Provider | 'nano' | 'auto';
 
 /** What the person chose; kept in this browser, never sent to Yukta except as the relay's headers. */
 export interface Settings {
-  /** The floating button is hidden (the command palette brings it back). */
+  /** The header button is hidden (the command palette brings it back). */
   hidden: boolean;
   provider: ProviderChoice;
   model: string;

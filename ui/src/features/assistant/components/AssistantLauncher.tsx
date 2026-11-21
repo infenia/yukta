@@ -2,21 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router';
+import { createPortal } from 'react-dom';
 import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useSettings } from '../hooks/useSettings';
 import { BUSY_ASSISTANT_EVENT, OPEN_ASSISTANT_EVENT } from '../lib/open';
 
-/** The run page docks its logs at the bottom. */
-const RUN_PAGE = /^\/sessions\/[^/]+\/workflow\/[^/]+\/?$/;
-
 // the card is a separate chunk: nothing of it loads until the first open
 const AssistantPanel = lazy(() => import('./AssistantPanel'));
 
 /**
- * The floating assistant: a round button at the bottom right of every page and, once opened, the
- * card. Ctrl or ⌘ + J toggles it. The card stays mounted after the first open, so the
+ * The assistant: a button in the header of every page and, once opened, a card under it. Ctrl or ⌘ + J toggles it. The card stays mounted after the first open, so the
  * conversation survives route changes.
  */
 export function AssistantLauncher() {
@@ -25,7 +21,6 @@ export function AssistantLauncher() {
   const [loaded, setLoaded] = useState(false);
   const [working, setWorking] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
-  const { pathname } = useLocation();
 
   const show = () => {
     setLoaded(true);
@@ -61,7 +56,6 @@ export function AssistantLauncher() {
     };
   }, [update]);
 
-  const lifted = RUN_PAGE.test(pathname);
   return (
     <>
       {!settings.hidden && (
@@ -73,38 +67,38 @@ export function AssistantLauncher() {
             aria-expanded={open}
             onClick={open ? close : show}
             className={cn(
-              'border-border bg-card text-primary shadow-raised transition-standard fixed right-3 z-60 flex size-12 items-center justify-center rounded-full border hover:-translate-y-0.5 sm:right-5',
-              lifted ? 'bottom-20 sm:bottom-68' : 'bottom-20 sm:bottom-5',
-              open && 'max-sm:hidden',
+              'text-on-surface-variant hover:bg-muted hover:text-on-surface transition-standard mr-1 flex size-8 items-center justify-center rounded-full',
+              open && 'bg-muted text-on-surface',
               working && 'ring-primary/60 ring-2 motion-safe:animate-pulse'
             )}
             data-working={working}
           >
             <span
               aria-hidden="true"
-              className="material-symbols-outlined text-2xl"
+              className="material-symbols-outlined text-lg"
             >
               auto_awesome
             </span>
           </button>
         </Tip>
       )}
-      {loaded && (
-        <Suspense fallback={null}>
-          <AssistantPanel
-            open={open}
-            lifted={lifted}
-            settings={settings}
-            apiKey={key}
-            onSave={save}
-            onHide={() => {
-              update({ hidden: true });
-              close();
-            }}
-            onClose={close}
-          />
-        </Suspense>
-      )}
+      {loaded &&
+        createPortal(
+          <Suspense fallback={null}>
+            <AssistantPanel
+              open={open}
+              settings={settings}
+              apiKey={key}
+              onSave={save}
+              onHide={() => {
+                update({ hidden: true });
+                close();
+              }}
+              onClose={close}
+            />
+          </Suspense>,
+          document.body
+        )}
     </>
   );
 }
