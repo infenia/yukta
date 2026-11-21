@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -154,24 +155,24 @@ describe('ControlAuditPanel', () => {
     renderWithProviders(<ControlAuditPanel />);
     await screen.findByRole('cell', { name: 'key:bob' });
 
-    await user.selectOptions(screen.getByLabelText('Result'), 'refused');
+    await choose(user, screen.getByLabelText('Result'), 'refused');
     expect(screen.getAllByRole('row')).toHaveLength(2);
     expect(
       screen.getByRole('cell', { name: 'StopWorkflowCommand' })
     ).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText('Result'), 'applied');
+    await choose(user, screen.getByLabelText('Result'), 'applied');
     expect(screen.getAllByRole('row')).toHaveLength(3);
 
-    await user.selectOptions(screen.getByLabelText('Command'), 'SetLimits');
+    await choose(user, screen.getByLabelText('Command'), 'SetLimits');
     expect(screen.getAllByRole('row')).toHaveLength(2);
     expect(screen.getByText('SetLimits(1, 0)')).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText('Command'), '');
-    await user.selectOptions(screen.getByLabelText('Actor'), 'key:bob');
+    await choose(user, screen.getByLabelText('Command'), '');
+    await choose(user, screen.getByLabelText('Actor'), 'key:bob');
     expect(screen.getAllByRole('row')).toHaveLength(2);
 
-    await user.selectOptions(screen.getByLabelText('Result'), 'refused');
+    await choose(user, screen.getByLabelText('Result'), 'refused');
     expect(
       screen.getByText('No commands match the filters.')
     ).toBeInTheDocument();

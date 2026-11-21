@@ -33,7 +33,7 @@ import { Callout } from '@/components/common/Callout';
 import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPicker';
 import { supervisorProblems } from '@/features/supervisors/lib/supervisorProblems';
 import type { SupervisorRef } from '@/features/supervisors/types';
-import { NativeSelect } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import { toPreviewGraph } from './WorkflowEditorPage.helpers';
 import { readDraft, writeDraft } from './workflowDraft';
 
@@ -472,24 +472,22 @@ function Editor({
           {listTab === 'nodes' && (
             <>
               <div className="flex gap-2">
-                <NativeSelect
-                  aria-label="Plugin type"
+                <Select
+                  searchable
+                  ariaLabel="Plugin type"
                   className="min-w-0 flex-1"
                   value={selectedType}
-                  onChange={(event) => setNewType(event.target.value)}
-                >
-                  {PLUGIN_CATEGORIES.map((category) => (
-                    <optgroup key={category} label={category}>
-                      {plugins.data
-                        ?.filter((p) => p.category === category)
-                        .map((p) => (
-                          <option key={p.type} value={p.type}>
-                            {p.type}
-                          </option>
-                        ))}
-                    </optgroup>
-                  ))}
-                </NativeSelect>
+                  onValueChange={setNewType}
+                  options={PLUGIN_CATEGORIES.flatMap((category) =>
+                    (plugins.data ?? [])
+                      .filter((p) => p.category === category)
+                      .map((p) => ({
+                        value: p.type,
+                        label: p.type,
+                        group: category,
+                      }))
+                  )}
+                />
                 <button type="button" className={BUTTON} onClick={addNode}>
                   Add node
                 </button>
@@ -585,49 +583,51 @@ function Editor({
                 ))}
               </ul>
               <div className="flex flex-wrap gap-1">
-                <NativeSelect
-                  aria-label="Edge source"
+                <Select
+                  searchable
+                  ariaLabel="Edge source"
                   value={edge.source}
-                  onChange={(event) =>
-                    setEdge({
-                      ...edge,
-                      source: event.target.value,
-                      sourcePort: null,
-                    })
+                  onValueChange={(source) =>
+                    setEdge({ ...edge, source, sourcePort: null })
                   }
-                >
-                  <option value="">from…</option>
-                  {workflow.nodes.map((n) => (
-                    <option key={n.nodeId}>{n.nodeId}</option>
-                  ))}
-                </NativeSelect>
-                <NativeSelect
-                  aria-label="Edge port"
+                  options={[
+                    { value: '', label: 'from…' },
+                    ...workflow.nodes.map((n) => ({
+                      value: n.nodeId,
+                      label: n.nodeId,
+                    })),
+                  ]}
+                />
+                <Select
+                  ariaLabel="Edge port"
                   value={edge.sourcePort ?? ''}
-                  onChange={(event) =>
-                    setEdge({ ...edge, sourcePort: event.target.value || null })
+                  onValueChange={(sourcePort) =>
+                    setEdge({ ...edge, sourcePort: sourcePort || null })
                   }
-                >
-                  {/* no port is the "default" port; "*" takes every port but "error" */}
-                  <option value="">no port (default)</option>
-                  <option value="*">all ports</option>
-                  {(ports[edge.source] ?? []).map((port) => (
-                    <option key={port}>{port}</option>
-                  ))}
-                </NativeSelect>
-                <NativeSelect
+                  // no port is the "default" port; "*" takes every port but "error"
+                  options={[
+                    { value: '', label: 'no port (default)' },
+                    { value: '*', label: 'all ports' },
+                    ...(ports[edge.source] ?? []).map((port) => ({
+                      value: port,
+                      label: port,
+                    })),
+                  ]}
+                />
+                <Select
+                  searchable
                   id="edge-target"
-                  aria-label="Edge target"
+                  ariaLabel="Edge target"
                   value={edge.target}
-                  onChange={(event) =>
-                    setEdge({ ...edge, target: event.target.value })
-                  }
-                >
-                  <option value="">to…</option>
-                  {workflow.nodes.map((n) => (
-                    <option key={n.nodeId}>{n.nodeId}</option>
-                  ))}
-                </NativeSelect>
+                  onValueChange={(target) => setEdge({ ...edge, target })}
+                  options={[
+                    { value: '', label: 'to…' },
+                    ...workflow.nodes.map((n) => ({
+                      value: n.nodeId,
+                      label: n.nodeId,
+                    })),
+                  ]}
+                />
                 <button
                   type="button"
                   className={BUTTON}

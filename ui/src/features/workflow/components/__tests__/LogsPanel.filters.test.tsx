@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { choose } from '@/test/utils/choose';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -76,10 +77,10 @@ describe('LogsPanel level and node filters', () => {
     const picker = screen.getByRole('combobox', {
       name: 'Show lines of node',
     });
-    expect(picker).toHaveValue('lint');
-    await user.selectOptions(picker, 'All nodes');
+    expect(picker).toHaveTextContent('lint');
+    await choose(user, picker, 'All nodes');
     expect(onNode).toHaveBeenLastCalledWith(null);
-    await user.selectOptions(picker, 'build');
+    await choose(user, picker, 'build');
     expect(onNode).toHaveBeenLastCalledWith('build');
     rerender(
       <LogsPanel

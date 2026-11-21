@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { Page } from '@playwright/test';
+import { choose, expectOptions } from '../utils';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
 
@@ -293,7 +294,10 @@ test.describe('Runs - the count chips', () => {
     await expect
       .poll(() => lastSearch(mock).searchParams.get('status'))
       .toBe('RUNNING');
-    await expect(page.getByLabel('Status')).toHaveValue('RUNNING');
+    await expect(page.getByLabel('Status')).toHaveAttribute(
+      'data-value',
+      'RUNNING'
+    );
 
     await group.getByRole('button', { name: /queued/ }).click();
     await expect(page).toHaveURL(/status=QUEUED/);
@@ -301,7 +305,10 @@ test.describe('Runs - the count chips', () => {
     await group.getByRole('button', { name: /failed in 24 h/ }).click();
     await expect(page).toHaveURL(/status=FAILURE/);
     await expect(page).toHaveURL(/range=24h/);
-    await expect(page.getByLabel('Time range')).toHaveValue('24h');
+    await expect(page.getByLabel('Time range')).toHaveAttribute(
+      'data-value',
+      '24h'
+    );
   });
 
   test('pressing an active chip clears the filter', async ({ page }) => {
@@ -329,12 +336,8 @@ test.describe('Runs - the filters', () => {
     await expect(rows(page)).toHaveCount(2);
 
     const session = page.getByLabel('Session');
-    await expect(session.locator('option')).toHaveText([
-      'All sessions',
-      'Build Pipeline',
-      'Deploy',
-    ]);
-    await session.selectOption('deploy');
+    await expectOptions(session, ['All sessions', 'Build Pipeline', 'Deploy']);
+    await choose(session, 'deploy');
 
     await expect(page).toHaveURL(/session=deploy/);
     await expect(rows(page)).toHaveCount(1);
@@ -349,20 +352,16 @@ test.describe('Runs - the filters', () => {
     const workflow = page.getByLabel('Workflow');
     await expect(workflow).toBeDisabled();
 
-    await page.getByLabel('Session').selectOption('build');
+    await choose(page.getByLabel('Session'), 'build');
     await expect(workflow).toBeEnabled();
-    await expect(workflow.locator('option')).toHaveText([
-      'All workflows',
-      'check',
-      'heal',
-    ]);
-    await workflow.selectOption('heal');
+    await expectOptions(workflow, ['All workflows', 'check', 'heal']);
+    await choose(workflow, 'heal');
 
     await expect(page).toHaveURL(/workflow=heal/);
     await expect(rows(page)).toHaveCount(1);
     expect(lastSearch(mock).searchParams.get('workflowId')).toBe('heal');
 
-    await page.getByLabel('Session').selectOption('deploy');
+    await choose(page.getByLabel('Session'), 'deploy');
     await expect(page).not.toHaveURL(/workflow=/);
   });
 
@@ -377,19 +376,23 @@ test.describe('Runs - the filters', () => {
     await page.goto('/runs');
 
     const status = page.getByLabel('Status');
-    await expect(status.locator('option')).toContainText([
-      'Any status',
-      'Running',
-      'Queued',
-      'Paused',
-      'Succeeded',
-      'Failed',
-      'Failed (error)',
-      'Timed out',
-      'Stopped',
-      'Interrupted',
-    ]);
-    await status.selectOption('ERROR');
+    await expectOptions(
+      status,
+      [
+        'Any status',
+        'Running',
+        'Queued',
+        'Paused',
+        'Succeeded',
+        'Failed',
+        'Failed (error)',
+        'Timed out',
+        'Stopped',
+        'Interrupted',
+      ],
+      'contains'
+    );
+    await choose(status, 'ERROR');
 
     await expect(page).toHaveURL(/status=ERROR/);
     await expect(rows(page)).toHaveCount(1);
@@ -413,7 +416,7 @@ test.describe('Runs - the filters', () => {
     const mock = await mockRuns(page, [run(1)]);
     await page.goto('/runs');
 
-    await page.getByLabel('Time range').selectOption('1h');
+    await choose(page.getByLabel('Time range'), '1h');
 
     await expect(page).toHaveURL(/range=1h/);
     await expect(page.getByText('1 run in the last hour')).toBeVisible();
@@ -430,8 +433,10 @@ test.describe('Runs - the filters', () => {
     await page.goto('/runs');
     await expect(page.getByLabel('Since')).toHaveCount(0);
 
-    await page.getByLabel('Time range').selectOption('custom');
+    await choose(page.getByLabel('Time range'), 'custom');
     await page.getByLabel('Since').fill('2026-01-01T08:00');
+    // the URL holds the filters: let the first edit land before the second builds on it
+    await expect(page).toHaveURL(/since=2026-01-01T08%3A00/);
     await page.getByLabel('Until').fill('2026-01-02T09:30');
 
     await expect(page).toHaveURL(/range=custom/);
@@ -450,11 +455,23 @@ test.describe('Runs - the filters', () => {
       '/runs?session=build&workflow=check&status=SUCCESS&text=0001&range=7d'
     );
 
-    await expect(page.getByLabel('Session')).toHaveValue('build');
-    await expect(page.getByLabel('Workflow')).toHaveValue('check');
-    await expect(page.getByLabel('Status')).toHaveValue('SUCCESS');
+    await expect(page.getByLabel('Session')).toHaveAttribute(
+      'data-value',
+      'build'
+    );
+    await expect(page.getByLabel('Workflow')).toHaveAttribute(
+      'data-value',
+      'check'
+    );
+    await expect(page.getByLabel('Status')).toHaveAttribute(
+      'data-value',
+      'SUCCESS'
+    );
     await expect(page.getByLabel('Run id contains')).toHaveValue('0001');
-    await expect(page.getByLabel('Time range')).toHaveValue('7d');
+    await expect(page.getByLabel('Time range')).toHaveAttribute(
+      'data-value',
+      '7d'
+    );
     await expect.poll(() => mock.searches.length).toBeGreaterThan(0);
     const q = lastSearch(mock).searchParams;
     expect([
@@ -469,7 +486,10 @@ test.describe('Runs - the filters', () => {
     await mockRuns(page, [run(1)]);
     await page.goto('/runs?range=forever');
 
-    await expect(page.getByLabel('Time range')).toHaveValue('');
+    await expect(page.getByLabel('Time range')).toHaveAttribute(
+      'data-value',
+      ''
+    );
   });
 
   test('an old /history link lands on /runs with its query', async ({
@@ -508,7 +528,7 @@ test.describe('Runs - paging', () => {
     await page.getByRole('button', { name: 'Load more' }).click();
     await expect(rows(page)).toHaveCount(150);
 
-    await page.getByLabel('Status').selectOption('SUCCESS');
+    await choose(page.getByLabel('Status'), 'SUCCESS');
 
     await expect
       .poll(() => lastSearch(mock).searchParams.get('limit'))

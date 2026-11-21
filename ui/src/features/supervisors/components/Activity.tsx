@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { StateMessage } from '@/components/common/StateMessage';
-import { NativeSelect } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import { formatDateTime } from '@/features/workflow/lib/timeFormat';
 import { useSupervisorDecisions } from '../hooks/useSupervisorTypes';
 import { groupDecisions, type DecisionGroup } from '../lib/activity';
@@ -130,18 +130,16 @@ function Filter({
   name?: (value: string) => string;
 }) {
   return (
-    <NativeSelect
-      aria-label={label}
+    <Select
+      searchable={options.length > 6}
+      ariaLabel={label}
       value={value}
-      onChange={(event) => onChange(event.target.value)}
-    >
-      <option value="">{all}</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {name(o)}
-        </option>
-      ))}
-    </NativeSelect>
+      onValueChange={onChange}
+      options={[
+        { value: '', label: all },
+        ...options.map((o) => ({ value: o, label: name(o) })),
+      ]}
+    />
   );
 }
 

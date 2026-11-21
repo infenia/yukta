@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { NativeSelect } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useSupervisors } from '../hooks/useSupervisorTypes';
 import type { SupervisorRef } from '../types';
@@ -89,22 +89,18 @@ export function SupervisorPicker({
           className="border-border flex flex-col gap-2 rounded-lg border p-3"
         >
           <div className="flex flex-wrap items-center gap-3">
-            <NativeSelect
-              aria-label={`Supervisor ${index + 1}`}
+            <Select
+              searchable
+              ariaLabel={`Supervisor ${index + 1}`}
               value={ref.supervisor}
-              onChange={(event) =>
-                change(index, { supervisor: event.target.value })
-              }
-            >
-              {!configured.some((s) => s.id === ref.supervisor) && (
-                <option value={ref.supervisor}>{ref.supervisor}</option>
-              )}
-              {configured.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.id}
-                </option>
-              ))}
-            </NativeSelect>
+              onValueChange={(supervisor) => change(index, { supervisor })}
+              options={[
+                ...(configured.some((s) => s.id === ref.supervisor)
+                  ? []
+                  : [{ value: ref.supervisor, label: ref.supervisor }]),
+                ...configured.map((s) => ({ value: s.id, label: s.id })),
+              ]}
+            />
             {nodeIds && (
               <div
                 role="group"

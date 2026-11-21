@@ -3,6 +3,7 @@
 
 import { sessionJson, shell, unique } from './api';
 import { expect, test } from './fixtures';
+import { choose } from '../utils';
 
 const outline = (page: import('@playwright/test').Page) =>
   page.getByRole('complementary', { name: 'Nodes and edges' });
@@ -22,17 +23,13 @@ test('a node and an edge are added, validated and saved, and the server keeps th
   ).toBeVisible();
 
   await page.getByLabel('Description', { exact: true }).fill('after');
-  await outline(page)
-    .getByLabel('Plugin type')
-    .selectOption('CONSOLE_TERMINAL');
+  await choose(outline(page).getByLabel('Plugin type'), 'CONSOLE_TERMINAL');
   await outline(page).getByRole('button', { name: 'Add node' }).click();
   await expect(page.getByText('Unsaved changes')).toBeVisible();
 
   await outline(page).getByRole('tab', { name: /Edges/ }).click();
-  await outline(page).getByLabel('Edge source').selectOption('p');
-  await outline(page)
-    .getByLabel('Edge target')
-    .selectOption('console-terminal-1');
+  await choose(outline(page).getByLabel('Edge source'), 'p');
+  await choose(outline(page).getByLabel('Edge target'), 'console-terminal-1');
   await outline(page).getByRole('button', { name: 'Add edge' }).click();
 
   await page.getByRole('button', { name: 'Validate' }).click();
@@ -72,9 +69,7 @@ test('the server rejects a workflow that is not valid and nothing is saved', asy
   await page.goto(`/sessions/${id}/workflow/w/edit`);
 
   // a node nothing connects to
-  await outline(page)
-    .getByLabel('Plugin type')
-    .selectOption('PROCESS_EXECUTOR');
+  await choose(outline(page).getByLabel('Plugin type'), 'PROCESS_EXECUTOR');
   await outline(page).getByRole('button', { name: 'Add node' }).click();
   await page.getByRole('button', { name: 'Save version' }).click();
 

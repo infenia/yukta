@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { Page } from '@playwright/test';
+import { choose, expectOptions, expectGroups } from '../utils';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
 
@@ -164,7 +165,7 @@ const inspector = (page: Page) =>
 const nodeButton = (page: Page, id: string) =>
   outline(page).getByRole('button', { name: new RegExp(`^${id}`) });
 const addNode = (page: Page, type: string) =>
-  outline(page).getByLabel('Plugin type').selectOption(type);
+  choose(outline(page).getByLabel('Plugin type'), type);
 
 async function open(page: Page, opts: Options = {}) {
   const calls = await mockEditor(page, opts);
@@ -253,8 +254,11 @@ test.describe('Workflow editor - nodes', () => {
     await expect(inspector(page)).toContainText('ShellProcessor');
     await expect(inspector(page)).toContainText('The command line to run');
 
-    const groups = outline(page).getByLabel('Plugin type').locator('optgroup');
-    await expect(groups).toHaveCount(3);
+    await expectGroups(outline(page).getByLabel('Plugin type'), [
+      'TRIGGER',
+      'PROCESSOR',
+      'TERMINAL',
+    ]);
   });
 
   test('Add node adds the chosen plugin with a unique ID and selects it', async ({
@@ -378,7 +382,8 @@ test.describe('Workflow editor - the node inspector', () => {
     await inspector(page)
       .getByRole('button', { name: 'Add an edge from compile' })
       .click();
-    await expect(outline(page).getByLabel('Edge source')).toHaveValue(
+    await expect(outline(page).getByLabel('Edge source')).toHaveAttribute(
+      'data-value',
       'compile'
     );
   });
@@ -415,7 +420,7 @@ test.describe('Workflow editor - the node inspector', () => {
   test('a plugin without a schema is configured as JSON, with its usage pattern', async ({
     page,
   }) => {
-    await outline(page).getByLabel('Plugin type').selectOption('RawProcessor');
+    await choose(outline(page).getByLabel('Plugin type'), 'RawProcessor');
     await outline(page).getByRole('button', { name: 'Add node' }).click();
 
     await expect(
@@ -448,8 +453,8 @@ test.describe('Workflow editor - edges', () => {
   });
 
   test('adds an edge from the form', async ({ page }) => {
-    await outline(page).getByLabel('Edge source').selectOption('start');
-    await outline(page).getByLabel('Edge target').selectOption('out');
+    await choose(outline(page).getByLabel('Edge source'), 'start');
+    await choose(outline(page).getByLabel('Edge target'), 'out');
     await outline(page).getByRole('button', { name: 'Add edge' }).click();
 
     await expect(
@@ -458,21 +463,24 @@ test.describe('Workflow editor - edges', () => {
     await expect(
       outline(page).getByRole('tab', { name: /Edges\s*3/ })
     ).toBeVisible();
-    await expect(outline(page).getByLabel('Edge source')).toHaveValue('');
+    await expect(outline(page).getByLabel('Edge source')).toHaveAttribute(
+      'data-value',
+      ''
+    );
   });
 
   test('refuses an edge from a node to itself and a repeated edge', async ({
     page,
   }) => {
-    await outline(page).getByLabel('Edge source').selectOption('compile');
-    await outline(page).getByLabel('Edge target').selectOption('compile');
+    await choose(outline(page).getByLabel('Edge source'), 'compile');
+    await choose(outline(page).getByLabel('Edge target'), 'compile');
     await outline(page).getByRole('button', { name: 'Add edge' }).click();
     await expect(
       page.getByText('An edge cannot connect a node to itself.')
     ).toBeVisible();
 
-    await outline(page).getByLabel('Edge source').selectOption('start');
-    await outline(page).getByLabel('Edge target').selectOption('compile');
+    await choose(outline(page).getByLabel('Edge source'), 'start');
+    await choose(outline(page).getByLabel('Edge target'), 'compile');
     await outline(page).getByRole('button', { name: 'Add edge' }).click();
     await expect(page.getByText('That edge already exists.')).toBeVisible();
     await expect(
@@ -481,17 +489,21 @@ test.describe('Workflow editor - edges', () => {
   });
 
   test('the port list of a node appears after Validate', async ({ page }) => {
-    await outline(page).getByLabel('Edge source').selectOption('compile');
-    await expect(
-      outline(page).getByLabel('Edge port').locator('option')
-    ).toHaveText(['no port (default)', 'all ports']);
+    await choose(outline(page).getByLabel('Edge source'), 'compile');
+    await expectOptions(outline(page).getByLabel('Edge port'), [
+      'no port (default)',
+      'all ports',
+    ]);
 
     await page.getByRole('button', { name: 'Validate' }).click();
     await expect(page.getByText('Workflow is valid.')).toBeVisible();
 
-    await expect(
-      outline(page).getByLabel('Edge port').locator('option')
-    ).toHaveText(['no port (default)', 'all ports', 'success', 'failure']);
+    await expectOptions(outline(page).getByLabel('Edge port'), [
+      'no port (default)',
+      'all ports',
+      'success',
+      'failure',
+    ]);
   });
 });
 
@@ -557,10 +569,14 @@ test.describe('Workflow editor - Validate', () => {
     await expect(
       outline(page).getByRole('tab', { name: /Edges/ })
     ).toHaveAttribute('aria-selected', 'true');
-    await expect(outline(page).getByLabel('Edge source')).toHaveValue(
+    await expect(outline(page).getByLabel('Edge source')).toHaveAttribute(
+      'data-value',
       'compile'
     );
-    await expect(outline(page).getByLabel('Edge port')).toHaveValue('failure');
+    await expect(outline(page).getByLabel('Edge port')).toHaveAttribute(
+      'data-value',
+      'failure'
+    );
   });
 
   test('a failing validate call shows its message', async ({ page }) => {
@@ -762,8 +778,8 @@ test.describe('Workflow editor - supervisors', () => {
     await page.getByRole('button', { name: 'Add supervisor' }).click();
 
     await expect(page.getByText(/^Supervisors \(1\)/)).toBeVisible();
-    await expect(page.getByLabel('Supervisor 1', { exact: true })).toHaveValue(
-      'gate'
-    );
+    await expect(
+      page.getByLabel('Supervisor 1', { exact: true })
+    ).toHaveAttribute('data-value', 'gate');
   });
 });

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { Page } from '@playwright/test';
+import { choose, expectOptions } from '../utils';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
 
@@ -308,13 +309,13 @@ test.describe('Notifications - the inbox filters', () => {
   test('the session filter narrows the list to one session', async ({
     page,
   }) => {
-    await expect(page.getByLabel('Session').locator('option')).toContainText([
-      'All sessions',
-      's1',
-      's2',
-    ]);
+    await expectOptions(
+      page.getByLabel('Session'),
+      ['All sessions', 's1', 's2'],
+      'contains'
+    );
 
-    await page.getByLabel('Session').selectOption('s2');
+    await choose(page.getByLabel('Session'), 's2');
 
     await expect(page.getByText('Queue is slow')).toBeVisible();
     await expect(page.getByText('Nightly run failed')).toHaveCount(0);
@@ -323,7 +324,7 @@ test.describe('Notifications - the inbox filters', () => {
   test('the category filter narrows the list to one kind of notification', async ({
     page,
   }) => {
-    await page.getByLabel('Category').selectOption('scheduler');
+    await choose(page.getByLabel('Category'), 'scheduler');
 
     await expect(page.getByText('Queue is slow')).toBeVisible();
     await expect(page.getByText('Deploy to production?')).toHaveCount(0);
@@ -332,14 +333,12 @@ test.describe('Notifications - the inbox filters', () => {
   test('the severity filter offers Warning or above, and shows nothing for no match', async ({
     page,
   }) => {
-    await page
-      .getByLabel('Severity')
-      .selectOption({ label: 'Warning or above' });
+    await choose(page.getByLabel('Severity'), { label: 'Warning or above' });
     await expect(page.getByText('Queue is slow')).toBeVisible();
     await expect(page.getByText('Nightly run failed')).toBeVisible();
 
-    await page.getByLabel('Category').selectOption('scheduler');
-    await page.getByLabel('Session').selectOption('s1');
+    await choose(page.getByLabel('Category'), 'scheduler');
+    await choose(page.getByLabel('Session'), 's1');
     await expect(page.getByText('Nothing here')).toBeVisible();
   });
 
@@ -367,15 +366,16 @@ test.describe('Notifications - the preferences', () => {
     await expect(sheet.getByText('What reaches me')).toBeVisible();
     await expect(
       sheet.getByRole('combobox', { name: 'run.failed' })
-    ).toHaveValue('OFF');
-    await expect(
-      sheet
-        .getByRole('combobox', { name: 'input', exact: true })
-        .locator('option')
-    ).toHaveText(['Inbox', 'Inbox and desktop']);
-    await expect(
-      sheet.getByRole('combobox', { name: 'run.failed' }).locator('option')
-    ).toHaveText(['Off', 'Inbox', 'Inbox and desktop']);
+    ).toHaveAttribute('data-value', 'OFF');
+    await expectOptions(
+      sheet.getByRole('combobox', { name: 'input', exact: true }),
+      ['Inbox', 'Inbox and desktop']
+    );
+    await expectOptions(sheet.getByRole('combobox', { name: 'run.failed' }), [
+      'Off',
+      'Inbox',
+      'Inbox and desktop',
+    ]);
     await expect(sheet.getByText('Muted sessions')).toBeVisible();
     await expect(sheet.getByRole('checkbox', { name: 's2' })).toBeChecked();
     await expect(sheet.getByText('This device')).toBeVisible();
@@ -397,9 +397,7 @@ test.describe('Notifications - the preferences', () => {
       name: 'Notification preferences',
     });
 
-    await sheet
-      .getByRole('combobox', { name: 'run.failed' })
-      .selectOption('OFF');
+    await choose(sheet.getByRole('combobox', { name: 'run.failed' }), 'OFF');
     await sheet.getByRole('checkbox', { name: 's2' }).check();
     await sheet.getByRole('button', { name: 'Save' }).click();
 

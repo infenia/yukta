@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { test, expect } from '../fixtures';
+import { choose } from '../utils';
 import { envelope } from '../api-envelope';
 import { SupervisorEditorPage } from '../pages/SupervisorEditorPage';
 
@@ -60,7 +61,7 @@ test.describe('Supervisor editor', () => {
     const editor = new SupervisorEditorPage(page);
 
     await editor.gotoNew();
-    await editor.decisionMaker.selectOption('rules');
+    await choose(editor.decisionMaker, 'rules');
     await editor.name.fill('new-one');
     await editor.description.fill('A new supervisor');
     await editor.button('Save').click();

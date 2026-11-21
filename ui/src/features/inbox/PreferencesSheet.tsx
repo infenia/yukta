@@ -4,7 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { NativeSelect } from '@/components/ui/native-select';
+import { Select } from '@/components/ui/select';
 import {
   Sheet,
   SheetClose,
@@ -87,24 +87,19 @@ function Form({
             className="text-body-md flex items-center justify-between gap-3"
           >
             {category}
-            <NativeSelect
-              aria-label={category}
+            <Select
+              ariaLabel={category}
               value={levels[category] ?? 'INBOX'}
-              onChange={(e) =>
+              onValueChange={(level) =>
                 setLevels({
                   ...levels,
-                  [category]: e.target.value as NotificationLevel,
+                  [category]: level as NotificationLevel,
                 })
               }
-            >
-              {(['OFF', 'INBOX', 'DESKTOP'] as const)
+              options={(['OFF', 'INBOX', 'DESKTOP'] as const)
                 .filter((l) => category !== 'input' || l !== 'OFF')
-                .map((l) => (
-                  <option key={l} value={l}>
-                    {LABEL[l]}
-                  </option>
-                ))}
-            </NativeSelect>
+                .map((l) => ({ value: l, label: LABEL[l] }))}
+            />
           </label>
         ))}
       </fieldset>
