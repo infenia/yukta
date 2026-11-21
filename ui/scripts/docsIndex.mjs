@@ -33,6 +33,12 @@ export function frontmatter(source) {
   };
 }
 
+/** Removes tags until none is left: one pass can leave one behind (`<<b>b>` becomes `<b>`). */
+function untag(text) {
+  const next = text.replace(/<\/?[A-Za-z][^>]*>/g, '');
+  return next === text ? text : untag(next);
+}
+
 /** The page as plain Markdown: no imports, comments or JSX tags (their text stays); code, fenced or inline, stays. */
 export function plain(body) {
   return body
@@ -40,10 +46,11 @@ export function plain(body) {
     .map((part, index) =>
       index % 2 === 1
         ? part
-        : part
-            .replace(/^(?:import|export) .*$/gm, '')
-            .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-            .replace(/<\/?[A-Za-z][^>]*>/g, '')
+        : untag(
+            part
+              .replace(/^(?:import|export) .*$/gm, '')
+              .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+          )
     )
     .join('')
     .replace(/\n{3,}/g, '\n\n')

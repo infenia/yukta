@@ -67,6 +67,11 @@ describe('plain', () => {
     expect(out).toContain('`yukta start <id>`');
     expect(out).toContain('```bash\nimport x\n<Tag attr>\n```');
   });
+
+  it('leaves no tag behind when one is nested in another', () => {
+    expect(plain('a <<script>script>b')).toBe('a b');
+    expect(plain('keep `<b>` here')).toBe('keep `<b>` here');
+  });
 });
 
 describe('passages', () => {
