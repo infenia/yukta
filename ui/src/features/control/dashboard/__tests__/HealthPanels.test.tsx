@@ -9,6 +9,10 @@ import { useWorkers } from '../../api/workers';
 import { AiUsagePanel, VitalsPanel, WorkerSlotsPanel } from '../HealthPanels';
 
 vi.mock('../../api/workers', () => ({ useWorkers: vi.fn() }));
+let edition = 'PLUS';
+vi.mock('@/features/edition/hooks/useEdition', () => ({
+  useEdition: () => ({ data: { edition } }),
+}));
 vi.mock('@/features/metrics/hooks', () => ({ useMetricSnapshot: vi.fn() }));
 vi.mock('@/components/dashboard/Gauges', () => ({
   ArcGauge: ({ label }: { label: string }) => <div>{label}</div>,
@@ -39,8 +43,15 @@ describe('WorkerSlotsPanel', () => {
   it('shows each worker, its drain and whether it is full', () => {
     vi.mocked(useWorkers).mockReturnValue(q({ data: [] }));
     const { unmount } = renderWithProviders(<WorkerSlotsPanel />);
-    expect(screen.getByText('No worker is connected')).toBeInTheDocument();
+    expect(screen.getByText('No workers connected')).toBeInTheDocument();
     unmount();
+    edition = 'COMMUNITY';
+    const community = renderWithProviders(<WorkerSlotsPanel />);
+    expect(
+      screen.getByText(/remote workers need the Plus edition/)
+    ).toBeInTheDocument();
+    community.unmount();
+    edition = 'PLUS';
 
     vi.mocked(useWorkers).mockReturnValue(
       q({

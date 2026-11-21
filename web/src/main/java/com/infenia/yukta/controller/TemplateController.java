@@ -50,8 +50,14 @@ public class TemplateController {
   /** Reads the sessions. */
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
-  /** One template in the list. */
-  public record TemplateSummary(String id, String title, String summary, List<String> pluginTypes) {
+  /**
+   * One template in the list.
+   *
+   * @param category the examples folder it sits in, such as {@code 1-standalone}; the number orders
+   *     the categories
+   */
+  public record TemplateSummary(
+      String id, String title, String summary, String category, List<String> pluginTypes) {
 
     /** Copies the list so the record cannot be changed through it. */
     public TemplateSummary {
@@ -87,8 +93,11 @@ public class TemplateController {
     return Mono.fromCallable(
             () -> {
               final List<TemplateSummary> out = new ArrayList<>();
-              for (final String id : knownDirs().keySet()) {
-                out.add(summary(detail(id)));
+              for (final var dir : knownDirs().entrySet()) {
+                out.add(
+                    summary(
+                        detail(dir.getKey()),
+                        dir.getValue().substring(0, dir.getValue().indexOf('/'))));
               }
               out.sort(Comparator.comparing(TemplateSummary::id));
               return ApiResponse.success(200, "Templates retrieved", out);
@@ -111,8 +120,9 @@ public class TemplateController {
     return Mono.fromCallable(() -> ApiResponse.success(200, "Template retrieved", detail(id)));
   }
 
-  private static TemplateSummary summary(final TemplateDetail detail) {
-    return new TemplateSummary(detail.id(), detail.title(), detail.summary(), detail.pluginTypes());
+  private static TemplateSummary summary(final TemplateDetail detail, final String category) {
+    return new TemplateSummary(
+        detail.id(), detail.title(), detail.summary(), category, detail.pluginTypes());
   }
 
   /**

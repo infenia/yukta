@@ -88,6 +88,20 @@ export interface ModuleRow {
   avgMs: number;
 }
 
+/** How one node of a workflow of a session did; the slowest come first. */
+export interface NodeRow {
+  sessionId: string;
+  workflowId: string;
+  nodeId: string;
+  module: string;
+  runs: number;
+  failures: number;
+  /** milliseconds; 0 when no run of the node was timed */
+  p50Ms: number;
+  p95Ms: number;
+  lastExecutionId: string;
+}
+
 export interface LiveRun {
   executionId: string;
   sessionId: string;
@@ -98,6 +112,10 @@ export interface LiveRun {
   nodesSeen: number;
   /** the workflow's usual p95 duration, null when unknown */
   p95Ms: number | null;
+  /** the last pause or resume that was applied to it was a pause */
+  paused: boolean;
+  /** nodes that have started and not ended */
+  currentNodes: string[];
 }
 
 /** A control command, for marking the throughput chart. */
@@ -117,6 +135,11 @@ export const getHeatmap = (range: Range, scope: Scope = GLOBAL) =>
 
 export const getModules = (range: Range, scope: Scope = GLOBAL) =>
   fetchApi<ModuleRow[]>(`/api/metrics/modules?${query({ range }, scope)}`);
+
+export const getNodes = (range: Range, scope: Scope = GLOBAL, limit = 50) =>
+  fetchApi<NodeRow[]>(
+    `/api/metrics/nodes?${query({ range, limit: String(limit) }, scope)}`
+  );
 
 export const getAnnotations = (range: Range, scope: Scope = GLOBAL) =>
   fetchApi<ControlAnnotation[]>(

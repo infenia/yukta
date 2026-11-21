@@ -36,6 +36,11 @@ export interface ConfigField {
   defaultValue: unknown;
   options: string[];
   description: string;
+  /**
+   * Only the editor's own fields (the engine policy) set this: a MAP whose keys are known is
+   * edited as one input per key instead of JSON. Plugins' schemas from the server never have it.
+   */
+  fields?: ConfigField[];
 }
 
 export interface PluginDetails extends PluginSummary {

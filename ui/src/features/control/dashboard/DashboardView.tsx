@@ -11,12 +11,13 @@ import {
   useMetricStream,
 } from '@/features/metrics/hooks';
 import { scopeOptions, sessionOf } from './scopes';
-import { AiUsagePanel, VitalsPanel, WorkerSlotsPanel } from './HealthPanels';
+import { SystemPanel } from './HealthPanels';
 import { CapacityPanel } from './CapacityPanel';
-import { LatencyPanel, ThroughputPanel } from './ChartPanels';
+import { OverheadPanel, ThroughputPanel } from './ChartPanels';
 import { CommandStrip } from './CommandStrip';
 import { KioskView } from './KioskView';
-import { HeatPanel, LeaderboardPanel, LiveRunsPanel } from './RunPanels';
+import { LeaderboardPanel, LiveRunsPanel, NodesPanel } from './RunPanels';
+import { SupervisorsSummary } from '@/features/supervisors/components/SupervisorsSummary';
 
 /**
  * The Mission Control dashboard: the scope, range and live controls (kept in the URL) over the
@@ -39,7 +40,7 @@ export function DashboardView() {
     current: scope,
   });
   return (
-    <div className="flex flex-col gap-4" data-testid="mission-control">
+    <div className="flex flex-col gap-3" data-testid="mission-control">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <ScopeBar scopes={scopes} />
         <button
@@ -52,23 +53,20 @@ export function DashboardView() {
       </div>
       {kiosk && <KioskView onExit={() => setKiosk(false)} />}
       <CommandStrip scope={scope} live={live} />
-      <div className="grid gap-4 lg:grid-cols-3">
-        <CapacityPanel live={live} />
-        <div className="lg:col-span-2">
+      {/* two columns that each stack their own cards, so no card is stretched to its neighbour's
+          height and no row leaves a hole */}
+      <div className="grid items-start gap-3 lg:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-3 lg:col-span-2">
           <ThroughputPanel scope={scope} range={range} live={live} />
+          <LiveRunsPanel scope={scope} live={live} />
+          <NodesPanel scope={scope} range={range} live={live} />
+          <OverheadPanel scope={scope} range={range} live={live} />
         </div>
-        <div className="lg:col-span-2">
-          <LatencyPanel scope={scope} range={range} live={live} />
-        </div>
-        <LiveRunsPanel scope={scope} live={live} />
-        <div className="lg:col-span-3">
-          <HeatPanel scope={scope} live={live} />
-        </div>
-        <LeaderboardPanel scope={scope} range={range} live={live} />
-        <WorkerSlotsPanel live={live} />
-        <VitalsPanel />
-        <div className="lg:col-span-2">
-          <AiUsagePanel scope={scope} />
+        <div className="flex min-w-0 flex-col gap-3">
+          <CapacityPanel live={live} />
+          <SupervisorsSummary />
+          <LeaderboardPanel scope={scope} range={range} live={live} />
+          <SystemPanel scope={scope} live={live} />
         </div>
       </div>
     </div>

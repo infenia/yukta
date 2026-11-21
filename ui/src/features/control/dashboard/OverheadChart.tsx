@@ -11,17 +11,32 @@ import type { MetricPoint } from '@/features/metrics/api';
 import { formatMs } from './format';
 
 const LINES = [
-  { key: 'duration.p50', label: 'p50', color: 'var(--chart-1)' },
-  { key: 'duration.p95', label: 'p95', color: 'var(--chart-2)' },
-  { key: 'duration.p99', label: 'p99', color: 'var(--chart-4)' },
-  { key: 'queue.wait.p95', label: 'queue wait p95', color: 'var(--chart-5)' },
+  {
+    key: 'overhead.start.p50',
+    label: 'run start p50',
+    color: 'var(--chart-1)',
+  },
+  {
+    key: 'overhead.start.p95',
+    label: 'run start p95',
+    color: 'var(--chart-2)',
+  },
+  {
+    key: 'overhead.handoff.p95',
+    label: 'hand-off p95',
+    color: 'var(--chart-4)',
+  },
 ];
 
 const time = (t: number) =>
   new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-/** Run duration percentiles and the queue wait. The default export, so a route can `lazy()` it. */
-export default function LatencyChart({
+/**
+ * What the engine added: the start of a run (registration to its first plugin call, queue wait
+ * excluded) and, for nodes that run per message, the hand-off to a plugin; never the plugins' own
+ * time. The default export, so a route can `lazy()` it.
+ */
+export default function OverheadChart({
   series,
 }: {
   series: Record<string, MetricPoint[]>;
@@ -37,7 +52,7 @@ export default function LatencyChart({
     LINES.map((l) => [l.key.replace(/\./g, '_'), l])
   );
   return (
-    <ChartContainer config={config} label="Run duration percentiles">
+    <ChartContainer config={config} label="Engine overhead">
       <LineChart data={data} margin={{ left: 0, right: 8, top: 4 }}>
         <CartesianGrid vertical={false} />
         <XAxis

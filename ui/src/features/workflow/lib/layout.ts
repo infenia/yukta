@@ -294,6 +294,8 @@ export function layoutGraph(
               )
             : undefined,
         type: 'default',
+        // the edge as the workflow names it, for what draws on it (the editor's insert button)
+        data: { sourcePort: edge.sourcePort },
         animated: traversed && targetStatus === 'running',
         markerEnd: {
           type: MarkerType.ArrowClosed,

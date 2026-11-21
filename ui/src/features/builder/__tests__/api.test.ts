@@ -4,7 +4,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { getSessionDraft, saveSession, validateWorkflow } from '../api';
+import {
+  getSessionDraft,
+  saveSession,
+  startTestRun,
+  validateWorkflow,
+} from '../api';
 import type { SessionDraft } from '../types';
 
 const ok = (data: unknown) =>
@@ -63,5 +68,19 @@ describe('builder api', () => {
 
     expect(result.outputPorts).toEqual({ n1: ['a'] });
     expect(bodies).toEqual([session, workflow]);
+  });
+
+  it('starts a test run under the session', async () => {
+    let body: unknown;
+    server.use(
+      http.post('/api/sessions/s%201/test-runs', async ({ request }) => {
+        body = await request.json();
+        return ok({ executionId: 'e', workflowId: '__test__.x' });
+      })
+    );
+    const workflow = { workflowId: 'w', description: '', nodes: [], edges: [] };
+    const started = await startTestRun('s 1', { workflow, untilNodeId: 'n' });
+    expect(started.executionId).toBe('e');
+    expect(body).toEqual({ workflow, untilNodeId: 'n' });
   });
 });

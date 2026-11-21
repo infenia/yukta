@@ -167,6 +167,7 @@ class TriggerNodeAssemblerStrategyTest {
     assembler.assemble(context);
 
     verify(trigger).start(any());
+    verify(tracker).recordPluginStart(context.executionId());
     verify(streamTopologyDecorator)
         .applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any(), any(), any());

@@ -24,6 +24,8 @@ export interface WorkflowGraphNode {
   subWorkflowId?: string | null;
   /** The palette color the node declares, for display. */
   color?: string | null;
+  /** How many problems validation found with the node (the editor draws them on it). */
+  issues?: { errors: number; warnings: number };
 }
 
 export interface WorkflowGraphEdge {

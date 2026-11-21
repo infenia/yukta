@@ -123,9 +123,9 @@ test.describe('Control - the page and its tabs', () => {
       'aria-selected',
       'true'
     );
-    await expect(page.locator('#workers-heading')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Capacity' })).toBeVisible();
     await expect(
-      page.getByRole('heading', { name: 'Execution limits' })
+      page.getByRole('heading', { name: 'Throughput' })
     ).toBeVisible();
   });
 
@@ -141,17 +141,19 @@ test.describe('Control - the page and its tabs', () => {
       'aria-selected',
       'true'
     );
-    await expect(page.locator('#workers-heading')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Capacity' })).toHaveCount(
+      0
+    );
 
     await tab(page, 'Audit').click();
     await expect(page).toHaveURL(/tab=audit/);
     await expect(
-      page.getByRole('heading', { name: 'Who did what' })
+      page.getByRole('heading', { name: 'Control audit' })
     ).toBeVisible();
 
     await tab(page, 'Overview').click();
     await expect(page).not.toHaveURL(/tab=/);
-    await expect(page.locator('#workers-heading')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Capacity' })).toBeVisible();
   });
 
   test('a link to a tab opens it, and an execution in the URL opens the audit', async ({
@@ -224,22 +226,29 @@ test.describe('Control - workers', () => {
     await expect(row).toContainText('cpu');
   });
 
-  test('without workers it explains them, and names the Plus edition on Community', async ({
+  test('without workers the System card says so in one line, and names the Plus edition on Community', async ({
     page,
   }) => {
     await mockControl(page, { edition: 'COMMUNITY' });
     await page.goto('/control');
 
-    await expect(page.getByText('No workers connected.')).toBeVisible();
-    await expect(page.getByText(/need the Plus edition/)).toBeVisible();
+    await expect(
+      page.getByText(
+        /No workers connected \(remote workers need the Plus edition\)/
+      )
+    ).toBeVisible();
+    // the detail table is for when there are workers
+    await expect(page.getByRole('columnheader', { name: 'Pools' })).toHaveCount(
+      0
+    );
   });
 
-  test('on Plus it says how to connect one', async ({ page }) => {
+  test('on Plus the System card just says there are none', async ({ page }) => {
     await mockControl(page);
     await page.goto('/control');
 
     await expect(
-      page.getByText(/Start one and point it at this server/)
+      page.getByText('No workers connected', { exact: true })
     ).toBeVisible();
   });
 
@@ -272,12 +281,10 @@ test.describe('Control - execution limits', () => {
     });
     await page.goto('/control');
 
-    const section = page.locator(
-      'section[aria-labelledby="scheduler-heading"]'
-    );
-    await expect(section).toContainText('of 4');
-    await expect(section).toContainText('3');
-    await expect(section).toContainText('5');
+    const section = page.getByRole('region', { name: 'Capacity' });
+    await expect(section).toContainText('3 of 4');
+    await expect(section).toContainText('5 of 100');
+    await expect(section).toContainText('at most 2');
   });
 
   test('the edit dialog refuses anything but whole numbers, and Cancel changes nothing', async ({
@@ -370,9 +377,9 @@ test.describe('Control - execution limits', () => {
     await mockControl(page, { limitsStatus: 500 });
     await page.goto('/control');
 
-    await expect(page.getByText('Failed to load the limits')).toBeVisible({
-      timeout: 15_000,
-    });
+    await expect(
+      page.getByRole('region', { name: 'Capacity' }).getByText('Could not load')
+    ).toBeVisible({ timeout: 15_000 });
   });
 });
 
@@ -389,7 +396,14 @@ test.describe('Control - the audit', () => {
     });
     await page.goto('/control?tab=audit');
 
-    for (const header of ['Time', 'Actor', 'Command', 'Execution', 'Result']) {
+    for (const header of [
+      'Time',
+      'Actor',
+      'Command',
+      'Workflow',
+      'Result',
+      'Run',
+    ]) {
       await expect(
         page.getByRole('columnheader', { name: header })
       ).toBeVisible();
@@ -401,7 +415,8 @@ test.describe('Control - the audit', () => {
     await expect(rows.nth(0)).toContainText('exec-001-aaaa-bbbb');
     await expect(rows.nth(0)).toContainText('Applied');
     await expect(rows.nth(1)).toContainText('api');
-    await expect(rows.nth(2)).toContainText('Refused: not owner');
+    await expect(rows.nth(2)).toContainText('Refused');
+    await expect(rows.nth(2)).toContainText('not owner');
   });
 
   test('says when no command was recorded, and when the audit cannot be loaded', async ({
@@ -522,38 +537,42 @@ test.describe('Control - the activity', () => {
     await page.goto('/control?tab=activity');
 
     const list = page.getByTestId('activity-list');
-    await expect(list.getByRole('listitem')).toHaveCount(3);
-    await expect(list.getByRole('listitem').first()).toContainText(
+    await expect(list.locator('tbody tr')).toHaveCount(3);
+    await expect(list.locator('tbody tr').first()).toContainText(
       'PauseWorkflowCommand refused: not owner'
     );
-    await expect(list).toContainText('ingest → RUNNING');
-    await expect(list).toContainText('load → FAILURE');
+    await expect(list).toContainText('ingest');
+    await expect(list).toContainText('RUNNING');
+    await expect(list).toContainText('load');
+    await expect(list).toContainText('FAILURE');
     await expect(list.getByRole('link', { name: 'exec-222' })).toHaveAttribute(
       'href',
       '/runs?text=exec-2222-bbbb'
     );
   });
 
-  test('the type buttons narrow the feed and are kept in the URL', async ({
+  test('the kind buttons narrow the feed and are kept in the URL', async ({
     page,
   }) => {
     await mockControl(page);
     await stream(page, EVENTS);
     await page.goto('/control?tab=activity');
     const list = page.getByTestId('activity-list');
-    await expect(list.getByRole('listitem')).toHaveCount(3);
+    await expect(list.locator('tbody tr')).toHaveCount(3);
 
-    const types = page.getByRole('group', { name: 'Event types' });
-    await types.getByRole('button', { name: 'ControlOutcome' }).click();
+    const kinds = page.getByRole('group', { name: 'Event kinds' });
+    await kinds.getByRole('button', { name: /^Nodes/ }).click();
 
-    await expect(page).toHaveURL(/type=ControlOutcome/);
-    await expect(
-      types.getByRole('button', { name: 'ControlOutcome' })
-    ).toHaveAttribute('aria-pressed', 'true');
-    await expect(list.getByRole('listitem')).toHaveCount(1);
+    await expect(page).toHaveURL(/group=control/);
+    await expect(page).not.toHaveURL(/group=nodes/);
+    await expect(kinds.getByRole('button', { name: /^Nodes/ })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
+    await expect(list.locator('tbody tr')).toHaveCount(1);
 
-    await types.getByRole('button', { name: 'ControlOutcome' }).click();
-    await expect(list.getByRole('listitem')).toHaveCount(3);
+    await kinds.getByRole('button', { name: /^Nodes/ }).click();
+    await expect(list.locator('tbody tr')).toHaveCount(3);
   });
 
   test('the severity buttons narrow the feed, and two of them show both', async ({
@@ -566,40 +585,36 @@ test.describe('Control - the activity', () => {
     const severities = page.getByRole('group', { name: 'Severities' });
 
     await severities.getByRole('button', { name: 'ERROR' }).click();
-    await expect(list.getByRole('listitem')).toHaveCount(1);
-    await expect(list).toContainText('load → FAILURE');
+    await expect(list.locator('tbody tr')).toHaveCount(1);
+    await expect(list).toContainText('FAILURE');
 
     await severities.getByRole('button', { name: 'WARN' }).click();
-    await expect(list.getByRole('listitem')).toHaveCount(2);
+    await expect(list.locator('tbody tr')).toHaveCount(2);
   });
 
-  test('the execution field narrows the feed to one run, trimmed', async ({
+  test('the text field narrows the feed to one run, workflow or node, trimmed', async ({
     page,
   }) => {
     await mockControl(page);
     await stream(page, EVENTS);
     await page.goto('/control?tab=activity');
 
-    await page.getByLabel('Execution id').fill('  exec-1111  ');
+    await page.getByLabel('Run, workflow or node').fill('  exec-1111  ');
 
-    await expect(page).toHaveURL(/execution=exec-1111/);
+    await expect(page).toHaveURL(/q=exec-1111/);
     await expect(
-      page.getByTestId('activity-list').getByRole('listitem')
+      page.getByTestId('activity-list').locator('tbody tr')
     ).toHaveCount(1);
-    await expect(page.getByTestId('activity-list')).toContainText(
-      'ingest → RUNNING'
-    );
+    await expect(page.getByTestId('activity-list')).toContainText('ingest');
   });
 
   test('filters of a shared link are applied on load', async ({ page }) => {
     await mockControl(page);
     await stream(page, EVENTS);
-    await page.goto(
-      '/control?tab=activity&severity=ERROR&type=NodeStatusChanged'
-    );
+    await page.goto('/control?tab=activity&severity=ERROR&group=nodes');
 
     await expect(
-      page.getByTestId('activity-list').getByRole('listitem')
+      page.getByTestId('activity-list').locator('tbody tr')
     ).toHaveCount(1);
     await expect(
       page
@@ -613,7 +628,7 @@ test.describe('Control - the activity', () => {
     await stream(page, EVENTS);
     await page.goto('/control?tab=activity');
     await expect(
-      page.getByTestId('activity-list').getByRole('listitem')
+      page.getByTestId('activity-list').locator('tbody tr')
     ).toHaveCount(3);
 
     await page.getByRole('button', { name: 'Pause' }).click();

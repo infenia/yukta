@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { KpiTile } from '@/components/dashboard/KpiTile';
 import { RingProgress } from '@/components/dashboard/Gauges';
 import {
@@ -9,16 +10,13 @@ import {
   useMetricSeries,
   useMetricSnapshot,
 } from '@/features/metrics/hooks';
-import { GLOBAL, type Scope } from '@/features/metrics/api';
+import type { Scope } from '@/features/metrics/api';
 import { inScope } from './scopes';
 import { getOpenInputs } from '@/features/workflow/api/inputs';
-import { useWorkers } from '../api/workers';
-import { getLimits } from '../api/scheduler';
+import { getLimits, limitText } from '../api/scheduler';
 import {
-  addUp,
   formatChange,
   formatMs,
-  integrate,
   percentChange,
   slowerIsWorse,
   successRate,
@@ -40,23 +38,17 @@ function useWaitingText(scope: Scope, live: boolean) {
   return `${n}${all.length >= APPROVALS_LIMIT ? '+' : ''}`;
 }
 
-/** Model spend over the last hour; model meters have no session or workflow tag, so always the server's. */
-function useLlmSpend() {
-  const cost = useMetricSeries('llm.cost', '1h').data;
-  const points = Object.entries(cost ?? {})
-    .filter(([key]) => key.endsWith('|rate'))
-    .map(([, p]) => p);
-  return points.length > 0 ? integrate(addUp(points)) : null;
-}
+/** Said under the engine tile: what the number is and is not. */
+const ENGINE_TITLE =
+  "Engine overhead: how long a message waits between taking its node's turn and the plugin being called. It leaves out the plugin's own time, so a slow build does not show here.";
 
 /**
- * The headline numbers: throughput, success rate, latency, waiting approvals, load, workers and
- * model spend. Throughput and p95 carry their 1 h trend and the change over that hour.
+ * The headline numbers, six dense tiles: what is running and waiting, how runs ended, the engine's
+ * own overhead (not the plugins' time) and the inputs waiting for a person.
  */
 export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
   const snapshot = useMetricSnapshot(scope).data;
-  const finished = useMetricSeries('runs.finished', '1h', scope).data;
-  const p95 = useMetricSeries('duration.p95', '1h', scope).data;
+  const start = useMetricSeries('overhead.start.p95', '1h', scope).data;
   const day = useHeatmap('24h', scope, live).data;
   const limits = useQuery({
     queryKey: ['control', 'scheduler', 'limits'],
@@ -64,85 +56,88 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
     refetchInterval: live ? 5000 : false,
   }).data;
   const waitingText = useWaitingText(scope, live);
-  const spend = useLlmSpend();
-  const workers = useWorkers(live).data ?? [];
 
   const dayRuns = (day ?? []).reduce((n, c) => n + c.runs, 0);
   const dayFailed = (day ?? []).reduce((n, c) => n + c.failed, 0);
   const rate = successRate(dayRuns, dayFailed);
-  const slots = workers.reduce((n, w) => n + w.capacity, 0);
-  const used = workers.reduce((n, w) => n + w.usedSlots, 0);
-  const runsTrend = finished?.['runs.finished'] ?? [];
-  const p95Trend = p95?.['duration.p95'] ?? [];
-  const runsChange = percentChange(runsTrend);
-  const p95Change = percentChange(p95Trend);
+  const trend = start?.['overhead.start.p95'] ?? [];
+  const change = percentChange(trend);
+  const p95 = snapshot?.['overhead.start.p95'];
+  const handoff = snapshot?.['overhead.handoff.p95'];
+  const failed = snapshot?.['runs.failed'] ?? 0;
+  const finished = snapshot?.['runs.finished'] ?? 0;
 
-  // these tiles read the whole server; say so when the view is scoped
-  const scoped = (label: string) =>
-    scope === GLOBAL ? label : `${label} (whole server)`;
+  // running and waiting read the whole server's scheduler; say so when the view is scoped
+  const whole = scope === 'global' ? '' : ' (whole server)';
 
   return (
     <div
-      className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7"
+      className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6"
       data-testid="command-strip"
     >
       <KpiTile
-        label="Runs / min (1 h)"
-        value={((snapshot?.['runs.finished'] ?? 0) / 60).toFixed(1)}
-        delta={formatChange(runsChange)}
-        series={runsTrend.map((p) => p.v)}
-      />
-      <div className="border-border bg-card flex min-w-0 items-center gap-3 rounded-xl border p-3">
-        {/* the ring is 80 px on its own; a tile on a phone has room for 56 */}
-        <div className="shrink-0 [&>div]:size-14 lg:[&>div]:size-16">
-          <RingProgress
-            label="Success rate, 24 h"
-            value={rate ?? 0}
-            max={100}
-            tone={rate !== null && rate < 90 ? 'danger' : 'success'}
-          />
-        </div>
-        <div className="flex min-w-0 flex-col">
-          <span className="text-label-md text-on-surface-variant">
-            Success rate (24 h)
-          </span>
-          <span className="text-headline-md num text-on-surface">
-            {rate === null ? '–' : `${rate}%`}
-          </span>
-        </div>
-      </div>
-      <KpiTile
-        label="p95 duration (1 h)"
-        value={
-          snapshot?.['duration.p95'] === undefined
-            ? '–'
-            : formatMs(snapshot['duration.p95'])
+        compact
+        label={`Running${whole}`}
+        value={limits ? String(limits.running) : '–'}
+        hint={
+          limits
+            ? `of ${limitText(limits.maxConcurrent).toLowerCase()}`
+            : undefined
         }
-        delta={formatChange(p95Change)}
-        deltaTone={slowerIsWorse(p95Change)}
-        series={p95Trend.map((p) => p.v)}
       />
-      <div
-        role="group"
-        className="flex min-w-0"
-        aria-label={`Approvals waiting: ${waitingText}.`}
+      <KpiTile
+        compact
+        label={`Queued${whole}`}
+        value={limits ? String(limits.queued) : '–'}
+        hint={limits ? `holds ${limits.queueCapacity}` : undefined}
+      />
+      <KpiTile
+        compact
+        label="Success (24 h)"
+        value={rate === null ? '–' : `${rate}%`}
+        adornment={
+          <div className="size-9 shrink-0 [&>div]:size-9">
+            <RingProgress
+              label="Success rate, 24 h"
+              value={rate ?? 0}
+              max={100}
+              tone={rate !== null && rate < 90 ? 'danger' : 'success'}
+            />
+          </div>
+        }
+      />
+      <KpiTile
+        compact
+        label="Failed (1 h)"
+        value={String(failed)}
+        hint={`of ${finished} runs`}
+      />
+      <KpiTile
+        compact
+        title={ENGINE_TITLE}
+        label="Engine p95 (1 h)"
+        value={p95 === undefined ? '–' : formatMs(p95)}
+        delta={formatChange(change)}
+        deltaTone={slowerIsWorse(change)}
+        hint={
+          handoff === undefined
+            ? 'request to first plugin'
+            : `request to plugin · hand-off ${formatMs(handoff)}`
+        }
+        series={trend.map((p) => p.v)}
+      />
+      <Link
+        to="/inbox"
+        aria-label={`Inputs waiting: ${waitingText}. Open the inbox.`}
+        className="flex min-w-0 [&>div]:flex-1"
       >
-        <div className="flex-1 [&>div]:h-full">
-          <KpiTile label="Approvals waiting" value={waitingText} />
-        </div>
-      </div>
-      <KpiTile
-        label={scoped('Running / waiting')}
-        value={limits ? `${limits.running} / ${limits.queued}` : '–'}
-      />
-      <KpiTile
-        label={scoped('Worker slots in use')}
-        value={workers.length === 0 ? '–' : `${used} / ${slots}`}
-      />
-      <KpiTile
-        label={scoped('LLM spend (1 h)')}
-        value={spend === null ? '–' : spend.toFixed(2)}
-      />
+        <KpiTile
+          compact
+          label="Inputs waiting"
+          value={waitingText}
+          hint="open the inbox"
+        />
+      </Link>
     </div>
   );
 }

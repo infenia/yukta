@@ -120,24 +120,31 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
     // prefetch 1: a paused node must not have 32 elements already past the gate
     return input ->
         input.concatMap(
-            message ->
-                NodePolicies.apply(
-                    policy,
-                    node.nodeId(),
-                    message,
-                    attempt -> {
-                      if (retried(attempt)) {
-                        tracker.recordRetry(node.type());
-                      }
-                      return channel.outbound(
-                          node.nodeId(),
-                          executionId,
-                          processor.process(
-                              channel.inbound(node.nodeId(), executionId, Flux.just(attempt)),
-                              node.config()));
-                    },
-                    activity::touch,
-                    ledger),
+            message -> {
+              // the clock starts when the node's turn comes, so a message waiting behind its
+              // predecessor's plugin time is not counted as the engine's
+              final long began = System.nanoTime();
+              return NodePolicies.apply(
+                  policy,
+                  node.nodeId(),
+                  message,
+                  attempt -> {
+                    if (retried(attempt)) {
+                      tracker.recordRetry(node.type());
+                    } else {
+                      tracker.recordHandoff(
+                          executionId, Duration.ofNanos(System.nanoTime() - began));
+                    }
+                    return channel.outbound(
+                        node.nodeId(),
+                        executionId,
+                        processor.process(
+                            channel.inbound(node.nodeId(), executionId, Flux.just(attempt)),
+                            node.config()));
+                  },
+                  activity::touch,
+                  ledger);
+            },
             1);
   }
 
@@ -224,6 +231,7 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
           .log("Processing stream with processor plugin");
       final NodeMessageChannel channel = channelProvider.channelFor(node.nodeId(), node.config());
+      tracker.recordPluginStart(context.executionId());
       final Flux<Message<?>> buffered =
           NodePolicies.edgeBuffered(
               NodePolicy.edgeBuffer(node.config()),

@@ -45,6 +45,7 @@ import reactor.core.scheduler.Schedulers;
   RunAnalytics.Annotation.class,
   RunAnalytics.HeatCell.class,
   RunAnalytics.ModuleRow.class,
+  RunAnalytics.NodeRow.class,
   RunAnalytics.LiveRun.class
 })
 public class MetricsController {
@@ -190,6 +191,28 @@ public class MetricsController {
   }
 
   /**
+   * How each node of each workflow did, slowest first.
+   *
+   * @param range 15m, 1h, 6h or 24h
+   * @param scope the scope: the server, a session or a workflow
+   * @param limit most rows, 1 to 100
+   * @return one row per node, by 95th percentile duration
+   */
+  @GetMapping("/nodes")
+  @Operation(
+      summary = "Slowest nodes",
+      description = "Runs, failures and duration percentiles per node of a workflow of a session")
+  public Mono<ApiResponse<List<RunAnalytics.NodeRow>>> nodes(
+      @RequestParam(defaultValue = "1h") final String range,
+      @RequestParam(defaultValue = RunAnalytics.GLOBAL) final String scope,
+      @RequestParam(defaultValue = "10") final int limit) {
+    return withRange(
+        range,
+        duration -> analytics.nodes(scope, duration, Math.clamp(limit, 1, 100)),
+        "Node stats retrieved");
+  }
+
+  /**
    * Control commands within the range, for marking charts.
    *
    * @param range 15m, 1h, 6h or 24h
@@ -217,12 +240,13 @@ public class MetricsController {
         ApiResponse.success(
             200,
             "Live runs retrieved",
-            analytics.liveRuns().stream().map(this::withNodesTotal).toList()));
-  }
-
-  private RunAnalytics.LiveRun withNodesTotal(final RunAnalytics.LiveRun run) {
-    final WorkflowProgress progress = tracker.getProgressByExecutionId(run.executionId());
-    return progress == null ? run : run.withNodesTotal(progress.tasks().size());
+            analytics.liveRuns().stream()
+                .map(run -> {
+                  final WorkflowProgress progress =
+                      tracker.getProgressByExecutionId(run.executionId());
+                  return progress == null ? run : run.withNodesTotal(progress.tasks().size());
+                })
+                .toList()));
   }
 
   /**

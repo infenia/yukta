@@ -5,18 +5,12 @@ import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Tabs } from '@/components/ui/tabs';
 import { DashboardView } from '../dashboard/DashboardView';
-import { SupervisorsSummary } from '@/features/supervisors/components/SupervisorsSummary';
 import { ControlAuditPanel } from './ControlAuditPanel';
-import { SchedulerPanel } from './SchedulerPanel';
-import { InputsTile } from './InputsTile';
 import { WorkersPanel } from './WorkersPanel';
 import { ActivityPanel } from './ActivityPanel';
 import { ControlEventsProvider } from '../context/ControlEvents';
 
-/**
- * The tabs: the dashboard (with the detail tables under it), the live activity feed and the
- * control audit.
- */
+/** The tabs: the dashboard, the live activity feed and the control audit. */
 const TABS = ['overview', 'activity', 'audit'] as const;
 type Tab = (typeof TABS)[number];
 
@@ -62,12 +56,7 @@ export function ControlPage() {
           {tab === 'audit' && <ControlAuditPanel />}
           {tab === 'overview' && (
             <>
-              <InputsTile />
-              <SupervisorsSummary />
               <DashboardView />
-              {/* the detail tables: per-workflow limits and each worker's pools and plugins
-                  (supervisors have their own page) */}
-              <SchedulerPanel />
               <WorkersPanel />
             </>
           )}

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { Tip } from '@/components/ui/tooltip';
 import {
   PALETTE,
   paletteColor,
@@ -9,22 +10,81 @@ import {
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { usePlugin } from '@/features/plugins/hooks/usePlugins';
 import { useState } from 'react';
+import {
+  categoryAccent,
+  categoryTint,
+} from '@/features/workflow/lib/categoryAccent';
+import { pluginIcon, pluginLabel } from '@/features/workflow/lib/pluginIcons';
+import type { InspectorTab } from './validationIssues';
 import { Input } from '@/components/ui/input';
 import { textareaFieldClassName } from '@/components/ui/native-select';
 import type { DraftEdge, DraftNode } from '../types';
 import { ConfigForm, JsonField } from './ConfigForm';
 import { StateMessage } from '@/components/common/StateMessage';
 import { ENGINE_FIELDS } from './NodeInspector.helpers';
+import { TestPanel } from './TestPanel';
+import { payloadPaths, readPin, type StepReference } from '../lib/testPins';
+import type { DraftWorkflow } from '../types';
 
 type Config = Record<string, unknown>;
 
-type Tab = 'config' | 'connections' | 'policy' | 'json';
+type Tab = InspectorTab;
 const TABS: [Tab, string][] = [
   ['config', 'Config'],
   ['connections', 'Connections'],
   ['policy', 'Policy'],
   ['json', 'JSON'],
+  ['test', 'Test'],
 ];
+
+/**
+ * The node's ID, renamed when the user leaves the field or presses Enter. `onRename` answers
+ * with what is wrong (a taken or blank ID), or null once the node has the new ID.
+ */
+function NodeIdField({
+  nodeId,
+  onRename,
+}: {
+  nodeId: string;
+  onRename: (nodeId: string) => string | null;
+}) {
+  const [draft, setDraft] = useState(nodeId);
+  const [problem, setProblem] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col gap-1">
+      <label
+        htmlFor="node-id"
+        className="text-label-sm text-on-surface font-semibold"
+      >
+        Node ID
+      </label>
+      <Input
+        id="node-id"
+        value={draft}
+        aria-invalid={problem !== null}
+        aria-describedby="node-id-hint"
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => setProblem(onRename(draft))}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            setProblem(onRename(draft));
+          } else if (event.key === 'Escape') {
+            setDraft(nodeId);
+            setProblem(null);
+          }
+        }}
+      />
+      <span
+        id="node-id-hint"
+        className={`text-body-sm ${problem ? 'text-error' : 'text-on-surface-variant'}`}
+      >
+        {problem ??
+          'Names the node on the canvas, in edges and in logs. An expression that mentions the old ID is not renamed.'}
+      </span>
+    </div>
+  );
+}
 
 /** One edge in the Connections list: the other node, the port, and a way to remove it. */
 function EdgeRow({
@@ -71,23 +131,23 @@ function ColorSwatches({
       </span>
       <div role="radiogroup" aria-label={label} className="flex gap-2">
         {[null, ...PALETTE].map((color) => (
-          <button
-            key={color ?? 'none'}
-            type="button"
-            role="radio"
-            aria-checked={(value ?? null) === color}
-            aria-label={color ?? 'none'}
-            title={color ?? 'none'}
-            onClick={() => onChange(color)}
-            className="border-outline-variant focus-visible:ring-primary flex size-6 items-center justify-center rounded-full border focus-visible:ring-2 aria-checked:ring-2 aria-checked:ring-offset-2"
-            style={{ backgroundColor: paletteColor(color) }}
-          >
-            {color === null && (
-              <span aria-hidden="true" className="text-on-surface-variant">
-                ∅
-              </span>
-            )}
-          </button>
+          <Tip key={color ?? 'none'} label={color ?? 'none'}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={(value ?? null) === color}
+              aria-label={color ?? 'none'}
+              onClick={() => onChange(color)}
+              className="border-outline-variant focus-visible:ring-primary flex size-6 items-center justify-center rounded-full border focus-visible:ring-2 aria-checked:ring-2 aria-checked:ring-offset-2"
+              style={{ backgroundColor: paletteColor(color) }}
+            >
+              {color === null && (
+                <span aria-hidden="true" className="text-on-surface-variant">
+                  ∅
+                </span>
+              )}
+            </button>
+          </Tip>
         ))}
       </div>
     </div>
@@ -110,6 +170,9 @@ export function NodeInspector({
   edges = [],
   onRemoveEdge,
   onAddEdge,
+  onRename,
+  initialTab = 'config',
+  testRun,
 }: {
   node: DraftNode;
   onChange: (config: Config) => void;
@@ -128,8 +191,14 @@ export function NodeInspector({
   onRemoveEdge?: (edge: DraftEdge) => void;
   /** Start a new edge from this node (in the Edges tab, with its checks). */
   onAddEdge?: () => void;
+  /** Gives the node a new ID: answers with what is wrong with it, or null when it is done. */
+  onRename?: (nodeId: string) => string | null;
+  /** The tab it opens on (a problem sends you to the one where it is fixed). */
+  initialTab?: Tab;
+  /** The draft and its session: adds the Test tab, which runs the unsaved draft. */
+  testRun?: { sessionId: string; workflow: DraftWorkflow };
 }) {
-  const [tab, setTab] = useState<Tab>('config');
+  const [tab, setTab] = useState<Tab>(initialTab);
   const plugin = usePlugin(node.type);
   const { engine, ...pluginConfig } = node.config;
   const engineValues = (engine ?? {}) as Config;
@@ -140,21 +209,53 @@ export function NodeInspector({
       : nextPlugin;
 
   const schema = plugin.data?.configSchema ?? [];
+  // the steps right before this one, with the fields of what they last gave in a test
+  const references: StepReference[] | undefined = testRun
+    ? [
+        ...new Set(
+          edges.filter((e) => e.target === node.nodeId).map((e) => e.source)
+        ),
+      ].map((nodeId) => ({
+        nodeId,
+        paths: payloadPaths(
+          readPin(testRun.sessionId, testRun.workflow.workflowId, nodeId)
+            ?.output?.[0]
+        ),
+      }))
+    : undefined;
 
   return (
     <section className="flex flex-col gap-4" aria-label={`Node ${node.nodeId}`}>
-      <header className="flex items-center gap-2">
-        <h2 className="text-headline-md text-on-surface">{node.nodeId}</h2>
-        <span className="text-code-sm text-on-surface-variant">
-          {node.type}
-        </span>
-        <button
-          type="button"
-          onClick={onRemove}
-          className="text-label-sm text-error ml-auto font-semibold"
-        >
-          Remove node
-        </button>
+      <header className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined flex size-8 shrink-0 items-center justify-center rounded-lg text-xl"
+            style={{
+              color: categoryAccent(plugin.data?.category ?? null),
+              background: categoryTint(plugin.data?.category ?? null),
+            }}
+          >
+            {pluginIcon(node.type, plugin.data?.category ?? null)}
+          </span>
+          <h2 className="text-headline-md text-on-surface">{node.nodeId}</h2>
+          <span className="text-code-sm text-on-surface-variant">
+            {node.type}
+          </span>
+          <button
+            type="button"
+            onClick={onRemove}
+            className="text-label-sm text-error ml-auto font-semibold"
+          >
+            Remove node
+          </button>
+        </div>
+        {plugin.data?.description && (
+          <p className="text-body-sm text-on-surface-variant">
+            <span className="font-semibold">{pluginLabel(node.type)}.</span>{' '}
+            {plugin.data.description}
+          </p>
+        )}
       </header>
 
       <div
@@ -162,26 +263,29 @@ export function NodeInspector({
         aria-label="Node"
         className="border-border flex gap-4 border-b"
       >
-        {TABS.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            className={`text-label-md -mb-px border-b-2 py-2 ${
-              tab === key
-                ? 'border-primary text-on-surface'
-                : 'text-on-surface-variant hover:text-on-surface border-transparent'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+        {TABS.filter(([key]) => key !== 'test' || testRun).map(
+          ([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              className={`text-label-md -mb-px border-b-2 py-2 ${
+                tab === key
+                  ? 'border-primary text-on-surface'
+                  : 'text-on-surface-variant hover:text-on-surface border-transparent'
+              }`}
+            >
+              {label}
+            </button>
+          )
+        )}
       </div>
 
       {tab === 'config' && (
         <>
+          {onRename && <NodeIdField nodeId={node.nodeId} onRename={onRename} />}
           <div className="flex flex-col gap-1">
             <label
               htmlFor="node-group"
@@ -252,6 +356,7 @@ export function NodeInspector({
           ) : schema.length > 0 ? (
             <ConfigForm
               schema={schema}
+              references={references}
               values={pluginConfig}
               onChange={(next) => onChange(join(next, engineValues))}
             />
@@ -339,6 +444,15 @@ export function NodeInspector({
           schema={ENGINE_FIELDS}
           values={engineValues}
           onChange={(next) => onChange(join(pluginConfig, next))}
+        />
+      )}
+
+      {tab === 'test' && testRun && (
+        <TestPanel
+          key={node.nodeId}
+          sessionId={testRun.sessionId}
+          workflow={testRun.workflow}
+          nodeId={node.nodeId}
         />
       )}
 

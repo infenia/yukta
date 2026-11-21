@@ -18,6 +18,8 @@ import org.jspecify.annotations.Nullable;
  *     no key
  * @param applied whether it was applied; false if a reviewer or the run refused it
  * @param reason why it was refused, or null
+ * @param sessionId the session of the run, or null when the run is no longer known
+ * @param workflowId the workflow of the run, or null when the run is no longer known
  */
 public record ControlAuditEntry(
     Instant time,
@@ -25,11 +27,26 @@ public record ControlAuditEntry(
     String command,
     @Nullable String actor,
     boolean applied,
-    @Nullable String reason) {
+    @Nullable String reason,
+    @Nullable String sessionId,
+    @Nullable String workflowId) {
 
   /** Log text: {@code command [by actor]} then, for a refusal, {@code : reason}. */
   private static final Pattern STATUS =
       Pattern.compile("^(.*?)(?: \\[by ([^\\]]+)\\])?(?:: (.*))?$", Pattern.DOTALL);
+
+  /**
+   * The same entry with the session and workflow of its run.
+   *
+   * @param session the session, or null
+   * @param workflow the workflow, or null
+   * @return the entry
+   */
+  public ControlAuditEntry withRun(
+      final @Nullable String session, final @Nullable String workflow) {
+    return new ControlAuditEntry(
+        time, executionId, command, actor, applied, reason, session, workflow);
+  }
 
   /**
    * Read an entry from a control event of the execution log.
@@ -46,6 +63,8 @@ public record ControlAuditEntry(
         match.group(1),
         match.group(2),
         event.type() == ExecutionLogEvent.Type.CONTROL_APPLIED,
-        match.group(3));
+        match.group(3),
+        null,
+        null);
   }
 }
