@@ -10,14 +10,18 @@ import {
   afterAll,
   afterEach,
 } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { expectTooltip, renderWithProviders } from '@/test/utils/testUtils';
 import { RunControls } from '../RunControls';
 import { RunButton } from '../RunButton';
-import { parsePayload } from '../RunButton.helpers';
+import {
+  modifierLabel,
+  parsePayload,
+  payloadValues,
+} from '../RunButton.helpers';
 
 const calls: string[] = [];
 let startStatus = 200;
@@ -33,14 +37,31 @@ const ok = (data: unknown) =>
     path: '/',
   });
 
+let definitionNodes: { nodeId: string; type: string; config: unknown }[] = [
+  {
+    nodeId: 'n',
+    type: 't',
+    config: { a: '${start.label}', b: '${start.opts.n:int}' },
+  },
+];
+let definitionEdges: { source: string; target: string }[] = [];
+let definitionStatus = 200;
+let startBodies: unknown[] = [];
+
 let runs: { executionId: string; status: string }[] = [];
 
 const server = setupServer(
-  http.post('/api/workflow/start', () =>
-    startStatus === 200
-      ? ok({ executionId: 'new-run' })
-      : HttpResponse.json({ message: 'Too busy' }, { status: startStatus })
+  http.get('/api/sessions/:sid/workflows/:wid', () =>
+    definitionStatus === 200
+      ? ok({ workflowId: 'wf', nodes: definitionNodes, edges: definitionEdges })
+      : HttpResponse.json({ message: 'no' }, { status: definitionStatus })
   ),
+  http.post('/api/workflow/start', async ({ request }) => {
+    startBodies.push(await request.json());
+    return startStatus === 200
+      ? ok({ executionId: 'new-run' })
+      : HttpResponse.json({ message: 'Too busy' }, { status: startStatus });
+  }),
   http.post('/api/workflow/:sid/:wid/stop', ({ request }) => {
     calls.push(`stop-all ${new URL(request.url).search}`);
     return ok({ executionIds: [] });
@@ -74,9 +95,20 @@ beforeAll(() => server.listen());
 afterEach(() => {
   runs = [];
   calls.length = 0;
+  startBodies = [];
+  definitionStatus = 200;
+  definitionEdges = [];
+  definitionNodes = [
+    {
+      nodeId: 'n',
+      type: 't',
+      config: { a: '${start.label}', b: '${start.opts.n:int}' },
+    },
+  ];
   startStatus = 200;
   priorityStatus = 200;
   recoverStatus = 200;
+  server.resetHandlers();
 });
 afterAll(() => server.close());
 
@@ -119,6 +151,22 @@ describe('RunButton', () => {
     expect(
       screen.getByRole('button', { name: 'Run workflow' })
     ).toHaveTextContent('Run');
+  });
+});
+
+describe('modifierLabel and payloadValues', () => {
+  it('shows the Command symbol on Apple devices and Ctrl elsewhere', () => {
+    expect(modifierLabel('Mozilla/5.0 (Macintosh; Intel Mac OS X)')).toBe('⌘');
+    expect(modifierLabel('Mozilla/5.0 (iPhone; CPU iPhone OS)')).toBe('⌘');
+    expect(modifierLabel('Mozilla/5.0 (X11; Linux x86_64)')).toBe('Ctrl');
+  });
+
+  it('leaves out inputs whose payload value is null', () => {
+    const inputs = [
+      { path: 'a', type: 'text' as const, optional: true },
+      { path: 'b', type: 'number' as const, optional: true },
+    ];
+    expect(payloadValues(inputs, { a: null, b: 2 })).toEqual({ b: '2' });
   });
 });
 
@@ -396,6 +444,8 @@ describe('RunControls', () => {
     const user = userEvent.setup();
     const onStarted = setup(null, null);
     await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    await user.click(await screen.findByRole('button', { name: '{} JSON' }));
+    await user.clear(screen.getByLabelText(/trigger payload/i));
     await user.click(screen.getByLabelText(/trigger payload/i));
     await user.paste('{"a":1}');
     await user.click(screen.getByRole('button', { name: 'Run' }));
@@ -407,14 +457,159 @@ describe('RunControls', () => {
     const user = userEvent.setup();
     const onStarted = setup(null, null);
     await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    await user.click(await screen.findByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('new-run'));
+    expect(startBodies).toHaveLength(1);
+  });
+
+  it('builds the payload from the form, typed and nested, and marks what is not set', async () => {
+    const user = userEvent.setup();
+    setup(null, null);
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    await user.type(await screen.findByLabelText('label'), 'lint');
+    expect(screen.getByText('1 not set')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('opts.n'), '3');
+    expect(screen.queryByText(/not set/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(startBodies).toHaveLength(1));
+    expect(JSON.stringify(startBodies[0])).toContain(
+      '"payload":{"label":"lint","opts":{"n":3}}'
+    );
+  });
+
+  it('carries the form values to the JSON editor and back', async () => {
+    const user = userEvent.setup();
+    setup(null, null);
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    await user.type(await screen.findByLabelText('label'), 'lint');
+    await user.click(screen.getByRole('button', { name: '{} JSON' }));
+    expect(screen.getByLabelText(/trigger payload/i)).toHaveValue(
+      '{\n  "label": "lint",\n  "opts": {\n    "n": 0\n  }\n}'
+    );
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+    expect(screen.getByLabelText('label')).toHaveValue('lint');
+  });
+
+  it('sends a toggle from the form as a boolean', async () => {
+    const user = userEvent.setup();
+    definitionNodes = [
+      { nodeId: 'n', type: 't', config: { a: '${start.on:bool}' } },
+    ];
+    setup(null, null);
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    await user.selectOptions(await screen.findByLabelText('on'), 'On');
+    await user.click(screen.getByRole('button', { name: 'Run' }));
+    await waitFor(() => expect(startBodies).toHaveLength(1));
+    expect(JSON.stringify(startBodies[0])).toContain('"payload":{"on":true}');
+  });
+
+  it('reports a payload that is not valid JSON when switching back to the form', async () => {
+    const user = userEvent.setup();
+    setup(null, null);
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    await user.click(await screen.findByRole('button', { name: '{} JSON' }));
+    await user.click(screen.getByLabelText(/trigger payload/i));
+    await user.paste('{');
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('not valid JSON');
+    expect(screen.getByLabelText(/trigger payload/i)).toBeInTheDocument();
+  });
+
+  it('shows an optional payload input with its default, and does not count it as not set', async () => {
+    const user = userEvent.setup();
+    definitionNodes = [
+      { nodeId: 'in', type: 'API_TRIGGER', config: {} },
+      {
+        nodeId: 'm',
+        type: 'MAPPER',
+        config: { t: "payload['text'] != null ? payload['text'] : 'Yukta'" },
+      },
+    ];
+    definitionEdges = [{ source: 'in', target: 'm' }];
+    setup(null, null);
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    expect(await screen.findByLabelText('text')).toHaveAttribute(
+      'placeholder',
+      'Yukta'
+    );
+    expect(screen.getByRole('img', { name: 'Optional' })).toBeVisible();
+    expect(screen.queryByText(/not set/)).not.toBeInTheDocument();
+  });
+
+  it('starts the JSON editor with every input as a key, and submits on Enter and Ctrl+Enter', async () => {
+    const user = userEvent.setup();
+    const onStarted = setup(null, null);
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    await user.type(await screen.findByLabelText('label'), 'lint{Enter}');
+    await waitFor(() => expect(onStarted).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    await user.click(await screen.findByRole('button', { name: '{} JSON' }));
+    expect(
+      JSON.parse(
+        (screen.getByLabelText(/trigger payload/i) as HTMLTextAreaElement).value
+      )
+    ).toEqual({
+      label: '',
+      opts: { n: 0 },
+    });
+    await user.click(screen.getByLabelText(/trigger payload/i));
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    await waitFor(() => expect(onStarted).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not submit again while the start is pending', async () => {
+    const user = userEvent.setup();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post('/api/workflow/start', async ({ request }) => {
+        startBodies.push(await request.json());
+        await gate;
+        return ok({ executionId: 'held' });
+      })
+    );
+    const onStarted = setup(null, null);
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    const field = await screen.findByLabelText('label');
+    await user.type(field, 'lint{Enter}');
+    fireEvent.submit(field.closest('form') as HTMLFormElement);
+    await user.keyboard('{Control>}{Enter}{/Control}');
+    release();
+    await waitFor(() => expect(onStarted).toHaveBeenCalledTimes(1));
+    expect(startBodies).toHaveLength(1);
+  });
+
+  it('says no inputs are needed, and still offers the JSON editor', async () => {
+    const user = userEvent.setup();
+    definitionNodes = [{ nodeId: 'n', type: 't', config: { a: 1 } }];
+    const onStarted = setup(null, null);
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    expect(await screen.findByText('No inputs needed')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '{} JSON' }));
+    expect(screen.getByLabelText(/trigger payload/i)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Run' }));
     await waitFor(() => expect(onStarted).toHaveBeenCalledWith('new-run'));
+  });
+
+  it('falls back to the JSON editor when the definition cannot be read', async () => {
+    const user = userEvent.setup();
+    definitionStatus = 500;
+    setup(null, null);
+    await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    expect(await screen.findByLabelText(/trigger payload/i)).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: 'Form' })
+    ).not.toBeInTheDocument();
   });
 
   it('reports invalid JSON and non-object payloads without calling the server', async () => {
     const user = userEvent.setup();
     const onStarted = setup(null, null);
     await user.click(screen.getByRole('button', { name: 'Run workflow' }));
+    await user.click(await screen.findByRole('button', { name: '{} JSON' }));
     const box = screen.getByLabelText(/trigger payload/i);
 
     await user.click(box);

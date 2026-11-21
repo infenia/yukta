@@ -54,6 +54,9 @@ const server = setupServer(
       },
     ])
   ),
+  http.get('/api/sessions/s1/workflows/wf1', () =>
+    ok({ workflowId: 'wf1', nodes: [] })
+  ),
   http.get('/api/sessions/s1/config', () => ok(config)),
   http.post('/api/workflow/start', async ({ request }) => {
     started.push(await request.json());
@@ -101,7 +104,9 @@ describe('SessionDetailsPage run and copy as', () => {
     const { user } = renderPage();
     await user.click(await screen.findByRole('button', { name: 'Run wf1' }));
     await user.click(
-      within(screen.getByRole('dialog')).getByRole('button', { name: 'Run' })
+      within(await screen.findByRole('dialog')).getByRole('button', {
+        name: 'Run',
+      })
     );
     await waitFor(() =>
       expect(screen.getByTestId('where')).toHaveTextContent(

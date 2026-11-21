@@ -237,6 +237,9 @@ const ok = (data: unknown) =>
   });
 
 const server = setupServer(
+  http.get('/api/sessions/:sid/workflows/:wid', () =>
+    ok({ workflowId: 'wf1', nodes: [{ nodeId: 'n', type: 't', config: {} }] })
+  ),
   http.post('/api/workflow/start', () => ok({ executionId: 'new-run' }))
 );
 
@@ -323,7 +326,7 @@ describe('WorkflowTable navigation', () => {
   it('opens the new run when a run started from the row succeeds', async () => {
     renderNavigable();
     fireEvent.click(screen.getByRole('button', { name: 'Run wf1' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run' }));
     await waitFor(() =>
       expect(currentPath()).toBe('/sessions/sess%201/workflow/wf1?exec=new-run')
     );
