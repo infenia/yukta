@@ -2,7 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { parseSample, payloadPaths, readPin, writePin } from '../testPins';
+import {
+  PIN_EVENT,
+  parseSample,
+  payloadPaths,
+  pinnedNodeIds,
+  readPin,
+  writePin,
+} from '../testPins';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -45,5 +52,17 @@ describe('testPins', () => {
     expect(payloadPaths({ a: { b: { c: { d: { e: 1 } } } } })).toEqual([
       'a.b.c.d',
     ]);
+  });
+});
+
+describe('pinned nodes', () => {
+  it('lists the nodes with an output and tells the canvas when a pin is written', () => {
+    const seen = vi.fn();
+    window.addEventListener(PIN_EVENT, seen);
+    writePin('s', 'w', 'a', { sample: '{}', output: [1] });
+    writePin('s', 'w', 'b', { sample: '{}' });
+    window.removeEventListener(PIN_EVENT, seen);
+    expect(seen).toHaveBeenCalledTimes(2);
+    expect(pinnedNodeIds('s', 'w', ['a', 'b', 'c'])).toEqual(new Set(['a']));
   });
 });

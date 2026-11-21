@@ -7,6 +7,9 @@ export interface TestPin {
   output?: unknown[];
 }
 
+/** Fired when a pin is written, so the canvas can mark the node. */
+export const PIN_EVENT = 'yukta:testpin';
+
 const key = (sessionId: string, workflowId: string, nodeId: string) =>
   `yukta.testpin/${sessionId}/${workflowId}/${nodeId}`;
 
@@ -34,6 +37,7 @@ export function writePin(
       key(sessionId, workflowId, nodeId),
       JSON.stringify(pin)
     );
+    window.dispatchEvent(new Event(PIN_EVENT));
   } catch {
     // storage is only a convenience
   }
@@ -67,4 +71,17 @@ export function payloadPaths(value: unknown, prefix = '', depth = 0): string[] {
 export interface StepReference {
   nodeId: string;
   paths: string[];
+}
+
+/** The nodes of a draft that hold a pinned output. */
+export function pinnedNodeIds(
+  sessionId: string,
+  workflowId: string,
+  nodeIds: string[]
+): Set<string> {
+  return new Set(
+    nodeIds.filter(
+      (id) => (readPin(sessionId, workflowId, id)?.output?.length ?? 0) > 0
+    )
+  );
 }

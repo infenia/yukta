@@ -3,7 +3,7 @@
 
 import { ReferencePicker } from './ReferencePicker';
 import type { StepReference } from '../lib/testPins';
-import { useContext, useEffect, useId, useState } from 'react';
+import { useContext, useEffect, useId, useRef, useState } from 'react';
 import {
   NativeSelect,
   inputFieldClassName,
@@ -285,6 +285,48 @@ function GroupField({
   );
 }
 
+/** An expression box; the picker inserts `payload.<field>` where the caret is. */
+function ExpressionField({
+  id,
+  value,
+  onChange,
+  references,
+}: {
+  id: string;
+  value: unknown;
+  onChange: (value: unknown) => void;
+  references?: StepReference[];
+}) {
+  const box = useRef<HTMLTextAreaElement>(null);
+  const text = typeof value === 'string' ? value : '';
+  const insert = (expression: string) => {
+    const start = box.current?.selectionStart ?? text.length;
+    const end = box.current?.selectionEnd ?? text.length;
+    onChange(`${text.slice(0, start)}${expression}${text.slice(end)}`);
+  };
+  return (
+    <>
+      <textarea
+        ref={box}
+        id={id}
+        rows={2}
+        spellCheck={false}
+        className={TEXTAREA}
+        value={text}
+        onChange={(event) => onChange(event.target.value || undefined)}
+      />
+      {references && references.length > 0 && (
+        <ReferencePicker references={references} onPick={insert} />
+      )}
+      <span className="text-body-sm text-on-surface-variant">
+        An expression on the message, such as{' '}
+        <code className="text-code-sm">payload.x</code> or{' '}
+        <code className="text-code-sm">metadata.x</code>.
+      </span>
+    </>
+  );
+}
+
 function FieldInput({
   id,
   field,
@@ -359,33 +401,12 @@ function FieldInput({
       );
     case 'EXPRESSION':
       return (
-        <>
-          <textarea
-            id={id}
-            rows={2}
-            spellCheck={false}
-            className={TEXTAREA}
-            value={typeof value === 'string' ? value : ''}
-            onChange={(event) => onChange(event.target.value || undefined)}
-          />
-          {references && references.length > 0 && (
-            <ReferencePicker
-              references={references}
-              onPick={(expression) =>
-                onChange(
-                  typeof value === 'string' && value
-                    ? `${value} ${expression}`
-                    : expression
-                )
-              }
-            />
-          )}
-          <span className="text-body-sm text-on-surface-variant">
-            An expression on the message, such as{' '}
-            <code className="text-code-sm">payload.x</code> or{' '}
-            <code className="text-code-sm">metadata.x</code>.
-          </span>
-        </>
+        <ExpressionField
+          id={id}
+          value={value}
+          onChange={onChange}
+          references={references}
+        />
       );
     default:
       return (

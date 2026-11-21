@@ -53,7 +53,9 @@ describe('ReferencePicker', () => {
         references={references}
       />
     );
+    // the caret sits after "a "
+    screen.getByRole('textbox').setSelectionRange(2, 2);
     await userEvent.click(screen.getByRole('button', { name: 'n' }));
-    expect(onChange).toHaveBeenLastCalledWith({ when: 'a > payload.n' });
+    expect(onChange).toHaveBeenLastCalledWith({ when: 'a payload.n>' });
   });
 });

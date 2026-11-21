@@ -28,6 +28,8 @@ import type {
 } from '../types';
 import { JsonValidityContext } from './ConfigForm.helpers';
 import { NodeInspector } from './NodeInspector';
+import { PinnedNodes } from '@/features/workflow/hooks/pinnedNodes';
+import { PIN_EVENT, pinnedNodeIds } from '../lib/testPins';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Callout } from '@/components/common/Callout';
 import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPicker';
@@ -86,6 +88,23 @@ function Editor({
   );
   const history = useDraftHistory(restored ?? initial);
   const workflow = history.value;
+  // nodes holding a pinned test output; a finished test run writes one, which fires PIN_EVENT
+  const [pinTick, setPinTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setPinTick((n) => n + 1);
+    window.addEventListener(PIN_EVENT, bump);
+    return () => window.removeEventListener(PIN_EVENT, bump);
+  }, []);
+  const pinned = useMemo(
+    () =>
+      pinnedNodeIds(
+        session.sessionId,
+        workflow.workflowId,
+        workflow.nodes.map((n) => n.nodeId)
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session.sessionId, workflow.workflowId, workflow.nodes, pinTick]
+  );
   const [showRestored, setShowRestored] = useState(restored !== null);
   const firstNode = initial.nodes[0]?.nodeId ?? null;
   const [selected, setSelected] = useState<string | null>(firstNode);
@@ -830,34 +849,18 @@ function Editor({
           )}
           {/* Re-keyed when a node is added or removed, so the view fits again; selecting keeps the
               view where the user put it */}
-          <NodeSupervisors value={nodeSupervisors}>
-            <NodeAdder.Provider
-              value={(from) => (
-                <StepPicker
-                  plugins={plugins.data ?? []}
-                  allowed={['PROCESSOR', 'TERMINAL']}
-                  onPick={(type) => addNode(type, from.nodeId)}
-                >
-                  <button
-                    type="button"
-                    aria-label={`Add a step after ${from.nodeId}`}
-                    className={PLUS_BUTTON}
-                  >
-                    +
-                  </button>
-                </StepPicker>
-              )}
-            >
-              <EdgeAdder.Provider
-                value={(edge) => (
+          <PinnedNodes value={pinned}>
+            <NodeSupervisors value={nodeSupervisors}>
+              <NodeAdder.Provider
+                value={(from) => (
                   <StepPicker
                     plugins={plugins.data ?? []}
-                    allowed={['PROCESSOR']}
-                    onPick={(type) => insertOnEdge(edge, type)}
+                    allowed={['PROCESSOR', 'TERMINAL']}
+                    onPick={(type) => addNode(type, from.nodeId)}
                   >
                     <button
                       type="button"
-                      aria-label={`Add a step between ${edge.source} and ${edge.target}`}
+                      aria-label={`Add a step after ${from.nodeId}`}
                       className={PLUS_BUTTON}
                     >
                       +
@@ -865,32 +868,50 @@ function Editor({
                   </StepPicker>
                 )}
               >
-                <WorkflowCanvas
-                  key={workflow.nodes.length}
-                  graph={graph}
-                  tasksByNode={NO_TASKS}
-                  stageView={stageView}
-                  onConnect={(source, target, sourcePort) =>
-                    addEdge({ source, target, sourcePort })
-                  }
-                  onNodeClick={setSelected}
-                  focusOn={
-                    selected
-                      ? [
-                          selected,
-                          ...workflow.edges
-                            .filter((e) => e.source === selected)
-                            .map((e) => e.target),
-                          ...workflow.edges
-                            .filter((e) => e.target === selected)
-                            .map((e) => e.source),
-                        ]
-                      : undefined
-                  }
-                />
-              </EdgeAdder.Provider>
-            </NodeAdder.Provider>
-          </NodeSupervisors>
+                <EdgeAdder.Provider
+                  value={(edge) => (
+                    <StepPicker
+                      plugins={plugins.data ?? []}
+                      allowed={['PROCESSOR']}
+                      onPick={(type) => insertOnEdge(edge, type)}
+                    >
+                      <button
+                        type="button"
+                        aria-label={`Add a step between ${edge.source} and ${edge.target}`}
+                        className={PLUS_BUTTON}
+                      >
+                        +
+                      </button>
+                    </StepPicker>
+                  )}
+                >
+                  <WorkflowCanvas
+                    key={workflow.nodes.length}
+                    graph={graph}
+                    tasksByNode={NO_TASKS}
+                    stageView={stageView}
+                    onConnect={(source, target, sourcePort) =>
+                      addEdge({ source, target, sourcePort })
+                    }
+                    onNodeClick={setSelected}
+                    focusOn={
+                      selected
+                        ? [
+                            selected,
+                            ...workflow.edges
+                              .filter((e) => e.source === selected)
+                              .map((e) => e.target),
+                            ...workflow.edges
+                              .filter((e) => e.target === selected)
+                              .map((e) => e.source),
+                          ]
+                        : undefined
+                    }
+                  />
+                </EdgeAdder.Provider>
+              </NodeAdder.Provider>
+            </NodeSupervisors>
+          </PinnedNodes>
         </div>
 
         <aside

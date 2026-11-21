@@ -7,6 +7,7 @@ import { Link } from 'react-router';
 import { NodeSupervisors } from '../../hooks/useNodeSupervisors';
 import { NodeAdder } from '../../lib/stepAdders';
 import { NodeOwner } from './NodeOwner';
+import { PinnedNodes } from '../../hooks/pinnedNodes';
 import { SubWorkflowLinks } from '../../hooks/useSubWorkflowLinks';
 import type { NodeProps } from '@xyflow/react';
 import { AgentsByNode } from '../../lib/agentsByNode';
@@ -99,6 +100,7 @@ export function WorkflowNodeCard({
   const agent = useContext(AgentsByNode)[node.nodeId];
   const subWorkflowHref = useContext(SubWorkflowLinks).get(node.nodeId);
   const owner = useContext(NodeSupervisors).get(node.nodeId);
+  const pinned = useContext(PinnedNodes).has(node.nodeId);
   const adder = useContext(NodeAdder);
   const isTrigger = node.category === 'TRIGGER';
   const icon = pluginIcon(node.type, node.category);
@@ -209,6 +211,23 @@ export function WorkflowNodeCard({
             {port}
           </span>
         ))}
+
+      {pinned && (
+        <Tip label="Has a pinned test output">
+          <span
+            role="img"
+            aria-label="Has a pinned test output"
+            className="border-outline-variant bg-surface shadow-card text-success absolute -top-3 left-3 z-10 inline-flex size-6 items-center justify-center rounded-full border"
+          >
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-base"
+            >
+              check_circle
+            </span>
+          </span>
+        </Tip>
+      )}
 
       {owner && (
         // on the top edge, at the right corner, clear of the output ports
