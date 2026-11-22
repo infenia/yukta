@@ -69,9 +69,12 @@ async function startRun(page: Page, payload?: string): Promise<string> {
   const dialog = page.getByRole('dialog');
   if (payload) {
     // the dialog shows a form of the start inputs; the JSON editor is one click away
+    // the start inputs load first: wait for the button or the editor, whichever shows
     const json = dialog.getByRole('button', { name: '{} JSON' });
+    const editor = dialog.getByLabel('Trigger payload (JSON)');
+    await json.or(editor).waitFor();
     if (await json.isVisible()) await json.click();
-    await dialog.getByLabel('Trigger payload (JSON)').fill(payload);
+    await editor.fill(payload);
   }
   await dialog.getByRole('button', { name: 'Run', exact: true }).click();
   await page.waitForURL(/[?&]exec=/);
