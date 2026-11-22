@@ -72,6 +72,10 @@ start_run invalid.json; wait_done
 expect invalid "decision=NEEDS_INFO" "PR PR-1004: NEEDS_INFO by validator"
 grep -qF "score=" <<<"$LOGS" && { echo "    FAIL invalid: it was scored"; exit 1; }
 
+echo "--> an empty payload is set aside as well, not failed (it has no prId to copy)"
+start_run empty.json; wait_done
+expect empty "decision=NEEDS_INFO" "PR unknown: NEEDS_INFO by validator"
+
 echo "--> borderline (score 60): reviewer approves"
 start_run borderline.json; wait_approval reviewer
 advice=$(api GET "/api/sessions/$SID/inputs?state=ESCALATED" | jq -r --arg e "$EID" '[.data[] | select(.executionId == $e and .nodeId == "reviewer")][0].advice // ""')

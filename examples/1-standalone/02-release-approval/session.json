@@ -10,16 +10,21 @@
   "workflows": {
     "release": {
       "workflowId": "release",
+      "groupColors": { "Build and test": "sky", "Staging": "teal", "Approval": "magenta", "Production": "violet", "Rollback": "stone", "Result": "stone" },
       "description": "Build, test, staging, approval gate, deploy, smoke check, rollback",
       "nodes": [
         {
           "nodeId": "trigger",
           "type": "API_TRIGGER",
+          "color": "sky",
+          "group": "Build and test",
           "config": {}
         },
         {
           "nodeId": "build",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Build and test",
           "config": {
             "command": [
               "sh",
@@ -35,6 +40,8 @@
         {
           "nodeId": "test",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Build and test",
           "config": {
             "command": [
               "sh",
@@ -52,6 +59,8 @@
         {
           "nodeId": "staging",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Staging",
           "config": {
             "command": [
               "sh",
@@ -67,6 +76,8 @@
         {
           "nodeId": "blocked",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Staging",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -78,6 +89,8 @@
         {
           "nodeId": "approve",
           "type": "WAIT_FOR_SIGNAL",
+          "color": "magenta",
+          "group": "Approval",
           "config": {
             "signal": "approve-release",
             "timeoutSeconds": 900,
@@ -91,6 +104,8 @@
         {
           "nodeId": "after-approval",
           "type": "BRANCH",
+          "color": "violet",
+          "group": "Approval",
           "config": {
             "mode": "EXPRESSION",
             "cases": {
@@ -103,6 +118,8 @@
         {
           "nodeId": "expired",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Approval",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -114,6 +131,8 @@
         {
           "nodeId": "deploy",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Production",
           "config": {
             "command": [
               "sh",
@@ -129,6 +148,8 @@
         {
           "nodeId": "smoke",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Production",
           "config": {
             "command": [
               "sh",
@@ -144,6 +165,8 @@
         {
           "nodeId": "live",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Production",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -155,6 +178,8 @@
         {
           "nodeId": "rollback",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Rollback",
           "config": {
             "command": [
               "sh",
@@ -169,6 +194,8 @@
         {
           "nodeId": "rolled-back",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Rollback",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -180,6 +207,8 @@
         {
           "nodeId": "outbox",
           "type": "FILE_WRITE",
+          "color": "teal",
+          "group": "Result",
           "config": {
             "baseDir": "/tmp/yukta-examples/release-approval",
             "path": "notices.log",
@@ -190,6 +219,8 @@
         {
           "nodeId": "finish",
           "type": "BRANCH",
+          "color": "violet",
+          "group": "Result",
           "config": {
             "mode": "SELECT_KEY",
             "selector": "payload.result",
@@ -205,6 +236,8 @@
         {
           "nodeId": "released",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
+          "group": "Result",
           "config": {
             "outcome": "SUCCESS",
             "reason": "approved, deployed, smoke check green"
@@ -213,6 +246,8 @@
         {
           "nodeId": "not-released",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
+          "group": "Result",
           "config": {
             "outcome": "FAILED",
             "reason": "blocked before approval, or rolled back after deploy"
@@ -221,6 +256,8 @@
         {
           "nodeId": "needs-owner",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
+          "group": "Result",
           "config": {
             "outcome": "ESCALATE",
             "reason": "approval window closed"
@@ -229,6 +266,8 @@
         {
           "nodeId": "rejected",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
+          "group": "Result",
           "config": {
             "outcome": "FAILED",
             "reason": "approver rejected the release; nothing was deployed"

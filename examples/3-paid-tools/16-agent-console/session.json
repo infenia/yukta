@@ -10,25 +10,29 @@
       "workflowId": "chain",
       "description": "review then fix, each run by an agent",
       "nodes": [
-        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        { "nodeId": "trigger", "type": "API_TRIGGER", "color": "sky", "config": {} },
         {
           "nodeId": "review",
           "type": "AGENT_SESSION",
+          "color": "teal",
           "config": { "harness": "fake-agent", "prompt": "the diff", "timeout": 60 }
         },
         {
           "nodeId": "fix",
           "type": "AGENT_SESSION",
+          "color": "teal",
           "config": { "harness": "fake-agent", "prompt": "the review", "timeout": 60 }
         },
         {
           "nodeId": "done",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": { "outcome": "SUCCESS", "reason": "both agents finished" }
         },
         {
           "nodeId": "failed",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": { "outcome": "ESCALATE", "reason": "an agent failed" }
         }
       ],

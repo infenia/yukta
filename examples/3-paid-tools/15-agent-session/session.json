@@ -15,11 +15,13 @@
         {
           "nodeId": "trigger",
           "type": "API_TRIGGER",
+          "color": "sky",
           "config": {}
         },
         {
           "nodeId": "agent",
           "type": "AGENT_SESSION",
+          "color": "teal",
           "config": {
             "harness": "claude-code",
             "prompt": "${payload.task}",
@@ -35,6 +37,7 @@
         {
           "nodeId": "done",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "SUCCESS",
             "reason": "the agent finished"
@@ -43,6 +46,7 @@
         {
           "nodeId": "failed",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "ESCALATE",
             "reason": "the agent or the harness failed"
@@ -51,6 +55,7 @@
         {
           "nodeId": "stopped-early",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "RETRY",
             "reason": "the agent stopped before it was done (out of turns)"

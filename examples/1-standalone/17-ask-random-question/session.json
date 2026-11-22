@@ -15,11 +15,13 @@
         {
           "nodeId": "start",
           "type": "CONSTANT_SOURCE",
+          "color": "sky",
           "config": {}
         },
         {
           "nodeId": "want-question",
           "type": "ASK_INPUT",
+          "color": "magenta",
           "config": {
             "prompt": "Do you want a random question?",
             "kind": "CHOICE",
@@ -34,6 +36,7 @@
         {
           "nodeId": "decide",
           "type": "BRANCH",
+          "color": "violet",
           "config": {
             "mode": "EXPRESSION",
             "cases": {
@@ -46,6 +49,7 @@
         {
           "nodeId": "shuffle",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "shuf",
@@ -63,6 +67,7 @@
         {
           "nodeId": "pick-question",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -73,6 +78,7 @@
         {
           "nodeId": "ask-question",
           "type": "ASK_INPUT",
+          "color": "magenta",
           "config": {
             "prompt": "${payload.question}",
             "kind": "TEXT",
@@ -83,6 +89,7 @@
         {
           "nodeId": "print",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "echo",
@@ -93,11 +100,13 @@
         {
           "nodeId": "answered",
           "type": "CONSOLE_TERMINAL",
+          "color": "stone",
           "config": {}
         },
         {
           "nodeId": "stopped",
           "type": "CONSOLE_TERMINAL",
+          "color": "stone",
           "config": {}
         }
       ],

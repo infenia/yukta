@@ -60,6 +60,11 @@ start_run invalid.json; wait_done
 expect invalid "decision=NEEDS_INFO"
 [[ $(lines changelog.log) == 1 ]] || { echo "    FAIL invalid: a merge was recorded"; exit 1; }
 
+echo "--> an empty payload is set aside as well, not failed"
+start_run empty.json; wait_done
+expect empty "decision=NEEDS_INFO"
+[[ $(lines changelog.log) == 1 ]] || { echo "    FAIL empty: a merge was recorded"; exit 1; }
+
 echo "--> major bump with CVE (score 95): maintainer approves"
 start_run major-bump.json; wait_approval review-queue
 signal review-queue review approve; wait_done

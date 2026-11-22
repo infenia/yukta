@@ -9,6 +9,17 @@ describe('flowLayout', () => {
     expect(flowLayout([], [])).toEqual({ nodes: [], edges: [], waves: 0 });
   });
 
+  it('keeps the color a node declares', () => {
+    const flow = flowLayout(
+      [
+        { nodeId: 'a', type: 'MAPPER', color: 'teal' },
+        { nodeId: 'b', type: 'MAPPER' },
+      ],
+      [{ source: 'a', target: 'b' }]
+    );
+    expect(flow.nodes.map((n) => n.color)).toEqual(['teal', undefined]);
+  });
+
   it('puts a chain in consecutive waves, left to right', () => {
     const flow = flowLayout(
       ['a', 'b', 'c'].map((nodeId) => ({ nodeId, type: 'MAPPER' })),

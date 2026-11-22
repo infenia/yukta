@@ -6,6 +6,8 @@ import dagre from '@dagrejs/dagre';
 export interface FlowNode {
   id: string;
   type: string;
+  /** The palette color the node declares, if any. */
+  color?: string | null;
   /** 0-based execution wave: nodes of one wave run together. */
   wave: number;
   /** Centre of the node, 0-100 (percent of the flow box). */
@@ -32,7 +34,7 @@ const SIZE = 10;
  * Cycles (loops) are fine: dagre breaks them and a wave is just a column.
  */
 export function flowLayout(
-  nodes: { nodeId: string; type: string }[],
+  nodes: { nodeId: string; type: string; color?: string | null }[],
   edges: { source: string; target: string }[]
 ): Flow {
   if (nodes.length === 0) return { nodes: [], edges: [], waves: 0 };
@@ -64,6 +66,7 @@ export function flowLayout(
       return {
         id: n.nodeId,
         type: n.type,
+        color: n.color,
         wave: columns.indexOf(x),
         x: pct(x, width),
         y: pct(y, height),

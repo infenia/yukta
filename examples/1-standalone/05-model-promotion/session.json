@@ -15,11 +15,13 @@
         {
           "nodeId": "trigger",
           "type": "API_TRIGGER",
+          "color": "sky",
           "config": {}
         },
         {
           "nodeId": "retrain",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -40,6 +42,7 @@
         {
           "nodeId": "check",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "dropOriginal": false,
@@ -51,6 +54,7 @@
         {
           "nodeId": "gate",
           "type": "BRANCH",
+          "color": "violet",
           "config": {
             "mode": "EXPRESSION",
             "cases": {
@@ -63,6 +67,7 @@
         {
           "nodeId": "auto-notes",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -80,6 +85,7 @@
         {
           "nodeId": "reviewer",
           "type": "WAIT_FOR_SIGNAL",
+          "color": "magenta",
           "config": {
             "signal": "promote",
             "timeoutSeconds": 900,
@@ -90,6 +96,7 @@
         {
           "nodeId": "decide",
           "type": "BRANCH",
+          "color": "violet",
           "config": {
             "mode": "EXPRESSION",
             "cases": {
@@ -102,6 +109,7 @@
         {
           "nodeId": "approved-payload",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -117,6 +125,7 @@
         {
           "nodeId": "changes-payload",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -134,6 +143,7 @@
         {
           "nodeId": "approved",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "SUCCESS",
             "reason": "approved by the ML reviewer"
@@ -142,6 +152,7 @@
         {
           "nodeId": "revise",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "RETRY",
             "reason": "retrain wanted"
@@ -206,11 +217,13 @@
         {
           "nodeId": "trigger",
           "type": "API_TRIGGER",
+          "color": "sky",
           "config": {}
         },
         {
           "nodeId": "validate",
           "type": "VALIDATE",
+          "color": "sky",
           "config": {
             "required": [
               "name",
@@ -232,6 +245,7 @@
         {
           "nodeId": "bad-candidate",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -243,6 +257,7 @@
         {
           "nodeId": "start-round-1",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -260,6 +275,7 @@
         {
           "nodeId": "round-1",
           "type": "SUB_WORKFLOW",
+          "color": "teal",
           "config": {
             "workflowId": "round",
             "routeByOutcome": true,
@@ -269,6 +285,7 @@
         {
           "nodeId": "start-round-2",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -286,6 +303,7 @@
         {
           "nodeId": "round-2",
           "type": "SUB_WORKFLOW",
+          "color": "teal",
           "config": {
             "workflowId": "round",
             "routeByOutcome": true,
@@ -295,6 +313,7 @@
         {
           "nodeId": "start-round-3",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -312,6 +331,7 @@
         {
           "nodeId": "round-3",
           "type": "SUB_WORKFLOW",
+          "color": "teal",
           "config": {
             "workflowId": "round",
             "routeByOutcome": true,
@@ -321,6 +341,7 @@
         {
           "nodeId": "stamp-promoted",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -334,6 +355,7 @@
         {
           "nodeId": "promote",
           "type": "FILE_WRITE",
+          "color": "teal",
           "config": {
             "baseDir": "/tmp/yukta-examples/model-promotion/registry",
             "contentField": "content"
@@ -342,6 +364,7 @@
         {
           "nodeId": "stamp-notify-ok",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -353,6 +376,7 @@
         {
           "nodeId": "notify-ok",
           "type": "FILE_WRITE",
+          "color": "teal",
           "config": {
             "baseDir": "/tmp/yukta-examples/model-promotion",
             "contentField": "content",
@@ -362,6 +386,7 @@
         {
           "nodeId": "done",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "SUCCESS",
             "reason": "promoted"
@@ -370,6 +395,7 @@
         {
           "nodeId": "stamp-notify-stop",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -381,6 +407,7 @@
         {
           "nodeId": "notify-stop",
           "type": "FILE_WRITE",
+          "color": "teal",
           "config": {
             "baseDir": "/tmp/yukta-examples/model-promotion",
             "contentField": "content",
@@ -390,6 +417,7 @@
         {
           "nodeId": "stopped",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "FAILED",
             "reason": "not promoted"
