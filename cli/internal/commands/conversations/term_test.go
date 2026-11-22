@@ -201,7 +201,9 @@ func TestPassThroughReportsAStreamThatEnds(t *testing.T) {
 		})
 	}()
 	time.Sleep(300 * time.Millisecond)
-	_, _ = writer.Write([]byte("k"))
+	// passThrough may already have returned on the stream error and never read: do not block on the pipe
+	t.Cleanup(func() { _ = writer.Close() })
+	go func() { _, _ = writer.Write([]byte("k")) }()
 
 	if err := <-done; err == nil {
 		t.Error("expected an error")
