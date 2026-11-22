@@ -19,10 +19,10 @@ Every example is a folder in the repository's [`examples`](https://github.com/in
 
 ## Run one
 
-You need a running server, `curl`, `jq` and a copy of the repository.
+You need a running server, `curl`, `jq` and the `examples/` folder. You do not need to clone the repository: this downloads it as one archive and keeps only that folder (on macOS leave out `--wildcards`; on Windows use Git Bash).
 
 ```bash
-git clone https://github.com/infenia/yukta.git && cd yukta
+curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/heads/main | tar -xz --strip-components=1 --wildcards '*/examples'
 ./examples/1-standalone/03-pr-risk-gate/run.sh   # one example
 ./examples/run-all.sh 1                          # one category: 1, 2, 3 or all
 ```
@@ -39,7 +39,7 @@ export YUKTA_AI_PRESETS_DIR=$PWD/examples/3-paid-tools/16-agent-console/agent-ha
 yukta                      # the installed server; from a source checkout: ./gradlew bootRun
 ```
 
-Then run the examples from a copy of the repository. Set `YUKTA_API_KEY` if you gave the server a key (`YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE=ADMIN`).
+Then run the examples from the folder where you extracted `examples/`. Set `YUKTA_API_KEY` if you gave the server a key (`YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE=ADMIN`).
 
 ```bash
 ./examples/run-all.sh                         # all of them, with a summary

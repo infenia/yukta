@@ -115,13 +115,18 @@ If a platform fails, [open an issue](https://github.com/infenia/yukta/issues/new
 
 ## Quickstart
 
-**1. Get the examples** (needs `git`; the examples also need `curl` and `jq`).
+**1. Get the examples.** No clone and no `git`: this downloads the repository as one archive and keeps only the `examples/` folder (about 10 MB transferred, 600 KB kept). It needs `curl` and `tar`; the example scripts also need `jq`.
 
 ```bash
-git clone --depth 1 https://github.com/infenia/yukta && cd yukta
+curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/heads/main | tar -xz --strip-components=1 --wildcards '*/examples'
 ```
 
-**2. Start the server with everything the examples need.** Yukta refuses to run commands, read the temp folder or load plugins that touch the outside unless you allow them, so the examples need these settings. They are the sum of what all of them use; a server that allows less still runs the rest and the others report `SKIP` and name what is missing. Run it from the folder you just cloned.
+On macOS leave out `--wildcards` (its `tar` takes the pattern without it). On Windows run it in Git Bash. Use a tag instead of `refs/heads/main` (for example `refs/tags/v0.1.0-alpha.4`) to get the examples of that release.
+
+> [!NOTE]
+> The examples on `main` go with a server built from `main`. `0.1.0-alpha.4` predates them: its examples have a different layout and its server rejects the node colors they use, so with that release use the examples from its own tag, as above.
+
+**2. Start the server with everything the examples need.** Yukta refuses to run commands, read the temp folder or load plugins that touch the outside unless you allow them, so the examples need these settings. They are the sum of what all of them use; a server that allows less still runs the rest and the others report `SKIP` and name what is missing. Run it from the folder where you ran step 1.
 
 Linux and macOS (the native server):
 
@@ -133,7 +138,7 @@ export YUKTA_AI_PRESETS_DIR=$PWD/examples/3-paid-tools/16-agent-console/agent-ha
 yukta
 ```
 
-Windows (PowerShell, from the cloned folder; run the example scripts from Git Bash):
+Windows (PowerShell, from the folder where you ran step 1; run the example scripts from Git Bash):
 
 ```powershell
 $env:YUKTA_PLUGINS_ENABLED = 'all'
