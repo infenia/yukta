@@ -10,16 +10,21 @@
   "workflows": {
     "run": {
       "workflowId": "run",
+      "groupColors": { "Checks": "sky", "Backend": "teal", "Frontend": "violet" },
       "description": "check python, clone, then backend and frontend (bun, else node) in parallel",
       "nodes": [
         {
           "nodeId": "trigger",
           "type": "API_TRIGGER",
+          "color": "sky",
+          "group": "Checks",
           "config": {}
         },
         {
           "nodeId": "check-python",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Checks",
           "config": {
             "command": [
               "uv",
@@ -34,6 +39,8 @@
         {
           "nodeId": "notify-python",
           "type": "NOTIFY_TERMINAL",
+          "color": "stone",
+          "group": "Checks",
           "config": {
             "target": "inbox",
             "title": "Python was not found",
@@ -44,6 +51,8 @@
         {
           "nodeId": "clean",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Checks",
           "config": {
             "command": [
               "uv",
@@ -60,6 +69,8 @@
         {
           "nodeId": "clone",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Checks",
           "config": {
             "command": [
               "git",
@@ -75,6 +86,8 @@
         {
           "nodeId": "probe-js",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
           "config": {
             "command": [
               "uv",
@@ -91,6 +104,8 @@
         {
           "nodeId": "js-runtime",
           "type": "BRANCH",
+          "color": "violet",
+          "group": "Frontend",
           "config": {
             "mode": "EXPRESSION",
             "cases": {
@@ -103,6 +118,8 @@
         {
           "nodeId": "notify-js",
           "type": "NOTIFY_TERMINAL",
+          "color": "stone",
+          "group": "Frontend",
           "config": {
             "target": "inbox",
             "title": "Neither bun nor node was found",
@@ -113,6 +130,8 @@
         {
           "nodeId": "backend",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Backend",
           "config": {
             "command": [
               "uv",
@@ -127,6 +146,8 @@
         {
           "nodeId": "install-bun",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
           "config": {
             "command": [
               "bun",
@@ -140,6 +161,8 @@
         {
           "nodeId": "frontend-bun",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
           "config": {
             "command": [
               "bun",
@@ -154,6 +177,8 @@
         {
           "nodeId": "install-node",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
           "config": {
             "command": [
               "${payload.output.npm}",
@@ -166,6 +191,8 @@
         {
           "nodeId": "frontend-node",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
           "config": {
             "command": [
               "node",
@@ -183,16 +210,22 @@
         {
           "nodeId": "backend-stopped",
           "type": "CONSOLE_TERMINAL",
+          "color": "stone",
+          "group": "Backend",
           "config": {}
         },
         {
           "nodeId": "frontend-bun-stopped",
           "type": "CONSOLE_TERMINAL",
+          "color": "stone",
+          "group": "Frontend",
           "config": {}
         },
         {
           "nodeId": "frontend-node-stopped",
           "type": "CONSOLE_TERMINAL",
+          "color": "stone",
+          "group": "Frontend",
           "config": {}
         }
       ],

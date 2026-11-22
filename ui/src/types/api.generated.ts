@@ -2433,7 +2433,7 @@ export interface paths {
         };
         /**
          * List the session templates
-         * @description The bundled examples: id, title, a one-line summary and the plugin types used
+         * @description The bundled examples in display order: id, title, a one-line summary, the category with its label and meaning, and the plugin types used
          */
         get: operations["list_2"];
         put?: never;
@@ -7243,6 +7243,8 @@ export interface components {
         };
         TemplateSummary: {
             category?: string;
+            categoryDescription?: string;
+            categoryLabel?: string;
             id?: string;
             pluginTypes?: string[];
             summary?: string;

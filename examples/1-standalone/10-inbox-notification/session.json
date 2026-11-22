@@ -10,11 +10,12 @@
       "workflowId": "report",
       "description": "Run a command and tell the operators in the inbox",
       "nodes": [
-        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
-        { "nodeId": "check", "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "nightly report ready"] } },
+        { "nodeId": "start", "type": "CONSTANT_SOURCE", "color": "sky", "config": {} },
+        { "nodeId": "check", "type": "PROCESS_EXECUTOR", "color": "teal", "config": { "command": ["echo", "nightly report ready"] } },
         {
           "nodeId": "tell",
           "type": "NOTIFY_TERMINAL",
+          "color": "stone",
           "config": {
             "target": "inbox",
             "title": "Nightly report ready",

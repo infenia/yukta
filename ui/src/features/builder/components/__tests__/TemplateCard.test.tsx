@@ -54,6 +54,21 @@ describe('TemplateCard', () => {
     expect(screen.getByText('2 nodes')).toBeVisible();
   });
 
+  it('shows its category, and says what it means in a tooltip', async () => {
+    const user = userEvent.setup();
+    card({
+      ...summary([]),
+      categoryLabel: 'Free tools',
+      categoryDescription: 'Needs git or bun installed where the server runs.',
+    });
+    await user.hover(screen.getByText('Free tools'));
+    expect(
+      await screen.findByText(
+        'Needs git or bun installed where the server runs.'
+      )
+    ).toBeVisible();
+  });
+
   it('shows four plugin chips and counts the rest', async () => {
     vi.mocked(getTemplate).mockResolvedValue(
       detail([{ nodeId: 'a', type: 'MAPPER' }]) as never

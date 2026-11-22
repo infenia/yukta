@@ -24,6 +24,8 @@ const summaries = [
     title: 'Hello world',
     summary: 'Smallest',
     category: '1-standalone',
+    categoryLabel: 'Standalone',
+    categoryDescription: 'Needs only the server.',
     pluginTypes: ['API_TRIGGER'],
   },
   {
@@ -94,24 +96,26 @@ const off = (type: string) => ({
 });
 
 describe('TemplateGallery', () => {
-  it('groups the templates under their examples folder, in number order, with the rest last', async () => {
+  it('lists the blank start first, then the templates in the order the server sends them, in one grid', async () => {
+    templates = [summaries[2], summaries[0], summaries[1]];
     renderWithProviders(<TemplateGallery onPick={() => undefined} />);
     await screen.findByText('Hello world');
     expect(
-      screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
-    ).toEqual(['Standalone', 'Free deps', 'More things', 'Other']);
+      screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)
+    ).toEqual(['Blank session', 'Second', 'Hello world', 'Write files']);
+    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
   });
 
-  it('lists templates without folders in one grid, with no headings', async () => {
-    templates = summaries.map((t) => ({
-      id: t.id,
-      title: t.title,
-      summary: t.summary,
-      pluginTypes: t.pluginTypes,
-    }));
+  it('names the category on its card, and none on the blank start', async () => {
     renderWithProviders(<TemplateGallery onPick={() => undefined} />);
-    expect(await screen.findByText('Hello world')).toBeVisible();
-    expect(screen.queryByRole('heading', { level: 2 })).toBeNull();
+    const hello = (await screen.findByText('Hello world')).closest(
+      'li'
+    ) as HTMLElement;
+    expect(within(hello).getByText('Standalone')).toBeVisible();
+    const blank = screen
+      .getByText('Blank session')
+      .closest('li') as HTMLElement;
+    expect(within(blank).queryByText('Standalone')).toBeNull();
   });
 
   it('says on top, on the card and in the preview which switched-off plugins a template needs', async () => {
