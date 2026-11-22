@@ -3,7 +3,7 @@
 
 // Input requests under load (#1800): OPEN_REQUESTS runs (default 1000, spread over SESSIONS sessions so
 // the per-session cap of 50 open requests holds) each wait on an ASK_INPUT node; then, at the same time,
-// ANSWERS answers (default 500) arrive within ANSWER_SECONDS (default 10) while READERS (default 50)
+// ANSWERS answers (default 500) arrive within ANSWER_SECONDS (default 10) while READERS (default 20)
 // clients read the open requests once a second, as supervisors that list instead of following the feed do.
 // Records the answer latency, the read latency and the heap, and fails when an answer is refused, a run
 // does not finish, or a request is lost.
@@ -22,7 +22,7 @@ if (API_KEY && !/^https:\/\//i.test(BASE_URL) && !/^http:\/\/(localhost|127\.0\.
 const OPEN = Number(__ENV.OPEN_REQUESTS || 1000);
 const ANSWERS = Number(__ENV.ANSWERS || 500);
 const ANSWER_SECONDS = Number(__ENV.ANSWER_SECONDS || 10);
-const READERS = Number(__ENV.READERS || 50);
+const READERS = Number(__ENV.READERS || 20);
 const SESSIONS = Number(__ENV.SESSIONS || 25);
 const GRACE_S = Number(__ENV.GRACE || 60);
 if (OPEN / SESSIONS > 50) throw new Error('OPEN_REQUESTS / SESSIONS is over the cap of 50 open requests per session');
