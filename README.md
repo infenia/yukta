@@ -77,18 +77,16 @@ curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/ins
 
 ```powershell
 Expand-Archive yukta-<version>-windows-amd64.zip .
-.\yukta-<version>-windows-amd64\yukta.exe
 ```
 
 **Docker** (any OS)
 
 ```bash
-docker run --rm -p 127.0.0.1:9858:9858 \
-  -e YUKTA_API_KEYS_0_NAME=admin \
-  -e YUKTA_API_KEYS_0_KEY=change-me-to-a-long-random-secret \
-  -e YUKTA_API_KEYS_0_ROLE=ADMIN \
-  ghcr.io/infenia/yukta:0.1.0-alpha.4
+docker pull ghcr.io/infenia/yukta:0.1.0-alpha.4
 ```
+
+> [!IMPORTANT]
+> Installing does not start the server. Start it in [Quickstart, step 2](#quickstart): that command (native, Windows and Docker) carries the settings the examples need. A server started with a bare `yukta` or a bare `docker run` refuses the commands most examples run, and they fail or report `SKIP`.
 
 **AI agents.** The install script can also connect the agents on your machine (Claude Code, Codex, Antigravity, Cursor, VS Code, Windsurf, OpenCode) to Yukta: it asks at the end on a terminal, or pass `--agents auto` (`$env:YUKTA_AGENTS = 'auto'` on Windows). Later: `yukta-cli agents install`.
 
@@ -124,7 +122,7 @@ On macOS leave out `--wildcards` (its `tar` takes the pattern without it). On Wi
 > [!NOTE]
 > The examples on `main` go with a server built from `main`. `0.1.0-alpha.4` predates them: its examples have a different layout and its server rejects the node colors they use, so with that release use the examples from its own tag, as above.
 
-**2. Start the server with everything the examples need.** Yukta refuses to run commands, read the temp folder or load plugins that touch the outside unless you allow them, so the examples need these settings. They are the sum of what all of them use; a server that allows less still runs the rest and the others report `SKIP` and name what is missing. Run it from the folder where you ran step 1.
+**2. Start the server with everything the examples need.** Yukta refuses to run commands, read the temp folder or load plugins that touch the outside unless you allow them, so the examples need these settings. They are the sum of what all of them use; a server that allows less still runs the rest and the others report `SKIP` and name what is missing. Run it from the folder where you ran step 1. Start the server with these settings, not with a bare `yukta` or `docker run`: without them most examples fail or report `SKIP`.
 
 Linux and macOS (the native server):
 
