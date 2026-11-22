@@ -182,13 +182,16 @@ class FailureExtractorsTest {
                 lines(
                     "noise",
                     "TestFailure: com.x.FooTest#adds | FooTest.java:27 | expected 2 but was 3",
-                    "TestFailure: com.x.BarTest#div |  | boom"));
+                    "TestFailure: com.x.BarTest#div |  | boom",
+                    "LintFailure: MagicNumber | Foo.java:3 | avoid 42"));
 
     assertThat(found)
         .extracting(Finding::name, Finding::location, Finding::message, Finding::line)
         .containsExactly(
             tuple("com.x.FooTest#adds", "FooTest.java:27", "expected 2 but was 3", 2L),
-            tuple("com.x.BarTest#div", null, "boom", 3L));
+            tuple("com.x.BarTest#div", null, "boom", 3L),
+            tuple("MagicNumber", "Foo.java:3", "avoid 42", 4L));
+    assertThat(found.getLast().kind()).isEqualTo(Finding.Kind.LINT);
   }
 
   @Test
