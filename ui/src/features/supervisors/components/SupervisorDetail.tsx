@@ -419,7 +419,7 @@ function DecisionMakerTab({ supervisor }: { supervisor: SupervisorView }) {
         {listed && (
           <div>
             <IconLink
-              to={`/supervisors?tab=decision-makers&type=${encodeURIComponent(supervisor.type)}`}
+              to={`/supervisors?view=decision-makers&type=${encodeURIComponent(supervisor.type)}`}
               icon="menu_book"
               label="Browse decision maker types"
             />

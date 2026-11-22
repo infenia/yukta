@@ -204,26 +204,34 @@ test.describe('Supervisors - the page', () => {
     await expect(page).toHaveURL(/\/control\?tab=activity$/);
   });
 
-  test('Decision maker types opens a panel and closing it clears the URL', async ({
+  test('Decision makers is a view of its own, reached from the views switch', async ({
     page,
   }) => {
     await page.goto('/supervisors');
 
-    await page.getByRole('button', { name: 'Decision maker types' }).click();
-    const sheet = page.getByRole('dialog', { name: 'Decision maker types' });
-    await expect(sheet).toBeVisible();
-    await expect(page).toHaveURL(/tab=decision-makers/);
+    await page
+      .getByRole('navigation', { name: 'Supervision views' })
+      .getByRole('link', { name: /Decision makers/ })
+      .click();
 
-    await page.keyboard.press('Escape');
-    await expect(sheet).toBeHidden();
-    await expect(page).not.toHaveURL(/tab=decision-makers/);
+    await expect(page).toHaveURL(/view=decision-makers/);
+    await expect(
+      page.getByRole('navigation', { name: 'Decision makers' })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Decision maker types' })
+    ).toHaveCount(0);
   });
 
-  test('a link to the panel opens it', async ({ page }) => {
+  test('the old link to the types opens the Decision makers view', async ({
+    page,
+  }) => {
     await page.goto('/supervisors?tab=decision-makers');
 
+    await expect(page).toHaveURL(/view=decision-makers/);
+    await expect(page).not.toHaveURL(/tab=decision-makers/);
     await expect(
-      page.getByRole('dialog', { name: 'Decision maker types' })
+      page.getByRole('navigation', { name: 'Decision makers' })
     ).toBeVisible();
   });
 });

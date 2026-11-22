@@ -106,9 +106,8 @@ export const SHOTS: Shot[] = [
   },
   {
     name: 'supervisors-catalogue',
-    shows:
-      'The Decision maker types sheet: the kinds of supervisor a server offers.',
-    route: '/supervisors?tab=decision-makers',
+    shows: 'The Decision makers view: the kinds of supervisor a server offers.',
+    route: '/supervisors?view=decision-makers',
     stubs: [stub.supervisors],
     ready: (page) => page.getByText('External system').first(),
     pages: [

@@ -230,7 +230,10 @@ test.describe('Supervisors', () => {
     ).toContainText('not-owner: not owned');
     await shot(page, info, 'activity');
 
-    await page.getByRole('button', { name: 'Decision maker types' }).click();
+    await page
+      .getByRole('navigation', { name: 'Supervision views' })
+      .getByRole('link', { name: /Decision makers/ })
+      .click();
     await expect(page.getByText('External system').first()).toBeVisible();
     await shot(page, info, 'decision-makers');
   });
