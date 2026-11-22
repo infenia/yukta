@@ -23,6 +23,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { iconButton } from '@/components/ui/iconTone';
 import { cn } from '@/lib/utils';
+import { Tip } from '@/components/ui/tooltip';
 import { getSessionDraft } from '@/features/builder/api';
 import {
   CopyAsMenu,
@@ -117,18 +118,19 @@ function SessionCopyAs({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          className={cn(iconButton('primary'), copyTone(status))}
-          aria-label="Copy as"
-          title="Copy as…"
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-base"
+        <Tip label="Copy as…">
+          <DropdownMenuTrigger
+            className={cn(iconButton('primary'), copyTone(status))}
+            aria-label="Copy as"
           >
-            {copyIcon(status)}
-          </span>
-        </DropdownMenuTrigger>
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-base"
+            >
+              {copyIcon(status)}
+            </span>
+          </DropdownMenuTrigger>
+        </Tip>
         <DropdownMenuContent align="end">
           <CopyAsMenu choices={choices} onCopy={copy} />
         </DropdownMenuContent>

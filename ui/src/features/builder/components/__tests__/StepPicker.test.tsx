@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { expectTooltip } from '@/test/utils/testUtils';
 import type { PluginSummary } from '@/features/plugins/types';
 import { StepPicker } from '../StepPicker';
 
@@ -60,14 +61,13 @@ describe('StepPicker', () => {
     expect(llm).toHaveTextContent(
       'Not enabled: set yukta.plugins.enabled to LLM_CALL'
     );
-    expect(llm).toHaveAttribute(
-      'title',
+    await expectTooltip(
+      llm.parentElement as HTMLElement,
       'set yukta.plugins.enabled to LLM_CALL'
     );
     // without a hint there is nothing to add after the label
     const gate = screen.getByRole('button', { name: /Gate/ });
     expect(gate).toHaveTextContent(/Gate\s*Not enabled$/);
-    expect(gate).not.toHaveAttribute('title');
     await user.click(llm);
     expect(onPick).not.toHaveBeenCalled();
   });

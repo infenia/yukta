@@ -84,12 +84,11 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
           <StatusPill status={run.status} iconOnly />
           <span className="text-body-sm text-muted-foreground">
             {run.workflowId} ·{' '}
-            <time
-              dateTime={run.startTime ?? undefined}
-              title={formatClockTime(run.startTime)}
-            >
-              {formatRelative(run.startTime)}
-            </time>
+            <Tip label={formatClockTime(run.startTime)}>
+              <time dateTime={run.startTime ?? undefined}>
+                {formatRelative(run.startTime)}
+              </time>
+            </Tip>
           </span>
         </div>
       ) : (

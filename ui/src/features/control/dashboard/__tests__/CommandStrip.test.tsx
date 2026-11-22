@@ -3,6 +3,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { useHeatmap, useMetricSnapshot } from '@/features/metrics/hooks';
 import { getLimits } from '../../api/scheduler';
@@ -72,7 +73,7 @@ describe('CommandStrip', () => {
     expect(screen.getByText('Queued (whole server)')).toBeInTheDocument();
   });
 
-  it('shows the engine overhead and what it is not', () => {
+  it('shows the engine overhead and what it is not', async () => {
     snapshot.mockReturnValue(
       asSnapshot({ 'overhead.start.p95': 12, 'overhead.handoff.p95': 4 })
     );
@@ -81,7 +82,13 @@ describe('CommandStrip', () => {
     expect(
       screen.getByText('request to plugin · hand-off 4 ms')
     ).toBeInTheDocument();
-    expect(screen.getByTitle(/leaves out the plugin/)).toBeInTheDocument();
+    await userEvent.hover(
+      screen.getByText('Engine p95 (1 h)').parentElement as HTMLElement
+    );
+    expect(await screen.findByText(/leaves out the plugin/)).toHaveAttribute(
+      'data-slot',
+      'tooltip-content'
+    );
   });
 
   it('has no engine number before anything was measured', () => {

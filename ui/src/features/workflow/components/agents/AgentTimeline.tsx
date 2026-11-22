@@ -8,6 +8,7 @@ import type { Conversation } from '@/types/conversations';
 import type { AgentItem } from '../../lib/agentItems';
 import { clock } from '../../lib/agentLabels';
 import { OpenRequest } from './OpenRequest';
+import { Tip } from '@/components/ui/tooltip';
 
 const ROW_ESTIMATE = 28;
 const FOLLOW_SLACK = 48;
@@ -36,9 +37,9 @@ const quietRow =
 /** A call still going, in words. */
 function spinner(status: string) {
   return (
-    <span title={status} className="text-label-sm animate-pulse">
-      running
-    </span>
+    <Tip label={status}>
+      <span className="text-label-sm animate-pulse">running</span>
+    </Tip>
   );
 }
 
@@ -148,24 +149,26 @@ function ItemBody({
     case 'message': {
       if (item.role === 'user') {
         return (
-          <div className="flex flex-col items-end gap-1" title={when}>
-            {item.queued && (
-              <span className="text-muted-foreground text-label-sm">
-                Queued
-              </span>
-            )}
-            <div
-              className={cn(
-                'text-body-md max-w-[80%] rounded-2xl px-4 py-2.5 break-words whitespace-pre-wrap',
-                item.queued
-                  ? 'border-border border border-dashed'
-                  : 'bg-muted text-on-surface'
+          <Tip label={when}>
+            <div className="flex flex-col items-end gap-1">
+              {item.queued && (
+                <span className="text-muted-foreground text-label-sm">
+                  Queued
+                </span>
               )}
-            >
-              <Clamped text={item.text} />
-              {item.queued && <span className="sr-only"> (queued)</span>}
+              <div
+                className={cn(
+                  'text-body-md max-w-[80%] rounded-2xl px-4 py-2.5 break-words whitespace-pre-wrap',
+                  item.queued
+                    ? 'border-border border border-dashed'
+                    : 'bg-muted text-on-surface'
+                )}
+              >
+                <Clamped text={item.text} />
+                {item.queued && <span className="sr-only"> (queued)</span>}
+              </div>
             </div>
-          </div>
+          </Tip>
         );
       }
       if (item.role === 'thought') {
@@ -177,12 +180,11 @@ function ItemBody({
         );
       }
       return (
-        <p
-          className="text-body-md px-2 leading-relaxed break-words whitespace-pre-wrap"
-          title={when}
-        >
-          {item.text}
-        </p>
+        <Tip label={when}>
+          <p className="text-body-md px-2 leading-relaxed break-words whitespace-pre-wrap">
+            {item.text}
+          </p>
+        </Tip>
       );
     }
     case 'plan':

@@ -74,19 +74,18 @@ export function Sidebar() {
       {NAV.map(({ to, section, label, icon }) => {
         const active = isCurrent(pathname, to, section);
         return (
-          <Link
-            key={to}
-            to={to}
-            aria-current={active ? 'page' : undefined}
-            className={`group transition-standard relative flex size-10 items-center justify-center rounded-lg no-underline ${active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-          >
-            <span aria-hidden="true" className="material-symbols-outlined">
-              {icon}
-            </span>
-            <span className="bg-foreground text-label-sm text-background pointer-events-none absolute left-full ml-2 rounded-md px-2 py-1 whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">
-              {label}
-            </span>
-          </Link>
+          <Tip key={to} label={label} side="right">
+            <Link
+              to={to}
+              aria-label={label}
+              aria-current={active ? 'page' : undefined}
+              className={`transition-standard flex size-10 items-center justify-center rounded-lg no-underline ${active ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
+            >
+              <span aria-hidden="true" className="material-symbols-outlined">
+                {icon}
+              </span>
+            </Link>
+          </Tip>
         );
       })}
     </nav>

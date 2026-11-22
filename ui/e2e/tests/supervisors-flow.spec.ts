@@ -237,16 +237,17 @@ test.describe('Supervisors - the list', () => {
     await expect(buttons.nth(3)).toContainText('Direct control');
     await expect(buttons.nth(3)).toContainText('For workflows nobody owns');
     await expect(item(page, /release-lead/)).toContainText('http');
-    await expect(
-      item(page, /release-lead/).getByTitle('Owns 4 targets')
-    ).toHaveText('4');
+    await item(page, /release-lead/)
+      .getByText('4', { exact: true })
+      .hover();
+    await expect(page.getByText('Owns 4 targets')).toBeVisible();
     await expect(
       item(page, /release-lead/).getByRole('img', { name: 'Live' })
     ).toBeVisible();
     await expect(
       item(page, /audit-bot/).getByRole('img', { name: 'Dry run' })
     ).toBeVisible();
-    await expect(item(page, /audit-bot/).getByTitle(/Owns/)).toHaveCount(0);
+    await expect(item(page, /audit-bot/)).not.toContainText(/\d/);
   });
 
   test('the first supervisor is selected until another is chosen, and the choice is in the URL', async ({

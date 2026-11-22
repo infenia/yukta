@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders } from '@/test/utils/testUtils';
+import { expectTooltip, renderWithProviders } from '@/test/utils/testUtils';
 import { SupervisorsSummary } from '../SupervisorsSummary';
 
 const ok = (data: unknown) =>
@@ -57,8 +57,8 @@ describe('SupervisorsSummary', () => {
     await waitFor(() => expect(tile('Supervisors')).toHaveTextContent('2'));
     expect(tile('Assignments')).toHaveTextContent('3');
     expect(tile('Direct control')).toHaveTextContent('3');
-    expect(tile('Direct control')).toHaveAttribute(
-      'title',
+    await expectTooltip(
+      tile('Direct control'),
       '3 workflows nobody supervises'
     );
     expect(tile('Applied / refused')).toHaveTextContent('2 / 1');

@@ -4,6 +4,7 @@
 import { Link } from 'react-router';
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { Tip } from '@/components/ui/tooltip';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useMe } from '@/lib/identity';
 import { formatDateTime } from '@/features/workflow/lib/timeFormat';
@@ -237,44 +238,54 @@ export function NodeSupervisorTab({
               : 'Open a run to see which commands you can send to this node.'}
           </p>
         )}
-        <ul className="grid grid-cols-3 gap-1.5">
+        <ul className="flex flex-wrap gap-1.5">
           {rows.map(({ key, label, icon, ok, detail }) => (
             <li
               key={key}
               className={cn(
-                'transition-standard flex flex-col gap-1 rounded-lg border p-2',
+                'transition-standard flex flex-col gap-1 rounded-lg border',
                 ok
-                  ? 'border-success/30 bg-success/5 hover:bg-success/10'
-                  : 'border-border bg-muted/30 col-span-3'
+                  ? 'border-success/30 bg-success/5 hover:bg-success/10 size-12 items-center justify-center'
+                  : 'border-border bg-muted/30 w-full p-2'
               )}
             >
-              <div className="flex items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    'flex size-7 shrink-0 items-center justify-center rounded-md',
-                    ok
-                      ? 'bg-success/15 text-success'
-                      : 'bg-muted text-on-surface-variant'
-                  )}
-                >
-                  <span className="material-symbols-outlined text-base">
-                    {icon}
-                  </span>
-                </span>
-                <span className="sr-only">
-                  {ok ? 'Allowed: ' : 'Not allowed: '}
-                </span>
-                <span className="text-body-md text-on-surface flex-1 font-medium">
-                  {label}
-                </span>
-                {!ok && (
+              <div className="flex items-center gap-2 self-stretch">
+                <Tip label={ok ? label : undefined}>
                   <span
-                    aria-hidden="true"
-                    className="material-symbols-outlined text-on-surface-variant text-lg"
+                    className={cn(
+                      'flex size-7 shrink-0 items-center justify-center rounded-md',
+                      ok
+                        ? 'bg-success/15 text-success mx-auto'
+                        : 'bg-muted text-on-surface-variant'
+                    )}
                   >
-                    lock
+                    <span
+                      aria-hidden="true"
+                      className="material-symbols-outlined text-base"
+                    >
+                      {icon}
+                    </span>
+                    {ok && (
+                      <>
+                        <span className="sr-only">Allowed: </span>
+                        <span className="sr-only">{label}</span>
+                      </>
+                    )}
                   </span>
+                </Tip>
+                {!ok && (
+                  <>
+                    <span className="sr-only">Not allowed: </span>
+                    <span className="text-body-md text-on-surface flex-1 font-medium">
+                      {label}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="material-symbols-outlined text-on-surface-variant text-lg"
+                    >
+                      lock
+                    </span>
+                  </>
                 )}
               </div>
               {!ok && (

@@ -26,6 +26,7 @@ import { CredentialPanel, ExternalFlow } from './ExternalSettings';
 import { HistoryTab, SettingsTab } from './SettingsHistoryTabs';
 import { SupervisionMap } from './SupervisionMap';
 import { HierarchyTab, OperationsTab, OwnsTab } from './SupervisorDetailTabs';
+import { Tip } from '@/components/ui/tooltip';
 
 export const DETAIL_TABS = [
   'owns',
@@ -189,15 +190,18 @@ function KpiRow({
         <span className="text-label-md text-on-surface-variant">Owns</span>
         <span className="text-body-md">
           {owned.workflows} {owned.workflows === 1 ? 'workflow' : 'workflows'} ·{' '}
-          <button
-            type="button"
-            className="text-primary font-semibold"
-            title={`A target is a workflow, node or session this supervisor is assigned to. It has ${supervisor.attachments} ${supervisor.attachments === 1 ? 'target' : 'targets'}.`}
-            onClick={onOwns}
+          <Tip
+            label={`A target is a workflow, node or session this supervisor is assigned to. It has ${supervisor.attachments} ${supervisor.attachments === 1 ? 'target' : 'targets'}.`}
           >
-            {owned.count}
-            {owned.partial ? '+' : ''} {owned.count === 1 ? 'node' : 'nodes'}
-          </button>
+            <button
+              type="button"
+              className="text-primary font-semibold"
+              onClick={onOwns}
+            >
+              {owned.count}
+              {owned.partial ? '+' : ''} {owned.count === 1 ? 'node' : 'nodes'}
+            </button>
+          </Tip>
         </span>
       </div>
       <KpiTile

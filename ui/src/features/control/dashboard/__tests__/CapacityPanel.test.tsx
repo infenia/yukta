@@ -3,7 +3,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { renderWithProviders } from '@/test/utils/testUtils';
+import { expectTooltip, renderWithProviders } from '@/test/utils/testUtils';
 import { ApiError } from '@/lib/apiClient';
 import { useMe } from '@/lib/identity';
 import { getDrain, setDrain } from '../../api/drain';
@@ -166,8 +166,8 @@ describe('CapacityPanel', () => {
     renderWithProviders(<CapacityPanel live={false} />);
     const knob = await screen.findByTestId('knob');
     expect(knob.getAttribute('data-disabled')).toBe('true');
-    expect(screen.getByRole('switch')).toHaveAttribute(
-      'title',
+    await expectTooltip(
+      screen.getByRole('switch').parentElement as HTMLElement,
       'Controlled by ops-guard. People cannot do this directly.'
     );
     vi.mocked(useSupervision).mockReturnValue({ data: undefined } as never);
@@ -180,7 +180,10 @@ describe('CapacityPanel', () => {
     } as never);
     renderWithProviders(<CapacityPanel live={false} />);
     await screen.findByTestId('knob');
-    expect(screen.getByRole('switch')).toHaveAttribute('title', 'Not now');
+    await expectTooltip(
+      screen.getByRole('switch').parentElement as HTMLElement,
+      'Not now'
+    );
     vi.mocked(useSupervision).mockReturnValue({ data: undefined } as never);
   });
 

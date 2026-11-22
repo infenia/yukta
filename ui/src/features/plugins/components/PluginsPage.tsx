@@ -23,6 +23,7 @@ import { usePlugin, usePlugins } from '../hooks/usePlugins';
 import { nodeExample } from '../lib/nodeExample';
 import { getPluginUsage } from '../api/plugins';
 import { PluginCanvasPreview } from './PluginCanvasPreview';
+import { Tip } from '@/components/ui/tooltip';
 
 const CATEGORIES: { key: PluginCategory; label: string }[] = [
   { key: 'TRIGGER', label: 'Triggers' },
@@ -99,9 +100,9 @@ function PluginDetail({ type }: { type: string }) {
               </span>
             )}
             {plugin.restricted && (
-              <span title="Reaches outside the engine; an operator opts in">
-                Restricted
-              </span>
+              <Tip label="Reaches outside the engine; an operator opts in">
+                <span>Restricted</span>
+              </Tip>
             )}
             {/* the ID is what a workflow's JSON, the CLI and MCP calls use */}
             <code className="text-code-sm select-all">{plugin.type}</code>

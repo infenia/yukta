@@ -525,8 +525,8 @@ describe('the look of an item', () => {
 
     expect(screen.getByText('2 tool calls')).toBeInTheDocument();
     expect(screen.queryByText(/failed$/)).not.toBeInTheDocument();
-    // the group's icon and the running call's icon both carry the status
-    expect(screen.getAllByTitle('running')).toHaveLength(2);
+    // the group and each running call say it
+    expect(screen.getAllByText('running')).toHaveLength(3);
   });
 
   it('colours a tool by how it went', () => {

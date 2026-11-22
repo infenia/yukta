@@ -14,6 +14,7 @@ import {
   SupervisorDetail,
   type DetailTab,
 } from './SupervisorDetail';
+import { Tip } from '@/components/ui/tooltip';
 
 function NavItem({
   id,
@@ -48,27 +49,27 @@ function NavItem({
       )}
     >
       {live !== undefined && (
-        <span
-          role="img"
-          aria-label={live ? 'Live' : 'Dry run'}
-          title={live ? 'Live' : 'Dry run: recorded, not applied'}
-          className={cn(
-            'size-2 shrink-0 rounded-full',
-            live ? 'bg-success' : 'ring-attention ring-2 ring-inset'
-          )}
-        />
+        <Tip label={live ? 'Live' : 'Dry run: recorded, not applied'}>
+          <span
+            role="img"
+            aria-label={live ? 'Live' : 'Dry run'}
+            className={cn(
+              'size-2 shrink-0 rounded-full',
+              live ? 'bg-success' : 'ring-attention ring-2 ring-inset'
+            )}
+          />
+        </Tip>
       )}
       <span className="min-w-0 flex-1">
         <span className="block truncate">{label}</span>
         <span className="text-code-sm block text-[11px] opacity-75">{sub}</span>
       </span>
       {owns !== undefined && owns > 0 && (
-        <span
-          title={`Owns ${owns} ${owns === 1 ? 'target' : 'targets'}`}
-          className="bg-muted text-label-sm text-on-surface-variant rounded-full px-2 tabular-nums"
-        >
-          {owns}
-        </span>
+        <Tip label={`Owns ${owns} ${owns === 1 ? 'target' : 'targets'}`}>
+          <span className="bg-muted text-label-sm text-on-surface-variant rounded-full px-2 tabular-nums">
+            {owns}
+          </span>
+        </Tip>
       )}
     </button>
   );

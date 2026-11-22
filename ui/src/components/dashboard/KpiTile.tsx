@@ -3,6 +3,7 @@
 
 import type { ReactNode } from 'react';
 import { sparkPoints, TONE, type Tone } from './tones';
+import { Tip } from '@/components/ui/tooltip';
 
 export function Sparkline({
   values,
@@ -55,34 +56,37 @@ export function KpiTile({
   compact?: boolean;
   hint?: string;
   adornment?: ReactNode;
-  /** what the number means, shown as the browser's tooltip */
+  /** what the number means, shown as a tooltip */
   title?: string;
 }) {
   return (
-    <div
-      title={title}
-      className={`border-border bg-card flex min-w-0 flex-col rounded-xl border ${compact ? 'gap-0.5 px-3 py-2.5' : 'gap-1 p-4'}`}
-    >
-      <span className="text-label-md text-on-surface-variant truncate">
-        {label}
-      </span>
-      <div className="flex items-center gap-2">
-        {adornment}
-        <div className="flex min-w-0 items-baseline gap-2">
-          <span className="text-headline-md num text-on-surface">{value}</span>
-          {delta && (
-            <span className={`${TONE[deltaTone]} text-label-sm num`}>
-              {delta}
-            </span>
-          )}
-        </div>
-      </div>
-      {hint && (
-        <span className="text-body-sm text-on-surface-variant truncate">
-          {hint}
+    <Tip label={title}>
+      <div
+        className={`border-border bg-card flex min-w-0 flex-col rounded-xl border ${compact ? 'gap-0.5 px-3 py-2.5' : 'gap-1 p-4'}`}
+      >
+        <span className="text-label-md text-on-surface-variant truncate">
+          {label}
         </span>
-      )}
-      {series.length > 0 && <Sparkline values={series} small={compact} />}
-    </div>
+        <div className="flex items-center gap-2">
+          {adornment}
+          <div className="flex min-w-0 items-baseline gap-2">
+            <span className="text-headline-md num text-on-surface">
+              {value}
+            </span>
+            {delta && (
+              <span className={`${TONE[deltaTone]} text-label-sm num`}>
+                {delta}
+              </span>
+            )}
+          </div>
+        </div>
+        {hint && (
+          <span className="text-body-sm text-on-surface-variant truncate">
+            {hint}
+          </span>
+        )}
+        {series.length > 0 && <Sparkline values={series} small={compact} />}
+      </div>
+    </Tip>
   );
 }
