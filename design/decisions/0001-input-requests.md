@@ -34,6 +34,19 @@
 | D16 | Order of the signal API removal | Legacy clients keep working through a bridge from `SignalNodeCommand` to an open input request until the server removal (#1805), which is gated on #1804 (clients, examples, docs moved). Phases 4 and 5a to 5e ship in one release | consequence of D2 |
 | D17 | Supervisor ids | Same as D10, tracked as #1803 (phase 3a). Ids already stored are renamed by a Postgres migration with a mapping table; a Spring bean supervisor with an invalid `id()` fails start-up | Arun, 2026-11-01 |
 
+### Supervision model, decided on 2026-11-02 (D18 to D23)
+
+Confirmed by Arun. These answer how several supervisors share, split or stack the supervision of a workflow. [ADR 0002](0002-supervisor-engine-split.md) later replaced the arbiter and the scope-matching model with one owner per node; D18 to D23 are kept as the record of what was decided first.
+
+| # | Decision | Outcome | Alternative not taken |
+|---|---|---|---|
+| D18 | Naming a section | Node selectors (ids and `prefix.*`) in the scope text `workflow:<s>/<w>//sel,sel` (`//`, since ids may contain `#` but never `/`); `Node.group` not used | Resolve `group` from the definition (goes stale) |
+| D19 | Workflow-wide items | Not reviewed by section supervisors; workflow, session and global ones are | Every section owner must allow a workflow-wide command |
+| D20 | Scope limits actions | A command outside the scope is refused (`out-of-scope`); `SetLimitsCommand` only for `Global` | Keep a scope as a filter on what is seen |
+| D21 | Gated commands | Park the command, raise an `APPROVAL` request, answer `202`, re-dispatch with the original actor; a human stop is never parked; the proposer cannot approve; HIGH risk is human only | Deny only |
+| D22 | Hierarchy | Strict cover of scopes, no stored rank field | An explicit `escalatesTo` or rank field, checked for cycles |
+| D23 | Holds | The arbiter records the owner of a pause; only the owner, a covering scope or a human lifts it; in memory | No ownership |
+
 ## Findings (the eleven checks of #1788)
 
 Each finding says what was read. "Confirmed" means read in code; "inferred" means concluded from code that was read but not run.

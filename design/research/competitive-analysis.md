@@ -335,7 +335,7 @@ when a run is cancelled. Both are about durability and streaming, which supports
 ## Performance and resource use
 
 Published figures. **None of these were measured here, and the workloads differ.** For Yukta, see
-`docs/operations/capacity-and-performance.mdx` (k6, native `0.1.0-alpha.2`, 2 vCPU pinned).
+`docs/guides/operate/tune-capacity-and-limits.mdx` (k6, native `0.1.0-alpha.2`, 2 vCPU pinned).
 
 | Tool | Runtime | Smallest useful deployment | Memory (idle, or the stated minimum) | Published throughput | Source and confidence |
 |---|---|---|---|---|---|
@@ -460,4 +460,4 @@ themselves.
 - LangGraph persistence: <https://docs.langchain.com/oss/python/langgraph/checkpointers>
 - Dify, Flowise and n8n comparison (blog): <https://rapidclaw.dev/blog/low-code-ai-agent-platforms-compared-2026>
 - Top-voted issues: GitHub trackers of temporalio/temporal, kestra-io/kestra, apache/airflow, PrefectHQ/prefect, dagster-io/dagster, windmill-labs/windmill, argoproj/argo-workflows, n8n-io/n8n, langchain-ai/langgraph and conductor-oss/conductor, each sorted by 👍 (2026-10-23)
-- Yukta: `docs/operations/capacity-and-performance.mdx`, `docs/running/admission-and-limits.mdx`, `docs/running/observability.mdx`, `docs/building/scheduling.mdx`, `docs/operations/security.mdx`, `core/.../model/workflow/NodePolicy.java`, `core/.../service/control/ExecutionScheduler.java`, `web/.../startup/BootstrapRunner.java`, `plugins/processors/mcp-tool-call/.../McpToolCallPlugin.java`
+- Yukta: `docs/guides/operate/tune-capacity-and-limits.mdx`, `docs/guides/operate/tune-capacity-and-limits.mdx`, `docs/guides/operate/observe-runs.mdx`, `docs/guides/build/schedule-a-workflow.mdx`, `docs/guides/operate/secure-the-server.mdx`, `core/.../model/workflow/NodePolicy.java`, `core/.../service/control/ExecutionScheduler.java`, `web/.../startup/BootstrapRunner.java`, `plugins/processors/mcp-tool-call/.../McpToolCallPlugin.java`
