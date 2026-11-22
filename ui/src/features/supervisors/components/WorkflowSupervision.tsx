@@ -1,36 +1,26 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState, type ReactNode } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { REQUIRED_ROLE, useMe, type Permission } from '@/lib/identity';
 import type { Capability } from '../api/supervision';
 import type { SupervisorView } from '../types';
-import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { inputFieldClassName } from '@/components/ui/native-select';
 import { Callout } from '@/components/common/Callout';
-import { Modal } from '@/components/common/Modal';
 import { Tip } from '@/components/ui/tooltip';
 import { StateMessage } from '@/components/common/StateMessage';
 import {
   useOwnership,
   useSupervision,
+  useSupervisorDecisions,
   useSupervisors,
   useSupervisorTypes,
 } from '../hooks/useSupervisorTypes';
 import { controlledBy } from './RequireControl';
-
-const supervisorLink = (owner: string) =>
-  owner === 'default' ? (
-    'Direct control'
-  ) : (
-    <Link
-      to={`/supervisors?supervisor=${encodeURIComponent(owner)}`}
-      className="text-primary"
-    >
-      {owner}
-    </Link>
-  );
+import { ActionsCard } from './ActionsTimeline';
+import { SupervisorCard } from './SupervisorCard';
 
 /** The nodes of each owner, in the order the owners first appear. */
 function byOwner(nodes: Record<string, string>) {
@@ -64,30 +54,57 @@ function Tile({
   );
 }
 
-/** A small panel with an overline label, the unit of the dialog. */
-function Panel({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Card className="gap-2 p-4">
-      <h3 className="text-overline text-on-surface-variant">{label}</h3>
-      {children}
-    </Card>
-  );
-}
-
 /** The commands of a run in the order the run controls show them, with the role each needs. */
 const COMMANDS: {
   key: string;
   label: string;
+  icon: string;
   perm: Permission;
   of: 'workflow' | 'run';
 }[] = [
-  { key: 'start', label: 'Start a new run', perm: 'startRuns', of: 'workflow' },
-  { key: 'pause', label: 'Pause', perm: 'controlRuns', of: 'run' },
-  { key: 'resume', label: 'Resume', perm: 'controlRuns', of: 'run' },
-  { key: 'stop', label: 'Stop', perm: 'controlRuns', of: 'run' },
-  { key: 'restart', label: 'Restart', perm: 'controlRuns', of: 'run' },
-  { key: 'priority', label: 'Change priority', perm: 'controlRuns', of: 'run' },
-  { key: 'recover', label: 'Recover', perm: 'controlRuns', of: 'run' },
+  {
+    key: 'start',
+    icon: 'add',
+    label: 'Start a new run',
+    perm: 'startRuns',
+    of: 'workflow',
+  },
+  {
+    key: 'pause',
+    icon: 'pause',
+    label: 'Pause',
+    perm: 'controlRuns',
+    of: 'run',
+  },
+  {
+    key: 'resume',
+    icon: 'play_arrow',
+    label: 'Resume',
+    perm: 'controlRuns',
+    of: 'run',
+  },
+  { key: 'stop', icon: 'stop', label: 'Stop', perm: 'controlRuns', of: 'run' },
+  {
+    key: 'restart',
+    icon: 'replay',
+    label: 'Restart',
+    perm: 'controlRuns',
+    of: 'run',
+  },
+  {
+    key: 'priority',
+    icon: 'low_priority',
+    label: 'Change priority',
+    perm: 'controlRuns',
+    of: 'run',
+  },
+  {
+    key: 'recover',
+    icon: 'restore',
+    label: 'Recover',
+    perm: 'controlRuns',
+    of: 'run',
+  },
 ];
 
 /**
@@ -127,7 +144,17 @@ function Commands({
   const can = rows.filter((row) => row.ok);
   const cannot = rows.filter((row) => !row.ok);
   return (
-    <Panel label="What you can do with this run">
+    <section aria-label="Run commands" className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <h3 className="text-overline text-on-surface-variant">
+          What you can do with this run
+        </h3>
+        {rows.length > 0 && (
+          <span className="text-label-sm text-on-surface-variant">
+            {can.length} of {rows.length} allowed
+          </span>
+        )}
+      </div>
       {rows.length === 0 && (
         <p className="text-body-sm text-on-surface-variant">
           {hasRun
@@ -138,24 +165,28 @@ function Commands({
       {can.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <ul className="flex flex-wrap gap-1.5">
-            {can.map(({ key, label, via }) => (
+            {can.map(({ key, label, icon, via }) => (
               <li
                 key={key}
-                className="border-success/30 bg-success/10 text-label-sm text-success inline-flex h-[22px] items-center gap-1 rounded-full border pr-2.5 pl-2"
+                className="border-success/30 bg-success/5 hover:bg-success/10 transition-standard flex size-12 items-center justify-center rounded-lg border"
               >
-                <span
-                  aria-hidden="true"
-                  className="material-symbols-outlined text-base"
+                <Tip
+                  label={via === 'default' ? label : `${label} · via ${via}`}
                 >
-                  check
-                </span>
-                <span className="sr-only">Allowed: </span>
-                {label}
-                {via !== 'default' && (
-                  <span className="text-on-surface-variant font-normal">
-                    via {via}
+                  <span className="bg-success/15 text-success flex size-7 items-center justify-center rounded-md">
+                    <span
+                      aria-hidden="true"
+                      className="material-symbols-outlined text-base"
+                    >
+                      {icon}
+                    </span>
+                    <span className="sr-only">Allowed: </span>
+                    <span className="sr-only">{label}</span>
+                    {via !== 'default' && (
+                      <span className="sr-only"> via {via}</span>
+                    )}
                   </span>
-                )}
+                </Tip>
               </li>
             ))}
           </ul>
@@ -189,12 +220,19 @@ function Commands({
           </ul>
         </div>
       )}
-    </Panel>
+    </section>
   );
 }
 
 /** Node names as chips, with a search once there are many. */
-function NodeList({ ids }: { ids: string[] }) {
+function NodeList({
+  ids,
+  onNode,
+}: {
+  ids: string[];
+  /** Centers the graph on a node when its chip is pressed. */
+  onNode?: (nodeId: string) => void;
+}) {
   const [query, setQuery] = useState('');
   const needle = query.trim().toLowerCase();
   const shown = ids.filter((id) => id.toLowerCase().includes(needle));
@@ -212,11 +250,28 @@ function NodeList({ ids }: { ids: string[] }) {
       )}
       <ul className="flex flex-wrap gap-1.5">
         {shown.map((id) => (
-          <li
-            key={id}
-            className="text-code-sm border-border bg-muted/50 text-on-surface rounded-full border px-2 py-0.5"
-          >
-            {id}
+          <li key={id}>
+            {onNode ? (
+              <button
+                type="button"
+                onClick={() => onNode(id)}
+                className="text-code-sm border-border bg-surface-container-low text-on-surface transition-standard hover:border-primary/40 hover:bg-primary/5 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1"
+              >
+                <span
+                  aria-hidden="true"
+                  className="bg-primary/60 size-1.5 shrink-0 rounded-full"
+                />
+                {id}
+              </button>
+            ) : (
+              <span className="text-code-sm border-border bg-surface-container-low text-on-surface transition-standard inline-flex items-center gap-1.5 rounded-lg border px-2 py-1">
+                <span
+                  aria-hidden="true"
+                  className="bg-primary/60 size-1.5 shrink-0 rounded-full"
+                />
+                {id}
+              </span>
+            )}
           </li>
         ))}
       </ul>
@@ -229,31 +284,12 @@ function NodeList({ ids }: { ids: string[] }) {
   );
 }
 
-/** A small rounded label next to a name. */
-function Pill({
-  children,
-  tone = 'muted',
-}: {
-  children: ReactNode;
-  tone?: 'muted' | 'attention';
-}) {
-  const color =
-    tone === 'attention'
-      ? 'border-attention/30 bg-attention/10 text-attention'
-      : 'border-border bg-muted text-on-surface-variant';
-  return (
-    <span className={`text-label-sm rounded-full border px-2 py-px ${color}`}>
-      {children}
-    </span>
-  );
-}
-
 const count = (n: number) => `${n} ${n === 1 ? 'node' : 'nodes'}`;
 
 /**
- * One controller of the workflow: the supervisor as the server describes it (its type, what it
- * is for, whether it only records, what it reports to), then what it controls: the run itself
- * and/or nodes, the nodes behind a collapsed row.
+ * One controller of the workflow: the supervisor card as the node tab draws it (its type, what it
+ * is for, what it reports to), then what it controls: the run itself and/or nodes, the nodes
+ * behind a collapsed row that centers the graph on one when pressed.
  */
 export function Controller({
   owner,
@@ -261,91 +297,61 @@ export function Controller({
   typeName,
   runLevel,
   ids,
-  summary,
-  hideIcon = false,
+  onNode,
 }: {
   owner: string;
   supervisor: SupervisorView | undefined;
   typeName: string | undefined;
   runLevel: boolean;
   ids: string[];
-  /** Replaces the "Controls ..." line, e.g. for one node. */
-  summary?: string;
-  /** Leaves out the icon tile, where the surrounding view already says who owns it. */
-  hideIcon?: boolean;
+  onNode?: (nodeId: string) => void;
 }) {
-  const parents = supervisor?.parents ?? [];
   const controls = [
     runLevel && 'the whole run',
     ids.length > 0 && count(ids.length),
   ]
     .filter(Boolean)
     .join(' and ');
-  const line = (
-    <span className="text-body-sm text-on-surface-variant">
-      {summary ?? `Controls ${controls}`}
-    </span>
-  );
+  const line = `Controls ${controls}`;
+  const [open, setOpen] = useState(true);
   return (
-    <Card className="gap-3 p-4">
-      <div className="flex items-start gap-3">
-        {!hideIcon && (
-          <Tile
-            icon={owner === 'default' ? 'person' : 'shield_person'}
-            tone="primary"
-          />
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-body-md text-on-surface font-medium">
-              {supervisorLink(owner)}
-            </span>
-            {typeName && <Pill>{typeName}</Pill>}
-            {supervisor?.dryRun && (
-              <Tip label="Records the commands it would send and applies none">
-                <span>
-                  <Pill tone="attention">Dry run</Pill>
-                </span>
-              </Tip>
-            )}
-            {supervisor?.system && <Pill>Built in</Pill>}
-          </div>
-          {supervisor?.description && (
-            <p className="text-body-sm text-on-surface-variant">
-              {supervisor.description}
-            </p>
-          )}
-          {parents.length > 0 && (
-            <p className="text-body-sm text-on-surface-variant">
-              Reports to{' '}
-              {parents.map((parent, index) => (
-                <span key={parent}>
-                  {index > 0 && ', '}
-                  {supervisorLink(parent)}
-                </span>
-              ))}
-            </p>
-          )}
-          {ids.length === 0 && <p className="mt-1">{line}</p>}
-        </div>
-      </div>
-      {ids.length > 0 && (
-        <details className="group">
-          <summary className="flex cursor-pointer list-none items-center gap-1">
-            {line}
+    <SupervisorCard
+      owner={owner}
+      supervisor={supervisor}
+      typeName={typeName}
+      label={runLevel ? 'Supervised by' : 'Also controlling'}
+      scopeIcon={runLevel ? 'account_tree' : 'hub'}
+      scope={
+        ids.length > 0 ? (
+          // a fixed-height row: the icon stays put when the nodes open below it
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+            className="flex w-full cursor-pointer items-center justify-between gap-1 text-left"
+          >
+            <span>{line}</span>
             <span
               aria-hidden="true"
-              className="material-symbols-outlined text-on-surface-variant transition-transform group-open:rotate-180"
+              className={cn(
+                'material-symbols-outlined text-on-surface-variant transition-transform',
+                open && 'rotate-180'
+              )}
             >
               expand_more
             </span>
-          </summary>
-          <div className="pt-3">
-            <NodeList ids={ids} />
-          </div>
-        </details>
+          </button>
+        ) : (
+          line
+        )
+      }
+    >
+      {ids.length > 0 && open && (
+        <div className="pt-1">
+          <NodeList ids={ids} onNode={onNode} />
+        </div>
       )}
-    </Card>
+    </SupervisorCard>
   );
 }
 
@@ -354,10 +360,13 @@ export function SupervisionPanel({
   sessionId,
   workflowId,
   executionId,
+  onNode,
 }: {
   sessionId: string;
   workflowId: string;
   executionId: string | null;
+  /** Centers the graph on a node when its chip is pressed. */
+  onNode?: (nodeId: string) => void;
 }) {
   const ownership = useOwnership(sessionId, workflowId);
   const run = useSupervision({ execution: executionId }, Boolean(executionId));
@@ -394,6 +403,7 @@ export function SupervisionPanel({
         }
         runLevel={owner === runOwner}
         ids={idsOf(owner)}
+        onNode={onNode}
       />
     );
   };
@@ -431,30 +441,103 @@ export function SupervisionPanel({
   );
 }
 
-/** Who controls this workflow, as a dialog; `?supervision=1` opens it (a node's owner icon, the palette, a link). */
+/** The newest actions on this run (or, with no run chosen, on this workflow) from every supervisor. */
+function RunActions({
+  workflowId,
+  executionId,
+}: {
+  workflowId: string;
+  executionId: string | null;
+}) {
+  const decisions = useSupervisorDecisions();
+  const actions = (decisions.data ?? [])
+    .filter((d) =>
+      executionId ? d.executionId === executionId : d.workflowId === workflowId
+    )
+    .slice(0, 50);
+  return (
+    <ActionsCard
+      title={`Actions taken on this ${executionId ? 'run' : 'workflow'}`}
+      actions={actions}
+      loading={decisions.isPending}
+      empty="No supervisor has acted here yet."
+      showSupervisor
+    />
+  );
+}
+
+/**
+ * Who controls this workflow and what they did, as a side sheet over the progress panel (as the
+ * node sheet is); `?supervision=1` opens it (the toolbar, a node's owner icon, the palette, a link).
+ * It is not modal: the graph and the run controls stay usable beside it.
+ */
 export function WorkflowSupervision({
   sessionId,
   workflowId,
   executionId,
+  onNode,
 }: {
   sessionId: string;
   workflowId: string;
   executionId: string | null;
+  /** Centers the graph on a node when its chip is pressed. */
+  onNode?: (nodeId: string) => void;
 }) {
   const [params, setParams] = useSearchParams();
-  if (!params.has('supervision')) return null;
+  const open = params.has('supervision');
   const close = () => {
     const next = new URLSearchParams(params);
     next.delete('supervision');
     setParams(next, { replace: true });
   };
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      const next = new URLSearchParams(params);
+      next.delete('supervision');
+      setParams(next, { replace: true });
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, params, setParams]);
+  if (!open) return null;
   return (
-    <Modal title="Who controls this workflow" onClose={close} wide>
+    <aside
+      role="dialog"
+      aria-modal="false"
+      aria-label="Who controls this workflow"
+      data-testid="supervision-sheet"
+      className="border-border bg-background animate-in fade-in-0 slide-in-from-right-4 absolute inset-0 z-10 flex flex-col gap-4 overflow-y-auto border-l p-4 duration-150"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <Tile icon="shield_person" tone="primary" />
+          <div className="min-w-0">
+            <h2 className="text-headline-md text-on-surface">Supervision</h2>
+            <p className="text-label-md text-on-surface-variant">
+              Who controls this {executionId ? 'run' : 'workflow'}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close supervision"
+          className="text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface flex size-8 shrink-0 items-center justify-center rounded-lg"
+        >
+          <span aria-hidden="true" className="material-symbols-outlined">
+            close
+          </span>
+        </button>
+      </div>
       <SupervisionPanel
         sessionId={sessionId}
         workflowId={workflowId}
         executionId={executionId}
+        onNode={onNode}
       />
-    </Modal>
+      <RunActions workflowId={workflowId} executionId={executionId} />
+    </aside>
   );
 }

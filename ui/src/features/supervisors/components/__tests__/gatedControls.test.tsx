@@ -319,6 +319,41 @@ describe('WorkflowSupervision', () => {
     );
   });
 
+  it('presses a node to center the graph on it, and folds the node list', async () => {
+    ownership = {
+      sessionId: 's',
+      workflowId: 'w',
+      defaultSupervisor: true,
+      run: 'default',
+      nodes: { 'build.a': 'default', smoke: 'default' },
+    };
+    const pressed: string[] = [];
+    wrap(
+      <WorkflowSupervision
+        sessionId="s"
+        workflowId="w"
+        executionId="e1"
+        onNode={(id) => pressed.push(id)}
+      />,
+      '/?supervision=1'
+    );
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() =>
+      expect(within(dialog).queryByText(/Loading who owns/)).toBeNull()
+    );
+    const user = userEvent.setup();
+    await user.click(within(dialog).getByRole('button', { name: 'build.a' }));
+    expect(pressed).toEqual(['build.a']);
+    const [fold] = within(dialog).getAllByRole('button', { expanded: true });
+    await user.click(fold);
+    expect(fold).toHaveAttribute('aria-expanded', 'false');
+    expect(
+      within(dialog).queryByRole('button', { name: 'build.a' })
+    ).not.toBeInTheDocument();
+    await user.click(fold);
+    expect(fold).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('says one other controller in the singular', async () => {
     ownership = {
       sessionId: 's',
