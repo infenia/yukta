@@ -561,13 +561,37 @@ export function DirectControlDetail({
           ) : (
             <ul className="divide-border border-border bg-card shadow-card flex flex-col divide-y rounded-xl border">
               {direct.owned.map((w) => (
-                <li key={`${w.sessionId}/${w.workflowId}`} className="p-3">
+                <li
+                  key={`${w.sessionId}/${w.workflowId}`}
+                  className="flex items-center gap-2 p-3"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-primary text-lg"
+                  >
+                    account_tree
+                  </span>
                   <Link
-                    to={`/sessions/${encodeURIComponent(w.sessionId)}/workflow/${encodeURIComponent(w.workflowId)}`}
+                    to={`/supervisors?view=workflows&session=${encodeURIComponent(w.sessionId)}&workflow=${encodeURIComponent(w.workflowId)}`}
                     className="text-label-md text-primary"
                   >
                     {w.sessionId} / {w.workflowId}
                   </Link>
+                  <span className="flex-1" />
+                  <Tip label="Open the workflow">
+                    <Link
+                      to={`/sessions/${encodeURIComponent(w.sessionId)}/workflow/${encodeURIComponent(w.workflowId)}?supervision=1`}
+                      aria-label={`Open ${w.sessionId} / ${w.workflowId}`}
+                      className="text-on-surface-variant hover:text-primary flex"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="material-symbols-outlined text-base"
+                      >
+                        open_in_new
+                      </span>
+                    </Link>
+                  </Tip>
                 </li>
               ))}
             </ul>

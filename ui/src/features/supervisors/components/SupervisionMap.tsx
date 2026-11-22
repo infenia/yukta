@@ -52,7 +52,7 @@ export function SupervisionMap({
       nodes={graph.nodes}
       edges={graph.edges}
       onNodeClick={onClick}
-      className="h-96"
+      className="h-72 sm:h-96"
     />
   );
 }

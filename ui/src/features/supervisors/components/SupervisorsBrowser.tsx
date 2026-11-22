@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import {
 import { decisionMaker } from '../lib/decisionMakers';
 import type { SupervisorView } from '../types';
 import { StaleNotice } from './StaleNotice';
+import { ListToggle, useListDisclosure } from './ListDisclosure';
 import { Chip } from './SupervisorCard';
 import {
   DirectControlDetail,
@@ -140,6 +141,8 @@ export function SupervisorsBrowser() {
   const [filter, setFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [stateFilter, setStateFilter] = useState<string[]>([]);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const phone = useListDisclosure(params.get('supervisor'), detailRef);
   if (supervisors.isPending) {
     return <StateMessage tone="loading" title="Loading supervisors…" />;
   }
@@ -171,11 +174,13 @@ export function SupervisorsBrowser() {
     change(next);
     setParams(next, { replace: true });
   };
-  const select = (id: string) =>
+  const select = (id: string) => {
+    phone.onPick();
     update((next) => {
       next.set('supervisor', id);
       next.delete('section');
     });
+  };
   const setSection = (target: DetailSection) =>
     update((next) => next.set('section', target));
   const needle = filter.trim().toLowerCase();
@@ -205,6 +210,12 @@ export function SupervisorsBrowser() {
       <StaleNotice query={supervisors} />
       <div className="flex flex-col gap-4 md:flex-row">
         <div className="flex shrink-0 flex-col gap-3 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-64 md:self-start md:overflow-y-auto xl:w-72">
+          <ListToggle
+            label={`All supervisors (${all.length})`}
+            open={phone.open}
+            controls="supervisor-list"
+            onToggle={phone.toggle}
+          />
           <div className="flex flex-col gap-2">
             <Input
               type="search"
@@ -232,7 +243,11 @@ export function SupervisorsBrowser() {
               />
             </div>
           </div>
-          <nav aria-label="Supervisors" className="flex flex-col gap-2">
+          <nav
+            id="supervisor-list"
+            aria-label="Supervisors"
+            className={cn('flex flex-col gap-2', phone.listClass)}
+          >
             <ul className="flex flex-col gap-0.5">
               {shown.map((s) => (
                 <li key={s.id}>
@@ -291,7 +306,7 @@ export function SupervisorsBrowser() {
             </p>
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div ref={detailRef} className="min-w-0 flex-1">
           {showDefault || !selected ? (
             <DirectControlDetail section={section} />
           ) : (
