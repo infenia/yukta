@@ -22,11 +22,9 @@ test('a supervisor shows in the list with its detail, tabs and what it owns', as
   ).toHaveAttribute('aria-current', 'true');
   const article = page.getByRole('article');
   await expect(article.getByRole('heading', { name: sup })).toBeVisible();
-  await expect(article.locator('header')).toContainText('Live');
-  await expect(
-    page.getByRole('tablist', { name: `${sup} details` }).getByRole('tab')
-  ).toHaveCount(7);
-  await expect(page.getByRole('tabpanel', { name: 'Owns' })).toContainText(
+  await expect(article).toContainText('Live');
+  await expect(page.getByRole('tablist')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Owns' })).toContainText(
     session
   );
   await expect(
@@ -36,13 +34,12 @@ test('a supervisor shows in the list with its detail, tabs and what it owns', as
   for (const label of [
     'Allowed operations',
     'Hierarchy',
-    'Settings',
-    'Changes',
+    'Decision maker',
     'Decisions',
   ]) {
-    await page.getByRole('tab', { name: new RegExp(label) }).click();
-    await expect(page.getByRole('tabpanel', { name: label })).toBeVisible();
+    await expect(page.getByRole('region', { name: label })).toBeVisible();
   }
+  await expect(page.getByRole('group', { name: 'Changes' })).toBeVisible();
 });
 
 test('the filter finds a supervisor and Direct control lists a workflow nobody owns', async ({

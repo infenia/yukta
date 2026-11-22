@@ -208,10 +208,7 @@ test.describe('Supervisors', () => {
     ).toBeVisible();
     await shot(page, info, 'supervisor');
 
-    await page
-      .getByRole('tablist', { name: 'release-guard details' })
-      .getByRole('tab', { name: 'Settings' })
-      .click();
+    // Settings and Decisions are sections of the same page
     await expect(
       page.getByText('a node turns FAILURE at least 3 times within 60 s', {
         exact: false,
@@ -222,10 +219,7 @@ test.describe('Supervisors', () => {
     ).toBeVisible();
     await shot(page, info, 'rules-settings');
 
-    await page
-      .getByRole('tablist', { name: 'release-guard details' })
-      .getByRole('tab', { name: 'Decisions' })
-      .click();
+    // Settings and Decisions are sections of the same page
     const activity = page.getByRole('list', { name: 'Activity' });
     await expect(activity).toContainText('on its own');
     await expect(activity).toContainText('Reason: 3 failures in 60 s');
@@ -245,10 +239,7 @@ test.describe('Supervisors', () => {
   }, info) => {
     await mockSupervisors(page);
     await page.goto('/supervisors?supervisor=release-lead');
-    await page
-      .getByRole('tablist', { name: 'release-lead details' })
-      .getByRole('tab', { name: 'Settings' })
-      .click();
+    // Settings and Decisions are sections of the same page
 
     await expect(page.getByText(/Out:/)).toBeVisible();
     const panel = page.getByRole('region', { name: 'Credential' });

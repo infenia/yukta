@@ -182,7 +182,10 @@ describe('the Decision makers tab', () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Settings' }));
     expect(screen.getByText('(required)')).toBeInTheDocument();
-    expect(screen.getByText('3000')).toBeInTheDocument();
+    // the supervisor behind the sheet shows settings too
+    expect(
+      within(screen.getByRole('dialog')).getByText('3000')
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Presets' }));
     expect(await screen.findByText('No presets')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Example' }));
@@ -266,7 +269,9 @@ describe('the Decision makers tab', () => {
     renderAt('/supervisors?tab=decision-makers&type=http');
     await screen.findByRole('heading', { name: 'External system', level: 2 });
     await user.click(screen.getByRole('tab', { name: 'Settings' }));
-    expect(screen.getByText('{"A":"b"}')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('dialog')).getByText('{"A":"b"}')
+    ).toBeInTheDocument();
   });
 
   it('says when there are none, or the catalog fails', async () => {
@@ -287,9 +292,11 @@ describe('the Decision makers tab', () => {
 describe('a supervisor’s Settings and History', () => {
   const at = async (tab: 'Settings' | 'Changes') => {
     const user = userEvent.setup();
-    renderAt('/supervisors');
+    // Settings are part of the Decision maker section; Changes opens when named
+    renderAt(
+      tab === 'Changes' ? '/supervisors?section=changes' : '/supervisors'
+    );
     await screen.findByRole('heading', { name: 'lead' });
-    await user.click(screen.getByRole('tab', { name: tab }));
     return user;
   };
 

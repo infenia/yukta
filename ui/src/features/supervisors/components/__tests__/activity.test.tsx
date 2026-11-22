@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { choose } from '@/test/utils/choose';
 import {
   describe,
   it,
@@ -155,22 +154,32 @@ describe('the Activity list', () => {
     expect(all).not.toHaveTextContent('of 2 applied');
   });
 
-  it('filters by supervisor, cause, outcome and workflow', async () => {
+  it('filters by several supervisors, causes, outcomes and workflows, and clears the filters', async () => {
     const user = userEvent.setup();
     show();
     await rows();
-    await choose(user, screen.getByLabelText('Cause'), 'tick');
+    // a multi-select stays open while you pick; Escape closes it
+    const pick = async (label: string, option: string) => {
+      await user.click(screen.getByLabelText(label));
+      await user.click(await screen.findByRole('option', { name: option }));
+      await user.keyboard('{Escape}');
+    };
+    await pick('Cause', 'tick');
     expect(await rows()).toHaveLength(1);
-    await choose(user, screen.getByLabelText('Cause'), '');
-    await choose(user, screen.getByLabelText('Workflow'), 'build');
-    expect(await rows()).toHaveLength(1);
-    await choose(user, screen.getByLabelText('Outcome'), 'dry-run');
+    expect(screen.getByText('1 shown')).toBeInTheDocument();
+    // two causes at once
+    await pick('Cause', 'answered');
+    expect(await rows()).toHaveLength(2);
+    await pick('Outcome', 'rejected');
     expect(
       screen.getByText('Nothing matches these filters.')
     ).toBeInTheDocument();
-    await choose(user, screen.getByLabelText('Outcome'), '');
-    await choose(user, screen.getByLabelText('Workflow'), '');
-    await choose(user, screen.getByLabelText('Supervisor'), 'legacy');
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(await rows()).toHaveLength(6);
+    await pick('Workflow', 'build');
+    expect(await rows()).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Clear Workflow' }));
+    await pick('Supervisor', 'legacy');
     expect(await rows()).toHaveLength(1);
   });
 
