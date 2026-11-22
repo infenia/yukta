@@ -307,6 +307,26 @@ describe('the By workflow view', () => {
     expect(await nav()).toBeInTheDocument();
   });
 
+  it('folds the list on a phone once a workflow is chosen', async () => {
+    const user = userEvent.setup();
+    assignments = [
+      att('1', 'lead', 'workflow:s/a'),
+      att('2', 'lead', 'workflow:s/b'),
+    ];
+    renderAt('/supervisors?view=workflows&session=s&workflow=a');
+    const list = await nav();
+    expect(list).toHaveClass('max-md:hidden');
+    await user.click(
+      screen.getByRole('button', { name: /All workflows \(2\)/ })
+    );
+    expect(list).not.toHaveClass('max-md:hidden');
+    await user.click(within(list).getByRole('button', { name: /s \/ b/ }));
+    expect(list).toHaveClass('max-md:hidden');
+    expect(
+      await screen.findByRole('heading', { name: 's / b', level: 2 })
+    ).toHaveFocus();
+  });
+
   it('is reached from the views switch', async () => {
     const user = userEvent.setup();
     assignments = [att('1', 'lead', 'workflow:s/w')];

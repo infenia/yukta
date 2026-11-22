@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Callout } from '@/components/common/Callout';
@@ -16,6 +16,7 @@ import { useWorkflowIndex } from '../hooks/useWorkflowIndex';
 import { parseScope } from '../lib/ownership';
 import { workflowKey } from '../lib/supervisionGraph';
 import type { WorkflowRow } from '../lib/workflowIndex';
+import { ListToggle, useListDisclosure } from './ListDisclosure';
 import { Chip, SupervisorShell } from './SupervisorCard';
 import { AssignmentCard } from './SupervisorDetailTabs';
 import { SupervisionBody } from './WorkflowSupervision';
@@ -106,7 +107,7 @@ function WorkflowSupervisionDetail({
         <div className="relative flex flex-wrap items-start gap-3">
           <span
             aria-hidden="true"
-            className="bg-primary/15 text-primary ring-primary/30 shadow-card flex size-12 shrink-0 items-center justify-center rounded-xl ring-1"
+            className="bg-primary/15 text-primary shadow-card ring-primary/30 flex size-12 shrink-0 items-center justify-center rounded-xl ring-1"
           >
             <span className="material-symbols-outlined text-[26px]!">
               account_tree
@@ -182,6 +183,8 @@ export function WorkflowsBrowser() {
   const [params, setParams] = useSearchParams();
   const [filter, setFilter] = useState('');
   const [controllers, setControllers] = useState<string[]>([]);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const phone = useListDisclosure(params.get('workflow'), detailRef);
   if (index.isPending) {
     return <StateMessage tone="loading" title="Loading workflows…" />;
   }
@@ -218,6 +221,7 @@ export function WorkflowsBrowser() {
       })
     : index.rows[0];
   const select = (row: WorkflowRow) => {
+    phone.onPick();
     const next = new URLSearchParams(params);
     if (row.sessionId) next.set('session', row.sessionId);
     else next.delete('session');
@@ -239,6 +243,12 @@ export function WorkflowsBrowser() {
   return (
     <div className="flex flex-col gap-4 md:flex-row">
       <div className="flex shrink-0 flex-col gap-3 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-64 md:self-start md:overflow-y-auto xl:w-72">
+        <ListToggle
+          label={`All workflows (${index.rows.length})`}
+          open={phone.open}
+          controls="workflow-list"
+          onToggle={phone.toggle}
+        />
         <div className="flex flex-col gap-2">
           <Input
             type="search"
@@ -255,7 +265,11 @@ export function WorkflowsBrowser() {
             options={options}
           />
         </div>
-        <nav aria-label="Workflows" className="flex flex-col gap-2">
+        <nav
+          id="workflow-list"
+          aria-label="Workflows"
+          className={cn('flex flex-col gap-2', phone.listClass)}
+        >
           <ul className="flex flex-col gap-0.5">
             {shown.map((r) => (
               <li key={r.key}>
@@ -306,7 +320,7 @@ export function WorkflowsBrowser() {
           </StateMessage>
         )}
       </div>
-      <div className="min-w-0 flex-1">
+      <div ref={detailRef} className="min-w-0 flex-1">
         {selected ? (
           <WorkflowSupervisionDetail
             key={selected.key}

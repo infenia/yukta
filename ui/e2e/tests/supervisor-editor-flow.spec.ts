@@ -65,7 +65,13 @@ async function mockEditor(
             }),
           });
     }
-    return r.fulfill(envelope('/supervisors', [supervisor('release-guard')]));
+    return r.fulfill(
+      envelope('/supervisors', [
+        supervisor('release-guard'),
+        supervisor('release-lead', { parents: [] }),
+        supervisor('audit', { parents: [] }),
+      ])
+    );
   });
   await page.route('**/api/supervisors/release-guard', (r) => {
     if (r.request().method() === 'PUT') {
@@ -210,7 +216,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
     await expect(save(page)).toBeEnabled();
   });
 
-  test('creates it with every field, reports to split into a list, and opens it', async ({
+  test('creates it with every field, reports to chosen from the others, and opens it', async ({
     page,
   }) => {
     const calls = await mockEditor(page);
@@ -220,7 +226,11 @@ test.describe('Supervisor editor - a new supervisor', () => {
     await page.getByLabel('Description').fill('A new supervisor');
     await choose(page.getByLabel('Decision maker'), 'http');
     await page.getByRole('checkbox', { name: /Dry run/ }).uncheck();
-    await page.getByLabel('Reports to').fill(' release-lead , audit,, ');
+    // the popup stays open to pick several
+    await page.getByLabel('Reports to').click();
+    await page.getByRole('option', { name: 'release-lead' }).click();
+    await page.getByRole('option', { name: 'audit' }).click();
+    await page.keyboard.press('Escape');
     await page
       .getByLabel('Settings (JSON)')
       .fill('{"url": "https://agent.example.com"}');
@@ -316,7 +326,7 @@ test.describe('Supervisor editor - an existing supervisor', () => {
     await expect(
       page.getByRole('checkbox', { name: /Dry run/ })
     ).not.toBeChecked();
-    await expect(page.getByLabel('Reports to')).toHaveValue(
+    await expect(page.getByLabel('Reports to')).toContainText(
       'release-lead, audit'
     );
     await expect(page.getByLabel('Settings (JSON)')).toHaveValue(
@@ -338,7 +348,7 @@ test.describe('Supervisor editor - an existing supervisor', () => {
 
     await page.getByLabel('Description').fill('Changed by hand');
     await page.getByRole('checkbox', { name: /Dry run/ }).check();
-    await page.getByLabel('Reports to').fill('');
+    await page.getByRole('button', { name: 'Clear Reports to' }).click();
     await save(page).click();
 
     await expect(page).toHaveURL(/\/supervisors\?supervisor=release-guard$/);

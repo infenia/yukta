@@ -191,10 +191,11 @@ describe('the edit form', () => {
       await screen.findByRole('combobox', { name: 'Decision maker' }),
       'failure-guard'
     );
-    await user.type(
-      screen.getByRole('textbox', { name: 'Reports to' }),
-      'lead, ops'
-    );
+    // the other supervisors are the choices; the popup stays open to pick several
+    await user.click(screen.getByLabelText('Reports to'));
+    await user.click(await screen.findByRole('option', { name: 'guard' }));
+    await user.click(screen.getByRole('option', { name: 'rules' }));
+    await user.keyboard('{Escape}');
     const settings = screen.getByRole('textbox', { name: 'Settings (JSON)' });
     await user.clear(settings);
     await user.type(settings, '[[1]');
@@ -212,7 +213,7 @@ describe('the edit form', () => {
       id: 'fresh',
       type: 'failure-guard',
       dryRun: true,
-      parents: ['lead', 'ops'],
+      parents: ['guard', 'rules'],
       settings: {},
     });
     await waitFor(() =>
@@ -242,6 +243,48 @@ describe('the edit form', () => {
     expect(sent).toMatchObject({ id: 'guard', dryRun: true, parents: [] });
     expect(sent.description).toBeUndefined();
     expect(sent.settings).toEqual({ failures: 3, token: '***' });
+  });
+
+  it('offers the other supervisors, keeps a parent that is no longer listed removable, and goes back to the supervisor', async () => {
+    admin();
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/supervisors/:id', () =>
+        envelope({ ...guard, parents: ['gone'] })
+      )
+    );
+    renderAt('/supervisors/guard/edit');
+    expect(
+      await screen.findByRole('heading', { name: 'Edit guard' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute(
+      'href',
+      '/supervisors?supervisor=guard'
+    );
+    expect(
+      await screen.findByText('Turn it off to let it apply commands.')
+    ).toBeInTheDocument();
+    const reports = await screen.findByLabelText('Reports to');
+    expect(reports).toHaveTextContent('gone');
+    await user.click(reports);
+    // not itself, but the other one and the one that is gone
+    expect(await screen.findByRole('option', { name: 'rules' })).toBeVisible();
+    expect(screen.getByRole('option', { name: 'gone' })).toBeVisible();
+    expect(screen.queryByRole('option', { name: 'guard' })).toBeNull();
+    await user.click(screen.getByRole('option', { name: 'gone' }));
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(JSON.parse(writes[0].slice('replace '.length)).parents).toEqual([]);
+  });
+
+  it('goes back to the list from a new supervisor', () => {
+    admin();
+    renderAt('/supervisors/new');
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute(
+      'href',
+      '/supervisors'
+    );
   });
 
   it('shows the server error with its field errors', async () => {
