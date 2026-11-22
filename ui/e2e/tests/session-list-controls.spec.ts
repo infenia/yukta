@@ -156,8 +156,9 @@ test.describe('Session list - Creator and Last run filters', () => {
     await page.getByRole('menuitemcheckbox', { name: 'Not run' }).click();
     await page.keyboard.press('Escape');
     await expect(page).toHaveURL(/lastrun=Not(\+|%20)run/);
-    await expect(rows(page)).toHaveCount(1);
+    // wait for the new row first: a count of 1 is also true of the row the Failed filter left
     await expect(rows(page).first()).toContainText('Gamma');
+    await expect(rows(page)).toHaveCount(1);
   });
 
   test('Reset filters clears every filter and the URL', async ({ page }) => {

@@ -5,6 +5,7 @@ import type { Page } from '@playwright/test';
 import { choose, expectOptions } from '../utils';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
+import { mockSupervisorDetail } from '../supervisor-detail';
 
 const ENGINES = [
   { type: 'rules', displayName: 'Rules', category: 'RULES', icon: 'rule' },
@@ -46,6 +47,7 @@ async function mockEditor(
   }: { saveStatus?: number; saveDelay?: number } = {}
 ): Promise<Calls> {
   const calls: Calls = { creates: [], replaces: [] };
+  await mockSupervisorDetail(page);
   await page.route('**/api/supervisor-engines', (r) =>
     r.fulfill(envelope('/engines', ENGINES))
   );
@@ -227,7 +229,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
     await choose(page.getByLabel('Decision maker'), 'http');
     await page.getByRole('checkbox', { name: /Dry run/ }).uncheck();
     // the popup stays open to pick several
-    await page.getByLabel('Reports to').click();
+    await page.getByRole('combobox', { name: 'Reports to' }).click();
     await page.getByRole('option', { name: 'release-lead' }).click();
     await page.getByRole('option', { name: 'audit' }).click();
     await page.keyboard.press('Escape');
@@ -326,9 +328,9 @@ test.describe('Supervisor editor - an existing supervisor', () => {
     await expect(
       page.getByRole('checkbox', { name: /Dry run/ })
     ).not.toBeChecked();
-    await expect(page.getByLabel('Reports to')).toContainText(
-      'release-lead, audit'
-    );
+    await expect(
+      page.getByRole('combobox', { name: 'Reports to' })
+    ).toContainText('release-lead, audit');
     await expect(page.getByLabel('Settings (JSON)')).toHaveValue(
       JSON.stringify({ rules: [] }, null, 2)
     );

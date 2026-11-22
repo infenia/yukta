@@ -129,6 +129,12 @@ async function mockSupervisors(
   await page.route(/\/api\/supervisors\/[^/]+\/versions$/, (r) =>
     r.fulfill(envelope('/versions', []))
   );
+  // a rules supervisor's Decision maker section reads its rules
+  await page.route(/\/api\/supervisors\/[^/]+\/engine\/rules$/, (r) =>
+    r.fulfill(
+      envelope('/rules', { version: 1, rules: { schemaVersion: 1, rules: [] } })
+    )
+  );
   await page.route(/\/api\/supervisors\/decisions(\?|$)/, (r) =>
     r.fulfill(envelope('/decisions', DECISIONS))
   );
@@ -353,7 +359,10 @@ test.describe('Supervisors - one supervisor', () => {
     await expect(
       article.getByRole('heading', { name: 'release-lead' })
     ).toBeVisible();
-    await expect(article.locator('code', { hasText: 'http' })).toBeVisible();
+    // the header card and the Decision maker section both show the type
+    await expect(
+      article.locator('code', { hasText: 'http' }).first()
+    ).toBeVisible();
     await expect(article).toContainText('Live');
     await expect(article.getByText('The release agent.')).toBeVisible();
   });
@@ -518,7 +527,14 @@ test.describe('Supervisors - Direct control', () => {
     for (const name of ['Allowed operations', 'Decision maker']) {
       await expect(article.getByRole('region', { name })).toBeVisible();
     }
-    await article.getByRole('link', { name: 'build / check' }).click();
+    // the name opens the workflow's supervision here; the icon opens its run view
+    await expect(
+      article.getByRole('link', { name: 'build / check', exact: true })
+    ).toHaveAttribute(
+      'href',
+      '/supervisors?view=workflows&session=build&workflow=check'
+    );
+    await article.getByRole('link', { name: 'Open build / check' }).click();
 
     await expect(page).toHaveURL(/\/sessions\/build\/workflow\/check$/);
   });

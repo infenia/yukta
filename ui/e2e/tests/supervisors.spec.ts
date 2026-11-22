@@ -4,6 +4,7 @@
 import type { Page, TestInfo } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
+import { mockSupervisorDetail } from '../supervisor-detail';
 
 // Scenarios of the view-first supervisors UI (design/plans/supervisor-framework.md, S8d). Each
 // attaches screenshots to the report instead of comparing pixels: the committed snapshots are
@@ -277,6 +278,7 @@ test.describe('Supervisors', () => {
     ).toBeVisible();
     await shot(page, info, 'error');
     fail = false;
+    await mockSupervisorDetail(page);
     await page.getByRole('button', { name: /Retry/ }).click();
     await expect(
       page.getByRole('navigation', { name: 'Supervisors' })

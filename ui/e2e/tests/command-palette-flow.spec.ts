@@ -4,6 +4,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, defaultProgress } from '../fixtures';
 import { envelope } from '../api-envelope';
+import { mockSupervisorDetail } from '../supervisor-detail';
 
 const session = (id: string, name: string) => ({
   sessionId: id,
@@ -274,6 +275,7 @@ test.describe('Command palette - doing things', () => {
     mockWorkflowApi,
   }) => {
     await mockWorkflowApi(page);
+    await mockSupervisorDetail(page);
     await open(page);
     await option(page, 'Build Pipeline').click();
     await expect(page).toHaveURL(/\/sessions\/build$/);
