@@ -18,4 +18,3 @@ limit events, `usage`, `modelUsage`, cost, the tool and MCP server lists of `ini
 Nothing else is changed. The cleaned lines are `{"t": seconds, "dir": "in"|"out", "frame": {...}}`;
 `in` is what Yukta would write to the agent, `out` what the agent printed.
 
-The `spike/` directory holds the PTY spikes (go-pty with `vt10x` or `charmbracelet/x/vt`).

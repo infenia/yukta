@@ -28,7 +28,7 @@ allows the plugin type and has the most free slots (counting what it has sent an
 means the attempt fails at once, as a failure the engine can retry. A worker that goes away mid-attempt (its connection closes, also when the agent is stopped) fails the attempt with a `WorkflowExecutionException` naming it; the engine's retry picks a worker again, so it can land on another one. A stopping worker drains first: its agent tells the control plane it takes nothing new (`draining` on the lease frame, so `WorkerNodeExecutor` skips it), waits up to `yukta.workers.drain-timeout` (30s) for its running attempts, then closes the connection; what is still running then fails as a lost worker. `LLM_CALL` counts `llm.tokens{provider,direction}` and `llm.cost{provider}`. A worker runs only the plugin types on
 `yukta.workers.plugin-types`, initialises and prepares the plugin per attempt, and sends a failure back with
 its class name (`IllegalArgumentException` stays one, so it is not retried). Messages cross as plain JSON values.
-See `../design/plans/remote-workers.md`.
+See `../design/decisions/0006-remote-workers.md`.
 
 ### High availability (active/standby)
 `LeaderElection` (`service/leader`) says whether this server admits runs. A single server is always the

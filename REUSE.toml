@@ -49,7 +49,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = [".reuse/dep5", ".mcp.json", "skills-lock.json", "cli/go.mod", "cli/go.sum", "design/decisions/0004-agent-console/spike/go.mod", "design/decisions/0004-agent-console/spike/go.sum", "cli/.gitignore", ".gitmessage", ".git-commit-guide.md" ]
+path = [".reuse/dep5", ".mcp.json", "skills-lock.json", "cli/go.mod", "cli/go.sum", "cli/.gitignore", ".gitmessage", ".git-commit-guide.md" ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"

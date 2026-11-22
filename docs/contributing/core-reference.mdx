@@ -941,7 +941,7 @@ A processor node with `engine.placement {pool}` runs on a worker process of that
 
 **Surface:** REST `GET /api/workers`. Gauges `yukta.workers`, `yukta.worker.slots`.
 
-**Source:** `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `RemoteNodeExecutor` `WorkerRegistration`. Module `workers`. Design: [remote workers plan](https://github.com/infenia/yukta/blob/main/design/plans/remote-workers.md).
+**Source:** `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `RemoteNodeExecutor` `WorkerRegistration`. Module `workers`. Design: [ADR 0006: remote workers](https://github.com/infenia/yukta/blob/main/design/decisions/0006-remote-workers.md).
 
 **Limits:** Triggers, terminals and the stateful plugins (`WAIT_FOR_SIGNAL`, `SUB_WORKFLOW`) cannot be placed. Without the `workers` module a placed node fails to prepare. The control plane still sees every message (a data hop). Default transport is a shared token over plain TCP. Native-image worker registration is not verified.
 
@@ -1313,7 +1313,7 @@ What survives a restart, by deployment profile. "Memory" is the default; "File" 
 - **Memory growth:** the state queue is unbounded; sessions are evicted only when `yukta.tracker.max-sessions` or `yukta.tracker.session-ttl` is set; the in-memory log and idempotency cache are bounded by their retention settings.
 - **Large payloads** are carried through memory by every node that touches them; `yukta.messaging.max-payload-bytes` (64 MiB) fails a node that sends or receives more, but there is no claim-check yet.
 
-Known gaps, risk analysis and design decisions are tracked in the [bug backlog](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Acore), the [remediation plan](https://github.com/infenia/yukta/blob/main/design/plans/remediation.md), the [performance plan](https://github.com/infenia/yukta/blob/main/design/plans/performance.md), the [core risks](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Arisk%20label%3Acore) and the [core module guide](/contributing/modules/core).
+Known gaps, risk analysis and design decisions are tracked in the [bug backlog](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Acore), the [core risks](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Arisk%20label%3Acore) and the [core module guide](/contributing/modules/core).
 
 ## Maintaining this document
 

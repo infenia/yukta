@@ -5,7 +5,7 @@ plugins {
 }
 
 // Community plugins: processors and terminals that run outside the server, described by a
-// yukta-plugin.json manifest in yukta.plugins.dir (design/plans/community-plugins.md).
+// yukta-plugin.json manifest in yukta.plugins.dir (design/decisions/0008-community-plugins.md).
 dependencies {
     api(project(":messaging"))
     implementation(project(":plugin-api"))

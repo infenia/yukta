@@ -27,7 +27,7 @@ yk gradle :web:test
 ## Key Files
 - **Controllers**: `src/main/java/com/infenia/yukta/controller/`
 - **Mappers**: `src/main/java/com/infenia/yukta/mapper/`
-- **Module guide**: `../docs/contributing/modules/web.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `web` (`gh issue list -l web`; risks also carry `risk`); evolution path and quality lenses: `../design/assessments/web.md`
+- **Module guide**: `../docs/contributing/modules/web.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `web` (`gh issue list -l web`; risks also carry `risk`).
 
 ## Imports
 @.claude/rules/coding-standards.md

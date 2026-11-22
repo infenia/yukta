@@ -31,6 +31,21 @@ Today a supervisor type is the decision logic and its configuration at once. Sev
 
 Contract details settled in S0 (recorded in the page and the plan): `notify` is in v1; the error codes are `CONTROLLED_BY_SUPERVISOR` (409), `OWNERSHIP_CONFLICT` (409), `NOT_OWNED` (409), `AWAITING_APPROVAL` (202) and `CONTROL_REJECTED` (403); the CLI exits with `6` on a refusal (4 is the server-error code); the version header is `Yukta-Supervisor-Contract`; the selector cap is 200 and the default initiative limit 10 per minute; `locked` assignments are in (S2); an admin emergency stop is not in v1.
 
+## Questions Q1 to Q10 (all recommendations accepted on 2026-11-08)
+
+| # | Question | Answer |
+|---|---|---|
+| Q1 | Default `operatorAccess` of a new supervisor | `NONE`: giving a node an owner takes direct control away from keys unless an administrator grants it. |
+| Q2 | Is a `session` assignment allowed? | Yes, as shorthand, with the same exclusivity. |
+| Q3 | Node outputs through the read API | Off by default, opt in per supervisor, with redaction. |
+| Q4 | Is `notify` in contract v1? | Yes (confirmed in S0). |
+| Q5 | `locked` assignments | Yes (S2): otherwise an administrator's key can always remove the supervisor that protects a workflow. |
+| Q6 | SpEL in rules | Kept as an advanced `if` over the documented facts, in a read-only sandbox. |
+| Q7 | One engine per supervisor | Yes. Composition is by parents, never by stacking engines. |
+| Q8 | Legacy overlap policy at migration | Keep the oldest enabled per unit, disable the others and show `conflict`. |
+| Q9 | An `ADMIN` emergency stop | Not in v1 (see the contract details above). It would have to be audited and could not be a general bypass. |
+| Q10 | Is the `workflow` engine worth building? | Decide after the S9 spike. |
+
 ## Consequences
 
 - **Loss of independent vetoes.** The owner and its delegation chain are the only authority. An administrator can always detach an unlocked supervisor.
