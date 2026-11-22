@@ -41,7 +41,7 @@ yk gradle :mcp:test
 - `src/main/java/com/infenia/yukta/mcp/dto/`: MCP-owned response records (plain records,
   no swagger annotations). Core records (`WorkflowProgress`, `WorkflowExecutionSummary`,
   `WorkflowDefinition`) are returned directly where already clean.
-- `../docs/contributing/modules/mcp.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `mcp` (`gh issue list -l mcp`; risks also carry `risk`); evolution path and quality lenses: `../design/assessments/mcp.md`.
+- `../docs/contributing/modules/mcp.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `mcp` (`gh issue list -l mcp`; risks also carry `risk`).
 
 ## Conventions & Gotchas
 - Tool params use `@McpToolParam(required, description)`; `@McpArg` is only for

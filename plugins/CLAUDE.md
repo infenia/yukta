@@ -29,7 +29,7 @@ yk gradle :plugins:processors:process-executor:build
 
 ## Development
 Each plugin should implement the interfaces defined in `plugin-api`.
-Guide: `../docs/contributing/modules/plugins.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `plugins` (`gh issue list -l plugins`; risks also carry `risk`); evolution path and quality lenses: `../design/assessments/plugins.md`.
+Guide: `../docs/contributing/modules/plugins.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `plugins` (`gh issue list -l plugins`; risks also carry `risk`).
 
 ## Conformance check
 `boot/.../plugins/PluginConformanceAcceptanceTest` checks every registered plugin against the plugin contract (type name, category, config schema, output ports, timeout and buffer defaults, a description, `validateConfig` rejecting an empty config when a field is required, no crash on `validateConfig` or `shutdown`). A new plugin is covered with no test change; `PluginCoverageAcceptanceTest` still needs its type listed. If a plugin must break a rule, add `"TYPE: rule" -> reason` to `EXEMPT` in the conformance test.
