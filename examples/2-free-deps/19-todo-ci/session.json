@@ -42,6 +42,22 @@
           }
         },
         {
+          "nodeId": "clean",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "uv",
+              "run",
+              "--no-project",
+              "python",
+              "-c",
+              "import shutil,sys;shutil.rmtree(sys.argv[1],ignore_errors=True)",
+              "${sys.java.io.tmpdir}/yukta-todo-ci"
+            ],
+            "timeout": 60
+          }
+        },
+        {
           "nodeId": "clone",
           "type": "PROCESS_EXECUTOR",
           "config": {
@@ -50,8 +66,8 @@
               "clone",
               "--depth",
               "1",
-              "${start.repo}",
-              "${start.dir}"
+              "https://github.com/infenia/yukta-example-todo.git",
+              "${sys.java.io.tmpdir}/yukta-todo-ci"
             ],
             "timeout": 120
           }
@@ -68,7 +84,7 @@
               "."
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/backend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/backend"
           }
         },
         {
@@ -84,7 +100,7 @@
               "."
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/backend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/backend"
           }
         },
         {
@@ -98,7 +114,7 @@
               "-q"
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/backend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/backend"
           }
         },
         {
@@ -111,7 +127,7 @@
               "--no-project",
               "python",
               "-c",
-              "import json,shutil;print(json.dumps({'js':'bun' if shutil.which('bun') else 'node' if shutil.which('node') else 'none'}))"
+              "import json,shutil,sys;print(json.dumps({'js':'bun' if shutil.which('bun') else 'node' if shutil.which('node') else 'none','npm':'npm.cmd' if sys.platform=='win32' else 'npm'}))"
             ],
             "timeout": 60,
             "outputFormat": "JSON"
@@ -149,7 +165,7 @@
               "--frozen-lockfile"
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
           }
         },
         {
@@ -163,7 +179,7 @@
               "lint"
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
           }
         },
         {
@@ -177,7 +193,7 @@
               "format:check"
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
           }
         },
         {
@@ -189,7 +205,7 @@
               "test"
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
           }
         },
         {
@@ -197,11 +213,11 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "${start.npm}",
+              "${payload.output.npm}",
               "install"
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
           }
         },
         {
@@ -209,12 +225,13 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "${start.npm}",
-              "run",
-              "lint"
+              "node",
+              "node_modules/@biomejs/biome/bin/biome",
+              "lint",
+              "."
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
           }
         },
         {
@@ -222,12 +239,13 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "${start.npm}",
-              "run",
-              "format:check"
+              "node",
+              "node_modules/@biomejs/biome/bin/biome",
+              "format",
+              "."
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
           }
         },
         {
@@ -235,11 +253,11 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "${start.npm}",
-              "test"
+              "node",
+              "--test"
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
           }
         },
         {
@@ -260,13 +278,17 @@
         },
         {
           "source": "check-python",
-          "target": "clone",
+          "target": "clean",
           "sourcePort": "success"
         },
         {
           "source": "check-python",
           "target": "notify-python",
           "sourcePort": "failure"
+        },
+        {
+          "source": "clean",
+          "target": "clone"
         },
         {
           "source": "clone",

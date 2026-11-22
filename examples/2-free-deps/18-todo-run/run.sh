@@ -7,7 +7,8 @@
 # The workflow first checks that Python and bun (else node) are there; if not it tells the inbox and
 # this script ends with SKIP (exit 3) and the message.
 # Works on Linux, macOS and Windows (Git Bash); needs git, uv (it finds Python) and bun or node on this machine and a
-# server that allows them (YUKTA_PROCESS_ALLOWED_COMMANDS=git,uv,bun,node,npm; npm.cmd on Windows). Uses ports 8000 and 5173.
+# server that allows them (YUKTA_PROCESS_ALLOWED_COMMANDS=git,uv,bun,node,npm (npm.cmd on Windows) and
+# YUKTA_VARIABLES_ALLOWED=java.io.tmpdir, which lets the workflow clone into the server's temp folder). Uses ports 8000 and 5173.
 set -euo pipefail
 source "$(dirname "$0")/../../lib/common.sh"
 cd "$(dirname "$0")"
@@ -17,18 +18,16 @@ require_plugin PROCESS_EXECUTOR
 
 SID=$(jq -r .sessionId session.json)
 APP=http://127.0.0.1:5173
-DIR=$(temp_dir yukta-todo-run)
 EID=""
 cleanup() {
   [[ -z "$EID" ]] || api POST "/api/executions/$EID/stop?mode=KILL" >/dev/null 2>&1 || true
-  sleep 2; rm -rf "$DIR" 2>/dev/null || true
+  sleep 2
 }
 trap cleanup EXIT
 
 apply_session session.json
-payload=$(jq --arg dir "$DIR/todo" --arg npm "$(npm_command)" '. + {dir: $dir, npm: $npm}' payload.json)
-echo "--> start run in $DIR (the first run downloads the packages)"
-EID=$(api POST /api/workflow/start "$(jq -n --arg s "$SID" --argjson p "$payload" '{sessionId:$s,workflowId:"run",payload:$p}')" | jq -r .data.executionId)
+echo "--> start run (it clones into the temp folder; the first run downloads the packages)"
+EID=$(api POST /api/workflow/start "$(jq -n --arg s "$SID" '{sessionId:$s,workflowId:"run"}')" | jq -r .data.executionId)
 
 # up: the page, and the backend behind its proxy
 up=false

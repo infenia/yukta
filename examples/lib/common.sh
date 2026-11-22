@@ -97,25 +97,19 @@ require_tools() {
   done
 }
 
-# temp_dir PREFIX: a fresh folder in the system temp folder, printed in a form the server understands
-# (on Windows under Git Bash the path is converted to C:/... so a Windows server can use it).
-temp_dir() {
-  local d
-  d=$(mktemp -d "${TMPDIR:-/tmp}/$1.XXXXXX")
-  if command -v cygpath >/dev/null; then cygpath -m "$d"; else printf '%s' "$d"; fi
-}
-
-# skip_if_refused LOGS: exit 3 (SKIP) when the logs say the server may not run the commands.
+# skip_if_refused LOGS: exit 3 (SKIP) when the server refuses what the run needs: the commands, or reading the
+# temp folder (${sys.java.io.tmpdir}). Looks in the logs and in the task errors of the run in $EID.
 skip_if_refused() {
-  if grep -qE "is not in yukta.process.allowed-commands|Process execution is off" <<<"$1"; then
-    echo "SKIP: the server does not allow these commands (start it with YUKTA_PROCESS_ALLOWED_COMMANDS=git,uv,bun)"
+  local all
+  all="$1 $(api GET "/api/executions/${EID:-none}" 2>/dev/null | jq -c '[.data.tasks[]?.metadata.error]' 2>/dev/null || true)"
+  if grep -qE "is not in yukta.process.allowed-commands|Process execution is off" <<<"$all"; then
+    echo "SKIP: the server does not allow these commands (start it with YUKTA_PROCESS_ALLOWED_COMMANDS=git,uv,bun,node,npm)"
     exit 3
   fi
-}
-
-# npm_command: the npm launcher on this machine (a Windows server cannot start a bare "npm").
-npm_command() {
-  if command -v cygpath >/dev/null; then printf 'npm.cmd'; else printf 'npm'; fi
+  if grep -qF "sys.java.io.tmpdir" <<<"$all"; then
+    echo "SKIP: the server may not read its temp folder (start it with YUKTA_VARIABLES_ALLOWED=java.io.tmpdir)"
+    exit 3
+  fi
 }
 
 # skip_on_notice EXECUTION: exit 3 (SKIP) when a preflight node (notify-*) told the inbox that a tool is

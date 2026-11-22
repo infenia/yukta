@@ -2,7 +2,8 @@
 # Use case: a CI pipeline as a workflow. It clones the todo app into a temp folder, checks the Python
 # backend (lint, format, test) and then the React frontend (install, lint, format, test); the first
 # failing stage stops the run. Works on Linux, macOS and Windows (Git Bash); needs git, uv (it finds Python)
-# and bun or node on this machine and a server that allows them (YUKTA_PROCESS_ALLOWED_COMMANDS=git,uv,bun,node,npm; npm.cmd on Windows).
+# and bun or node on this machine and a server that allows them (YUKTA_PROCESS_ALLOWED_COMMANDS=git,uv,bun,node,npm (npm.cmd on Windows) and
+# YUKTA_VARIABLES_ALLOWED=java.io.tmpdir, which lets the workflow clone into the server's temp folder).
 # A preflight stage checks that Python and bun (else node) are there; if not it tells the inbox and this
 # script ends with SKIP (exit 3) and the message.
 set -euo pipefail
@@ -13,13 +14,10 @@ require_server
 require_plugin PROCESS_EXECUTOR
 
 SID=$(jq -r .sessionId session.json)
-DIR=$(temp_dir yukta-todo-ci)
-trap 'rm -rf "$DIR"' EXIT
 
 apply_session session.json
-payload=$(jq --arg dir "$DIR/todo" --arg npm "$(npm_command)" '. + {dir: $dir, npm: $npm}' payload.json)
-echo "--> start ci in $DIR (the first run downloads the tools' packages)"
-EID=$(api POST /api/workflow/start "$(jq -n --arg s "$SID" --argjson p "$payload" '{sessionId:$s,workflowId:"ci",payload:$p}')" | jq -r .data.executionId)
+echo "--> start ci (it clones into the temp folder; the first run downloads the tools' packages)"
+EID=$(api POST /api/workflow/start "$(jq -n --arg s "$SID" '{sessionId:$s,workflowId:"ci"}')" | jq -r .data.executionId)
 
 STATUS=""
 for ((i = 0; i < ${WAIT_SECONDS:-300}; i++)); do

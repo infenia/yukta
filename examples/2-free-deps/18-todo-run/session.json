@@ -42,6 +42,22 @@
           }
         },
         {
+          "nodeId": "clean",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "uv",
+              "run",
+              "--no-project",
+              "python",
+              "-c",
+              "import shutil,sys;shutil.rmtree(sys.argv[1],ignore_errors=True)",
+              "${sys.java.io.tmpdir}/yukta-todo-run"
+            ],
+            "timeout": 60
+          }
+        },
+        {
           "nodeId": "clone",
           "type": "PROCESS_EXECUTOR",
           "config": {
@@ -50,8 +66,8 @@
               "clone",
               "--depth",
               "1",
-              "${start.repo}",
-              "${start.dir}"
+              "https://github.com/infenia/yukta-example-todo.git",
+              "${sys.java.io.tmpdir}/yukta-todo-run"
             ],
             "timeout": 120
           }
@@ -66,7 +82,7 @@
               "--no-project",
               "python",
               "-c",
-              "import json,shutil;print(json.dumps({'js':'bun' if shutil.which('bun') else 'node' if shutil.which('node') else 'none'}))"
+              "import json,shutil,sys;print(json.dumps({'js':'bun' if shutil.which('bun') else 'node' if shutil.which('node') else 'none','npm':'npm.cmd' if sys.platform=='win32' else 'npm'}))"
             ],
             "timeout": 60,
             "outputFormat": "JSON"
@@ -105,7 +121,7 @@
               "app.py"
             ],
             "timeout": 3600,
-            "workingDir": "${start.dir}/backend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-run/backend"
           }
         },
         {
@@ -118,7 +134,7 @@
               "--frozen-lockfile"
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-run/frontend"
           }
         },
         {
@@ -132,7 +148,7 @@
               "dev"
             ],
             "timeout": 3600,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-run/frontend"
           }
         },
         {
@@ -140,11 +156,11 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "${start.npm}",
+              "${payload.output.npm}",
               "install"
             ],
             "timeout": 300,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-run/frontend"
           }
         },
         {
@@ -152,12 +168,16 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "${start.npm}",
-              "run",
-              "dev"
+              "node",
+              "node_modules/vite/bin/vite.js",
+              "--host",
+              "127.0.0.1",
+              "--port",
+              "5173",
+              "--strictPort"
             ],
             "timeout": 3600,
-            "workingDir": "${start.dir}/frontend"
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-run/frontend"
           }
         },
         {
@@ -183,13 +203,17 @@
         },
         {
           "source": "check-python",
-          "target": "clone",
+          "target": "clean",
           "sourcePort": "success"
         },
         {
           "source": "check-python",
           "target": "notify-python",
           "sourcePort": "failure"
+        },
+        {
+          "source": "clean",
+          "target": "clone"
         },
         {
           "source": "clone",
