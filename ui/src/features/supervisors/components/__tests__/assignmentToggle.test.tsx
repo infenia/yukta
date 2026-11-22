@@ -151,11 +151,34 @@ describe('AssignmentCard', () => {
     await user.click(
       await screen.findByRole('button', { name: /^Enable guard on / })
     );
-    expect(
-      (await screen.findByText('Saving…')).closest('button')
-    ).toBeDisabled();
+    // an icon button: while it saves it is disabled and shows the progress icon
+    const saving = screen.getByRole('button', { name: /^Enable guard on / });
+    await waitFor(() => expect(saving).toBeDisabled());
+    expect(saving).toHaveTextContent('progress_activity');
     release();
-    await waitFor(() => expect(screen.queryByText('Saving…')).toBeNull());
+    await waitFor(() => expect(saving).toBeEnabled());
+  });
+
+  it('says in its tooltip that Disable stops the supervisor owning the nodes', async () => {
+    const user = userEvent.setup();
+    show(assignment({ enabled: true }));
+    await user.hover(
+      await screen.findByRole('button', { name: /^Disable guard on / })
+    );
+    expect(
+      await screen.findByText(/stop this supervisor owning these nodes/)
+    ).toHaveAttribute('data-slot', 'tooltip-content');
+  });
+
+  it('says in its tooltip that Enable gives the nodes back', async () => {
+    const user = userEvent.setup();
+    show(assignment({ enabled: false }));
+    await user.hover(
+      await screen.findByRole('button', { name: /^Enable guard on / })
+    );
+    expect(
+      await screen.findByText(/let this supervisor own these nodes again/)
+    ).toHaveAttribute('data-slot', 'tooltip-content');
   });
 
   it('shows the message when saving fails', async () => {

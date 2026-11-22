@@ -8,6 +8,7 @@ import { CodeBlock } from '@/components/common/CodeBlock';
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/common/IconButton';
 import { inputFieldClassName } from '@/components/ui/native-select';
 import { useNow } from '@/features/control/dashboard/useNow';
 import { formatDateTime } from '@/features/workflow/lib/timeFormat';
@@ -158,9 +159,12 @@ export function CredentialPanel({ id }: { id: string }) {
         <Callout kind="warning" title="Copy it now: it is not shown again.">
           <div className="flex flex-col gap-2">
             <CodeBlock code={token} label="the credential" />
-            <Button size="sm" variant="outline" onClick={() => setToken(null)}>
-              Done
-            </Button>
+            <IconButton
+              icon="check"
+              label="Done"
+              tone="success"
+              onClick={() => setToken(null)}
+            />
           </div>
         </Callout>
       )}
@@ -185,20 +189,27 @@ export function CredentialPanel({ id }: { id: string }) {
               onChange={(event) => setAddresses(event.target.value)}
             />
           </label>
-          <Button size="sm" disabled={busy} onClick={issue}>
-            <Icon name={meta ? 'restart_alt' : 'key'} />
-            {meta ? 'Rotate' : 'Create'}
-          </Button>
+          <IconButton
+            icon={meta ? 'restart_alt' : 'key'}
+            label={meta ? 'Rotate' : 'Create'}
+            tip={
+              meta
+                ? 'Rotate: makes a new credential; the old one stops at once'
+                : 'Create a credential'
+            }
+            tone="primary"
+            disabled={busy}
+            onClick={issue}
+          />
           {meta && !confirming && (
-            <Button
-              size="sm"
-              variant="outline"
+            <IconButton
+              icon="close"
+              label="Revoke"
+              tip="Revoke: the system loses access at once"
+              tone="destructive"
               disabled={busy}
               onClick={() => setConfirming(true)}
-            >
-              <Icon name="close" />
-              Revoke
-            </Button>
+            />
           )}
         </div>
       </RequirePermission>
@@ -228,9 +239,6 @@ export function CredentialPanel({ id }: { id: string }) {
           </Button>
         </div>
       )}
-      <p className="text-body-sm text-muted-foreground">
-        Rotate makes a new one; the old stops at once.
-      </p>
       {failure && <p className="text-body-sm text-error">{failure}</p>}
     </section>
   );

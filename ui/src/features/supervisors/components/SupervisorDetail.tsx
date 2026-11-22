@@ -4,7 +4,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { buttonVariants } from '@/components/ui/button';
+import { IconLink } from '@/components/common/IconButton';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Callout } from '@/components/common/Callout';
@@ -82,15 +82,12 @@ function Section({
 /** The link to the edit page, in the header of the supervisor. */
 function EditLink({ id }: { id: string }) {
   return (
-    <Link
+    <IconLink
       to={`/supervisors/${encodeURIComponent(id)}/edit`}
-      className={buttonVariants({ variant: 'outline', size: 'sm' })}
-    >
-      <span aria-hidden="true" className="material-symbols-outlined text-base">
-        edit
-      </span>
-      Edit supervisor
-    </Link>
+      icon="edit"
+      label="Edit supervisor"
+      tone="primary"
+    />
   );
 }
 
@@ -314,12 +311,12 @@ function RulesFacts({ supervisor }: { supervisor: SupervisorView }) {
       />
       <div className="flex gap-2">
         {!supervisor.system && (
-          <Link
+          <IconLink
             to={`/supervisors/${encodeURIComponent(supervisor.id)}/edit`}
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Edit the rules
-          </Link>
+            icon="edit"
+            label="Edit the rules"
+            tone="primary"
+          />
         )}
       </div>
     </>
@@ -421,12 +418,11 @@ function DecisionMakerTab({ supervisor }: { supervisor: SupervisorView }) {
         </p>
         {listed && (
           <div>
-            <Link
+            <IconLink
               to={`/supervisors?tab=decision-makers&type=${encodeURIComponent(supervisor.type)}`}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              Browse decision maker types
-            </Link>
+              icon="menu_book"
+              label="Browse decision maker types"
+            />
           </div>
         )}
       </div>

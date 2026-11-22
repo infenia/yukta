@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import { StateMessage } from '@/components/common/StateMessage';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/common/IconButton';
 import { MultiSelect } from '@/components/ui/select';
 import { formatDateTime } from '@/features/workflow/lib/timeFormat';
 import { useSupervisorDecisions } from '../hooks/useSupervisorTypes';
@@ -241,9 +241,11 @@ export function Activity({ supervisor }: { supervisor?: string }) {
           icon="search"
           title="Nothing matches these filters."
         >
-          <Button variant="ghost" size="sm" onClick={() => setFilters(none)}>
-            Clear filters
-          </Button>
+          <IconButton
+            icon="close"
+            label="Clear filters"
+            onClick={() => setFilters(none)}
+          />
         </StateMessage>
       ) : (
         <div className="border-border bg-muted/30 rounded-xl border p-3">

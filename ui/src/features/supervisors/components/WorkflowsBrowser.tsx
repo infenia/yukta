@@ -3,7 +3,7 @@
 
 import { useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { IconButton, IconLink } from '@/components/common/IconButton';
 import { Callout } from '@/components/common/Callout';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Input } from '@/components/ui/input';
@@ -123,18 +123,11 @@ function WorkflowSupervisionDetail({
             </p>
           </div>
           {row.sessionId && (
-            <Link
+            <IconLink
               to={`/sessions/${encodeURIComponent(row.sessionId)}/workflow/${encodeURIComponent(row.workflowId)}?supervision=1`}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-base"
-              >
-                open_in_new
-              </span>
-              Open workflow
-            </Link>
+              icon="open_in_new"
+              label="Open workflow"
+            />
           )}
         </div>
       </SupervisorShell>
@@ -307,16 +300,14 @@ export function WorkflowsBrowser() {
         {shown.length === 0 && index.rows.length > 0 && (
           <StateMessage compact icon="search" title="No workflow matches">
             Try another name or clear the filters.
-            <Button
-              variant="ghost"
-              size="sm"
+            <IconButton
+              icon="close"
+              label="Clear filters"
               onClick={() => {
                 setFilter('');
                 setControllers([]);
               }}
-            >
-              Clear filters
-            </Button>
+            />
           </StateMessage>
         )}
       </div>
