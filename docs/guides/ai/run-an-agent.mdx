@@ -73,7 +73,7 @@ An agent needs its login and settings in its environment, which a process does n
 
 ## Add a harness
 
-A harness is a JSON file in `agent-harnesses/` on the classpath, or in the directory `yukta.ai.presets-dir` names (a file there replaces a shipped one with the same id). It gives the command (`{prompt}`), how a `model`, `maxTurns` and a session are passed, which lines mean "the result" or "failed", which values to keep from earlier lines, which lines to show live, and optionally the conversation used for approvals. Start from `claude-code.json` or `codex.json` in the `process-executor` module.
+A harness is a JSON file in `agent-harnesses/` on the classpath, or in the directory `yukta.ai.presets-dir` names (a file there replaces a shipped one with the same id). It gives the command (`{prompt}`), how a `model`, `maxTurns` and a session are passed, which lines mean "the result" or "failed", which values to keep from earlier lines, which lines to show live, and optionally the conversation used for approvals. Start from `claude-code.json` or `codex.json` in the `agent-session` module.
 
 ## Agents that speak ACP
 
