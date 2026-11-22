@@ -1,6 +1,6 @@
 # ADR 0010: Unified AI backend and AGENT_SESSION
 
-- **Status:** accepted on 2026-11-13. Phases 1 to 3 were planned first; check the epic for later phases. The agent-console work in [ADR 0004](0004-agent-console.md) builds on it and wins where they differ.
+- **Status:** accepted on 2026-11-13. Built: the backend registry with `GET /api/ai/backends` (`AiBackendController`) and the `agent-session` processor plugin. Later phases (sessions, questions, more presets) are tracked in #1960. The agent-console work in [ADR 0004](0004-agent-console.md) builds on it and wins where they differ.
 - **Date:** 2026-11-13 (condensed from the ai-backend plan on 2026-11-22)
 - **Decided by:** Arun.
 - **Issues:** #1960 (unified AI backend), #1958; depends on #1955 and #1956.

@@ -1,6 +1,6 @@
 # ADR 0012: Test runs from the workflow editor
 
-- **Status:** proposed and decided on 2026-11-21; backend phase B1 was filed as #2585, with the editor UI in #2586 (B2, B3). Check those PRs for what has merged.
+- **Status:** accepted on 2026-11-21. The backend (B1) is built: `DraftRunController` at `/api/sessions/{sessionId}/test-runs`, `DraftRuns` in `core` and the `__test__` reserved prefix. The editor UI (B2) and the field picker (B3) follow in #2586.
 - **Date:** 2026-11-21 (condensed from the workflow-test-runs plan on 2026-11-22)
 - **Decided by:** Arun, 2026-11-21: the server gets a new endpoint (not a UI-side save of a temporary workflow) and a test run is invisible to the rest of the product.
 - **Plan:** [`design/plans/workflow-test-runs.md`](../plans/workflow-test-runs.md) (kept while phases B1 to B3 are open).

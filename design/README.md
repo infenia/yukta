@@ -9,7 +9,7 @@ How the code works, and how to use it, is not here: see the module guides in [`d
 | Folder | What | Rule |
 |---|---|---|
 | [`decisions/`](decisions/) | Architecture Decision Records (ADRs): one file per decision area, with the options that were rejected | The source of truth for *why*. |
-| [`plans/`](plans/) | A long plan kept **only while its epic has unbuilt phases** and open issues cite its sections | Delete the plan when the epic closes; the ADR stays. |
+| [`plans/`](plans/) | A long plan kept **only while its epic has unbuilt phases** and open issues cite its sections. Today: the plans of ADRs 0001 to 0004, 0011 and 0012, and `agent-efficient-run-queries.md` (token-efficient run reads for agents, no ADR yet) | Delete the plan when the epic closes; the ADR stays. |
 | [`security/`](security/) | Security reviews against an ADR | One file per review, dated. |
 | [`research/`](research/) | Notes that informed decisions (competitor analysis) | Dated; not maintained after. |
 
@@ -34,8 +34,8 @@ How the code works, and how to use it, is not here: see the module guides in [`d
 | [0007](decisions/0007-releases.md) | Release and install channels | Accepted; alpha is linux/amd64 and GHCR |
 | [0008](decisions/0008-community-plugins.md) | Community plugins outside the repository | Accepted; built |
 | [0009](decisions/0009-supervisor-catalog.md) | Supervisor catalog | Accepted; partly superseded by 0002 |
-| [0010](decisions/0010-ai-backend-and-agent-session.md) | Unified AI backend and `AGENT_SESSION` | Accepted |
+| [0010](decisions/0010-ai-backend-and-agent-session.md) | Unified AI backend and `AGENT_SESSION` | Accepted; registry and plugin built, later phases open |
 | [0011](decisions/0011-test-tiers.md) | Integration and end-to-end test tiers | Accepted (plan kept while the epic is open) |
-| [0012](decisions/0012-workflow-test-runs.md) | Test runs from the workflow editor | Accepted (plan kept) |
+| [0012](decisions/0012-workflow-test-runs.md) | Test runs from the workflow editor | Accepted; backend built, editor UI in progress (plan kept) |
 
 Other files: [security/supervisor-threat-model.md](security/supervisor-threat-model.md), [research/competitive-analysis.md](research/competitive-analysis.md).
