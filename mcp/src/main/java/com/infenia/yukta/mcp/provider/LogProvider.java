@@ -12,6 +12,7 @@ import com.infenia.yukta.mcp.util.LogSanitizer;
 import com.infenia.yukta.mcp.util.RegexPatternValidator;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.diagnosis.SearchArguments;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -222,7 +223,10 @@ public class LogProvider {
     return Mono.defer(() -> {
       final Pattern pattern = RegexPatternValidator.compile(filterPattern);
       final Filter filter =
-          new Filter(pattern, nodeId == null || nodeId.isBlank() ? null : nodeId, level(level));
+          new Filter(
+              pattern,
+              nodeId == null || nodeId.isBlank() ? null : nodeId,
+              SearchArguments.level(level));
       final int budget = tailLines == null && defaultChars > 0 ? cap(defaultChars) : maxChars;
       return ExecutionOwnership.require(controlBus, sessionId, executionId)
           .then(readTail(executionId, filter, limit(tailLines), afterCursor, budget));
@@ -244,17 +248,6 @@ public class LogProvider {
   /** The default budget, never above the hard one. */
   private int cap(final int chars) {
     return maxChars > 0 ? Math.min(chars, maxChars) : chars;
-  }
-
-  private static @Nullable LogLevel level(@Nullable final String level) {
-    if (level == null || level.isBlank()) {
-      return null;
-    }
-    try {
-      return LogLevel.valueOf(level.strip().toUpperCase(Locale.ROOT));
-    } catch (IllegalArgumentException e) {
-      throw new IllegalArgumentException("level must be ERROR, WARN, INFO or DEBUG", e);
-    }
   }
 
   /**

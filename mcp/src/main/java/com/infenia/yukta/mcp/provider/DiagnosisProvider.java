@@ -2,12 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
-import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.mcp.dto.ExecutionLogs;
 import com.infenia.yukta.mcp.dto.FailureDigestResult;
 import com.infenia.yukta.mcp.dto.LogSearchResult;
 import com.infenia.yukta.mcp.util.LogSanitizer;
-import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.diagnosis.FailureDigest;
 import com.infenia.yukta.service.diagnosis.FailureDigestService;
@@ -15,11 +13,8 @@ import com.infenia.yukta.service.diagnosis.LogSearchMode;
 import com.infenia.yukta.service.diagnosis.RunLogQuery;
 import com.infenia.yukta.service.diagnosis.RunLogSearch;
 import com.infenia.yukta.service.diagnosis.RunLogSearcher;
-import java.util.Arrays;
+import com.infenia.yukta.service.diagnosis.SearchArguments;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,9 +105,9 @@ public class DiagnosisProvider {
           RunLogQuery.builder()
               .executionId(executionId)
               .includeChildren(Boolean.TRUE.equals(includeChildren))
-              .nodes(nodes(nodes))
-              .stream(stream(stream))
-              .level(level(level))
+              .nodes(SearchArguments.nodes(nodes))
+              .stream(SearchArguments.stream(stream))
+              .level(SearchArguments.level(level))
               .grep(grep)
               .context(context == null ? 0 : context)
               .mode(mode)
@@ -123,35 +118,5 @@ public class DiagnosisProvider {
           .then(Mono.defer(() -> searcher.search(query, sanitizer::clean)))
           .map(search -> new LogSearchResult(search, ExecutionLogs.UNTRUSTED_NOTICE));
     });
-  }
-
-  private static Set<String> nodes(@Nullable final String nodes) {
-    return nodes == null
-        ? Set.of()
-        : Arrays.stream(nodes.split(","))
-            .map(String::strip)
-            .filter(node -> !node.isEmpty())
-            .collect(Collectors.toUnmodifiableSet());
-  }
-
-  private static @Nullable LogStream stream(@Nullable final String stream) {
-    final String which = stream == null ? "all" : stream.strip().toLowerCase(Locale.ROOT);
-    return switch (which) {
-      case "all" -> null;
-      case "stdout" -> LogStream.STDOUT;
-      case "stderr" -> LogStream.STDERR;
-      default -> throw new IllegalArgumentException("stream must be stdout, stderr or all");
-    };
-  }
-
-  private static @Nullable LogLevel level(@Nullable final String level) {
-    if (level == null || level.isBlank()) {
-      return null;
-    }
-    try {
-      return LogLevel.valueOf(level.strip().toUpperCase(Locale.ROOT));
-    } catch (IllegalArgumentException e) {
-      throw new IllegalArgumentException("level must be ERROR, WARN, INFO or DEBUG", e);
-    }
   }
 }
