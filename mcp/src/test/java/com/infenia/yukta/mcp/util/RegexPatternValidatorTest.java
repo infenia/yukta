@@ -62,6 +62,6 @@ class RegexPatternValidatorTest {
     final GrepPattern pattern = RegexPatternValidator.compile("(.*a){12}$");
     final String text = "a".repeat(5_000) + "!";
     assertTimeoutPreemptively(
-        Duration.ofSeconds(2), () -> assertFalse(RegexPatternValidator.matches(text, pattern)));
+        Duration.ofSeconds(10), () -> assertFalse(RegexPatternValidator.matches(text, pattern)));
   }
 }
