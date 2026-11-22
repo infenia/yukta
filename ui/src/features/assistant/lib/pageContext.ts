@@ -52,7 +52,7 @@ export function pageContext(pathname: string, search: string): PageContext {
   if (session && !['new', 'import'].includes(session[1])) {
     return {
       label: `Session ${session[1]}`,
-      hint: `The person is looking at session ${session[1]}.`,
+      hint: `The person is looking at session ${session[1]}; pass sessionId "${session[1]}" to the session tools.`,
       suggestions: ['List the workflows of this session', 'Start a workflow'],
     };
   }

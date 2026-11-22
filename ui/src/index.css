@@ -758,3 +758,35 @@
     animation: none !important;
   }
 }
+
+/* The assistant: docked to the right edge on wide screens (the page makes room), with a blue-to-violet gradient that sets it apart. */
+.assistant-gradient {
+  background-image: linear-gradient(
+    135deg,
+    var(--primary),
+    color-mix(in oklch, var(--primary) 62%, oklch(0.62 0.2 300))
+  );
+  color: var(--primary-foreground);
+}
+.assistant-surface {
+  background-color: var(--card);
+  background-image:
+    radial-gradient(
+      120% 40% at 100% 0%,
+      color-mix(in oklch, oklch(0.62 0.2 300) 14%, transparent),
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklch, var(--primary) 12%, transparent),
+      transparent 45%
+    );
+}
+@media (min-width: 64rem) {
+  body {
+    transition: padding-right 180ms var(--ease-out-soft, ease-out);
+  }
+  html[data-assistant-dock] body {
+    padding-right: 28rem;
+  }
+}

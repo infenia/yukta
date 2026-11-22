@@ -89,6 +89,14 @@ export function Chat({
       >
         {messages.length === 0 ? (
           <div className="flex h-full flex-col justify-end gap-3 pb-2">
+            <span
+              aria-hidden="true"
+              className="assistant-gradient flex size-9 items-center justify-center rounded-xl"
+            >
+              <span className="material-symbols-outlined text-lg">
+                auto_awesome
+              </span>
+            </span>
             <p className="text-body-md text-on-surface-variant">
               Ask about your sessions, workflows and runs, or have me start and
               control them.
@@ -102,7 +110,7 @@ export function Chat({
                   key={suggestion}
                   type="button"
                   onClick={() => submit(suggestion)}
-                  className="border-border text-label-md text-on-surface transition-standard hover:bg-surface-container-high rounded-full border px-3 py-1.5"
+                  className="border-primary/30 bg-primary/5 text-label-md text-on-surface transition-standard hover:bg-primary/15 rounded-full border px-3 py-1.5"
                 >
                   {suggestion}
                 </button>
@@ -124,7 +132,7 @@ export function Chat({
               ) : null
             ) : m.role === 'user' ? (
               <div key={index} className="my-3 flex justify-end">
-                <p className="bg-surface-container-high text-body-md text-on-surface max-w-[85%] rounded-2xl px-3 py-2 wrap-break-word whitespace-pre-wrap">
+                <p className="assistant-gradient text-body-md max-w-[85%] rounded-2xl rounded-br-md px-3 py-2 wrap-break-word whitespace-pre-wrap">
                   {m.text}
                 </p>
               </div>
@@ -183,7 +191,7 @@ export function Chat({
         )}
         <InlineError message={error} />
       </div>
-      <div className="border-border flex flex-col gap-2 border-t p-3">
+      <div className="border-primary/15 bg-card/50 flex flex-col gap-2 border-t p-3 backdrop-blur-sm">
         {(context.label || usage) && (
           <div className="text-label-sm text-on-surface-variant flex justify-between gap-2">
             <p>{context.label && `Looking at ${context.label}`}</p>

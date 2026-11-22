@@ -101,6 +101,12 @@ describe('buildModel', () => {
     ).toBeFalsy();
   });
 
+  it('a provider with the device fallback takes the built-in model when ready', () => {
+    const both = { ...DEFAULT_SETTINGS, device: true };
+    expect(buildModel(both, null, 'available')?.onDevice).toBe(true);
+    expect(buildModel(both, 'k', 'downloadable')?.onDevice).toBeFalsy();
+  });
+
   it('needs a key and a model', () => {
     expect(buildModel(DEFAULT_SETTINGS, null)).toBeNull();
     expect(buildModel({ ...DEFAULT_SETTINGS, model: '' }, 'k')).toBeNull();

@@ -69,7 +69,7 @@ export function AssistantLauncher() {
             className={cn(
               'text-on-surface-variant hover:bg-muted hover:text-on-surface transition-standard mr-1 flex size-8 items-center justify-center rounded-full',
               open && 'bg-muted text-on-surface',
-              working && 'ring-primary/60 ring-2 motion-safe:animate-pulse'
+              working && 'ring-attention/70 ring-2 motion-safe:animate-pulse'
             )}
             data-working={working}
           >
