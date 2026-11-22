@@ -32,12 +32,14 @@ public class AppMcpPrompts {
     return Mono.just(
         String.format(
             "I need help debugging the workflow execution %s in session %s. "
-                + "Use get_workflow_status to inspect the per-node task progress, "
-                + "get_execution_logs (with a filterPattern like 'ERROR' if helpful) to "
-                + "analyze the logs, and get_workflow_details to review the DAG definition. "
-                + "Identify the root cause of the failure and suggest a fix. If a retry is "
-                + "appropriate, use control_workflow with action RESTART or "
-                + "RESTART_FROM_NODE.",
+                + "Start with get_failure_digest: it names the failed nodes, the failures found "
+                + "in their output and the reads to make next. Follow its next reads "
+                + "(get_node_output at the given offset, or search_logs), and use search_logs "
+                + "with mode=COUNT before mode=LINES for anything else; do not read whole logs "
+                + "with get_execution_logs. Use get_workflow_details to review the DAG "
+                + "definition if the cause is in the graph. Identify the root cause of the "
+                + "failure and suggest a fix. If a retry is appropriate, use control_workflow "
+                + "with action RESTART or RESTART_FROM_NODE.",
             executionId, sessionId));
   }
 

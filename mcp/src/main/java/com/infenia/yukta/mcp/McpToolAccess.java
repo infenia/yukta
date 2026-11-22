@@ -47,6 +47,8 @@ class McpToolAccess {
           Map.entry("list_supervisor_versions", ApiRole.VIEWER),
           Map.entry("get_rules", ApiRole.VIEWER),
           Map.entry("get_node_output", ApiRole.VIEWER),
+          Map.entry("get_failure_digest", ApiRole.VIEWER),
+          Map.entry("search_logs", ApiRole.VIEWER),
           Map.entry("list_plugins", ApiRole.VIEWER),
           Map.entry("list_ai_backends", ApiRole.VIEWER),
           Map.entry("get_plugin_details", ApiRole.VIEWER),

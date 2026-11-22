@@ -52,7 +52,7 @@ Over MCP, `rollback_workflow` and `note_workflow_version` need `OPERATOR`; check
 - Arguments in the tables: `name` is required, `name?` is optional.
 - A failed call returns a tool result marked as an error, with a message that names the problem and, where it helps, the next tool to use.
 - A refusal that names a supervisor is a decision of the owner, not an error to retry.
-- Text read from runs (`get_execution_logs`, `get_execution_result`, `get_node_output`, input requests) is untrusted data produced by plugins, workflows or agents; tool descriptions tell the client not to follow instructions found in it.
+- Text read from runs (`get_failure_digest`, `search_logs`, `get_execution_logs`, `get_execution_result`, `get_node_output`, input requests) is untrusted data produced by plugins, workflows or agents; tool descriptions tell the client not to follow instructions found in it.
 
 ## Author
 
@@ -82,6 +82,8 @@ Start runs and read their state, logs, output and result.
 
 | Tool | Role | Arguments | Purpose |
 |---|---|---|---|
+| `get_failure_digest` | VIEWER | `sessionId`, `executionId` | **Read this first** for a failed, finished or stuck run. About 4 KB: status, failed or timed-out nodes (also of failed sub-runs of the same session) with their error, the failures recognised in their output (tests, compile errors, lint violations, tasks, with `file:line`) and `next`, the reads that show more (`NODE_OUTPUT`: `get_node_output` at an offset; `SEARCH`: `search_logs`). |
+| `search_logs` | VIEWER | `sessionId`, `executionId`, `includeChildren?`, `nodes?`, `stream?`, `level?`, `grep?`, `context?`, `mode?`, `maxMatches?`, `cursor?` | A grep over a run's logs (and its sub-runs with `includeChildren`). `mode` `COUNT` (default: lines, errors, warnings and matches per node), `NODES` (only matching nodes) or `LINES` (matches with same-node context, at most `maxMatches`, default 50, and 16 KB; `nextCursor` pages on). `hint` names the cheapest next search. Prefer it to `get_execution_logs`. |
 | `start_workflow` | OPERATOR | `sessionId`, `workflowId`, `idempotencyKey?` | Starts a run and returns its id. The same key for the same workflow returns the first run (remembered for `yukta.start.idempotency-ttl`, 10 minutes by default). Without a key, a repeat start within `yukta.mcp.start-dedupe-window` (30 seconds by default) returns the earlier run with `reusedExecution: true`. |
 | `get_workflow_status` | VIEWER | `sessionId`, `executionId`, `waitSeconds?` | Overall status, per-node progress, start and end times. With `waitSeconds` (at most 30) it answers when the run status, control state or a node's status changes, or with the current snapshot when the time is up. |
 | `get_workflow_history` | VIEWER | `sessionId` | Runs of a session with status and times. |

@@ -61,6 +61,8 @@ class AppMcpToolsTest {
   private InputProvider inputProvider;
   private com.infenia.yukta.mcp.provider.NotificationProvider notificationProvider;
 
+  private com.infenia.yukta.mcp.provider.DiagnosisProvider diagnosisProvider;
+
   @BeforeEach
   void setUp() {
     sessionInfoProvider = mock(SessionInfoProvider.class);
@@ -75,10 +77,12 @@ class AppMcpToolsTest {
     supervisorProvider = mock(com.infenia.yukta.mcp.provider.SupervisorProvider.class);
     inputProvider = mock(InputProvider.class);
     notificationProvider = mock(com.infenia.yukta.mcp.provider.NotificationProvider.class);
+    diagnosisProvider = mock(com.infenia.yukta.mcp.provider.DiagnosisProvider.class);
     mcpTools =
         new AppMcpTools(
             sessionInfoProvider,
             logProvider,
+            diagnosisProvider,
             workflowExecutionProvider,
             workflowControlProvider,
             pluginInfoProvider,
@@ -89,6 +93,39 @@ class AppMcpToolsTest {
             supervisorProvider,
             inputProvider,
             notificationProvider);
+  }
+
+  @Test
+  void testGetFailureDigestAndSearchLogsDelegateToTheProvider() {
+    final var digest =
+        new com.infenia.yukta.mcp.dto.FailureDigestResult(
+            new com.infenia.yukta.service.diagnosis.FailureDigest(
+                "e1", "wf", "FAILURE", true, 1, List.of(), List.of(), 0, List.of()),
+            "n");
+    final var search =
+        new com.infenia.yukta.mcp.dto.LogSearchResult(
+            new com.infenia.yukta.service.diagnosis.RunLogSearch(
+                "e1",
+                com.infenia.yukta.service.diagnosis.LogSearchMode.COUNT,
+                1,
+                0,
+                0,
+                List.of(),
+                0,
+                List.of(),
+                false,
+                null,
+                null),
+            "n");
+    when(diagnosisProvider.getFailureDigest("s1", "e1")).thenReturn(Mono.just(digest));
+    when(diagnosisProvider.searchLogs("s1", "e1", true, "a", "all", "ERROR", "x", 1, null, 5, null))
+        .thenReturn(Mono.just(search));
+
+    StepVerifier.create(mcpTools.getFailureDigest("s1", "e1")).expectNext(digest).verifyComplete();
+    StepVerifier.create(
+            mcpTools.searchLogs("s1", "e1", true, "a", "all", "ERROR", "x", 1, null, 5, null))
+        .expectNext(search)
+        .verifyComplete();
   }
 
   @Test
