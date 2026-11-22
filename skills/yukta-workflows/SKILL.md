@@ -39,11 +39,13 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `delete_workflow` | `ADMIN` | `sessionId`, `workflowId`, optional `force` |
 | `get_workflow_details` | `VIEWER` | `sessionId`, `workflowId` |
 | `start_workflow` | `OPERATOR` | `sessionId`, `workflowId` |
-| `get_workflow_status` | `VIEWER` | `sessionId`, `executionId` |
-| `get_workflow_history` | `VIEWER` | `sessionId` |
-| `get_execution_tree` | `VIEWER` | `sessionId`, `executionId` |
+| `get_workflow_status` | `VIEWER` | `sessionId`, `executionId`, optional `waitSeconds`, `hideSucceeded` |
+| `get_workflow_history` | `VIEWER` | `sessionId`, optional `status`, `limit` |
+| `get_execution_tree` | `VIEWER` | `sessionId`, `executionId`, optional `status`, `limit` |
+| `get_failure_digest` | `VIEWER` | `sessionId`, `executionId` |
+| `search_logs` | `VIEWER` | `sessionId`, `executionId`, optional `includeChildren`, `nodes`, `stream`, `level`, `grep`, `context`, `mode`, `maxMatches`, `cursor` |
 | `get_node_output` | `VIEWER` | `sessionId`, `executionId`, `nodeId`, optional `stream`, `tail`, `head`, `offset`, `limit`, `grep`, `context` |
-| `get_execution_logs` | `VIEWER` | `sessionId`, `executionId`, optional `tailLines`, `filterPattern`, `afterCursor` |
+| `get_execution_logs` | `VIEWER` | `sessionId`, `executionId`, optional `tailLines`, `filterPattern`, `afterCursor`, `nodeId`, `level` |
 | `get_execution_result` | `VIEWER` | `sessionId`, `executionId`, optional `afterCursor` |
 | `control_workflow` | `OPERATOR` | `sessionId`, `action`, `executionId`, `workflowId`, `fromNodeId`, optional `reason`, `tree`, `mode` |
 | `control_node` | `OPERATOR` | `sessionId`, `executionId`, `nodeId`, `action`, optional `immediate`, `reason` |
@@ -126,9 +128,15 @@ Never put credentials, keys or tokens in a workflow you create or in a message; 
 
 ## Debug a failed run
 
-1. `get_workflow_status`: which node failed or timed out, and the run status.
-2. `get_node_output` for that `nodeId`: `stream` `stderr`, `tail`, or `grep` with `context`; it is numbered and returns `nextOffset` for more.
-3. `get_execution_logs` with a `filterPattern` such as `ERROR|Exception` for the surrounding lines.
+Read as little as you can: a log can be megabytes, the cause is usually one test and one `file:line`.
+
+1. `get_failure_digest`: the run status, the nodes that failed or timed out (also in failed sub-runs) with their error, the failing tests,
+   compile errors and lint findings with `file:line`, and `next`: the reads to make (`NODE_OUTPUT`: `get_node_output` at that `offset`;
+   `SEARCH`: `search_logs` with that node and level).
+2. `search_logs` for anything else: `mode` `COUNT` first (counts per node, no lines), then `LINES` with `nodes`, `level` or `grep`; a cut
+   answer has `nextCursor` (pass it as `cursor`) and `hint` names the next search.
+3. `get_node_output` for that `nodeId`: `offset` from the digest, or `grep` with `context`; it is numbered and returns `nextOffset` for more.
+   Use `get_execution_logs` only to follow a running run, never to read a whole log.
 4. `get_workflow_details` for the definition of the node and its edges; `get_execution_tree` when the run started sub-workflows (the failure may
    be in a child run); `get_workflow_history` for earlier runs of the same workflow.
 5. If a definition changed lately: `list_workflow_versions`, then `diff_workflow_versions` with `olderVersion` to see what changed.

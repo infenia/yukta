@@ -33,7 +33,7 @@ class FailureExtractorsTest {
 
   @Test
   void gradle_findsTestsCompileErrorsLintAndTasks() throws IOException {
-    final List<Finding> found = new GradleFailureExtractor().extract(log("gradle-failure.log"));
+    final List<Finding> found = new GradleFailureExtractor().extract(log("gradle-failure.txt"));
 
     assertThat(found)
         .extracting(Finding::kind, Finding::name, Finding::location, Finding::message)
@@ -82,7 +82,7 @@ class FailureExtractorsTest {
   @Test
   void gradle_keepsCauseThatIsNotTask() throws IOException {
     final List<Finding> found =
-        new GradleFailureExtractor().extract(log("gradle-config-failure.log"));
+        new GradleFailureExtractor().extract(log("gradle-config-failure.txt"));
 
     assertThat(found)
         .extracting(Finding::kind, Finding::message)
@@ -106,7 +106,7 @@ class FailureExtractorsTest {
 
   @Test
   void go_findsTestsPackagesAndCompileErrors() throws IOException {
-    final List<Finding> found = new GoFailureExtractor().extract(log("go-failure.log"));
+    final List<Finding> found = new GoFailureExtractor().extract(log("go-failure.txt"));
 
     assertThat(found)
         .extracting(Finding::kind, Finding::name, Finding::location, Finding::message)
@@ -119,7 +119,7 @@ class FailureExtractorsTest {
 
   @Test
   void js_findsVitestJestTscAndEslint() throws IOException {
-    final List<Finding> found = new JsFailureExtractor().extract(log("js-failure.log"));
+    final List<Finding> found = new JsFailureExtractor().extract(log("js-failure.txt"));
 
     assertThat(found)
         .extracting(Finding::kind, Finding::name, Finding::location, Finding::message)
