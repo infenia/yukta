@@ -19,7 +19,7 @@ import { UiShot } from "/snippets/ui-shot.jsx";
 
 **Prerequisites:** open the server address in a browser: `http://localhost:9858` by default. With no key configured (the default on loopback) the UI asks for nothing. When the server answers `401` or `403`, the UI asks for the API key once and sends it as `Authorization: Bearer <key>`. The key stays in that browser tab and is gone when the tab closes. **Change API key** is in the account menu. Controls your key's role cannot use are shown disabled.
 
-A narrow rail (a tab bar on a phone) links to **Sessions**, **Runs**, **Plugins**, **Supervisors**, **Control** and **Configuration**. The search box and jump palette is on `⌘K` (`Ctrl+K`), and the account menu holds the theme toggle (light, dark or system). A breadcrumb row shows where you are.
+A narrow rail (a tab bar on a phone) links to **Sessions**, **Runs**, **Supervisors**, **Plugins**, **Control** and **Configuration**. The search box and jump palette is on `⌘K` (`Ctrl+K`), and the account menu holds the theme toggle (light, dark or system). A breadcrumb row shows where you are.
 
 ## Find a session and its workflows
 
@@ -44,11 +44,12 @@ Create one with **New session**: it asks for an id, name, description, initiator
 />
 
 1. On a workflow page, select the pencil (**Edit**), or choose **New workflow** on a session page. The address is `/sessions/<id>/workflow/<id>/edit`.
-2. **Add a node:** pick a plugin type, grouped as triggers, processors and terminals, and select **Add node**. Each node gets a unique id such as `mapper-1`.
-3. **Configure it:** select the node to see its form. The form comes from the plugin's own description of its options, so each option has the right control: a text box, a number box, a switch, a dropdown, a monospace box for expressions, a JSON box for lists and maps, and a credential box that expects a `decrypted:<key>` reference. An option you leave empty is left out, so the plugin default applies. A plugin that declares no options gets a JSON editor and its usage notes.
-4. **Set failure behaviour:** every node has an expandable section for retries, timeouts, what a failing message does and when a node with several parents starts. See [Handle failures](/guides/build/handle-failures).
-5. **Connect nodes:** choose a source node, optionally one of its output ports, and a target, then **Add edge**. After you change a node, select **Validate** so its port list refreshes.
-6. **Validate** checks the draft with the rules the server applies before a run and shows the first problem, or "Workflow is valid." **Save** validates first and, only if the draft is valid, saves the whole session and opens the workflow page.
+2. **Add a step:** on the **Nodes** tab select **Add step**, search by name (**Search steps**) and pick a plugin type, grouped as triggers, processors and terminals. A new step is connected after the selected node unless that node is a terminal. Each node gets a unique id such as `mapper-1`.
+3. **Configure it:** select the node and open the **Config** tab. The form comes from the plugin's own description of its options, so each option has the right control: a text box, a number box, a switch, a dropdown, a monospace box for expressions, a JSON box for lists and maps, and a credential box that expects a `decrypted:<key>` reference. An option you leave empty is left out, so the plugin default applies. A plugin that declares no options gets a JSON editor and its usage notes. The **JSON** tab shows the node's raw definition.
+4. **Set failure behaviour:** the **Policy** tab holds retries, timeouts, what a failing message does and when a node with several parents starts. See [Handle failures](/guides/build/handle-failures).
+5. **Connect nodes:** the **Connections** tab and the **Edges** tab of the outline list a node's edges. On the **Edges** tab choose a source node, optionally one of its output ports, and a target, then **Add edge**. After you change a node, select **Validate** so its port list refreshes.
+6. **Try a step:** the **Test** tab of a node runs the draft without saving it. Enter a sample input (a JSON object), then **Run up to here** runs the node and every node before it, and **Test this step** runs only that node, fed the sample as if its parent had sent it. The output is shown and kept as a pinned output in your browser. See [Test-run a draft](/api/workflows#test-run-a-draft).
+7. **Validate** checks the draft with the rules the server applies before a run and lists the problems, or shows "Workflow is valid." **Save version** validates first and, only if the draft is valid, saves the whole session and opens the workflow page. Undo and redo are in the header, **Shortcuts** lists the keys (Ctrl/⌘ Z, Ctrl/⌘ Shift Z or Ctrl Y, Delete, Esc, and Enter in the step search to pick the first step listed), and **Discard** goes back to the saved version.
 
 The model behind the forms is in [Define a workflow](/guides/build/define-a-workflow).
 
@@ -99,9 +100,13 @@ Every node has a menu with only the actions that make sense for its state: pause
 
 When a node waits for a person, the **Inputs** panel above the graph lists the open requests with the prompt, the risk and the run. Choose an option (**Approve** or **Reject** for an approval), type a free answer, or select **Escalate** to hand it to the next tier. A high-risk answer asks for confirmation. See [Ask for input](/guides/ai/ask-for-input) and [Route input requests](/guides/supervise/route-input-requests).
 
+## Read your inbox
+
+The bell in the header counts the questions waiting for you and the unread alerts, and raises a toast for each new one. **Inbox** (`/inbox`) lists them on three tabs: **Needs action**, **All** and **Resolved**. Answer a question there, or hand it up with **Escalate**; a link such as `/inbox?item=<id>` opens one item. Preferences per category and muted sessions are on the same page. What is in the inbox and who sees what is in [Notifications](/concepts/notifications); the settings are in [Configure notifications](/guides/operate/notifications).
+
 ## Search past runs
 
-Open **Runs** (`/runs`, also where `/history` leads). It searches the runs of every session, newest first. Filter by session, workflow, status, text in the run id and a time range. The chips above the table count runs by status, and selecting one filters the table. Each row opens the workflow page with that run selected.
+Open **Runs** (`/runs`, also where `/history` leads). It searches the runs of every session, newest first. Filter by session, workflow, one or more statuses, text in the run id and a time range (the time bounds are your local time). The chips above the table count runs by status, and selecting one filters the table. Each row opens the workflow page with that run selected.
 
 ## Browse the plugin catalogue
 
@@ -121,7 +126,7 @@ Open **Plugins** (`/plugins`). Plugins are grouped as triggers, processors and t
   caption="Notice the map under the numbers: the decision maker and the supervisors it reports to on the left, the workflows and nodes it owns on the right."
 />
 
-**Supervisors** (`/supervisors`) is a list on the left and the chosen supervisor on the right. Each row shows whether it is live or in dry run, the id of its decision maker and how many targets it owns; **Direct control** is last, for the workflows nobody owns. Selecting one shows its numbers (applied, refused, rate limited, what it owns, its last decision), a map of who decides, who it reports to and what it owns (click a supervisor, workflow or node to open it), and tabs: **Owns**, **Allowed operations**, **Hierarchy**, **Decision maker**, **Settings**, **Changes** and **Decisions**. The address keeps the choice: `?supervisor=<id>&section=<tab>`. The **Decision makers** view (`?view=decision-makers`) is the catalogue of kinds you can choose for a supervisor, next to **By workflow** and **Map**, and **New supervisor** (`/supervisors/new`) creates one; each supervisor has its own editor at `/supervisors/<id>/edit`. What the supervisors did, across all of them, is on the Activity tab of [Control](#check-the-server). The workflow page also shows who owns the run you are looking at. For what to do with them, see [Assign a supervisor](/guides/supervise/assign-a-supervisor).
+**Supervisors** (`/supervisors`) is a list on the left and the chosen supervisor on the right. Each row shows whether it is live or in dry run, the id of its decision maker and how many targets it owns; **Direct control** is last, for the workflows nobody owns. Selecting one shows its numbers (applied, refused, rate limited, what it owns, its last decision), a map of who decides, who it reports to and what it owns (click a supervisor, workflow or node to open it), and the sections **Owns**, **Decisions**, **Allowed operations**, **Hierarchy**, **Decision maker** (with its settings) and **Changes** (the versions), one below the other. The address keeps the choice: `?supervisor=<id>&section=<owns|operations|hierarchy|decision-maker|changes|decisions>` scrolls to a section. The **Decision makers** view (`?view=decision-makers`) is the catalogue of kinds you can choose for a supervisor, next to **By supervisor** (the default), **By workflow** and **Map**, and **New supervisor** (`/supervisors/new`) creates one; each supervisor has its own editor at `/supervisors/<id>/edit`. What the supervisors did, across all of them, is on the Activity tab of [Control](#check-the-server). The workflow page also shows who owns the run you are looking at. For what to do with them, see [Assign a supervisor](/guides/supervise/assign-a-supervisor).
 
 ## Ask the assistant
 

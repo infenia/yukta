@@ -9,7 +9,7 @@ Web is the HTTP front door of the Yukta server. It accepts REST calls and long-l
 
 | Property | What it means |
 |---|---|
-| Thin by design | 16 controllers do three things: bind and validate the request, call one core service, wrap the result. Rules (limits, ordering, retries) live in core, not here. |
+| Thin by design | 39 controllers do three things: bind and validate the request, call one core service, wrap the result. Rules (limits, ordering, retries) live in core, not here. |
 | One envelope, one error path | Every answer is an ApiResponse. Errors are thrown, never caught in controllers, and one handler turns them into 400, 403, 404, 429 or 500. |
 | Streams without gaps | Status, log and event streams use Server-Sent Events with ids and a 15 s heartbeat. The log stream subscribes to live lines before it reads history so nothing falls between the two. |
 | Roles and named keys | Optional named API keys with the roles VIEWER (read), OPERATOR (also start and control) and ADMIN (everything), optional session limits, hashed keys and several keys at once for rotation. A single key still works and may do everything. |
@@ -615,7 +615,7 @@ It holds nothing that matters across a restart.
 
 ### Endpoints: sessions, workflows and drafts
 
-42 operations in total; 56 routes counting 14 deprecated aliases. All paths are under /api and answer with the ApiResponse envelope unless noted.
+These tables do not list every route; the complete, current list is the [REST API reference](/api/overview). All paths are under /api and answer with the ApiResponse envelope unless noted.
 
 | Method | Path | What it does | Notes | Errors |
 |---|---|---|---|---|

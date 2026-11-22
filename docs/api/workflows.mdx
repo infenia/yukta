@@ -287,6 +287,43 @@ Returns the runs of every workflow in the session, newest first. It takes `limit
 GET /api/workflow/demo/history?status=FAILURE&limit=20
 ```
 
+## Test a saved workflow with stubs
+
+`POST /api/sessions/{sessionId}/workflows/{workflowId}/test`
+
+Runs the saved workflow once and reports which assertions held. Triggers emit the `input` (or their stub), terminals do nothing, and a processor with a stub emits it instead of running. Every other processor runs for real, so stub each node with a side effect, or list the nodes that may run in `allow`.
+
+**Request body** (all fields optional)
+
+| Field | Type | Meaning |
+|---|---|---|
+| `input` | object | The payload the trigger emits |
+| `stubs` | object | Per node id, a list of `{ "payload": …, "port": "…" }` messages the node emits instead of running. `port` is `default` when omitted |
+| `expect` | object | What must hold at the end: `status` (the final run status), `reached` and `notReached` (node ids that must or must not have started), and `nodes` (per terminal node id, the payload fields it must have received, as dotted paths) |
+| `allow` | array | Node ids that may run unstubbed. Omitted, every processor may run |
+| `timeoutSeconds` | integer | How long to wait for the run; `60` when omitted |
+
+**Response `data`**: `passed` (whether every assertion held), `status` (the final run status) and `assertions`, one `{ "name", "passed", "detail" }` entry each; `detail` holds the actual value when an assertion failed. A failing assertion is still a `200` with `passed: false`.
+
+**Errors**: `404` unknown workflow.
+
+## Test-run a draft
+
+`POST /api/sessions/{sessionId}/test-runs`
+
+Runs a draft workflow, a node and the nodes before it, or one node alone, without saving it. The run is invisible to history, search, recovery, supervisors and analytics. The nodes use the session's project path, tags and credentials. Read its progress and node outputs through the [executions endpoints](/api/executions).
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `workflow` | object | yes | The draft workflow definition |
+| `untilNodeId` | string | no | Run only this node and every node before it. Omitted, the whole draft runs |
+| `stepOnly` | boolean | no | Run only `untilNodeId`, fed `payload` as if its parent had sent it. Needs `untilNodeId`; `false` when omitted |
+| `payload` | object | no | The start payload the trigger emits; empty when omitted |
+
+**Response** `202 Accepted`. `data` holds `executionId` and `workflowId`, the reserved workflow id the run uses; nothing is stored under it.
+
+**Errors**: `404` unknown session, `400` with the problems when the part to run does not validate, `429` when the execution limit is reached.
+
 ## Next steps
 
 <Card title="Executions API" icon="list-check" horizontal href="/api/executions">

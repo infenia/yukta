@@ -20,6 +20,8 @@ An execution is one run of a workflow, identified by the `executionId` that the 
 | `POST /api/executions/{executionId}/stop` | Stop one run (`?tree=true`: with the runs it started) | `OPERATOR` |
 | `GET /api/executions/{executionId}/tree` | The run and every run it started as a sub-workflow | `VIEWER` |
 | `GET /api/executions/{executionId}/nodes/{nodeId}/output` | A slice of what one node wrote: tail, head, a page or the matching lines | `VIEWER` |
+| `GET /api/executions/{executionId}/digest` | Why a run failed, in a few kilobytes | `VIEWER` |
+| `GET /api/executions/{executionId}/logs/search` | Search the logs of a run like grep | `VIEWER` |
 | `POST /api/executions/{executionId}/restart` | Restart a run from the beginning | `OPERATOR` |
 | `POST /api/executions/{executionId}/restart/{fromNodeId}` | Restart from one node | `OPERATOR` |
 | `POST /api/executions/{executionId}/recover` | Continue a run that a server restart aborted | `OPERATOR` |
@@ -40,8 +42,9 @@ Finds runs across all sessions, or in one session, newest first.
 |---|---|
 | `sessionId` | Only this session |
 | `limit` | Most runs returned, 1 to 1000. Default 100. There is no cursor |
+| `includeInternal` | `true` also searches the internal sessions of supervisors. Default `false` |
 | `workflowId` | Only runs of this workflow |
-| `status` | Only runs with this status, not case sensitive |
+| `status` | Only runs with this one status, not case sensitive |
 | `text` | Only runs whose id contains this text, not case sensitive |
 | `since`, `until` | Only runs that started within this range, as ISO-8601 instants in UTC such as `2026-07-19T00:00:00Z` |
 
@@ -220,6 +223,31 @@ Returns numbered lines of what one node wrote, so a client does not have to stre
 | `context` | With `grep`, lines of context either side of a match (at most 20) |
 
 `tail`, `head` and `offset` exclude each other. The answer holds `lines` (`number` from 1 in the stream, and `text`, cut at 2000 characters), `totalLines` and `totalBytes` of the stream, `matchedLines` (the lines selected before the window was cut), `truncated`, and `nextOffset` for the next page (absent on the last page and for `tail` and `head`). A 10,000 line node is read in pages of 50 with `offset`, or only its errors with `grep=ERROR`. Answers `400` for a bad argument and `404` for an unknown run or node. The same slicing is available as `yukta-cli logs <session> <execution> --node N` and as the MCP tool `get_node_output`.
+
+## Why a run failed
+
+`GET /api/executions/{executionId}/digest`
+
+Read this before any log. The answer holds the run's `status`, whether it has `complete`d (a running run gets what failed so far), `runsSearched` (the run and its failed sub-runs), `failedNodes` (at most 10, each with `executionId`, `nodeId`, `module`, `status` of `FAILURE` or `TIMED_OUT`, `error` cut at 300 characters, `lines` and `errorLines`), `findings` (the failures recognised in their output: tests, compile errors, lint violations and tasks, each with `kind`, `executionId`, `nodeId`, `name`, `location` as `file:line`, `message` and `line`, its first line in the node's output; `findingsOmitted` counts those left out to keep the answer small) and `next`, the reads that show more. Each `next` entry has a `kind` (`NODE_OUTPUT`, read a node near `offset`, or `SEARCH`, search the logs), the run, the node, and `why`. Answers `404` for an unknown run. The same answer is available as `yukta-cli digest <execution-id>` and as the MCP tool `get_failure_digest`.
+
+## Search the logs of a run
+
+`GET /api/executions/{executionId}/logs/search`
+
+Searches the logs of one run, and of the runs it started with `includeChildren=true`. Query parameters:
+
+| Parameter | Meaning |
+|---|---|
+| `mode` | `COUNT` (default): lines, errors, warnings and matches per node. `NODES`: only the nodes that matched. `LINES`: the matching lines |
+| `nodes` | Comma-separated node ids; every node if absent |
+| `stream` | `stdout`, `stderr` or `all` (default) |
+| `level` | The lowest level a line may have: `ERROR`, `WARN`, `INFO` or `DEBUG` |
+| `grep` | A regular expression a line must contain (at most 200 characters) |
+| `context` | With `LINES`, lines of context around a match from the same node (at most 20) |
+| `maxMatches` | With `LINES`, the most matching lines returned: 50 by default, at most 500 |
+| `cursor` | The `nextCursor` of the previous answer |
+
+`LINES` answers within `maxMatches` and 16 KB. The answer holds `mode`, `executionsScanned`, `linesScanned`, `matches`, `nodes` (counts per node, the nodes with most matches and errors first, at most 50, with `nodesOmitted`), `lines` (each with `executionId`, `nodeId`, `sequence`, `stream`, `level`, `match` and `text` cut at 2000 characters), `truncated`, `nextCursor` (null on the last page) and a `hint` for the cheapest next search. Answers `400` for a bad argument and `404` for an unknown run. The same search is the MCP tool `search_logs`.
 
 ## Stop a run
 

@@ -14,7 +14,7 @@ Every example is a folder in the repository's [`examples`](https://github.com/in
 | Category | What you need | Examples |
 |---|---|---|
 | **1. Standalone** | Only the Yukta server. Allow the `sh` and `echo` commands. | Release approval, PR risk gate, dependency updates, model promotion, security findings, input pull, supervisor profiles, supervisor workflow, inbox notification, hello world |
-| **2. Free dependencies** | Free tools on the machine (`git`, `python3`, `go`) or a stand-in for an outside service that the example starts itself. | Agent verification, alert triage, an MCP agent, supervisor agents |
+| **2. Free dependencies** | Free tools on the machine (`git`, `python3`, `go`, `uv`, `bun` or `node`) or a stand-in for an outside service that the example starts itself. | Agent verification, alert triage, an MCP agent, supervisor agents, check out and run an app, a CI pipeline |
 | **3. Paid tools** | An AI agent CLI (Claude Code, Codex) or a hosted model. The examples run against a fake agent unless you configure the real tool. | Agent session walkthrough, agent console |
 
 ## Run one
@@ -27,8 +27,43 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 ./examples/run-all.sh 1                          # one category: 1, 2, 3 or all
 ```
 
+## Run the server for every example
+
+One server can run all of them. [Install the server](/get-started/install) or use the Docker image, then start it with every plugin on, the commands the examples run allowed, and the temp folder readable (examples 18 and 19 clone into it):
+
+```bash
+export YUKTA_PLUGINS_ENABLED=all
+export YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3,git,uv,bun,node,npm   # npm.cmd on Windows
+export YUKTA_VARIABLES_ALLOWED=java.io.tmpdir
+export YUKTA_AI_PRESETS_DIR=$PWD/examples/3-paid-tools/16-agent-console/agent-harnesses   # example 16
+yukta                      # the installed server; from a source checkout: ./gradlew bootRun
+```
+
+Then run the examples from a copy of the repository. Set `YUKTA_API_KEY` if you gave the server a key (`YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE=ADMIN`).
+
+```bash
+./examples/run-all.sh                         # all of them, with a summary
+./examples/2-free-deps/18-todo-run/run.sh     # or one
+```
+
+A server that allows less still runs the rest; an example it cannot run reports `SKIP` (exit 3) and names the missing setting. What each example needs:
+
+| Example | Commands the server may run | Also on the machine |
+|---|---|---|
+| 01, 03, 04, 05, 06, 07, 09 | none | |
+| 02 release approval | `sh` | |
+| 10 inbox notification | `echo` | |
+| 11 agent verification | `sh`, `echo` | `git` |
+| 12 alert triage | `sh` | `python3` (its local pager stand-in) |
+| 13 MCP agent | none | `curl`, `jq` |
+| 14 supervisor agents | none | `python3`, `go` |
+| 15 agent session | the agent CLI, for example `claude` | the agent CLI, logged in (walkthrough, no `run.sh`) |
+| 16 agent console | `sh` | `YUKTA_AI_PRESETS_DIR` (see below) |
+| 17 ask a random question | `echo`, `shuf` | `shuf` (GNU coreutils) |
+| 18 check out and run, 19 CI pipeline | `git`, `uv`, `bun`, `node`, `npm` (`npm.cmd` on Windows) | `git`, `uv`, and `bun` or `node`; free ports 8000 and 5173 for 18 |
+
 <Note>
-  Examples in categories 1 and 2 run operating-system commands, which Yukta refuses by default. Allow only what they need, for example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`; each README names its set. Example 12 also needs `python3`; examples 18 and 19 need `git`, `uv` and `bun` or `node` (`YUKTA_PROCESS_ALLOWED_COMMANDS=git,uv,bun,node,npm` and `YUKTA_VARIABLES_ALLOWED=java.io.tmpdir`) and tell you in the inbox when one is missing. Set `YUKTA_API_KEY` if your server requires a key. See [Security](/guides/operate/secure-the-server).
+  On Windows, run the scripts from Git Bash (it provides `bash`, `curl`, `sh` and `git`) and start the server there too, so it finds the same tools. `shuf`, `sh` and `go` have to be installed for the examples that use them.
 </Note>
 
 ## Use-case templates
@@ -53,6 +88,12 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 | [13](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/13-mcp-agent) | An AI agent creates and runs a workflow | Using Yukta over MCP |
 | [10](https://github.com/infenia/yukta/tree/main/examples/1-standalone/10-inbox-notification) | A workflow needs someone to see a result | A notification in the inbox |
 | [16](https://github.com/infenia/yukta/tree/main/examples/3-paid-tools/16-agent-console) | Two agents work in the agent console | Scripted agents through the agent harness |
+| [07](https://github.com/infenia/yukta/tree/main/examples/1-standalone/07-input-pull) | An outside responder answers input requests | A script that lists open requests with `GET /api/inputs` and answers one over REST |
+| [08](https://github.com/infenia/yukta/tree/main/examples/1-standalone/08-supervisor-profiles) | A rules supervisor answers low-risk input requests | A `rules` supervisor that approves low-risk staging requests and escalates the rest |
+| [09](https://github.com/infenia/yukta/tree/main/examples/1-standalone/09-supervisor-workflow) | A workflow decides for a session | A `workflow` supervisor, and a narrower section supervisor that hands up to it |
+| [14](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/14-supervisor-agents) | A program operates a supervisor | An `http` supervisor run by a shell script, Python and Go, using initiative |
+| [15](https://github.com/infenia/yukta/tree/main/examples/3-paid-tools/15-agent-session) | An AI agent works under approvals | `AGENT_SESSION` with approvals as input requests; a walkthrough with no `run.sh`, so `run-all.sh` skips it |
+| [17](https://github.com/infenia/yukta/tree/main/examples/1-standalone/17-ask-random-question) | Ask a person, then ask a random question | `ASK_INPUT`, a branch on the answer and a process step |
 
 ## How Yukta develops itself
 

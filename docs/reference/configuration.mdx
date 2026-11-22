@@ -291,8 +291,26 @@ Conversations with AI agents (the agent console). With `yukta.agents.enabled=fal
 | `spring.ai.mcp.server.streamable-http.mcp-endpoint` | path | `/mcp` | Where it listens. |
 | `spring.ai.mcp.server.protocol`, `.type` | enum, enum | `STATELESS`, `ASYNC` | Stateless, asynchronous streamable HTTP. |
 | `spring.ai.mcp.server.name` | string | `yukta` | Server name sent to clients. |
+| `yukta.mcp.result-max-chars` | int | `32000` | Most payload characters one `get_execution_result` call returns; `0` for no cap. |
 
 The MCP rate limits, log limits and `yukta.mcp.start-dedupe-window` are under [Admission and run limits](#admission-and-run-limits) and [Security and access](#security-and-access).
+
+## Plus edition info
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.plus.source-url` | string | `https://github.com/infenia/yukta` | Where the source of the running build is offered, reported in the edition info. |
+| `yukta.plus.info` | boolean | `true` | Adds the `edition` detail (edition, licence, features, source) to `/actuator/info`. |
+
+## UI assistant relay
+
+The experimental assistant in the web UI sends its model calls through `POST /api/assistant/proxy/{provider}`. See [Use the web UI](/guides/operate/use-the-web-ui).
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.assistant.enabled` | boolean | `true` | `false` makes the relay answer `404`. |
+| `yukta.assistant.allowed-base-urls` | list | `api.openai.com`, `generativelanguage.googleapis.com`, `openrouter.ai` | Hosts an OpenAI-compatible base URL (header `X-Assistant-Base-Url`) may name. |
+| `yukta.assistant.anthropic-url` | string | `https://api.anthropic.com/v1/messages` | The Anthropic messages URL the relay calls. |
 
 ## Logging, tracing and API docs
 

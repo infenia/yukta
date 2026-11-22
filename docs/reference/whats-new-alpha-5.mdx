@@ -12,11 +12,11 @@ keywords: ["alpha.5", "release notes", "what's new", "notifications", "inbox"]
 Alpha.5 adds notifications: Yukta now tells people what happened and asks them for what it needs, in one place.
 
 - **Inbox**: a bell with a count, toasts, an Inbox page with three tabs, filters and the answer form, and deep links (`/inbox?item=<id>`). A resolved question stays under *Resolved* with who answered. See [How notifications work](/concepts/notifications).
-- **Desktop**: operating system notifications from an open tab, raised only when it is hidden and your level for the category is `DESKTOP`; `yukta notify` does the same without a browser. See [Notifications from the terminal](/guides/operate/notifications-from-the-terminal).
+- **Desktop**: operating system notifications from an open tab, raised only when it is hidden and your level for the category is `DESKTOP`; `yukta-cli notify` does the same without a browser. See [Notifications from the terminal](/guides/operate/notifications-from-the-terminal).
 - **Preferences**: a level per category and muted sessions, kept per named key.
 - **Alerts**: runs that fail or finish, runs held by a supervisor and deliveries that give up raise notifications; a workflow raises its own with `NOTIFY_TERMINAL` and `target: inbox`.
 - **Channels**: one `NotificationChannel` SPI and one outbox replace the input responders. See [Configure notifications](/guides/operate/notifications) and [Write a notification channel](/guides/extend/write-a-notification-channel).
-- **CLI and MCP**: `yukta notifications`, `yukta notify`, `list_notifications` and `mark_notifications_read`.
+- **CLI and MCP**: `yukta-cli notifications`, `yukta-cli notify`, `list_notifications` and `mark_notifications_read`.
 - **Plus**: notifications and queued deliveries are kept in PostgreSQL.
 
 ## Breaking changes

@@ -55,7 +55,7 @@ These refusals have no JSON body.
 | Role | Allows |
 |---|---|
 | `VIEWER` | `GET`, `HEAD`, `OPTIONS` on any `/api` path except `/api/config` (the effective settings), which needs `ADMIN`. |
-| `OPERATOR` | Everything a viewer may, plus any method on paths under `/api/executions/` and `/api/workflow/` (start, stop, pause, resume, restart, recover, retry, skip, breakpoints, answers to input requests, priority of a queued run). |
+| `OPERATOR` | Everything a viewer may, plus any method on paths under `/api/executions/`, `/api/workflow/` and `/api/conversations/` (start, stop, pause, resume, restart, recover, retry, skip, breakpoints, answers to input requests, priority of a queued run, steering an agent). Any role may change its own inbox under `/api/notifications/`. |
 | `ADMIN` | Everything, including defining sessions and workflows, validating drafts, scheduler limits (`POST /api/scheduler/limits`), `GET /api/config`, `/actuator/**`, and the `yukta.priority` and `yukta.version` start options. |
 
 A key limited to sessions reaches only `/api/sessions/{session}/...`, `/api/workflow/{session}/...` and `/api/executions/{executionId}/...` of its own sessions. Every other path is refused with `403`, including the global event stream, the worker list and the audit list; it never reaches `/actuator/**`.

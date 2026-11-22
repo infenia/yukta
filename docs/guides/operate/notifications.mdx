@@ -76,7 +76,7 @@ Delivery is **at least once**: a failed post is retried after 1 s, then with dou
 
 Each person sets, in the Inbox page, a level per category and muted sessions (`GET`/`PUT /api/notifications/preferences`). A category without a saved level keeps the server default. The desktop level also needs the browser permission, granted from the switch in the preferences sheet.
 
-For the desktop without a browser, run `yukta notify` at login: [Notifications from the terminal](/guides/operate/notifications-from-the-terminal).
+For the desktop without a browser, run `yukta-cli notify` at login: [Notifications from the terminal](/guides/operate/notifications-from-the-terminal).
 
 ## What to watch
 
@@ -105,4 +105,4 @@ Steady results, with the jar in a container:
 
 The stream lag is the time from a change to its arrival at the client. Creating all 1,000 questions at once, before the test starts, takes 3 to 4 s to reach 100 to 200 streams (p95); that is not part of the figures above.
 
-The burst is heavier and does not pass on 2 vCPU with 100 streams: the container uses both CPUs and answer p95 is 4 s, stream lag p95 is 2.7 s, with no dropped events. If you expect bursts of hundreds of answers a second with many streams open, give the server more CPU, or have fewer clients follow the stream (a script that only needs the questions can poll `yukta notifications list`). A dropped event shows in `yukta.notifications.tap.dropped`; the next list read or reconnect repairs the inbox.
+The burst is heavier and does not pass on 2 vCPU with 100 streams: the container uses both CPUs and answer p95 is 4 s, stream lag p95 is 2.7 s, with no dropped events. If you expect bursts of hundreds of answers a second with many streams open, give the server more CPU, or have fewer clients follow the stream (a script that only needs the questions can poll `yukta-cli notifications list`). A dropped event shows in `yukta.notifications.tap.dropped`; the next list read or reconnect repairs the inbox.
