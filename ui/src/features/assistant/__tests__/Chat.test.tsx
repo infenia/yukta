@@ -248,9 +248,48 @@ describe('Chat', () => {
 
     await userEvent.type(screen.getByLabelText('Message'), 'install?{Enter}');
 
+    expect(await screen.findByText('Use docker compose.')).toBeInTheDocument();
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Used 1 source$/ })
+    );
     expect(
       await screen.findByRole('link', { name: 'Install' })
     ).toHaveAttribute('href', 'https://docs/install');
+  });
+
+  it('counts the sources of a reply in the plural', async () => {
+    resetDocs();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        Response.json([
+          {
+            t: 'Install',
+            h: 'Docker',
+            u: 'https://docs/install',
+            x: 'docker compose',
+          },
+          {
+            t: 'Config',
+            h: 'Docker',
+            u: 'https://docs/config',
+            x: 'docker compose',
+          },
+        ])
+      )
+    );
+    show(
+      scriptedModel([
+        [call('c1', 'search_docs', { query: 'docker compose' })],
+        [text('Use docker compose.')],
+      ])
+    );
+
+    await userEvent.type(screen.getByLabelText('Message'), 'install?{Enter}');
+
+    expect(
+      await screen.findByRole('button', { name: /Used 2 sources$/ })
+    ).toBeInTheDocument();
   });
 
   it('copies the answer and asks the question again on Retry', async () => {

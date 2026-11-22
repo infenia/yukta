@@ -491,7 +491,7 @@ describe('the look of an item', () => {
     expect(screen.queryByText(/failed$/)).not.toBeInTheDocument();
   });
 
-  it('shows a group with a tool still running, and none failed, as running', () => {
+  it('shows a group with a tool still running, and none failed, as running', async () => {
     renderWithProviders(
       <AgentTimeline
         items={[
@@ -525,7 +525,9 @@ describe('the look of an item', () => {
 
     expect(screen.getByText('2 tool calls')).toBeInTheDocument();
     expect(screen.queryByText(/failed$/)).not.toBeInTheDocument();
-    // the group's icon and the running call's icon both carry the status
+    expect(screen.getAllByTitle('running')).toHaveLength(1);
+    // opened, the running call carries the status as well
+    await userEvent.click(screen.getByRole('button', { name: /2 tool calls/ }));
     expect(screen.getAllByTitle('running')).toHaveLength(2);
   });
 
