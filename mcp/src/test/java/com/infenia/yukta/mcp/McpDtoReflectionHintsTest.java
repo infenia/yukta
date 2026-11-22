@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.mcp.dto.SessionList;
 import com.infenia.yukta.mcp.dto.WorkflowVersions;
+import io.modelcontextprotocol.spec.McpError;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.aot.hint.MemberCategory;
@@ -29,6 +30,23 @@ class McpDtoReflectionHintsTest {
                   .onType(type)
                   .withMemberCategories(
                       MemberCategory.INVOKE_PUBLIC_METHODS, MemberCategory.ACCESS_DECLARED_FIELDS))
+          .accepts(hints);
+    }
+  }
+
+  @Test
+  void registerHints_transportError_isReadableByReflection() {
+    final RuntimeHints hints = new RuntimeHints();
+
+    new McpDtoReflectionHints.Hints()
+        .registerHints(hints, Thread.currentThread().getContextClassLoader());
+
+    for (final Class<?> type :
+        new Class<?>[] {Throwable.class, StackTraceElement.class, McpError.class}) {
+      assertThat(
+              RuntimeHintsPredicates.reflection()
+                  .onType(type)
+                  .withMemberCategory(MemberCategory.INVOKE_PUBLIC_METHODS))
           .accepts(hints);
     }
   }
