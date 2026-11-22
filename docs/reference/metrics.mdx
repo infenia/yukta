@@ -47,6 +47,7 @@ Values of the `reason` tag on `yukta.executions.rejected`, from `ExecutionSchedu
 | `not_leader` | This server is not the leader |
 | `rate_limit` | The start rate limit was exceeded |
 | `draining` | The server is draining for a restart |
+| `recovering` | The server is recovering its run history at start-up or takeover; try again shortly (`503`) |
 
 ## Nodes and edges
 
@@ -72,6 +73,7 @@ Values of the `reason` tag on `yukta.executions.rejected`, from `ExecutionSchedu
 | `yukta.checkpoint.bytes` | gauge | none | Node output held by the checkpoint store; with PostgreSQL checkpoints, the size on disk of `node_checkpoint`, the same on every server |
 | `yukta.checkpoint.errors` | counter | none | End markers that could not be written |
 | `yukta.checkpoint.io.pending` | gauge | none | Checkpoint file operations queued for or running on the checkpoint scheduler (file and spill stores); high for long means the disk is slower than the runs |
+| `yukta.secrets.masked` | counter | none | Log lines in which a resolved secret was masked |
 
 ## Workers and high availability
 
@@ -80,6 +82,7 @@ Values of the `reason` tag on `yukta.executions.rejected`, from `ExecutionSchedu
 | `yukta.workers` | gauge | none | Workers connected to the control plane |
 | `yukta.worker.slots` | gauge | none | Free node slots across connected workers |
 | `yukta.leader` | gauge | none | `1` on the leader, else `0`; registered when `yukta.ha.mode=postgres` |
+| `yukta.fencing.refused` | counter | `store` | PostgreSQL writes refused because another server took over the leader lease |
 
 ## Input requests
 
@@ -118,6 +121,22 @@ Values of the `reason` tag on `yukta.executions.rejected`, from `ExecutionSchedu
 | `yukta.mcp.response.bytes` | distribution summary | `tool` | Size of MCP answers to keyed callers, per tool called (`other` for unknown tools and batches, `none` without a tool call): which reads fill an agent's context |
 | `llm.tokens` | counter | `provider`, `direction` | Model tokens used; `direction` is `input` or `output` |
 | `llm.cost` | counter | `provider` | Model cost, when the node reports it |
+
+## Metric history API
+
+The web UI's Control page reads a short history of server metrics from `GET /api/metrics/*`, sampled in memory. `range` is `15m`, `1h`, `6h` or `24h`. `scope` is `global` (default), `session:<id>` or `workflow:<id>`; a scope other than `global` has only the run series (`runs.*`, `duration.*`, `queue.*`).
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/metrics/catalog` | The series keys of the newest sample |
+| `GET /api/metrics/series?names=…` | Points of the named series (meter names or series keys, comma-separated; `range` defaults to `1h`) |
+| `GET /api/metrics/snapshot` | The newest sample |
+| `GET /api/metrics/heatmap` | Runs and failures per minute (`range` defaults to `24h`) |
+| `GET /api/metrics/modules` | One row per plugin type, busiest first: executions, failures, mean duration |
+| `GET /api/metrics/nodes` | The slowest nodes by 95th percentile duration; `limit` 1 to 100, default `10` |
+| `GET /api/metrics/annotations` | Control commands, applied or rejected, oldest first |
+| `GET /api/metrics/runs/live` | Each running run with its progress and its workflow's usual p95 duration |
+| `GET /api/metrics/stream` | Server-sent stream of metric samples; it carries no history |
 
 ## Related
 

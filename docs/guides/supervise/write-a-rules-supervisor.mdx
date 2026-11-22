@@ -65,9 +65,9 @@ import { ReaderState } from "/snippets/reader-state.jsx";
     }
     ```
 
-    - **`when.event`** is `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `EventsMissed` or an input event (`InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled`). `count` and `withinSeconds` (default 1 and 60) are counted per run.
+    - **`when.event`** is `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `EventsMissed`, `AgentConversationChanged` or an input event (`InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled`). `count` and `withinSeconds` (default 1 and 60) are counted per run.
     - **`if`** is a condition over the event's fields (`status`, `module`, `nodeId`, `metadata['code']`, `risk`, `context['environment']`...). One that cannot be evaluated counts as not matching, so a faulty reaction never fires; a `deny` condition that cannot be evaluated **refuses**, so a faulty veto never lets a command through.
-    - **`then.command`** is `PauseWorkflow`, `ResumeWorkflow`, `StopWorkflow` (with `mode`), `PauseNode`, `ResumeNode`, `StopNode`, `Restart` or `RestartFromNode`. The supervisor must also list that command's name (`PauseWorkflowCommand`) in `allowedCommands`, or the command is dropped and counted as `forbidden`.
+    - **`then.command`** is `PauseWorkflow`, `ResumeWorkflow`, `StopWorkflow` (with `mode`), `PauseNode`, `ResumeNode`, `StopNode`, `Restart`, `RestartFromNode`, or, for an `AgentConversationChanged` event, `AgentMessage`, `AgentInterrupt` or `AgentEnd` (see the [Rule files reference](/reference/supervisors/rule-files)). The supervisor must also list that command's name (`PauseWorkflowCommand`) in `allowedCommands`, or the command is dropped and counted as `forbidden`.
     - **`deny`** and **`requireApproval`** read the command's fields: `executionId`, `actor`, `nodeId`, `mode`, `reason`, `immediate`, and for holds `workflowId`. A deny beats a hold.
     - **`operatorAccess`** names what a person may send through this owner. A vetoed or held command must be listed here, or a person's command is refused earlier with `409 CONTROLLED_BY_SUPERVISOR`.
   </Step>

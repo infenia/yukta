@@ -25,7 +25,7 @@ import { UiShot } from "/snippets/ui-shot.jsx";
 
 <Steps>
   <Step title="Read the command strip">
-    The top row answers "is it healthy?" at a glance: runs per minute and p95 duration with their one-hour trend, success rate over 24 hours, approvals waiting (opens the overview, where they are answered), running and waiting runs, worker slots in use, and model spend over the last hour.
+    The top row answers "is it healthy?" at a glance, in six tiles: **Running** (against the concurrent run limit), **Queued** (and what the queue holds), **Success (24 h)** as a rate, **Failed (1 h)** out of the runs that finished, **Engine p95 (1 h)** with its trend (how long a message waits between taking its node's turn and the plugin being called, not the plugins' own time), and **Inputs waiting**, which opens the inbox where they are answered. Workers and AI usage have their own panels below.
   </Step>
 
   <Step title="Scope the page">

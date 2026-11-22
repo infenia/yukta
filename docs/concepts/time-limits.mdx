@@ -35,7 +35,7 @@ The clocks also differ in whether they reset. The **idle clock** resets on any i
 
 ## Defaults that fit the work
 
-The idle clock is a node's `timeoutSeconds`. If you do not set it, the plugin supplies a default that fits what it does: a process node uses its own timeout plus a margin, a model call covers every attempt plus backoff, a sub-workflow its own limit plus a margin, and anything else thirty seconds. This keeps the common case right without configuration, and it is why you usually adjust a node's own timeout and let the idle clock follow.
+The idle clock is a node's `timeoutSeconds`. If you do not set it, the plugin supplies a default that fits what it does: a process, HTTP, SQL or MCP node uses its own timeout plus a margin, a model call covers every attempt plus backoff, a sub-workflow, an input request or a wait for a signal its own limit plus a margin, and anything else thirty seconds. This keeps the common case right without configuration, and it is why you usually adjust a node's own timeout and let the idle clock follow.
 
 A timeout that is an expression is unknown until a message arrives, so the node starts with the default and is re-timed on its first message.
 

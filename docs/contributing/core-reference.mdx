@@ -835,7 +835,7 @@ An append-only record of run starts (with the input payload), ends, control comm
 
 **Behaviour**
 
-- Event types: `RUN_STARTED`, `RUN_FINISHED`, `RUN_ABORTED`, `CONTROL_APPLIED`, `CONTROL_REJECTED`, `NODE_FINISHED` (history only), `RUN_RESUMED`, `IDEMPOTENCY_KEY`.
+- Event types: `RUN_STARTED`, `RUN_FINISHED`, `RUN_ABORTED`, `CONTROL_APPLIED`, `CONTROL_REJECTED`, `NODE_FINISHED` (history only), `RUN_RESUMED`, `IDEMPOTENCY_KEY`, `LIMITS_CHANGED` (scheduler limits changed at run time; restored on startup), `INPUT` (something happened to an input request; the payload holds `event`, the request id and tier, never the prompt or an answer text).
 - Memory by default, trimmed like the file log (`LogRetention`: newest `retained-runs`, never a run without an end, every `compact-after` events). With `yukta.execution-log.dir` it is `executions.jsonl` on disk.
 - File access runs on one background writer thread. Events are **not fsynced** unless `yukta.execution-log.fsync=true`; a rewritten file (compaction, session config) is forced to disk before it replaces the old one.
 - **Store API**: `append` is fire-and-forget (it never fails a run); the reads (`readAll`, `forExecution`, `header`, `ofType`) return `Flux`/`Mono` and `replaceAll` a `Mono<Void>`, so no caller parks a thread. A read sees every event appended before it is subscribed.
@@ -981,7 +981,7 @@ One key set guards both REST and MCP. Named keys carry a role and may be limited
 
 - The filters ask an `ApiAuthenticator` (`Scope.REST` or `Scope.MCP`), whose default is `ApiKeyAuthenticator` (the keys below). A module replaces it by providing another `ApiAuthenticator` bean; `HostOriginFilter` and the start-up exposure check ask the same bean, so they follow it.
 - Keys come from `yukta.api-keys[]` (`name`, `key`, `role`, `sessions`). A key is plain text or `sha256:<hex>`; several keys at once allow rotation without downtime. A request presents `Authorization: Bearer <key>` or `X-API-Key`.
-- Roles: `VIEWER` reads. `OPERATOR` also starts, controls and recovers runs (paths under `/api/executions/` and `/api/workflow/`, no `..`). `ADMIN` everything, including defining sessions and workflows (which can run processes, scripts and SQL), changing scheduler limits and reading `GET /api/config` (the one read a viewer or operator may not do).
+- Roles: `VIEWER` reads. `OPERATOR` also starts, controls and recovers runs (paths under `/api/executions/`, `/api/workflow/` and `/api/conversations/`, no `..`). `ADMIN` everything, including defining sessions and workflows (which can run processes, scripts and SQL), changing scheduler limits and reading `GET /api/config` (the one read a viewer or operator may not do).
 - The audit records the actor as `key:<name>`; `GET /api/control/audit` lists who sent which command.
 - With no key set, the web layer enforces a **Host and Origin check** (`HostOriginFilter`): unknown `Host` or foreign `Origin` on a non-GET gets 403, protecting a local server from CSRF and DNS rebinding.
 
@@ -1241,7 +1241,7 @@ All meters are Micrometer. Tags in braces.
 - **stop mode:** `DRAIN` · `CANCEL` · `KILL`
 - **on-limit:** `QUEUE` · `REJECT`
 - **API role:** `VIEWER` · `OPERATOR` · `ADMIN`
-- **Log event:** `RUN_STARTED` · `RUN_FINISHED` · `RUN_ABORTED` · `CONTROL_APPLIED` · `CONTROL_REJECTED` · `NODE_FINISHED` · `RUN_RESUMED` · `IDEMPOTENCY_KEY`
+- **Log event:** `RUN_STARTED` · `RUN_FINISHED` · `RUN_ABORTED` · `CONTROL_APPLIED` · `CONTROL_REJECTED` · `NODE_FINISHED` · `RUN_RESUMED` · `IDEMPOTENCY_KEY` · `LIMITS_CHANGED` · `INPUT`
 
 ### HTTP outcomes produced by core
 

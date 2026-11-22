@@ -52,7 +52,7 @@ A missing or unknown key is answered with `401` and a `WWW-Authenticate: Bearer`
 | Role | May call |
 |---|---|
 | `VIEWER` | Every `GET` request, including the event streams |
-| `OPERATOR` | Everything `VIEWER` can, plus every non-`GET` request under `/api/executions/` and `/api/workflow/`: start and stop workflows, pause, resume, restart, recover, change priority, per-node controls, breakpoints and signals |
+| `OPERATOR` | Everything `VIEWER` can, plus every non-`GET` request under `/api/executions/`, `/api/workflow/` and `/api/conversations/`: start and stop workflows, pause, resume, restart, recover, change priority, per-node controls, breakpoints and signals |
 | `ADMIN` | Everything, including applying sessions (`POST /api/sessions`), validating drafts, rolling back versions, writing version notes, changing scheduler limits and sending control-bus node commands |
 
 ### Who am I

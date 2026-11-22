@@ -152,6 +152,7 @@ An assignment says what a supervisor owns. Body of `PUT /api/supervisors/{id}/as
 | Target | Owns |
 |---|---|
 | `server` | Scheduler limits and drain (the server unit). |
+| `global` | Nothing: the supervisor sees every run and owns no unit, so it can review and advise a child supervisor without conflicting with its owner. |
 | `session:<id>` | Every workflow of the session, now and later. |
 | `workflow:<session>/<workflow>` | The run level and every node of the workflow. |
 | `run:<session>/<workflow>` | The run level only: start, pause, resume, stop, restart, priority and workflow-wide events. |

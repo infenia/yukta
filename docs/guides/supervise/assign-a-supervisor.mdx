@@ -62,6 +62,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     | Target | Owns |
     |---|---|
     | `server` | Server-wide commands: scheduler limits, drain, recover |
+    | `global` | Nothing: it sees every run and owns no unit (used for a parent in a [hierarchy](/guides/supervise/build-a-hierarchy)) |
     | `session:<id>` | Every workflow of the session, run level and nodes |
     | `workflow:<s>/<w>` | The run level and all nodes of one workflow |
     | `run:<s>/<w>` | The run level only: start, pause, resume, stop, restart, priority |

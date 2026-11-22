@@ -1,11 +1,11 @@
 ---
 title: "Plugins module: the built-in node types"
 sidebarTitle: "Plugins module"
-description: "The 37 built-in node types, the supervisors and control planes, how each is built, and what a workflow author can and cannot make them do."
+description: "The 37 built-in node types, the supervisor engines, how each is built, and what a workflow author can and cannot make them do."
 keywords: ["plugins module", "built-in plugins", "node types"]
 ---
 
-The plugins module is the toolbox of Yukta: 37 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a branch) plus the supervisors and control planes that watch runs from outside. Each one is a small Spring bean that obeys a contract from plugin-api; the engine in core does the scheduling, retries and timeouts around it. This page is for thinking, not documenting: open a component, play a scenario, then challenge the weak spots, most of which are about what a workflow author is allowed to make a plugin do.
+The plugins module is the toolbox of Yukta: 37 built-in node types (triggers that start a workflow, processors that route, transform, call outside systems or ask a model, and terminals that finish a branch) plus the supervisor engines that decide for a supervisor watching runs from outside. Each one is a small Spring bean that obeys a contract from plugin-api; the engine in core does the scheduling, retries and timeouts around it. This page is for thinking, not documenting: open a component, play a scenario, then challenge the weak spots, most of which are about what a workflow author is allowed to make a plugin do.
 
 | Property | What it means |
 |---|---|
@@ -32,7 +32,7 @@ Yukta's engine knows how to run a graph of nodes, but it knows nothing about wha
 |---|---|
 | Clients | REST, web UI, MCP agents and the CLI submit workflow definitions and start runs |
 | core | The engine. It validates graphs, wires nodes into streams, applies timeouts, retries and error ports, hosts supervisors, and keeps the plugin registry |
-| plugin-api | The contract: three node interfaces (trigger, processor, terminal), the supervisor and control-plane interfaces, config field descriptions, failure helpers, a safe expression helper |
+| plugin-api | The contract: three node interfaces (trigger, processor, terminal), the supervisor engine interfaces, config field descriptions, failure helpers, a safe expression helper |
 | plugins | The implementations. This page. (this module) |
 | boot | Chooses which optional plugin modules are compiled into the application |
 
@@ -128,7 +128,7 @@ plugins that support it replace $\{...\} variables and decrypted: secrets in the
 external-call plugins wrap the work in the failure pattern: ERROR throws, CONTINUE turns the failure into a routable message.
 </Step>
 <Step title="Watch">
-separately, supervisors and control planes read the stream of run events and may pause or stop a run, or veto a command.
+separately, supervisors read the stream of run events and may pause or stop a run, or veto a command.
 </Step>
 </Steps>
 
@@ -284,24 +284,21 @@ The rules every plugin follows and the shared helpers they use: type registratio
 
 **Settings:** `yukta.plugins (build property, see Selection)`, `YUKTA_SECRET_<KEY> environment variables for decrypted:key`
 
-### Supervisors & planes
+### Supervisor engines
 
-*rules, model, rules-first*
+*rules, process*
 
-Watches the run-event stream from outside the graph and can pause or stop runs or veto commands: RuleSupervisor, RuleControlPlane, ModelControlPlane and RulesFirstControlPlane.
+The engines of a supervisor that live in the plugins module: `rules` (RuleSupervisorFactory) and `process` (ProcessEngineFactory). The `http` and `workflow` engines are in core. A supervisor has one engine; the shell in core checks every directive it returns.
 
-- A supervisor reads events (node status changed, workflow status changed, log line, control outcome) and returns commands (pause or resume or stop a workflow or node). Core's host applies them with the supervisor as the named actor, rate-limited (default 20 per second) and with a dry-run switch. Separately a supervisor may review any command, human or automated, and refuse it.
-- RuleSupervisor (id 'rules', on when yukta.supervisor.rules.file is set) reads a JSON file of rules. A reacting rule has 'when' (event, status, module, nodeId, workflowId, an 'if' SpEL condition, and optionally count within withinSeconds, default 60) and 'then' (command, mode, reason, immediate). Example: three FAILURE statuses from HTTP_REQUEST within 60 s on one run, then PauseWorkflow. A deny rule has 'command', optional 'if' and 'reason' and vetoes matching commands, for example StopWorkflow with mode KILL.
-- Failure bias is deliberate. If a deny rule's condition cannot be evaluated, the command is denied (fail closed). If an event rule's condition cannot be evaluated, the rule simply does not fire. An unknown command name in a rule fails at load, not at run time.
-- RuleControlPlane (yukta.control-plane.rules.file) is the same rules behind the control-plane contract: one decide(event) per event, with probability 1 and source RULE. ModelControlPlane (on when yukta.control-plane.model.name is set) asks a decision model a multiple-choice question about each event: 'instructions' is the question, options.&lt;key&gt; has a description and a command (NONE, PAUSE or STOP). By default it is asked about node and workflow status changes only, the defaults are continue=NONE and pause=PAUSE so it cannot stop anything unless configured, timeout is 2 s and min-probability 0.6.
-- The model plane fails open: if the model is down, slow or unsure, the decision is 'no opinion' and the run continues. It does not review commands (everything is allowed). RulesFirstControlPlane (on when yukta.control-plane.rules-first.model.name is set) asks rules first and consults the model only when no rule fired; a rule error is treated as no rule; deny reviews always come from the rules.
+- A `rules` engine reads events and returns commands from a JSON rule document that is part of the supervisor's settings. A rule is `when`/`then` (react to an event or a timer, optionally counting matches within a window), `deny` (refuse a command) or `requireApproval`. The format is in the [Rule files reference](/reference/supervisors/rule-files) and the engine's settings are in the [Engines reference](/reference/supervisors/engines).
+- Failure bias is deliberate. A `deny` rule whose condition cannot be evaluated refuses the command (fail closed). A `when` rule whose condition cannot be evaluated does not match.
+- A `process` engine runs a program on the server that reads signals and prints directives; the module parses them (DirectiveJson).
+- `yukta.supervisor.rules.file` still starts one rule supervisor from a JSON file that owns nothing until it is assigned; it is not re-checked after startup.
 
-- **Guarantees.** A deny rule cannot be bypassed by the model plane: reviews in the rules-first plane come from rules only. A broken deny condition blocks rather than allows. A rule file with an unknown field, a missing id, or a rule that is neither 'when/then' nor 'deny', fails at startup.
-- **State.** Rules are read once at startup and never reloaded. Count windows are kept per rule and run in memory and are never removed when a run ends. The model plane keeps no state.
-- **Ceiling.** ModelControlPlane makes one model call per matching event, serially (concatMap), so a busy server asks the model a lot and a slow model delays decisions without limit other than its 2 s timeout.
-- **On failure.** Model errors or timeouts mean 'no opinion' (fail open). A rule that cannot parse stops startup. A reacting rule that names an unknown command fails at load.
+- **Guarantees.** The engine only proposes; the shell checks ownership, the allow-list, the reason and the rate limit before anything runs. A broken deny condition blocks rather than allows.
+- **State.** Count windows are kept in memory per rule and run, and are gone after a restart.
 
-**Settings:** `yukta.supervisor.rules.file`, `yukta.control-plane.rules.file`, `yukta.control-plane.model.name, .backend, .provider, .base-url, .api-key, .timeout (2s), .min-probability (0.6), .instructions, .options.<key>.description/.command, .events`, `yukta.control-plane.rules-first.rules-file and .model.*`, `(host, in core) yukta.supervisor.max-commands-per-second (20), yukta.supervisor.dry-run`
+**Settings:** the supervisor's own settings (see the Engines reference); `yukta.supervisor.rules.file`, and in core `yukta.supervisor.max-commands-per-second` (20) and `yukta.supervisor.dry-run`
 
 ### Selection & gates
 
@@ -309,9 +306,9 @@ Watches the run-event stream from outside the graph and can pause or stop runs o
 
 Decides which plugin modules are compiled in and holds each module to code-quality checks.
 
-- Always included: internal-core (the 12 routing, transform and flow types), the three triggers, both terminals, the rule supervisor and the three control planes. Optional, nine modules: process-executor, agent-session, http-request, file-io, sql-query, llm-call, decision, mcp-tool-call and script-js.
+- Always included: internal-core (the 12 routing, transform and flow types), the four triggers, the three terminals and the `rules` and `process` supervisor engines. Optional, nine modules: process-executor, agent-session, http-request, file-io, sql-query, llm-call, decision, mcp-tool-call and script-js.
 - Selection is a build property: -Pyukta.plugins=all (default), none, or a comma-separated list such as http-request,llm-call. An unknown name fails the build with a list of valid names. Choosing fewer modules shrinks the application and, more importantly, removes whole capabilities (for example, no PROCESS_EXECUTOR means a workflow cannot run programs at all).
-- The three control-plane modules are always compiled in, the model plane exposes the decision module, and the decision module depends on llm-call. So, reading the build files, CLASSIFY, GATE, SCORE, ASK, ANOMALY, DEDUPE and LLM_CALL are on the runtime classpath even with -Pyukta.plugins=none (not confirmed by running a build). Optional means optional to name, not necessarily absent (risk: optionalNotOptional).
+- The selection is `-Pyukta.plugins=default` (every optional module except script-js), `all`, `none` or a list of: process-executor, agent-session, external, http-request, file-io, sql-query, llm-call, decision, mcp-tool-call, script-js. The `external` module runs community plugins from `yukta.plugins.dir`; the others in that list are described below.
 - Each module is checked by the normal gates (formatting, Checkstyle, PMD, SpotBugs, coverage). internal-core and constant-source switch off PMD main and test, and internal-core also switches off Checkstyle on tests, with a note to re-enable. The riskiest code (the script mapper) therefore has the lightest checks.
 - About 12,000 lines of main code across 19 modules. Leftover folders exist on disk with no source and no entry in settings.gradle.kts (triggers/auto-trigger, processors/scripting): they are not plugins.
 
@@ -434,28 +431,6 @@ A person tries StopWorkflow with mode KILL. Before it runs, every supervisor rev
 </Step>
 </Steps>
 
-### Model control plane, model down
-
-How a model-driven control plane behaves, including when the model is unavailable, and why rules-first is safer.
-
-<Steps>
-<Step title="Configure the plane">
-yukta.control-plane.model.name is set. The plane builds one multiple-choice question from 'instructions' and the options. By default the options are 'continue' (no command) and 'pause' (PAUSE), so the model can pause a run but cannot stop it unless an option says STOP.
-</Step>
-<Step title="An event arrives">
-A node reports FAILURE. The event kind is in the plane's events list (default node and workflow status), so it is described in plain English ('Step HTTP_REQUEST changed status to FAILURE. Details: ...') and sent to the decision model.
-</Step>
-<Step title="The model answers">
-System One or the chosen chat model returns the chosen option with a probability. If that is below min-probability (0.6) or the option has no command, the decision is no commands. Otherwise the plane returns PauseWorkflow or StopWorkflow.
-</Step>
-<Step title="The model is down">
-The call times out after 2 s or errors. The plane logs a warning and returns 'no opinion'. The run continues untouched. This is fail-open: an outage removes oversight rather than stopping work.
-</Step>
-<Step title="Rules-first as the safer shape">
-RulesFirstControlPlane asks the rules first and consults the model only if no rule fired. A rule error counts as no rule. Veto (review) decisions always come from the rules, so the model can never loosen a deny rule.
-</Step>
-</Steps>
-
 ## Capabilities
 
 Eighteen things the plugins can do, grouped by purpose, each with what it guarantees and where it stops.
@@ -505,7 +480,7 @@ Eighteen things the plugins can do, grouped by purpose, each with what it guaran
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Rules and model oversight | Pauses or stops runs and vetoes commands. | RuleSupervisor, RuleControlPlane, ModelControlPlane and RulesFirstControlPlane. | Deny rules fail closed; the model plane fails open. | Rules load once at startup. |
+| Rule oversight | Pauses or stops runs and vetoes commands. | The `rules` supervisor engine. | Deny rules fail closed. | Count windows are in memory. |
 
 ### Finishing
 
@@ -537,7 +512,6 @@ The engine hands each plugin a stream. How a plugin consumes it decides ordering
 | ANOMALY and DEDUPE windows | Local to one node run | \*\*No.\*\* Gone, and also reset at the start of every run |
 | Schedule position (SCHEDULE_TRIGGER) | The running stream | \*\*No.\*\* Gone; a restarted run starts counting again |
 | MCP sessions, LLM model clients, compiled scripts and templates | Caches in plugin beans | \*\*Note.\*\* Rebuilt on demand; no data is lost |
-| Rule files (supervisor and control planes) | Files on disk, read at startup | \*\*Yes.\*\* Re-read at boot; edits need a restart |
 | Rule count windows | In-memory per rule and run | \*\*No.\*\* Gone; a counting rule starts again from zero |
 | Files written by FILE_WRITE, rows written by SQL_QUERY, webhooks sent | Outside Yukta | \*\*Yes.\*\* Kept; but after a crash a node may run again, so these side effects can repeat (at-least-once) |
 | Secrets | Environment variables YUKTA_SECRET_&lt;KEY&gt;, or any value written in config | \*\*Note.\*\* Environment: kept by the host. Config: kept wherever workflows are stored |
@@ -559,7 +533,6 @@ A table of protections a reader might assume. 'Enforced' means code rejects or l
 | Secrets hidden from read APIs and logs | \*\*No.\*\* Not enforced: apiKey, authToken and password stored in config are returned as written; CONSOLE_TERMINAL logs payloads in full |
 | Spending cap on model calls | \*\*Partly.\*\* LLM_CALL and MCP_TOOL_CALL stop at a per-run budget (tokens, cost, calls; hardStop ends the run). Counted in memory per JVM; LLM-backed decisions are not budgeted |
 | Deny rules in a supervisor | \*\*Yes.\*\* Enforced and fail closed |
-| Model control plane oversight | \*\*Partly.\*\* Best effort: fails open when the model is unavailable |
 
 ### Timeouts and margins
 
@@ -572,7 +545,6 @@ A table of protections a reader might assume. 'Enforced' means code rejects or l
 | Decision plugins | timeout, 30 s | timeout plus 5 s |
 | SQL_QUERY | timeoutSeconds, 30 s | Not derived: engine default of 30 s |
 | NOTIFY_TERMINAL | timeoutMs, 10 s | Not derived: engine default of 30 s |
-| ModelControlPlane | timeout, 2 s | Not a node: a failed or late answer means no opinion |
 
 ## Reference
 
@@ -618,7 +590,7 @@ All of these use failureMode ERROR (default) or CONTINUE. Where routeByStatus or
 | ANOMALY | Is this unusual vs the last window messages? | window (20), minHistory (5), threshold (0.5), question | metadata 'anomaly' \{probability, warmup\} | Ports 'normal', 'anomalous'; window per node and run |
 | DEDUPE | Same meaning as a recent message? | window (10), minProbability (0.6) | metadata 'dedupe' \{duplicate, duplicateOf, probability\} | Ports 'unique', 'duplicate'; window per node and run |
 
-### Catalogue 3: terminals, supervisors, control planes
+### Catalogue 3: terminals and supervisor engines
 
 Decision plugins share these settings: backend SYSTEMONE|LLM (SYSTEMONE), provider (needed for LLM), model, baseUrl (http://localhost:11434 for SYSTEMONE), apiKey, timeout (30 s), state (payload, cut to maxStateChars, default 15,000; stateKeep head|tail|headTail; onOverflow truncate|fail), into (the metadata key).
 
@@ -627,10 +599,8 @@ Decision plugins share these settings: backend SYSTEMONE|LLM (SYSTEMONE), provid
 | CONSOLE_TERMINAL | Terminal | Logs each payload at DEBUG, a count at INFO | none | Full payloads in logs at DEBUG (consoleLogs) |
 | NOTIFY_TERMINAL | Terminal | POSTs \{text\} to a webhook | url (https, http only for localhost), text, timeoutMs (10000), failureMode (ERROR) | Redirects count as failures; url is not variable-resolved |
 | OUTCOME_TERMINAL | Terminal | Names the exit a run took for a supervisor | outcome (required: SUCCESS, RETRY, ESCALATE, FAILED), restartFrom, reason | A workflow with several exits ends each one in its own |
-| RuleSupervisor (id 'rules') | Supervisor | Applies JSON rules to events and reviews commands | yukta.supervisor.rules.file | Rules fixed at startup |
-| RuleControlPlane | Control plane | The same rules behind decide(event) | yukta.control-plane.rules.file | Probability 1, source RULE |
-| ModelControlPlane | Control plane | Asks a decision model what to do about an event | yukta.control-plane.model.name; .backend (SYSTEMONE), .provider, .base-url, .api-key, .timeout (2s), .min-probability (0.6), .instructions, .options.&lt;key&gt;.description and .command NONE\|PAUSE\|STOP (defaults continue=NONE, pause=PAUSE), .events (NodeStatusChanged, WorkflowStatusChanged) | Fails open; no command review; at least two options required |
-| RulesFirstControlPlane | Control plane | Rules first, model only if no rule fired | yukta.control-plane.rules-first.rules-file and .model.\* (same keys as above) | Leave the individual plugins' properties unset; deny reviews come from rules |
+| `rules` engine | Supervisor engine | Applies a JSON rule document to events, timers and reviews | settings of the supervisor; `yukta.supervisor.rules.file` starts one from a file | Count windows in memory |
+| `process` engine | Supervisor engine | Runs a program that reads signals and prints directives | settings of the supervisor | See the Engines reference |
 
 ### The $\{...\} variable syntax
 
@@ -657,32 +627,20 @@ Always-on modules are compiled into every build. Optional modules are picked wit
 | internal-core | Always | FILTER, BRANCH, RECIPIENT_LIST, SPLITTER, AGGREGATE, VALIDATE, MAPPER, CONTENT_FILTER, DELAY, LOOP_STREAM, LOOP_PREDICATE |
 | api-trigger, constant-source, schedule-trigger, webhook-trigger | Always | API_TRIGGER, CONSTANT_SOURCE, SCHEDULE_TRIGGER, WEBHOOK_TRIGGER |
 | console-terminal, notify-terminal, outcome-terminal | Always | CONSOLE_TERMINAL, NOTIFY_TERMINAL, OUTCOME_TERMINAL |
-| rule-supervisor, rule-control-plane, model-control-plane, rules-first-control-plane | Always | RuleSupervisor, RuleControlPlane, ModelControlPlane, RulesFirstControlPlane (each active only if its property is set) |
+| supervisors:rules, supervisors:process-engine | Always | The `rules` and `process` supervisor engines |
 | process-executor | Optional | PROCESS_EXECUTOR |
 | agent-session | Optional | AGENT_SESSION |
 | http-request | Optional | HTTP_REQUEST |
 | file-io | Optional | FILE_READ, FILE_WRITE |
 | sql-query | Optional | SQL_QUERY (JDBC driver supplied by the deployer) |
 | llm-call | Optional | LLM_CALL |
-| decision | Optional (but pulled in by the control planes) | CLASSIFY, GATE, SCORE, ASK, ANOMALY, DEDUPE; pulls in llm-call |
+| decision | Optional | CLASSIFY, GATE, SCORE, ASK, ANOMALY, DEDUPE; pulls in llm-call |
 | mcp-tool-call | Optional | MCP_TOOL_CALL |
 | script-js | Optional | GraalJS implementation of the ScriptEngine interface, enabling MAPPER SCRIPT mode |
 
 ### Rule file fields
 
-One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or deny. Unknown fields fail at startup.
-
-| Part | Field | Meaning |
-|---|---|---|
-| when | event | NodeStatusChanged, WorkflowStatusChanged, LogLine or ControlOutcome (class name of the event) |
-| when | status, module, nodeId, workflowId | Exact match on the event field; omitted means any |
-| when | if | SpEL condition over the event fields (status, module, nodeId, metadata, command, actor, line...). If it cannot be evaluated the rule does not fire |
-| when | count, withinSeconds | Fire only when count matching events arrive within the window (default window 60 s), counted per rule and run |
-| then | command | PauseWorkflow, ResumeWorkflow, StopWorkflow, PauseNode, ResumeNode or StopNode |
-| then | mode, reason, immediate | StopWorkflow mode (default DRAIN); StopNode immediate flag; reason text (default 'Stopped by rule') |
-| deny | command | Name of the command to veto (the 'Command' suffix is optional) |
-| deny | if | SpEL over the command fields (executionId, actor, nodeId, mode, reason, immediate). If it cannot be evaluated the command is denied |
-| deny | reason | Text returned to the caller (default 'denied by rule &lt;id&gt;') |
+The rule document (`{"schemaVersion": 1, "rules": [...]}`) is part of a `rules` supervisor's settings. Its fields (`when`, `then`, `deny`, `requireApproval`, `every`, conditions) are listed in the [Rule files reference](/reference/supervisors/rule-files).
 
 ## Architecture decisions
 
@@ -726,9 +684,9 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 <Accordion title="Optional plugins are chosen at build time">
 **Context.** Process execution, file access, SQL and model calls are powerful, and some deployments (or native images) want none of them.
 
-**Decision.** boot lists nine optional modules and includes them according to -Pyukta.plugins (default all). Scripting is one of them: MAPPER depends only on a small ScriptEngine interface and script-js implements it with GraalJS; without it SCRIPT configs are rejected with a clear message. Always-on: routing, triggers, terminals, supervisors and control planes.
+**Decision.** boot lists ten optional modules and includes them according to -Pyukta.plugins (default: all except script-js). Scripting is one of them: MAPPER depends only on a small ScriptEngine interface and script-js implements it with GraalJS; without it SCRIPT configs are rejected with a clear message. Always-on: routing, triggers, terminals and the supervisor engines.
 
-**Consequences.** Smaller application and attack surface when used. No runtime switch, and the control planes pull in decision and LLM code regardless.
+**Consequences.** Smaller application and attack surface when used. The build chooses the modules; a running server turns types on with `yukta.plugins.enabled`.
 
 **Alternatives considered.** Runtime feature flags per plugin (flexible, but the code is always present and always scanned); separate plugin jars loaded at startup (flexible, but a class-loading and native-image burden); for scripting, no engine at all (safest, loses power) or a separate worker process (real isolation, much more work).
 
@@ -738,7 +696,7 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 <Accordion title="Two backends behind one DecisionModel interface">
 **Context.** Routing on a model's answer needs a label and a confidence, and some users run a local specialised model while others use a hosted chat model.
 
-**Decision.** CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE and the model control plane all call a DecisionModel. SYSTEMONE (default) asks Ollama's System One endpoint for calibrated probabilities; LLM asks any chat model for JSON and clamps its stated confidence.
+**Decision.** CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE all call a DecisionModel. SYSTEMONE (default) asks Ollama's System One endpoint for calibrated probabilities; LLM asks any chat model for JSON and clamps its stated confidence.
 
 **Consequences.** One set of plugins, two ways of running them. Probabilities mean different things per backend, so thresholds do not transfer.
 
@@ -762,9 +720,9 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 <Accordion title="Rules decide first; the model is advisory; deny is authoritative">
 **Context.** Automatic oversight of runs must be trustworthy but also able to handle cases rules cannot describe.
 
-**Decision.** RuleSupervisor and RuleControlPlane apply written rules; deny rules fail closed. ModelControlPlane is advisory, fails open and can only issue the commands its options name (default pause only). RulesFirstControlPlane asks rules first and takes reviews only from rules.
+**Decision.** The `rules` engine applies written rules and its deny rules fail closed. A model can decide through an `http` supervisor, but the shell still checks every directive it sends.
 
-**Consequences.** Predictable on the clear cases and safe by default; a model outage cannot block work. It also means a model outage removes the fuzzy oversight silently.
+**Consequences.** Predictable on the clear cases and safe by default; an AI decision maker cannot step outside the shell.
 
 **Alternatives considered.** Model-only control (flexible, unpredictable, steerable); rules-only (predictable, blind to novel failures); fail-closed model (safer, stops work when the model is down).
 
@@ -813,17 +771,17 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 | JDBC and parameterised query | JDBC is Java's database interface. A parameterised query sends values separately from the SQL text. | SQL_QUERY binds values to '?' so message text cannot become SQL. |
 | MCP | Model Context Protocol: a standard for exposing tools to AI models over HTTP. | MCP_TOOL_CALL is a client; Yukta's own MCP server is a separate module. |
 | Streamable HTTP | MCP's HTTP transport, where a reply can be plain JSON or a stream of events. | Progress events in that stream restart the engine's idle timer. |
-| Ollama and System One | Ollama runs models locally. System One is a decision-style interface it exposes that returns calibrated probabilities. | The default backend of the decision plugins and the model control plane. |
+| Ollama and System One | Ollama runs models locally. System One is a decision-style interface it exposes that returns calibrated probabilities. | The default backend of the decision plugins. |
 | Calibrated probability | A probability that matches how often the model is right at that confidence. | Lets a threshold like 0.6 mean something; a chat model's self-reported confidence does not. |
 | Prompt injection | Text in the data that tells a model to ignore its instructions. | Decision plugins judge data that may contain such text. |
-| Fail open and fail closed | On error, allow (open) or refuse (closed). | The model plane fails open; deny rules fail closed. |
+| Fail open and fail closed | On error, allow (open) or refuse (closed). | Deny rules fail closed. |
 | Back-pressure | A slow consumer making its producers wait instead of buffering without limit. | Why a slow webhook slows the whole branch. |
 | Reactor and flatMap concurrency | Reactor is the stream library; flatMap runs inner work concurrently, by default up to 256 at once. | The plugins now pass their own `concurrency` instead of using that default (risk fanout256). |
 | Reactor context | A bag of values that travels with a stream, such as node id or the start payload. | API_TRIGGER and many plugins read from it. |
 | Dead letter | A message that failed and is parked on an error path instead of being lost. | The engine's onError ROUTE sends failures to the 'error' port. |
 | Heartbeat | A signal from a long task saying it is still alive. | MCP_TOOL_CALL turns progress notifications into heartbeats. |
 | Idempotency | Doing the same operation twice has the same effect as once. | Engine retries and crash recovery can repeat a call, so side effects should be idempotent. |
-| Supervisor and control plane | Components outside the graph that read run events and may issue commands or refuse them. | RuleSupervisor and the three control planes. |
+| Supervisor | A component outside the graph that owns units of work, reads their events and may issue commands or refuse them. | The `rules` and `process` engines here; `http` and `workflow` in core. |
 | Cron expression | A schedule written as fields (here six: second to weekday). | SCHEDULE_TRIGGER accepts Spring's format. |
 | ISO-8601 duration | A time length written like PT1M (one minute) or PT2S. | Loop maxDuration and delayInterval use it. |
 | Enterprise integration patterns | A catalogue of message-routing patterns: filter, router, splitter, aggregator, recipient list. | The routing plugins implement them. |
@@ -837,7 +795,7 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 </Card>
 
 <Card title="Plugin API module" icon="plug" horizontal href="/contributing/modules/plugin-api">
-  The contract between Yukta's engine and the code that does the work: triggers, processors, terminals, supervisors and control planes.
+  The contract between Yukta's engine and the code that does the work: triggers, processors, terminals and supervisor engines.
 </Card>
 
 <Card title="How the code is organised" icon="sitemap" horizontal href="/contributing/overview">

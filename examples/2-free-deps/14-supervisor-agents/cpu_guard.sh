@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
-# The decision maker of the supervisor "cpu-guard", run by `yukta supervisors agent`:
-#   yukta supervisors agent --credential-file cpu-guard.token --exec ./cpu_guard.sh
+# The decision maker of the supervisor "cpu-guard", run by `yukta-cli supervisors agent`:
+#   yukta-cli supervisors agent --credential-file cpu-guard.token --exec ./cpu_guard.sh
 # Every signal arrives on stdin as a JSON line; every JSON line printed on stdout is a directive.
 # While the 1-minute load average is above LIMIT it pauses each run that starts or changes; when
 # the load is back below LIMIT it resumes only what it paused ("held").

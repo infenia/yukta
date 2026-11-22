@@ -9,7 +9,7 @@ keywords: ["agent conversations", "AGENT_SESSION", "AI agent", "SSE", "Last-Even
   **In plain terms:** an `AGENT_SESSION` node runs an AI agent such as Claude Code. Each message the node works on is a *conversation*: what the agent says, the tools it uses, what it asks, and how it ends. These endpoints let you read all of it, and follow every agent of a run in one stream.
 </Info>
 
-Every endpoint here needs only the `VIEWER` role. They exist while `yukta.agents.enabled` is `true` (the default). The text of a conversation is written by an AI agent: show it as plain, untrusted text.
+Reading needs only the `VIEWER` role; steering an agent (messages, interrupt, end, terminal input) needs `OPERATOR` and a place in the node's `steerAudience`. They exist while `yukta.agents.enabled` is `true` (the default). The text of a conversation is written by an AI agent: show it as plain, untrusted text.
 
 | Method and path | Result |
 |---|---|
@@ -18,6 +18,9 @@ Every endpoint here needs only the `VIEWER` role. They exist while `yukta.agents
 | `GET /api/conversations/{id}` | One conversation |
 | `GET /api/conversations/{id}/events` | A page of its events |
 | `GET /api/conversations/{id}/terminal/screen` | The latest screen of a terminal agent |
+| `POST /api/conversations/{id}/messages` | Send a message to the agent |
+| `POST /api/conversations/{id}/interrupt` | Stop the agent's current turn |
+| `POST /api/conversations/{id}/end` | End the conversation |
 | `POST /api/conversations/{id}/terminal/input` | Type into the terminal of an agent |
 | `POST /api/conversations/{id}/terminal/resize` | Resize the terminal of an agent |
 | `GET /api/executions/{executionId}/conversations/stream` | Server-sent events for a run and its child runs |
@@ -74,6 +77,16 @@ An event has `seq` (strictly increasing over all conversations and events), `con
 Text is cut at `yukta.agents.max-message-bytes` and tool input and output at `max-tool-bytes` (`truncated: true`); secrets are replaced. A page has at most 500 events (`limit`, default 100). When more follow, the response header `X-Next-Cursor` holds the number to pass as `after`. Terminal output is kept in a ring of bytes, so an old chunk may be gone, and over `yukta.agents.max-events-per-conversation` the oldest events go first and a `NOTICE` says so.
 
 An agent's request is answered on the [input request](/api/executions) endpoints, not here.
+
+## Steering an agent
+
+Each call is a control command: ordered, reviewed and audited. All answer `202`.
+
+- `POST /api/conversations/{id}/messages` with `{"text": "Also update the README", "interrupt": false}` sends a message (`text` is required; `interrupt` defaults to `false`). The message waits for the end of the agent's turn unless the agent takes it during the turn or `interrupt` is `true`. The answer holds `queued`: whether it waits for the end of the turn.
+- `POST /api/conversations/{id}/interrupt` stops the agent's current turn; the conversation stays open.
+- `POST /api/conversations/{id}/end` closes the agent; the node goes on with the outcome given, else the last turn's status. The body is optional: `outcome` (`success`, `failure` or `incomplete`) and `reason` (at most 8192 characters).
+
+Errors: `403` when the caller may not steer this conversation, `404` when it is unknown or not reachable, `409` (`not_live`, or `unsupported` with the capability), `413` over `yukta.agents.max-message-bytes` and `429` over `yukta.agents.messages-per-minute` (messages only).
 
 ## The terminal screen
 

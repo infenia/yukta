@@ -128,7 +128,7 @@ curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" "$YUKTA_SERVER_URL/actuato
 curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" "$YUKTA_SERVER_URL/actuator/metrics/yukta.executions.queued"
 ```
 
-`running` stays at your cap. With `QUEUE`, `queued` rises and then drains. With `REJECT`, or a full queue, clients see `429` and `yukta.executions.rejected` rises with a `reason` tag: `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `rate_limit`, `shutdown`, `not_leader` or `draining`. If a run you started stays `QUEUED`, see [Troubleshoot](/guides/operate/troubleshoot#a-run-stays-queued).
+`running` stays at your cap. With `QUEUE`, `queued` rises and then drains. With `REJECT`, or a full queue, clients see `429` and `yukta.executions.rejected` rises with a `reason` tag: `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `rate_limit`, `shutdown`, `not_leader`, `draining` or `recovering`. If a run you started stays `QUEUED`, see [Troubleshoot](/guides/operate/troubleshoot#a-run-stays-queued).
 
 ## Variations that matter
 

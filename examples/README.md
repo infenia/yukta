@@ -119,7 +119,7 @@ to a session with `PUT /api/supervisors/{id}/assignments` (`[{"target":"session:
 
 Approval steps (`WAIT_FOR_SIGNAL`) are answered by each `run.sh` itself, which polls `GET /api/sessions/{id}/inputs?state=OPEN,ESCALATED` and answers the
 request with `POST /api/executions/{e}/inputs/{requestId}/answer`. In real use a person answers it (an agent may too, over MCP; a supervisor cannot, see above) from the UI,
-the CLI (`yukta inputs`), REST or MCP.
+the CLI (`yukta-cli inputs`), REST or MCP.
 
 Example 13 note: MCP output validation rejects executions that are still running, so that
 example waits over REST and reads the result through MCP only after the run finishes.

@@ -392,19 +392,19 @@ def ref_supervisor_shell():
 
 
 def ref_mcp_tools():
-    GROUPS = (("Author", "14 tools", "VIEWER to ADMIN", "code"),
-              ("Run", "7 tools", "VIEWER, OPERATOR", "play"),
+    GROUPS = (("Author", "15 tools", "VIEWER to ADMIN", "code"),
+              ("Run", "9 tools", "VIEWER, OPERATOR", "play"),
               ("Steer", "3 tools", "OPERATOR", "sliders"),
               ("Supervisors", "19 tools", "VIEWER, ADMIN", "eye"),
-              ("Inputs", "3 tools", "VIEWER, OPERATOR", "inbox"),
+              ("Inputs", "12 tools", "VIEWER, OPERATOR", "inbox"),
               ("Credentials", "2 tools", "ADMIN", "shield"),
               ("Operate", "5 tools", "VIEWER, ADMIN", "pulse"))
     d = Scene("ref-mcp-tools",
-              "An AI client calls Yukta's MCP endpoint with an API key, and the 53 tools fall "
+              "An AI client calls Yukta's MCP endpoint with an API key, and the 65 tools fall "
               "in seven groups: author, run, steer, supervisors, inputs, credentials and operate. "
               "The key's role decides which tools of each group it may call.", w=960, h=480)
     d.node("a", 30, 202, 190, 76, "trigger", "AI client", ["with an API key"], "spark", step=0)
-    d.node("m", 320, 202, 190, 76, "processor", "/mcp", ["53 tools, 3 roles"], "plug", step=1)
+    d.node("m", 320, 202, 190, 76, "processor", "/mcp", ["65 tools, 3 roles"], "plug", step=1)
     for i, (title, count, roles, ic) in enumerate(GROUPS):
         d.node(f"g{i}", 620, 14 + i * 66, 310, 56, "terminal", title, [f"{count}: {roles}"], ic,
                step=2)
