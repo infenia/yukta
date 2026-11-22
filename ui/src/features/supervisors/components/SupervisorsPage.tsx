@@ -9,9 +9,11 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { DecisionMakersTab } from './DecisionMakersTab';
 import { SupervisionOverview } from './SupervisionOverview';
 import { SupervisorsBrowser } from './SupervisorsBrowser';
+import { WorkflowsBrowser } from './WorkflowsBrowser';
 
 const LENSES = [
   { id: 'supervisors', label: 'By supervisor', icon: 'shield_person' },
+  { id: 'workflows', label: 'By workflow', icon: 'account_tree' },
   { id: 'map', label: 'Map', icon: 'hub' },
 ] as const;
 
@@ -63,7 +65,10 @@ export function SupervisorsPage() {
   if (params.get('tab') === 'activity') {
     return <Navigate to="/control?tab=activity" replace />;
   }
-  const map = params.get('view') === 'map';
+  const view =
+    params.get('view') === 'map' || params.get('view') === 'workflows'
+      ? (params.get('view') as 'map' | 'workflows')
+      : 'supervisors';
   const typesOpen = params.get('tab') === 'decision-makers';
   const setTypesOpen = (open: boolean) => {
     const next = new URLSearchParams(params);
@@ -106,18 +111,21 @@ export function SupervisorsPage() {
         }
       />
       <LensSwitch
-        value={map ? 'map' : 'supervisors'}
+        value={view}
         hrefFor={(lens) => {
           const next = new URLSearchParams(params);
-          if (lens === 'map') {
-            next.set('view', 'map');
-            next.delete('supervisor');
-            next.delete('section');
-          } else next.delete('view');
+          // each lens keeps only its own selection
+          for (const key of ['supervisor', 'section', 'session', 'workflow']) {
+            next.delete(key);
+          }
+          if (lens === 'supervisors') next.delete('view');
+          else next.set('view', lens);
           return `/supervisors?${next}`;
         }}
       />
-      {map ? <SupervisionOverview /> : <SupervisorsBrowser />}
+      {view === 'map' && <SupervisionOverview />}
+      {view === 'workflows' && <WorkflowsBrowser />}
+      {view === 'supervisors' && <SupervisorsBrowser />}
       <Sheet open={typesOpen} onOpenChange={setTypesOpen}>
         <SheetContent className="sm:w-[min(72rem,92vw)]">
           <SheetTitle>Decision maker types</SheetTitle>

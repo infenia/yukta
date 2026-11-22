@@ -16,7 +16,7 @@ import {
   useSupervisorType,
 } from '../hooks/useSupervisorTypes';
 import { NodeChip } from './ActionsTimeline';
-import { Chip } from './SupervisorCard';
+import { Chip, OwnerLink } from './SupervisorCard';
 import { ownerLabel, parseScope, targetLabel } from '../lib/ownership';
 import {
   operationRows,
@@ -128,9 +128,12 @@ const MAX_CHIPS = 12;
 export function AssignmentCard({
   supervisorId,
   assignment,
+  showSupervisor = false,
 }: {
   supervisorId: string;
   assignment: AttachmentView;
+  /** Names the supervisor, for a list of the assignments of one workflow. */
+  showSupervisor?: boolean;
 }) {
   const target = parseScope(assignment.scope);
   const ownership = useOwnership(target.sessionId, target.workflowId);
@@ -159,14 +162,35 @@ export function AssignmentCard({
             : 'hub'}
         </span>
         {target.sessionId ? (
-          <Link
-            to={`/sessions/${encodeURIComponent(target.sessionId)}/workflow/${encodeURIComponent(String(target.workflowId))}`}
-            className="text-label-md text-primary hover:underline"
-          >
-            {target.sessionId} / {target.workflowId}
-          </Link>
+          <>
+            <Link
+              to={`/supervisors?view=workflows&session=${encodeURIComponent(target.sessionId)}&workflow=${encodeURIComponent(String(target.workflowId))}`}
+              className="text-label-md text-primary hover:underline"
+            >
+              {target.sessionId} / {target.workflowId}
+            </Link>
+            <Tip label="Open the workflow">
+              <Link
+                to={`/sessions/${encodeURIComponent(target.sessionId)}/workflow/${encodeURIComponent(String(target.workflowId))}?supervision=1`}
+                aria-label={`Open ${target.sessionId} / ${target.workflowId}`}
+                className="text-on-surface-variant hover:text-primary flex"
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  open_in_new
+                </span>
+              </Link>
+            </Tip>
+          </>
         ) : (
           <span className="text-label-md">{target.workflowId}</span>
+        )}
+        {showSupervisor && (
+          <span className="text-label-md">
+            · <OwnerLink owner={assignment.supervisorId} />
+          </span>
         )}
         <Chip>{scope}</Chip>
         <Tip label={source.tip}>
