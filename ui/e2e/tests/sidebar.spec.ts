@@ -7,8 +7,8 @@ import { envelope } from '../api-envelope';
 const SECTIONS = [
   { label: 'Sessions', path: '/sessions' },
   { label: 'Runs', path: '/runs' },
-  { label: 'Plugins', path: '/plugins' },
   { label: 'Supervisors', path: '/supervisors' },
+  { label: 'Plugins', path: '/plugins' },
   { label: 'Control', path: '/control' },
   { label: 'Config', path: '/config' },
 ];
