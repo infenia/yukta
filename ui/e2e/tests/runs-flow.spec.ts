@@ -523,7 +523,9 @@ test.describe('Runs - paging', () => {
     await page.getByRole('button', { name: 'Load more' }).click();
     await expect(rows(page)).toHaveCount(150);
 
-    await toggleOptions(page.getByLabel('Status', { exact: true }), ['SUCCESS']);
+    await toggleOptions(page.getByLabel('Status', { exact: true }), [
+      'SUCCESS',
+    ]);
 
     await expect
       .poll(() => lastSearch(mock).searchParams.get('limit'))

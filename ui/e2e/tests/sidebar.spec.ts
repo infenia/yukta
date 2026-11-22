@@ -69,7 +69,9 @@ test.describe('Sidebar (desktop rail)', () => {
       .getByRole('navigation', { name: 'Primary' })
       .first()
       .getByRole('link', { name: 'Runs' });
-    const tip = page.locator('[data-slot="tooltip-content"]', { hasText: 'Runs' });
+    const tip = page.locator('[data-slot="tooltip-content"]', {
+      hasText: 'Runs',
+    });
     await expect(tip).toHaveCount(0);
 
     await link.hover();
