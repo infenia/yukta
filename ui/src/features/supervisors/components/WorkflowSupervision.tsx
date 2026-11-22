@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { REQUIRED_ROLE, useMe, type Permission } from '@/lib/identity';
 import type { Capability } from '../api/supervision';
 import type { SupervisorView } from '../types';
@@ -147,7 +147,7 @@ function Commands({
     <section aria-label="Run commands" className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-overline text-on-surface-variant">
-          What you can do with this run
+          What you can do with this {hasRun ? 'run' : 'workflow'}
         </h3>
         {rows.length > 0 && (
           <span className="text-label-sm text-on-surface-variant">
@@ -155,7 +155,7 @@ function Commands({
           </span>
         )}
       </div>
-      {rows.length === 0 && (
+      {(rows.length === 0 || !hasRun) && (
         <p className="text-body-sm text-on-surface-variant">
           {hasRun
             ? 'The server did not say which commands are allowed.'
@@ -528,6 +528,18 @@ export function WorkflowSupervision({
             </p>
           </div>
         </div>
+        <Link
+          to={`/supervisors?view=workflows&session=${encodeURIComponent(sessionId)}&workflow=${encodeURIComponent(workflowId)}`}
+          className="text-label-md text-primary ml-auto flex items-center gap-1 hover:underline"
+        >
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
+            open_in_new
+          </span>
+          Open in Supervisors
+        </Link>
         <button
           type="button"
           onClick={close}

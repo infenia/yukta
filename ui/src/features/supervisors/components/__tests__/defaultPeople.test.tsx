@@ -69,9 +69,14 @@ describe('Direct control in the supervisors browser', () => {
     expect(
       await screen.findByRole('heading', { name: 'Direct control' })
     ).toBeInTheDocument();
+    // the name opens the workflow's supervision here; the icon opens it in its run view
     expect(screen.getByRole('link', { name: 's1 / w1' })).toHaveAttribute(
       'href',
-      '/sessions/s1/workflow/w1'
+      '/supervisors?view=workflows&session=s1&workflow=w1'
+    );
+    expect(screen.getByRole('link', { name: 'Open s1 / w1' })).toHaveAttribute(
+      'href',
+      '/sessions/s1/workflow/w1?supervision=1'
     );
   });
 
