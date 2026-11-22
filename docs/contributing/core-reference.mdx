@@ -941,7 +941,7 @@ A processor node with `engine.placement {pool}` runs on a worker process of that
 
 **Surface:** REST `GET /api/workers`. Gauges `yukta.workers`, `yukta.worker.slots`.
 
-**Source:** `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `RemoteNodeExecutor` `WorkerRegistration`. Module `workers`. Design: [remote workers plan](https://github.com/infenia/yukta/blob/main/design/plans/remote-workers.md).
+**Source:** `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `RemoteNodeExecutor` `WorkerRegistration`. Module `workers`. Design: [ADR 0006: remote workers](https://github.com/infenia/yukta/blob/main/design/decisions/0006-remote-workers.md).
 
 **Limits:** Triggers, terminals and the stateful plugins (`WAIT_FOR_SIGNAL`, `SUB_WORKFLOW`) cannot be placed. Without the `workers` module a placed node fails to prepare. The control plane still sees every message (a data hop). Default transport is a shared token over plain TCP. Native-image worker registration is not verified.
 
