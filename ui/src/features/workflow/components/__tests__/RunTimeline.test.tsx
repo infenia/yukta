@@ -55,7 +55,7 @@ describe('RunTimeline', () => {
     );
   });
 
-  it('marks each row with its owner: a supervisor, or Direct control', () => {
+  it('marks a row with its supervisor, and says nothing for Direct control', () => {
     render(
       <NodeSupervisors
         value={
@@ -85,13 +85,10 @@ describe('RunTimeline', () => {
       </NodeSupervisors>
     );
     expect(screen.getAllByRole('img', { name: /Controlled by/ })).toHaveLength(
-      2
+      1
     );
     expect(
       screen.getByRole('img', { name: 'Controlled by: ops-supervisor' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('img', { name: 'Controlled by: Direct control' })
     ).toBeInTheDocument();
   });
 

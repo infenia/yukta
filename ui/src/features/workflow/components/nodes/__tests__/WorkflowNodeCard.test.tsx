@@ -284,7 +284,7 @@ describe('WorkflowNodeCard', () => {
     ).toBe('61.4%');
   });
 
-  it('shows the owner of a node on the card: a supervisor, or Direct control, and nothing until it is known', () => {
+  it('shows the owner of a node on the card: a supervisor only: nothing for Direct control or until it is known', () => {
     const { unmount } = renderCard(
       { node: createMockGraphNode({ nodeId: 'p5' }), status: 'pending' },
       false,
@@ -300,9 +300,7 @@ describe('WorkflowNodeCard', () => {
       false,
       new Map([['p6', 'default']])
     );
-    expect(
-      screen.getByRole('img', { name: 'Controlled by: Direct control' })
-    ).toHaveTextContent('person');
+    expect(screen.queryByRole('img', { name: /Controlled by/ })).toBeNull();
     second.unmount();
 
     renderCard({

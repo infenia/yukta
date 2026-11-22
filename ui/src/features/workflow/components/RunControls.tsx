@@ -231,34 +231,41 @@ export function RunControls({
     >
       {/* Run, Pause or Resume, Stop and Restart, then the run's tools, as one segmented pill */}
       <div role="group" aria-label="Run controls" className={TOOLBAR_GROUP}>
-        <RunButton
-          sessionId={sessionId}
-          workflowId={workflowId}
-          onStarted={onStarted}
-          className={cn(toolbarSegment('success'), '[&>span]:text-lg')}
-          iconOnly
-        />
-        <RequireControl
-          perm="controlRuns"
-          command={category === 'paused' ? 'resume' : 'pause'}
-          target={{ execution: executionId }}
-        >
-          {category === 'paused' ? (
+        {category === 'paused' ? (
+          <RequireControl
+            perm="controlRuns"
+            command="resume"
+            target={{ execution: executionId }}
+          >
             <ControlButton
-              icon="play_circle"
+              icon="play_arrow"
               label="Resume"
-              tone="primary"
+              tone="success"
               onClick={() => act('resume')}
             />
-          ) : (
-            <ControlButton
-              icon="pause"
-              label="Pause"
-              tone="attention"
-              disabled={category !== 'running'}
-              onClick={() => act('pause')}
-            />
-          )}
+          </RequireControl>
+        ) : (
+          <RunButton
+            sessionId={sessionId}
+            workflowId={workflowId}
+            onStarted={onStarted}
+            className={cn(toolbarSegment('success'), '[&>span]:text-lg')}
+            iconOnly
+            disabled={live}
+          />
+        )}
+        <RequireControl
+          perm="controlRuns"
+          command="pause"
+          target={{ execution: executionId }}
+        >
+          <ControlButton
+            icon="pause"
+            label="Pause"
+            tone="attention"
+            disabled={category !== 'running'}
+            onClick={() => act('pause')}
+          />
         </RequireControl>
         <DropdownMenu>
           <RequireControl

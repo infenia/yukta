@@ -234,7 +234,7 @@ export function WorkflowNodeCard({
         <NodeOwner
           nodeId={node.nodeId}
           owner={owner}
-          className="border-outline-variant bg-surface shadow-card absolute -top-3 right-3 z-10 size-6 border"
+          className="border-primary/40 bg-surface shadow-card absolute -top-3 right-3 z-10 size-6 border"
         />
       )}
 

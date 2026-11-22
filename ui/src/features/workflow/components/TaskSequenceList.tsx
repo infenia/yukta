@@ -352,7 +352,10 @@ export function TaskSequenceList({
             >
               <span
                 aria-hidden="true"
-                className="material-symbols-outlined text-lg"
+                className={cn(
+                  'material-symbols-outlined text-lg',
+                  status === 'running' && 'animate-spin'
+                )}
               >
                 {FILTER_LOOK[status].icon}
               </span>
