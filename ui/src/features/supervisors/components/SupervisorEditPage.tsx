@@ -2,12 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { StateMessage } from '@/components/common/StateMessage';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { IconLink } from '@/components/common/IconButton';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MultiSelect, Select } from '@/components/ui/select';
 import { textareaFieldClassName } from '@/components/ui/native-select';
@@ -274,16 +275,15 @@ export function SupervisorEditPage() {
         title={supervisorId ? `Edit ${supervisorId}` : 'New supervisor'}
         description="For a quick change by hand. Most changes come from an agent; the same change over MCP or the CLI is below."
         actions={
-          <Link
+          <IconLink
             to={
               supervisorId
                 ? `/supervisors?supervisor=${encodeURIComponent(supervisorId)}`
                 : '/supervisors'
             }
-            className={buttonVariants({ variant: 'outline' })}
-          >
-            Back
-          </Link>
+            icon="chevron_left"
+            label="Back"
+          />
         }
       />
       {supervisorId && loaded.isPending && (

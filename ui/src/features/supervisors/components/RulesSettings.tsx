@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/common/IconButton';
 import { Select } from '@/components/ui/select';
 import {
   Table,
@@ -118,25 +118,15 @@ function Replay({ id }: { id: string }) {
               : [{ value: '', label: 'No runs yet' }]
           }
         />
-        <Button
-          size="sm"
-          variant="outline"
+        <IconButton
+          icon="replay"
+          label="Replay on a run"
+          tip="Replay on a run: dry run, nothing is sent. Only status changes were recorded, so rules on logs or input requests do not fire"
+          tone="primary"
           disabled={!chosen || replay.isPending}
           onClick={() => replay.mutate(chosen)}
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-sm"
-          >
-            replay
-          </span>
-          Replay on a run
-        </Button>
+        />
       </div>
-      <p className="text-body-sm text-muted-foreground">
-        Dry run: nothing is sent. Only status changes were recorded, so rules on
-        logs or input requests do not fire.
-      </p>
       {replay.error && (
         <p className="text-body-sm text-error">{replay.error.message}</p>
       )}

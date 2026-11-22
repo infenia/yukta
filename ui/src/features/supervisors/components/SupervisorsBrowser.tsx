@@ -4,7 +4,7 @@
 import { useRef, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/common/IconButton';
 import { Input } from '@/components/ui/input';
 import { MultiSelect } from '@/components/ui/select';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -288,9 +288,7 @@ export function SupervisorsBrowser() {
           {all.length > 0 && shown.length === 0 && (
             <StateMessage compact icon="search" title="No supervisor matches">
               Try another name or clear the filters.
-              <Button variant="ghost" size="sm" onClick={clear}>
-                Clear filters
-              </Button>
+              <IconButton icon="close" label="Clear filters" onClick={clear} />
             </StateMessage>
           )}
           {all.length === 0 && (

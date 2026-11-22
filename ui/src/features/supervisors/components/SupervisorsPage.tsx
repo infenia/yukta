@@ -4,6 +4,7 @@
 import { Link, Navigate, useSearchParams } from 'react-router';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { IconButton } from '@/components/common/IconButton';
 import { buttonVariants } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { DecisionMakersTab } from './DecisionMakersTab';
@@ -97,14 +98,18 @@ export function SupervisorsPage() {
         }
         actions={
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
+            <IconButton
+              icon="category"
+              label="Decision maker types"
               onClick={() => setTypesOpen(true)}
-              className={buttonVariants({ variant: 'outline' })}
-            >
-              Decision maker types
-            </button>
+            />
             <Link to="/supervisors/new" className={buttonVariants()}>
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-base"
+              >
+                add
+              </span>
               New supervisor
             </Link>
           </div>

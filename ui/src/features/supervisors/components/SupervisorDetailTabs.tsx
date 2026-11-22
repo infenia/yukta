@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/common/IconButton';
 import { InlineError } from '@/components/common/InlineError';
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { Tip } from '@/components/ui/tooltip';
@@ -91,29 +92,26 @@ function AttachmentToggle({ assignment }: { assignment: AttachmentView }) {
   return (
     <div className="flex flex-col items-end gap-1">
       <RequirePermission perm="editSessions">
-        <Tip
-          label={
-            assignment.enabled
-              ? 'Stop this supervisor owning these nodes'
-              : 'Let this supervisor own these nodes again'
+        <IconButton
+          icon={
+            toggle.isPending
+              ? 'progress_activity'
+              : assignment.enabled
+                ? 'block'
+                : 'play_arrow'
           }
-        >
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label={`${assignment.enabled ? 'Disable' : 'Enable'} ${assignment.supervisorId} on ${target}`}
-            disabled={toggle.isPending}
-            onClick={() =>
-              assignment.enabled ? setConfirm(true) : apply(true)
-            }
-          >
-            {toggle.isPending
+          label={`${assignment.enabled ? 'Disable' : 'Enable'} ${assignment.supervisorId} on ${target}`}
+          tip={
+            toggle.isPending
               ? 'Saving…'
               : assignment.enabled
-                ? 'Disable'
-                : 'Enable'}
-          </Button>
-        </Tip>
+                ? 'Disable: stop this supervisor owning these nodes'
+                : 'Enable: let this supervisor own these nodes again'
+          }
+          tone={assignment.enabled ? 'attention' : 'success'}
+          disabled={toggle.isPending}
+          onClick={() => (assignment.enabled ? setConfirm(true) : apply(true))}
+        />
       </RequirePermission>
       <InlineError
         message={toggle.error ? (toggle.error as Error).message : null}

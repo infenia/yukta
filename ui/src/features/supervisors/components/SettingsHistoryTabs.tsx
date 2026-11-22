@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { StateMessage } from '@/components/common/StateMessage';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/common/IconButton';
 import {
   Table,
   TableBody,
@@ -164,24 +164,22 @@ export function HistoryTab({ supervisor }: { supervisor: SupervisorView }) {
             <span className="flex-1" />
             {v !== newest && (
               <>
-                <Button
-                  size="sm"
-                  variant="ghost"
+                <IconButton
+                  icon="difference"
+                  label="Compare"
+                  tip={`Compare v${v.version} with the current version`}
                   onClick={() => setComparing(v.version)}
-                >
-                  Compare
-                </Button>
+                />
                 <RequirePermission perm="editSessions">
-                  <Button
-                    size="sm"
-                    variant="outline"
+                  <IconButton
+                    icon="restore"
+                    label="Restore"
+                    tip={`Restore v${v.version} as the newest version`}
                     disabled={restore.isPending}
                     onClick={() =>
                       restore.mutate({ id: supervisor.id, version: v.version })
                     }
-                  >
-                    Restore
-                  </Button>
+                  />
                 </RequirePermission>
               </>
             )}
