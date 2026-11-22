@@ -83,12 +83,14 @@ describe('operationRows', () => {
     );
     expect(rows[0]).toEqual({
       label: 'Pause and resume',
+      icon: 'pause',
       send: 'some',
       onItsOwn: 'some',
       people: 'none',
     });
     expect(rows[1]).toEqual({
       label: 'Stop',
+      icon: 'stop',
       send: 'all',
       onItsOwn: 'none',
       people: 'all',

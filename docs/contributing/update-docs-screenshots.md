@@ -14,7 +14,7 @@ Each shot is a light and a dark PNG at 1440x900 (the Control page is full height
 | `plugin-catalogue` | `/plugins` | plugins by category, CLASSIFY open |
 | `supervisors-catalogue` | `/supervisors?tab=decision-makers` | the kinds of supervisor |
 | `supervisor-details` | `/supervisors?supervisor=release-guard` | one supervisor and what it owns |
-| `supervisor-chain` | same, Hierarchy tab | release-guard reports to release-lead |
+| `supervisor-chain` | same, Hierarchy section | release-guard reports to release-lead |
 | `control-dashboard` | `/control` | Mission Control with metrics, workers, scheduler |
 | `inputs-panel` | the release run, Inputs region | an approval waiting, with its approval chain |
 

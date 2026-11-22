@@ -16,9 +16,13 @@ import {
   useSupervisorType,
 } from '../hooks/useSupervisorTypes';
 import { NodeChip } from './ActionsTimeline';
-import { Chip } from './SupervisorCard';
+import { Chip, OwnerLink } from './SupervisorCard';
 import { ownerLabel, parseScope, targetLabel } from '../lib/ownership';
-import { operationRows, type Reach } from '../lib/operations';
+import {
+  operationRows,
+  type OperationRow,
+  type Reach,
+} from '../lib/operations';
 import type { AttachmentView, SupervisorView } from '../types';
 
 const SOURCE: Record<AttachmentView['source'], { label: string; tip: string }> =
@@ -124,9 +128,12 @@ const MAX_CHIPS = 12;
 export function AssignmentCard({
   supervisorId,
   assignment,
+  showSupervisor = false,
 }: {
   supervisorId: string;
   assignment: AttachmentView;
+  /** Names the supervisor, for a list of the assignments of one workflow. */
+  showSupervisor?: boolean;
 }) {
   const target = parseScope(assignment.scope);
   const ownership = useOwnership(target.sessionId, target.workflowId);
@@ -155,14 +162,35 @@ export function AssignmentCard({
             : 'hub'}
         </span>
         {target.sessionId ? (
-          <Link
-            to={`/sessions/${encodeURIComponent(target.sessionId)}/workflow/${encodeURIComponent(String(target.workflowId))}`}
-            className="text-label-md text-primary hover:underline"
-          >
-            {target.sessionId} / {target.workflowId}
-          </Link>
+          <>
+            <Link
+              to={`/supervisors?view=workflows&session=${encodeURIComponent(target.sessionId)}&workflow=${encodeURIComponent(String(target.workflowId))}`}
+              className="text-label-md text-primary hover:underline"
+            >
+              {target.sessionId} / {target.workflowId}
+            </Link>
+            <Tip label="Open the workflow">
+              <Link
+                to={`/sessions/${encodeURIComponent(target.sessionId)}/workflow/${encodeURIComponent(String(target.workflowId))}?supervision=1`}
+                aria-label={`Open ${target.sessionId} / ${target.workflowId}`}
+                className="text-on-surface-variant hover:text-primary flex"
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  open_in_new
+                </span>
+              </Link>
+            </Tip>
+          </>
         ) : (
           <span className="text-label-md">{target.workflowId}</span>
+        )}
+        {showSupervisor && (
+          <span className="text-label-md">
+            · <OwnerLink owner={assignment.supervisorId} />
+          </span>
         )}
         <Chip>{scope}</Chip>
         <Tip label={source.tip}>
@@ -270,22 +298,109 @@ export function OwnsTab({ supervisor }: { supervisor: SupervisorView }) {
   );
 }
 
-const REACH: Record<Reach, { icon: string; text: string; tone: string }> = {
-  all: { icon: 'check_circle', text: 'Yes', tone: 'text-success' },
-  some: { icon: 'rule', text: 'Some', tone: 'text-attention' },
-  none: { icon: 'remove', text: 'No', tone: 'text-muted-foreground' },
-};
+const TILE = {
+  all: {
+    box: 'border-success/30 bg-success/5',
+    glyph: 'bg-success/15 text-success',
+    verb: 'Allowed',
+  },
+  some: {
+    box: 'border-attention/30 bg-attention/5',
+    glyph: 'bg-attention/15 text-attention',
+    verb: 'Partly allowed',
+  },
+} as const;
 
-const ReachCell = ({ reach }: { reach: Reach }) => (
-  <td className="px-3 py-2">
-    <span className={cn('inline-flex items-center gap-1', REACH[reach].tone)}>
-      <span aria-hidden="true" className="material-symbols-outlined text-base">
-        {REACH[reach].icon}
+/** One operation group as an icon tile: green when all of its commands are allowed, orange when some are. */
+function OperationTile({
+  label,
+  icon,
+  reach,
+}: {
+  label: string;
+  icon: string;
+  reach: 'all' | 'some';
+}) {
+  const tone = TILE[reach];
+  return (
+    <Tip label={reach === 'all' ? label : `${label}: some of its commands`}>
+      <span
+        className={cn(
+          'flex size-12 items-center justify-center rounded-lg border',
+          tone.box
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            'flex size-7 items-center justify-center rounded-md',
+            tone.glyph
+          )}
+        >
+          <span className="material-symbols-outlined text-lg">{icon}</span>
+        </span>
+        <span className="sr-only">
+          {tone.verb}: {label}
+        </span>
       </span>
-      {REACH[reach].text}
-    </span>
-  </td>
-);
+    </Tip>
+  );
+}
+
+/** What one question about a supervisor allows: tiles for the groups it may, one line for the rest. */
+function OperationGroup({
+  title,
+  tip,
+  rows,
+  pick,
+}: {
+  title: string;
+  tip: string;
+  rows: OperationRow[];
+  pick: (row: OperationRow) => Reach;
+}) {
+  const allowed = rows.filter((r) => pick(r) !== 'none');
+  const blocked = rows.filter((r) => pick(r) === 'none');
+  return (
+    <section aria-label={title} className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h4 className="text-overline text-on-surface-variant">
+          <Tip label={tip}>
+            <span>{title}</span>
+          </Tip>
+        </h4>
+        <span className="text-label-sm text-on-surface-variant tabular-nums">
+          {allowed.length} of {rows.length}
+        </span>
+      </div>
+      {allowed.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {allowed.map((row) => (
+            <OperationTile
+              key={row.label}
+              label={row.label}
+              icon={row.icon}
+              reach={pick(row) as 'all' | 'some'}
+            />
+          ))}
+        </div>
+      )}
+      <p className="text-body-sm text-on-surface-variant flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-base"
+        >
+          lock
+        </span>
+        {blocked.length === 0
+          ? 'Nothing is blocked'
+          : allowed.length === 0
+            ? `Nothing: ${blocked.map((r) => r.label).join(', ')}`
+            : `Not allowed: ${blocked.map((r) => r.label).join(', ')}`}
+      </p>
+    </section>
+  );
+}
 
 /** What it may send, what it sends on its own, and what people may still send through it. */
 export function OperationsTab({ supervisor }: { supervisor: SupervisorView }) {
@@ -297,45 +412,25 @@ export function OperationsTab({ supervisor }: { supervisor: SupervisorView }) {
     type.data?.defaultAllowedCommands ?? null
   );
   return (
-    <div className="flex flex-col gap-2">
-      <div className="border-border bg-card shadow-card overflow-x-auto rounded-xl border">
-        <table className="text-body-md w-full">
-          <thead className="bg-muted">
-            <tr>
-              {[
-                'Commands',
-                'It may send',
-                'Acts on its own',
-                'People can, through it',
-              ].map((h) => (
-                <th
-                  key={h}
-                  className="text-label-md text-on-surface-variant px-3 py-2 text-left"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.label} className="border-border border-t">
-                <td className="px-3 py-2">{row.label}</td>
-                <ReachCell reach={row.send} />
-                <ReachCell reach={row.onItsOwn} />
-                <ReachCell reach={row.people} />
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-body-sm text-muted-foreground">
-        “Acts on its own”: what it may send with no event to react to. “People
-        can”: what people may still do on what it owns, through it. Settings{' '}
-        <code className="text-code-sm">allowedCommands</code>,{' '}
-        <code className="text-code-sm">initiative</code> and{' '}
-        <code className="text-code-sm">operatorAccess</code>.
-      </p>
+    <div className="flex flex-col gap-4">
+      <OperationGroup
+        title="It may send"
+        tip="Setting allowedCommands"
+        rows={rows}
+        pick={(r) => r.send}
+      />
+      <OperationGroup
+        title="Acts on its own"
+        tip="What it may send with no event to react to (setting initiative)"
+        rows={rows}
+        pick={(r) => r.onItsOwn}
+      />
+      <OperationGroup
+        title="People can, through it"
+        tip="What people may still send on what it owns, through it (setting operatorAccess)"
+        rows={rows}
+        pick={(r) => r.people}
+      />
     </div>
   );
 }

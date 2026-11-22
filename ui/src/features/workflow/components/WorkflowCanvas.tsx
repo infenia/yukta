@@ -80,7 +80,7 @@ function CenterNode({ target }: { target?: { id: string; nonce: number } }) {
 }
 
 /** Zoom in, zoom out and fit: one more vertical pill, as the canvas tools above it. */
-function ZoomControls() {
+export function ZoomControls() {
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const buttons: [string, string, () => void][] = [
     ['add', 'Zoom in', () => void zoomIn({ duration: 150 })],
