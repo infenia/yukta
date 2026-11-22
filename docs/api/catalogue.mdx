@@ -121,6 +121,18 @@ The response below is abridged: `usagePattern` and the HTML of `uiDesign` are sh
 
 The plugin pages describe each built-in type: [Plugins overview](/reference/plugins/overview).
 
+## List the workflows that use a plugin
+
+`GET /api/plugins/{type}/usage`
+
+Returns every workflow of every session that has at least one node of the type, with how many, sorted by session and workflow id. Each entry has `sessionId`, `workflowId` and `nodes`. A type that is not installed is used nowhere, so the list is empty.
+
+## List the supervisors of a type
+
+`GET /api/supervisor-engines/{type}/usage`
+
+Returns the ids of the supervisors of an engine type. Answers `404` when the type is unknown.
+
 ## List supervisors
 
 `GET /api/supervisors/status`
