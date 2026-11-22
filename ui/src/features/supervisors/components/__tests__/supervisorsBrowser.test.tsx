@@ -552,6 +552,35 @@ describe('the Supervisors tab', () => {
     ).toHaveLength(2);
   });
 
+  it('folds the list on a phone once a supervisor is chosen, and opens it from its button', async () => {
+    const user = userEvent.setup();
+    supervisors = [sup('lead'), sup('guard')];
+    renderAt('/supervisors?supervisor=lead');
+    expect(
+      await screen.findByRole('heading', { name: 'lead' })
+    ).toBeInTheDocument();
+    // the list stays in the page for desktop; CSS folds it on a phone
+    expect(nav()).toHaveClass('max-md:hidden');
+    const toggle = screen.getByRole('button', {
+      name: /All supervisors \(2\)/,
+    });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(nav()).not.toHaveClass('max-md:hidden');
+    // choosing one folds it again and moves focus to the new heading
+    await user.click(within(nav()).getByRole('button', { name: /guard/ }));
+    expect(nav()).toHaveClass('max-md:hidden');
+    expect(await screen.findByRole('heading', { name: 'guard' })).toHaveFocus();
+  });
+
+  it('shows the whole list while nothing is chosen', async () => {
+    supervisors = [sup('lead')];
+    renderAt('/supervisors');
+    await screen.findByRole('heading', { name: 'lead' });
+    expect(nav()).not.toHaveClass('max-md:hidden');
+  });
+
   it('keeps the section in the URL, opens the types sheet, and sends the activity to Control', async () => {
     const user = userEvent.setup();
     supervisors = [sup('lead')];

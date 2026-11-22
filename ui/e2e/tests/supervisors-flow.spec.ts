@@ -582,3 +582,30 @@ test.describe('Supervisors - Direct control', () => {
     ).toBeVisible();
   });
 });
+
+test.describe('Supervisors - on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('shows the chosen supervisor first, with the list behind a button', async ({
+    page,
+  }) => {
+    await mockSupervisors(page);
+    await page.goto('/supervisors?supervisor=release-lead');
+
+    await expect(
+      detail(page).getByRole('heading', { name: 'release-lead' })
+    ).toBeInViewport();
+    await expect(nav(page)).toBeHidden();
+
+    const toggle = page.getByRole('button', { name: /^All supervisors/ });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await item(page, /audit-bot/).click();
+
+    await expect(page).toHaveURL(/supervisor=audit-bot/);
+    await expect(nav(page)).toBeHidden();
+    await expect(
+      detail(page).getByRole('heading', { name: 'audit-bot' })
+    ).toBeFocused();
+  });
+});

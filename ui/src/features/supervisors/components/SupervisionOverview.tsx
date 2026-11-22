@@ -83,7 +83,7 @@ export function SupervisionOverview() {
       label="Supervision overview"
       nodes={graph.nodes}
       edges={graph.edges}
-      className="h-[calc(100vh-14rem)] min-h-96"
+      className="h-[calc(100vh-14rem)] min-h-72"
       onNodeClick={(node) => {
         if (node.supervisor) {
           void navigate(
