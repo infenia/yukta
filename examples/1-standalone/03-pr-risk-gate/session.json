@@ -53,8 +53,8 @@
           "config": {
             "mode": "PROJECTION",
             "mapping": {
-              "prId": "payload.prId",
-              "author": "payload.author",
+              "prId": "payload['prId'] != null ? payload['prId'] : 'unknown'",
+              "author": "payload['author'] != null ? payload['author'] : 'unknown'",
               "decision": "'NEEDS_INFO'",
               "decidedBy": "'validator'",
               "reason": "'PR metadata is incomplete or has wrong field types'"

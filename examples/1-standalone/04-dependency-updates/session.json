@@ -29,7 +29,7 @@
           "group": "Intake",
           "config": {
             "mode": "PROJECTION",
-            "mapping": { "requestId": "payload.requestId", "maintainerEmail": "payload.maintainerEmail", "decision": "'NEEDS_INFO'", "note": "'We could not read your bump request. Please fix the fields and resubmit it.'" }
+            "mapping": { "requestId": "payload['requestId'] != null ? payload['requestId'] : 'unknown'", "maintainerEmail": "payload['maintainerEmail'] != null ? payload['maintainerEmail'] : 'unknown'", "decision": "'NEEDS_INFO'", "note": "'We could not read your bump request. Please fix the fields and resubmit it.'" }
           }
         },
         {
