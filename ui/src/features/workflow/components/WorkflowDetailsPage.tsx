@@ -89,6 +89,27 @@ export function WorkflowDetailsPage() {
   // Clicking a node on the canvas opens its sheet; the node is in the URL so the view can be shared
   const [searchParams, setSearchParams] = useSearchParams();
   const openNode = searchParams.get('node');
+  // the run's supervision sheet is in the URL too (`?supervision=1`), over the progress panel
+  const supervisionOpen = searchParams.has('supervision');
+  // a link or the palette may set it with the panel hidden: the sheet lives in the panel
+  if (supervisionOpen && !panelOpen) setPanelOpen(true);
+  const toggleSupervision = () => {
+    if (!supervisionOpen) setPanelOpen(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (supervisionOpen) {
+          next.delete('supervision');
+        } else {
+          next.set('supervision', '1');
+          next.delete('node');
+          next.delete('tab');
+        }
+        return next;
+      },
+      { replace: true }
+    );
+  };
   // the drawer's tab is in the URL too: a node's owner icon opens it on the Supervisor tab
   const sheetTab: SheetTab =
     searchParams.get('tab') === 'supervisor' ? 'supervisor' : 'node';
@@ -104,6 +125,8 @@ export function WorkflowDetailsPage() {
         const next = new URLSearchParams(prev);
         if (nodeId) {
           next.set('node', nodeId);
+          // one sheet at a time over the panel
+          next.delete('supervision');
         } else {
           next.delete('node');
         }
@@ -228,6 +251,9 @@ export function WorkflowDetailsPage() {
     setOpenNode(nodeId, 'node', stages.revealParams(nodeId));
     setCenterOn((held) => ({ id: nodeId, nonce: (held?.nonce ?? 0) + 1 }));
   };
+  // the supervision sheet centers the graph on a node without opening it, so the sheet stays
+  const focusNode = (nodeId: string) =>
+    setCenterOn((held) => ({ id: nodeId, nonce: (held?.nonce ?? 0) + 1 }));
   // only a run that is going has running nodes to follow
   const followable = progress !== null && live;
   const subWorkflowLinks = useSubWorkflowLinks(
@@ -296,13 +322,6 @@ export function WorkflowDetailsPage() {
             </Tip>
           )
         }
-        meta={
-          <WorkflowSupervision
-            sessionId={sessionId}
-            workflowId={workflowId}
-            executionId={selectedExecutionId}
-          />
-        }
         runGroup={
           <RunHistoryDropdown
             executions={executions}
@@ -338,6 +357,24 @@ export function WorkflowDetailsPage() {
                   edit_square
                 </span>
               </Link>
+            </Tip>
+            <Tip label="Supervision: who controls this run and what they did">
+              <button
+                type="button"
+                onClick={toggleSupervision}
+                aria-pressed={supervisionOpen}
+                aria-label="Supervision"
+                className={toolbarSegment(
+                  supervisionOpen ? 'primary' : 'neutral'
+                )}
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-lg"
+                >
+                  shield_person
+                </span>
+              </button>
             </Tip>
             <Tip
               label={panelOpen ? 'Hide progress panel' : 'Show progress panel'}
@@ -618,6 +655,12 @@ export function WorkflowDetailsPage() {
                       onClose={() => setOpenNode(null)}
                     />
                   )}
+                  <WorkflowSupervision
+                    sessionId={sessionId}
+                    workflowId={workflowId}
+                    executionId={selectedExecutionId}
+                    onNode={focusNode}
+                  />
                 </div>
               )}
             </div>

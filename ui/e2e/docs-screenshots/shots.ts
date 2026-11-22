@@ -95,7 +95,7 @@ export const SHOTS: Shot[] = [
   {
     name: 'supervisors-page',
     shows:
-      'The Supervisors page: the list, and the chosen supervisor with its numbers, its map and its tabs.',
+      'The Supervisors page: the list, and the chosen supervisor with its numbers, its map and what it may do.',
     route: '/supervisors',
     stubs: [stub.supervisors],
     ready: (page) => page.getByRole('region', { name: 'Supervision map' }),
@@ -127,15 +127,11 @@ export const SHOTS: Shot[] = [
   {
     name: 'supervisor-chain',
     shows:
-      'The Hierarchy tab of release-guard: it reports to release-lead, and how it asks.',
+      'The Hierarchy section of release-guard: it reports to release-lead, and how it asks.',
     route: '/supervisors?supervisor=release-guard',
     stubs: [stub.supervisors],
     ready: (page) => page.getByRole('heading', { name: 'release-guard' }),
     actions: async (page) => {
-      await page
-        .getByRole('tablist', { name: 'release-guard details' })
-        .getByRole('tab', { name: 'Hierarchy' })
-        .click();
       await page.getByText('Reports to:').waitFor();
     },
     pages: ['/contributing/supervisors'],
