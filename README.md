@@ -115,28 +115,65 @@ If a platform fails, [open an issue](https://github.com/infenia/yukta/issues/new
 
 ## Quickstart
 
-**1. Start the server and check it is up.**
+**1. Get the examples** (needs `git`; the examples also need `curl` and `jq`).
 
 ```bash
-YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo yukta
+git clone --depth 1 https://github.com/infenia/yukta && cd yukta
 ```
+
+**2. Start the server with everything the examples need.** Yukta refuses to run commands, read the temp folder or load plugins that touch the outside unless you allow them, so the examples need these settings. They are the sum of what all of them use; a server that allows less still runs the rest and the others report `SKIP` and name what is missing. Run it from the folder you just cloned.
+
+Linux and macOS (the native server):
+
+```bash
+export YUKTA_PLUGINS_ENABLED=all
+export YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3,git,uv,bun,node,npm
+export YUKTA_VARIABLES_ALLOWED=java.io.tmpdir
+export YUKTA_AI_PRESETS_DIR=$PWD/examples/3-paid-tools/16-agent-console/agent-harnesses
+yukta
+```
+
+Windows (PowerShell, from the cloned folder; run the example scripts from Git Bash):
+
+```powershell
+$env:YUKTA_PLUGINS_ENABLED = 'all'
+$env:YUKTA_PROCESS_ALLOWED_COMMANDS = 'sh,echo,shuf,python3,git,uv,bun,node,npm,npm.cmd'
+$env:YUKTA_VARIABLES_ALLOWED = 'java.io.tmpdir'
+$env:YUKTA_AI_PRESETS_DIR = "$PWD\examples\3-paid-tools\16-agent-console\agent-harnesses"
+.\yukta-<version>-windows-amd64\yukta.exe
+```
+
+Docker (any OS). The image carries only `sh` and `echo`, so run the examples that need nothing else here; the ones that need `git`, `python3`, `shuf`, `uv`, `bun` or `node` (11, 12, 14, 17, 18 and 19) need the native server above. The examples keep their files in `/tmp/yukta-examples`, so the container shares that folder with your machine and runs as you:
+
+```bash
+mkdir -p /tmp/yukta-examples
+docker run --rm -p 127.0.0.1:9858:9858 --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp \
+  -v /tmp/yukta-examples:/tmp/yukta-examples \
+  -e YUKTA_API_KEYS_0_NAME=admin \
+  -e YUKTA_API_KEYS_0_KEY=change-me-to-a-long-random-secret \
+  -e YUKTA_API_KEYS_0_ROLE=ADMIN \
+  -e YUKTA_PLUGINS_ENABLED=all -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo \
+  ghcr.io/infenia/yukta:0.1.0-alpha.4
+export YUKTA_API_KEY=change-me-to-a-long-random-secret   # the scripts send it to the server
+```
+
+Check that it is up:
 
 ```bash
 curl http://localhost:9858/actuator/health
 # {"groups":["liveness","readiness"],"status":"UP"}
 ```
 
-**2. Run your first workflow** (needs `curl` and `jq`). It saves a small flowchart (input, default, text to digit, even or odd branch, greeting), starts it three times and checks each result:
+**3. Run your first workflow.** It saves a small flowchart (input, default, text to digit, even or odd branch, greeting), starts it three times and checks each result:
 
 ```bash
-git clone --depth 1 https://github.com/infenia/yukta
-./yukta/examples/1-standalone/01-hello-world/run.sh
+./examples/1-standalone/01-hello-world/run.sh
 # expected: three runs with status SUCCESS, e.g. "Hello, Yukta! Digit 5 is odd."
 ```
 
-The first example needs no setup. Later ones run operating-system commands, which Yukta refuses unless you allow them, which is what `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo` does for the examples. In a container, pass it with `-e` and set `YUKTA_API_KEY` to your key before `run.sh`.
+Then try the rest: `./examples/run-all.sh` runs every example and prints a summary, or pick one from [`examples/`](examples/README.md) (which says what each needs). The web console at <http://localhost:9858> lists them as templates you can start a session from.
 
-**3. Connect an AI assistant** in one line:
+**4. Connect an AI assistant** in one line:
 
 ```bash
 claude mcp add --transport http yukta http://localhost:9858/mcp
@@ -223,7 +260,7 @@ Every client goes through the same door, so a run started by a script and one st
 | **Do** a task | [Guides](https://yukta.infenia.com/guides/build/define-a-workflow): build, work with AI, supervise, deploy and operate |
 | **Look up** a fact | [Reference](https://yukta.infenia.com/reference/workflow-json) and the [API](https://yukta.infenia.com/api/overview): plugins, JSON, MCP tools, CLI, configuration |
 | **Understand** why | [Concepts](https://yukta.infenia.com/concepts/how-it-works): the mental model, supervisors, who decides |
-| Start from something **ready-made** | [`examples/`](examples/README.md): 17 runnable workflows |
+| Start from something **ready-made** | [`examples/`](examples/README.md): 19 examples, from hello world to a CI pipeline |
 
 ## Honest limits
 
