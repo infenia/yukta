@@ -20,7 +20,8 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 90 * 1000,
-  expect: { timeout: 15 * 1000 },
+  // a server with the JaCoCo agent (the coverage job) answers slowly: YUKTA_E2E_EXPECT_MS gives it room
+  expect: { timeout: Number(process.env['YUKTA_E2E_EXPECT_MS']) || 15 * 1000 },
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: process.env['YUKTA_URL'] || 'http://127.0.0.1:9858',
