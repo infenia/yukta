@@ -45,10 +45,16 @@ async function createFromTemplate(
   templates: Template[],
   id: string
 ) {
-  const index = templates.findIndex((t) => t.id === id);
-  expect(index, `template ${id} is offered`).toBeGreaterThanOrEqual(0);
+  const template = templates.find((t) => t.id === id);
+  expect(template, `template ${id} is offered`).toBeDefined();
   await page.goto('/sessions/new');
-  await page.getByRole('button', { name: 'Use template' }).nth(index).click();
+  await page
+    .getByRole('listitem')
+    .filter({
+      has: page.getByRole('heading', { name: template?.title, exact: true }),
+    })
+    .getByRole('button', { name: 'Use template' })
+    .click();
   const sessionId = `e2e-${id}-${run}`;
   await page.getByLabel('Session ID').fill(sessionId);
   await page.getByRole('button', { name: 'Create session' }).click();
@@ -61,7 +67,12 @@ async function createFromTemplate(
 async function startRun(page: Page, payload?: string): Promise<string> {
   await page.locator('main button:has-text("play_arrow")').first().click();
   const dialog = page.getByRole('dialog');
-  if (payload) await dialog.locator('textarea').fill(payload);
+  if (payload) {
+    // the dialog shows a form of the start inputs; the JSON editor is one click away
+    const json = dialog.getByRole('button', { name: '{} JSON' });
+    if (await json.isVisible()) await json.click();
+    await dialog.getByLabel('Trigger payload (JSON)').fill(payload);
+  }
   await dialog.getByRole('button', { name: 'Run', exact: true }).click();
   await page.waitForURL(/[?&]exec=/);
   return new URL(page.url()).searchParams.get('exec') ?? '';

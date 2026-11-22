@@ -40,6 +40,7 @@ test('a session page shows its data, runs a workflow and lists the run', async (
   // run it from the table, with a payload
   await page.getByRole('button', { name: 'Run w' }).click();
   const dialog = page.getByRole('dialog', { name: 'Run workflow' });
+  await dialog.getByRole('button', { name: '{} JSON' }).click();
   await dialog.getByLabel(/Trigger payload/).fill('{"from": "e2e"}');
   await dialog.getByRole('button', { name: 'Run', exact: true }).click();
   await page.waitForURL(new RegExp(`/sessions/${id}/workflow/w\\?exec=`));
