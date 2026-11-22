@@ -39,10 +39,11 @@ coverageConfig {
 }
 
 // The example sessions become session templates (GET /api/templates): examples/<category>/NN-name/session.json
-// and README.md, without the shared scripts.
+// and README.md, without the shared scripts; examples/index.json says in which order they are listed and what the
+// categories mean.
 tasks.processResources {
     from(rootProject.layout.projectDirectory.dir("examples")) {
-        include("*/*/session.json", "*/*/README.md")
+        include("*/*/session.json", "*/*/README.md", "index.json")
         exclude("lib/**")
         into("templates")
     }

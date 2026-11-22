@@ -5,14 +5,21 @@ package com.infenia.yukta.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /** The templates are the examples bundled by the build. */
 @NoArgsConstructor
 @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
 class TemplateControllerTest {
+
+  private static final String TEMPLATES = "/api/templates";
 
   private final WebTestClient client =
       WebTestClient.bindToController(new TemplateController())
@@ -23,7 +30,7 @@ class TemplateControllerTest {
   void listsEveryExampleButNotTheDogfoodSetup() {
     client
         .get()
-        .uri("/api/templates")
+        .uri(TEMPLATES)
         .exchange()
         .expectStatus()
         .isOk()
@@ -38,6 +45,59 @@ class TemplateControllerTest {
         .isEmpty()
         .jsonPath("$.data.length()")
         .value(count -> assertThat((Integer) count).isGreaterThanOrEqualTo(9));
+  }
+
+  @Test
+  void listsInTheOrderOfTheIndexFile() {
+    client
+        .get()
+        .uri(TEMPLATES)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data[0].id")
+        .isEqualTo("01-hello-world")
+        .jsonPath("$.data[1].id")
+        .isEqualTo("18-todo-run")
+        .jsonPath("$.data[2].id")
+        .isEqualTo("19-todo-ci");
+  }
+
+  @Test
+  void cardsCarryTheirCategoryLabelAndMeaning() {
+    client
+        .get()
+        .uri(TEMPLATES)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data[?(@.id=='01-hello-world')].categoryLabel")
+        .isEqualTo("Standalone")
+        .jsonPath("$.data[?(@.id=='01-hello-world')].categoryDescription")
+        .value(text -> assertThat(text.toString()).contains("Yukta server"));
+  }
+
+  @Test
+  void theIndexFileNamesOnlyTemplatesThatExistAndEveryCategoryOfThem() throws Exception {
+    final JsonNode index =
+        JsonMapper.builder()
+            .build()
+            .readTree(new ClassPathResource("templates/index.json").getContentAsByteArray());
+    final List<String> listed = new ArrayList<>();
+    index.path("order").forEach(id -> listed.add(id.asString()));
+    final var body = client.get().uri(TEMPLATES).exchange().expectBody(String.class).returnResult();
+    final JsonNode templates = JsonMapper.builder().build().readTree(body.getResponseBody());
+    final List<String> ids = new ArrayList<>();
+    final List<String> categories = new ArrayList<>();
+    templates.path("data").forEach(t -> ids.add(t.path("id").asString()));
+    templates.path("data").forEach(t -> categories.add(t.path("category").asString()));
+
+    assertThat(ids).containsAll(listed);
+    assertThat(listed).doesNotHaveDuplicates();
+    assertThat(categories)
+        .allSatisfy(category -> assertThat(index.path("categories").has(category)).isTrue());
   }
 
   @Test

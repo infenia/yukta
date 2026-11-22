@@ -16,6 +16,13 @@ The examples are grouped by what they need on the machine that runs them.
 
 Example 15 is a walkthrough for now (it has no `run.sh`). Its README says how to run it with a real agent CLI.
 
+## Order and categories in the UI
+
+The examples are the session templates of the web console (`GET /api/templates`). [`index.json`](index.json) decides how they are
+shown: `order` lists the example ids from first to last (the blank session always leads), and `categories` gives each folder a
+label and the sentence a card shows as a tooltip. To move an example, move its id in `order`; one that is not listed comes after
+the listed ones, by id. The build copies the file into the server, so rebuild (`yk gradle :boot:bootJar`) to see a change.
+
 ## Prerequisites
 
 - A running Yukta server: `./gradlew bootRun`, or the native binary, or the Docker image

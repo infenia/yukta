@@ -69,8 +69,12 @@ export interface TemplateSummary {
   id: string;
   title: string;
   summary: string;
-  /** The examples folder, such as `1-standalone`; the number orders the groups. */
+  /** The examples folder, such as `1-standalone`. */
   category?: string;
+  /** What the category is called, such as `Standalone`. */
+  categoryLabel?: string;
+  /** What the category means, for a tooltip. */
+  categoryDescription?: string;
   pluginTypes: string[];
 }
 

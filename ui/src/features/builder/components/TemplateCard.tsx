@@ -89,6 +89,16 @@ export function TemplateCard({
         ) : (
           <div className="bg-muted size-full animate-pulse rounded-lg" />
         )}
+        {template?.categoryLabel && (
+          <Tip label={template.categoryDescription}>
+            <span
+              tabIndex={0}
+              className="border-border bg-card/80 text-overline text-on-surface-variant absolute top-2 left-2 inline-flex cursor-default items-center rounded-full border px-2 py-0.5 backdrop-blur-sm"
+            >
+              {template.categoryLabel}
+            </span>
+          </Tip>
+        )}
         <span className="border-border bg-card/80 text-overline text-on-surface-variant absolute top-2 right-2 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 backdrop-blur-sm">
           {playing ? (
             <>
