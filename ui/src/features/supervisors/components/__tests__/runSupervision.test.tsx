@@ -125,6 +125,35 @@ describe('WorkflowSupervision actions', () => {
     ).toBeInTheDocument();
   });
 
+  it('says it is about the workflow, and asks for a run, when none is chosen', async () => {
+    server.use(
+      http.get('/api/supervision', () =>
+        ok({ start: { allowed: true, via: 'default', reason: null } })
+      )
+    );
+    sheet(null);
+    const commands = await screen.findByRole('region', {
+      name: 'Run commands',
+    });
+    expect(commands).toHaveTextContent('What you can do with this workflow');
+    expect(
+      await within(commands).findByText(
+        'Open a run to see which commands you can send to it.'
+      )
+    ).toBeInTheDocument();
+    expect(within(commands).getByText('Start a new run')).toBeInTheDocument();
+  });
+
+  it('links to this workflow on the Supervisors page', async () => {
+    sheet('e1');
+    expect(
+      await screen.findByRole('link', { name: 'Open in Supervisors' })
+    ).toHaveAttribute(
+      'href',
+      '/supervisors?view=workflows&session=s&workflow=w'
+    );
+  });
+
   it('closes from Escape as well as its button', async () => {
     sheet('e1');
     await screen.findByRole('dialog');
