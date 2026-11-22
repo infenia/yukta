@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -48,6 +49,15 @@ import reactor.core.publisher.Mono;
  * credential of that supervisor only ({@code AgentCredentialFilter}); everything it sends is a
  * directive that the supervisor checks like any engine's.
  */
+// Jackson serializes the sealed Signal subtypes, which AOT cannot see from SignalEnvelope.
+@RegisterReflectionForBinding({
+  Signal.Event.class,
+  Signal.Tick.class,
+  Signal.Review.class,
+  Signal.Delegated.class,
+  Signal.Consulted.class,
+  Signal.Started.class
+})
 @RestController
 @RequestMapping(AgentCredentialFilter.PATH)
 @RequiredArgsConstructor

@@ -4,13 +4,16 @@ package com.infenia.yukta.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -18,8 +21,28 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-@ExtendWith(OutputCaptureExtension.class)
 class McpErrorFilterTest {
+
+  // A logback appender, not CapturedOutput: PIT's minion owns stdout, so captured output is empty.
+  private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+  private final Logger logger = (Logger) LoggerFactory.getLogger(McpErrorFilter.class);
+
+  @BeforeEach
+  void attach() {
+    logs.start();
+    logger.addAppender(logs);
+  }
+
+  @AfterEach
+  void detach() {
+    logger.detachAppender(logs);
+  }
+
+  private String logged() {
+    return logs.list.stream()
+        .map(e -> e.getFormattedMessage() + " " + e.getKeyValuePairs())
+        .reduce("", (a, b) -> a + b + "\n");
+  }
 
   private static final String VALID = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}";
 
@@ -159,32 +182,32 @@ class McpErrorFilterTest {
   }
 
   @Test
-  void toolCallIsLoggedWithItsNameStatusAndDuration(final CapturedOutput output) {
+  void toolCallIsLoggedWithItsNameStatusAndDuration() {
     run(
         post(
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
                 + "\"params\":{\"name\":\"list_sessions\"}}"),
         answers(HttpStatus.OK, "{\"result\":{}}"));
 
-    assertThat(output.getOut()).contains("MCP tool call", "list_sessions", "200");
+    assertThat(logged()).contains("MCP tool call", "list_sessions", "status=\"200\"");
   }
 
   @Test
-  void callWithoutStatusIsLoggedAsZero(final CapturedOutput output) {
+  void callWithoutStatusIsLoggedAsZero() {
     run(
         post(
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
                 + "\"params\":{\"name\":\"quiet_tool\"}}"),
         this::reads);
 
-    assertThat(output.getOut()).contains("quiet_tool").contains("status=\"0\"");
+    assertThat(logged()).contains("quiet_tool", "status=\"0\"");
   }
 
   @Test
-  void otherMessagesAndNonJsonBodiesAreNotLogged(final CapturedOutput output) {
+  void otherMessagesAndNonJsonBodiesAreNotLogged() {
     run(post(VALID), this::reads);
     run(post("not json"), this::reads);
 
-    assertThat(output.getOut()).doesNotContain("MCP tool call");
+    assertThat(logged()).doesNotContain("MCP tool call");
   }
 }
