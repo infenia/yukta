@@ -42,8 +42,9 @@ Finds runs across all sessions, or in one session, newest first.
 |---|---|
 | `sessionId` | Only this session |
 | `limit` | Most runs returned, 1 to 1000. Default 100. There is no cursor |
+| `includeInternal` | `true` also searches the internal sessions of supervisors. Default `false` |
 | `workflowId` | Only runs of this workflow |
-| `status` | Only runs with this status, not case sensitive |
+| `status` | Only runs with this one status, not case sensitive |
 | `text` | Only runs whose id contains this text, not case sensitive |
 | `since`, `until` | Only runs that started within this range, as ISO-8601 instants in UTC such as `2026-07-19T00:00:00Z` |
 
