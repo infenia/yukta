@@ -5,8 +5,6 @@
 
 <h1 align="center"><img src="docs/images/logo.svg" alt="" height="44" align="absmiddle"> Yukta</h1>
 
-<p align="center"><b>A workflow engine for people, scripts and AI agents.</b><br>Start the same workflow from a script, the web UI, a CLI or an AI assistant.</p>
-
 <p align="center">
   <a href="https://yukta.infenia.com/"><b>Docs</b></a> ·
   <a href="#install"><b>Install</b></a> ·
