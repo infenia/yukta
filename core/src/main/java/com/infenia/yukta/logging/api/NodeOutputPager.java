@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
-import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -124,10 +123,10 @@ public class NodeOutputPager {
     if (grep == null || grep.isEmpty()) {
       selected.set(0, all.size());
     } else {
-      final Pattern pattern = GrepPattern.compile(grep);
+      final GrepPattern pattern = GrepPattern.compile(grep);
       final int around = Math.min(context, MAX_CONTEXT);
       for (int i = 0; i < all.size(); i++) {
-        if (GrepPattern.matches(pattern, all.get(i))) {
+        if (pattern.matches(all.get(i))) {
           selected.set(Math.max(0, i - around), Math.min(all.size(), i + around + 1));
         }
       }

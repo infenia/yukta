@@ -159,12 +159,10 @@ class NodeOutputPagerTest {
   }
 
   @Test
-  void expensiveGrep_isRefusedNotHung() {
-    final List<String> trap = List.of("a".repeat(40) + "!");
+  void catastrophicGrep_finishesInLinearTime() {
+    final List<String> trap = List.of("a".repeat(1_999) + "!");
 
-    assertThatThrownBy(() -> slice(trap, null, null, null, null, "(a*)*\\1b", null))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("too expensive");
+    assertThat(slice(trap, null, null, null, null, "(a+)+$", null).matchedLines()).isZero();
   }
 
   @Test

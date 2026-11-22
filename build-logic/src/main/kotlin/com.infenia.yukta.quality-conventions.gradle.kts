@@ -64,6 +64,8 @@ licensee {
     // Flyway declares this URL. Needs a legal check before it ships in a distribution.
     allowUrl("https://github.com/flyway/flyway/blob/main/README.txt")
     allowUrl("https://spdx.org/licenses/BSD-2-Clause")
+    // RE2/J (com.google.re2j) links the Go licence, which is BSD-3-Clause
+    allowUrl("https://golang.org/LICENSE")
     allowUrl("https://jdbc.postgresql.org/about/license.html")
     allowUrl("http://antlr.org/license.html")
     allowUrl("https://www.antlr.org/license.html")

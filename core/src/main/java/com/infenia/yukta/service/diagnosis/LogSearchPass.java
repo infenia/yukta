@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.UnaryOperator;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -27,7 +26,7 @@ import org.jspecify.annotations.Nullable;
 final class LogSearchPass {
 
   private final RunLogQuery query;
-  private final @Nullable Pattern pattern;
+  private final @Nullable GrepPattern pattern;
   private final @Nullable Cursor cursor;
   private final UnaryOperator<String> clean;
 
@@ -162,9 +161,8 @@ final class LogSearchPass {
 
   private boolean matches(final LogLevel level, final String text) {
     final LogLevel lowest = query.level();
-    final Pattern grep = pattern;
-    return (lowest == null || level.compareTo(lowest) >= 0)
-        && (grep == null || GrepPattern.matches(grep, text));
+    final GrepPattern grep = pattern;
+    return (lowest == null || level.compareTo(lowest) >= 0) && (grep == null || grep.matches(text));
   }
 
   /** Adds the picks after the cursor to the answer until a budget is spent. */

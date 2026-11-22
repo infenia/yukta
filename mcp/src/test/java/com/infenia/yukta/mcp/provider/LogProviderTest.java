@@ -349,13 +349,12 @@ class LogProviderTest {
   }
 
   @Test
-  void testCatastrophicPatternAbortsInsteadOfHanging() {
-    when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("a".repeat(40) + "!")));
+  void testCatastrophicPatternFinishesInLinearTime() {
+    when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("a".repeat(1_900) + "!")));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, "(.*a){12}$"))
-        .expectErrorMatches(error ->
-            error instanceof IllegalArgumentException
-                && error.getMessage().contains("too expensive"))
+        .assertNext(logs -> assertThat(logs.lines()).isEmpty())
+        .expectComplete()
         .verify(java.time.Duration.ofSeconds(5));
   }
 

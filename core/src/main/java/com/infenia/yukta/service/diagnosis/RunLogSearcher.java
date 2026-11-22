@@ -10,7 +10,6 @@ import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.UnaryOperator;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -41,7 +40,7 @@ public class RunLogSearcher {
   public Mono<RunLogSearch> search(final RunLogQuery query, final UnaryOperator<String> clean) {
     return Mono.defer(() -> {
       final String grep = query.grep();
-      final Pattern pattern = grep == null ? null : GrepPattern.compile(grep);
+      final GrepPattern pattern = grep == null ? null : GrepPattern.compile(grep);
       final LogSearchPass.Cursor cursor = LogSearchPass.Cursor.parse(query.cursor());
       return Flux.fromIterable(executions(query))
           .concatMap(id ->

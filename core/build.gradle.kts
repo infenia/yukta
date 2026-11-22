@@ -14,6 +14,8 @@ dependencies {
     implementation(libs.spring.boot.starter.webclient)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.micrometer.core)
+    // linear-time engine behind GrepPattern: a caller's regex cannot backtrack (BSD-3-Clause)
+    implementation(libs.re2j)
     implementation("io.micrometer:context-propagation")
     // API only: reads the trace id (the exporter is in boot); aopalliance (Public Domain, no
     // licence URL) is for its @NewSpan aspects, which core does not use

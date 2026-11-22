@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
+import com.infenia.yukta.logging.api.GrepPattern;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.NodeOutputPager;
 import com.infenia.yukta.logging.api.NodeOutputSlice;
@@ -21,7 +22,6 @@ import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -260,7 +260,7 @@ public class LogProvider {
       @Nullable final String nodeId,
       @Nullable final String level) {
     return Mono.defer(() -> {
-      final Pattern pattern = RegexPatternValidator.compile(filterPattern);
+      final GrepPattern pattern = RegexPatternValidator.compile(filterPattern);
       final Filter filter =
           new Filter(
               pattern,
@@ -274,7 +274,7 @@ public class LogProvider {
 
   /** What a line must match. */
   private record Filter(
-      @Nullable Pattern pattern, @Nullable String nodeId, @Nullable LogLevel level) {
+      @Nullable GrepPattern pattern, @Nullable String nodeId, @Nullable LogLevel level) {
 
     /* default */ boolean admits(final PluginLogEntry entry) {
       return (nodeId == null || nodeId.equals(entry.pluginId()))

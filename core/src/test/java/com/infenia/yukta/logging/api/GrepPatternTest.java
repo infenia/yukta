@@ -4,8 +4,9 @@ package com.infenia.yukta.logging.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
-import java.util.regex.Pattern;
+import java.time.Duration;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
@@ -15,10 +16,11 @@ class GrepPatternTest {
 
   @Test
   void compile_acceptsValidPattern() {
-    final Pattern pattern = GrepPattern.compile("FAIL(ED)?");
+    final GrepPattern pattern = GrepPattern.compile("FAIL(ED)?");
 
-    assertThat(GrepPattern.matches(pattern, "Test > x FAILED")).isTrue();
-    assertThat(GrepPattern.matches(pattern, "all good")).isFalse();
+    assertThat(pattern.matches("Test > x FAILED")).isTrue();
+    assertThat(pattern.matches("all good")).isFalse();
+    assertThat(pattern).hasToString("FAIL(ED)?");
   }
 
   @Test
@@ -31,42 +33,44 @@ class GrepPatternTest {
   }
 
   @Test
-  void compile_refusesAnInvalidPattern() {
+  void compile_refusesInvalidAndBacktrackingOnlySyntax() {
     assertThatThrownBy(() -> GrepPattern.compile("("))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("regular expression");
+    // back-references and lookaround need backtracking, which RE2 does not do
+    assertThatThrownBy(() -> GrepPattern.compile("(a)\\1"))
+        .hasMessageContaining("no back-references");
+    assertThatThrownBy(() -> GrepPattern.compile("a(?=b)"))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
-  void matches_refusesRunawayPattern() {
-    final Pattern trap = GrepPattern.compile("(a*)*\\1b");
-    final String line = "a".repeat(40) + "!";
+  void catastrophicPatterns_runInLinearTime() {
+    // each of these takes exponential time on a backtracking engine for the line below
+    final String line = "a".repeat(GrepPattern.MAX_LINE - 1) + "!";
 
-    assertThatThrownBy(() -> GrepPattern.matches(trap, line))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("too expensive");
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(2),
+        () -> {
+          for (int i = 0; i < 100; i++) {
+            assertThat(GrepPattern.compile("(a+)+$").matches(line)).isFalse();
+            assertThat(GrepPattern.compile("(a|aa)*b").matches(line)).isFalse();
+            assertThat(GrepPattern.compile("(.*a){12}b").matches(line)).isFalse();
+          }
+        });
   }
 
   @Test
-  void matches_looksOnlyAtKeptPartOfLine() {
+  void matches_looksOnlyAtKeptPartOfLine_findLooksEverywhere() {
     final String line = "x".repeat(GrepPattern.MAX_LINE) + "needle";
 
-    assertThat(GrepPattern.matches(GrepPattern.compile("needle"), line)).isFalse();
+    assertThat(GrepPattern.compile("needle").matches(line)).isFalse();
+    assertThat(GrepPattern.compile("needle").find(line)).isTrue();
   }
 
   @Test
   void cut_keepsShortLinesAndCutsLongOnes() {
     assertThat(GrepPattern.cut("short")).isEqualTo("short");
     assertThat(GrepPattern.cut("y".repeat(5000))).hasSize(GrepPattern.MAX_LINE);
-  }
-
-  @Test
-  void budgetedLine_readsLikeItsText() {
-    final CharSequence line = new GrepPattern.Budgeted("hello", System.nanoTime() + 1_000_000_000L);
-
-    assertThat(line).hasSize(5);
-    assertThat(line.charAt(1)).isEqualTo('e');
-    assertThat(line.subSequence(1, 3)).hasToString("el");
-    assertThat(line).hasToString("hello");
   }
 }

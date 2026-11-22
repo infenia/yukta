@@ -2,20 +2,24 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.util;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.regex.Pattern;
+import com.infenia.yukta.logging.api.GrepPattern;
+import java.time.Duration;
+import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
+/** Tests for RegexPatternValidator. */
+@NoArgsConstructor
 class RegexPatternValidatorTest {
 
   @Test
   void testCompileValid() {
-    assertTrue(RegexPatternValidator.compile(".*test.*").matcher("a test").matches());
+    assertTrue(RegexPatternValidator.matches("a test", RegexPatternValidator.compile(".*test.*")));
   }
 
   @Test
@@ -26,18 +30,24 @@ class RegexPatternValidatorTest {
 
   @Test
   void testCompileInvalid() {
-    assertThrows(IllegalArgumentException.class, () -> RegexPatternValidator.compile("[invalid"));
+    final IllegalArgumentException error =
+        assertThrows(
+            IllegalArgumentException.class, () -> RegexPatternValidator.compile("[invalid"));
+    assertTrue(error.getMessage().startsWith("Invalid regex pattern"));
+    assertThrows(IllegalArgumentException.class, () -> RegexPatternValidator.compile("(a)\\1"));
   }
 
   @Test
   void testCompileTooLong() {
     final String tooLong = "a".repeat(RegexPatternValidator.MAX_PATTERN_LENGTH + 1);
-    assertThrows(IllegalArgumentException.class, () -> RegexPatternValidator.compile(tooLong));
+    final IllegalArgumentException error =
+        assertThrows(IllegalArgumentException.class, () -> RegexPatternValidator.compile(tooLong));
+    assertTrue(error.getMessage().startsWith("Regex pattern too long"));
   }
 
   @Test
   void testMatches() {
-    final Pattern pattern = Pattern.compile("test");
+    final GrepPattern pattern = RegexPatternValidator.compile("test");
     assertTrue(RegexPatternValidator.matches("This is a test", pattern));
     assertFalse(RegexPatternValidator.matches("nothing here", pattern));
   }
@@ -48,19 +58,10 @@ class RegexPatternValidatorTest {
   }
 
   @Test
-  void testCatastrophicBacktrackingAborts() {
-    final Pattern evil = Pattern.compile("(.*a){12}$");
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> RegexPatternValidator.matches("a".repeat(40) + "!", evil));
-  }
-
-  @Test
-  void testBudgetedTextBehavesLikeTheOriginal() {
-    final CharSequence text = RegexPatternValidator.budgeted("hello world");
-
-    assertEquals(11, text.length());
-    assertEquals("hello", text.subSequence(0, 5).toString());
-    assertEquals("hello world", text.toString());
+  void testCatastrophicPatternRunsInLinearTime() {
+    final GrepPattern pattern = RegexPatternValidator.compile("(.*a){12}$");
+    final String text = "a".repeat(5_000) + "!";
+    assertTimeoutPreemptively(
+        Duration.ofSeconds(2), () -> assertFalse(RegexPatternValidator.matches(text, pattern)));
   }
 }
