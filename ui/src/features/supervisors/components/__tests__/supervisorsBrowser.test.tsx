@@ -196,12 +196,10 @@ describe('the Supervisors tab', () => {
       .poll(() => screen.queryAllByText('Run level: lead').length)
       .toBe(2);
     expect(screen.getByRole('link', { name: 's1 / w1' })).toBeInTheDocument();
-    expect(
-      screen.getByText(/run level · assigned by hand or by an agent/)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/by deploy\.\* · declared in the definition/)
-    ).toBeInTheDocument();
+    expect(screen.getByText('Run level')).toBeInTheDocument();
+    expect(screen.getByText('By hand')).toBeInTheDocument();
+    expect(screen.getByText('Nodes: deploy.*')).toBeInTheDocument();
+    expect(screen.getByText('In the definition')).toBeInTheDocument();
     expect(screen.getByText('Disabled')).toBeInTheDocument();
     expect(
       within(screen.getByRole('tabpanel', { name: 'Owns' })).getByText(
@@ -280,7 +278,9 @@ describe('the Supervisors tab', () => {
       'aria-selected',
       'true'
     );
-    expect(await screen.findByText('owned here')).toBeInTheDocument();
+    expect((await screen.findAllByText('deploy.prod')).length).toBeGreaterThan(
+      0
+    );
 
     await user.click(screen.getByRole('tab', { name: 'Allowed operations' }));
     expect(
@@ -459,7 +459,7 @@ describe('the Supervisors tab', () => {
     expect(
       await screen.findByText('Could not load the owners of this workflow.')
     ).toBeInTheDocument();
-    expect(screen.getByText(/whole workflow/)).toBeInTheDocument();
+    expect(screen.getByText('Whole workflow')).toBeInTheDocument();
   });
 
   it('says when there are no supervisors, and when they cannot be read', async () => {
