@@ -4,6 +4,7 @@ package com.infenia.yukta.mcp;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.mcp.dto.AssignmentInput;
 import com.infenia.yukta.mcp.dto.SessionList;
 import com.infenia.yukta.mcp.dto.WorkflowVersions;
 import io.modelcontextprotocol.spec.McpError;
@@ -24,12 +25,15 @@ class McpDtoReflectionHintsTest {
     new McpDtoReflectionHints.Hints()
         .registerHints(hints, Thread.currentThread().getContextClassLoader());
 
-    for (final Class<?> type : new Class<?>[] {SessionList.class, WorkflowVersions.class}) {
+    for (final Class<?> type :
+        new Class<?>[] {SessionList.class, WorkflowVersions.class, AssignmentInput.class}) {
       assertThat(
               RuntimeHintsPredicates.reflection()
                   .onType(type)
                   .withMemberCategories(
-                      MemberCategory.INVOKE_PUBLIC_METHODS, MemberCategory.ACCESS_DECLARED_FIELDS))
+                      MemberCategory.INVOKE_PUBLIC_METHODS,
+                      MemberCategory.ACCESS_DECLARED_FIELDS,
+                      MemberCategory.INVOKE_DECLARED_CONSTRUCTORS))
           .accepts(hints);
     }
   }
