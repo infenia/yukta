@@ -19,7 +19,7 @@ import {
   useSupervisorTypes,
 } from '../hooks/useSupervisorTypes';
 import { controlledBy } from './RequireControl';
-import { ActionsCard } from './ActionsTimeline';
+import { ActionsCard, NodeChip } from './ActionsTimeline';
 import { SupervisorCard } from './SupervisorCard';
 
 /** The nodes of each owner, in the order the owners first appear. */
@@ -251,27 +251,7 @@ function NodeList({
       <ul className="flex flex-wrap gap-1.5">
         {shown.map((id) => (
           <li key={id}>
-            {onNode ? (
-              <button
-                type="button"
-                onClick={() => onNode(id)}
-                className="text-code-sm border-border bg-surface-container-low text-on-surface transition-standard hover:border-primary/40 hover:bg-primary/5 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1"
-              >
-                <span
-                  aria-hidden="true"
-                  className="bg-primary/60 size-1.5 shrink-0 rounded-full"
-                />
-                {id}
-              </button>
-            ) : (
-              <span className="text-code-sm border-border bg-surface-container-low text-on-surface transition-standard inline-flex items-center gap-1.5 rounded-lg border px-2 py-1">
-                <span
-                  aria-hidden="true"
-                  className="bg-primary/60 size-1.5 shrink-0 rounded-full"
-                />
-                {id}
-              </span>
-            )}
+            <NodeChip id={id} onClick={onNode && (() => onNode(id))} />
           </li>
         ))}
       </ul>
@@ -467,6 +447,34 @@ function RunActions({
 }
 
 /**
+ * What the run sheet shows: who controls the workflow, what you may do, and what they did. The
+ * Supervisors page shows the same body for a workflow, with no run chosen.
+ */
+export function SupervisionBody({
+  sessionId,
+  workflowId,
+  executionId,
+  onNode,
+}: {
+  sessionId: string;
+  workflowId: string;
+  executionId: string | null;
+  onNode?: (nodeId: string) => void;
+}) {
+  return (
+    <>
+      <SupervisionPanel
+        sessionId={sessionId}
+        workflowId={workflowId}
+        executionId={executionId}
+        onNode={onNode}
+      />
+      <RunActions workflowId={workflowId} executionId={executionId} />
+    </>
+  );
+}
+
+/**
  * Who controls this workflow and what they did, as a side sheet over the progress panel (as the
  * node sheet is); `?supervision=1` opens it (the toolbar, a node's owner icon, the palette, a link).
  * It is not modal: the graph and the run controls stay usable beside it.
@@ -531,13 +539,12 @@ export function WorkflowSupervision({
           </span>
         </button>
       </div>
-      <SupervisionPanel
+      <SupervisionBody
         sessionId={sessionId}
         workflowId={workflowId}
         executionId={executionId}
         onNode={onNode}
       />
-      <RunActions workflowId={workflowId} executionId={executionId} />
     </aside>
   );
 }
