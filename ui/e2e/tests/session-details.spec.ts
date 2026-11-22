@@ -86,6 +86,18 @@ async function mockSession(
   await page.route(`**/api/sessions/${id}/workflows`, (route) =>
     route.fulfill(envelope(`/api/sessions/${id}/workflows`, workflows))
   );
+  // the Run dialog reads the definition to build its form: one input, `branch`
+  await page.route(`**/api/sessions/${id}/workflows/*`, (route) =>
+    route.fulfill(
+      envelope(`/api/sessions/${id}/workflows/check`, {
+        workflowId: 'check',
+        nodes: [
+          { nodeId: 'n', type: 'MAPPER', config: { b: '${start.branch}' } },
+        ],
+        edges: [],
+      })
+    )
+  );
   await page.route('**/api/executions?*', (route) => {
     runSearches.push(new URL(route.request().url()));
     return route.fulfill(envelope('/api/executions', runs));
@@ -358,6 +370,7 @@ test.describe('Session details - running a workflow', () => {
       );
     });
     const dialog = page.getByRole('dialog', { name: 'Run workflow' });
+    await dialog.getByRole('button', { name: '{} JSON' }).click();
     await dialog.getByLabel(/Trigger payload/).fill('{"branch": "main"}');
     await dialog.getByRole('button', { name: 'Run', exact: true }).click();
 
@@ -371,6 +384,24 @@ test.describe('Session details - running a workflow', () => {
       payload: { branch: 'main' },
     });
     expect(started[0].key).toBeTruthy();
+  });
+
+  test('fills the payload from the form field', async ({ page }) => {
+    let body: unknown;
+    await page.route('**/api/workflow/start', (route) => {
+      body = route.request().postDataJSON();
+      return route.fulfill(
+        envelope('/api/workflow/start', { executionId: 'exec-new-3' })
+      );
+    });
+    const dialog = page.getByRole('dialog', { name: 'Run workflow' });
+    await expect(dialog.getByText('1 not set')).toBeVisible();
+    await dialog.getByLabel('branch').fill('main');
+    await expect(dialog.getByText('1 not set')).toBeHidden();
+    await dialog.getByRole('button', { name: 'Run', exact: true }).click();
+
+    await expect(page).toHaveURL(/exec=exec-new-3$/);
+    expect(body).toMatchObject({ payload: { branch: 'main' } });
   });
 
   test('an empty payload starts the run with an empty object', async ({
@@ -401,6 +432,7 @@ test.describe('Session details - running a workflow', () => {
       return route.fallback();
     });
     const dialog = page.getByRole('dialog', { name: 'Run workflow' });
+    await dialog.getByRole('button', { name: '{} JSON' }).click();
     await dialog.getByLabel(/Trigger payload/).fill('{not json');
     await dialog.getByRole('button', { name: 'Run', exact: true }).click();
 

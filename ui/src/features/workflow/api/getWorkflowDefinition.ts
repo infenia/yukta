@@ -13,6 +13,7 @@ export interface DefinitionNode {
 export interface WorkflowDefinition {
   workflowId: string;
   nodes: DefinitionNode[];
+  edges?: { source: string; target: string; sourcePort?: string | null }[];
 }
 
 export const getWorkflowDefinition = (sessionId: string, workflowId: string) =>
