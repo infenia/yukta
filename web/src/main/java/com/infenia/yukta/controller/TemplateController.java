@@ -127,7 +127,7 @@ public class TemplateController {
   public Mono<ApiResponse<List<TemplateSummary>>> list() {
     return Mono.fromCallable(
             () -> {
-              final Index index = index();
+              final Index index = index(new ClassPathResource(ROOT + "index.json"));
               final List<TemplateSummary> out = new ArrayList<>();
               for (final var dir : knownDirs().entrySet()) {
                 final String folder = dir.getValue().substring(0, dir.getValue().indexOf('/'));
@@ -169,8 +169,7 @@ public class TemplateController {
   }
 
   /** Reads {@code templates/index.json}; without it the order is by id and categories bare. */
-  private static Index index() throws IOException {
-    final Resource file = new ClassPathResource(ROOT + "index.json");
+  /* package */ static Index index(final Resource file) throws IOException {
     if (!file.exists()) {
       return new Index(List.of(), Map.of());
     }
