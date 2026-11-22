@@ -203,22 +203,25 @@ function ItemBody({
           <Tip label={when}>
             <Message align="end">
               <MessageContent className="items-end gap-1">
-              {item.queued && (
-                <span className="text-muted-foreground text-label-sm">
-                  Queued
-                </span>
-              )}
-              <Bubble align="end" variant={item.queued ? 'outline' : 'default'}>
-                <BubbleContent
-                  className={cn(
-                    'text-body-md rounded-2xl rounded-br-md px-3 py-2 whitespace-pre-wrap',
-                    item.queued ? 'border-dashed' : 'assistant-gradient'
-                  )}
+                {item.queued && (
+                  <span className="text-muted-foreground text-label-sm">
+                    Queued
+                  </span>
+                )}
+                <Bubble
+                  align="end"
+                  variant={item.queued ? 'outline' : 'default'}
                 >
-                  <Clamped text={item.text} />
-                  {item.queued && <span className="sr-only"> (queued)</span>}
-                </BubbleContent>
-              </Bubble>
+                  <BubbleContent
+                    className={cn(
+                      'text-body-md rounded-2xl rounded-br-md px-3 py-2 whitespace-pre-wrap',
+                      item.queued ? 'border-dashed' : 'assistant-gradient'
+                    )}
+                  >
+                    <Clamped text={item.text} />
+                    {item.queued && <span className="sr-only"> (queued)</span>}
+                  </BubbleContent>
+                </Bubble>
               </MessageContent>
             </Message>
           </Tip>

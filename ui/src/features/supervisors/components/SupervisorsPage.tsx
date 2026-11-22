@@ -28,7 +28,7 @@ function LensSwitch({
   return (
     <nav
       aria-label="Supervision views"
-      className="border-border bg-muted/50 inline-flex w-fit rounded-xl border p-0.5"
+      className="border-border bg-muted/50 inline-flex w-fit max-w-full overflow-x-auto rounded-xl border p-0.5"
     >
       {LENSES.map((lens) => (
         <Link
@@ -37,7 +37,7 @@ function LensSwitch({
           replace
           aria-current={value === lens.id ? 'page' : undefined}
           className={cn(
-            'text-label-md transition-standard flex items-center gap-1.5 rounded-lg px-3 py-1.5',
+            'text-label-md transition-standard flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 whitespace-nowrap',
             value === lens.id
               ? 'bg-card text-on-surface shadow-card'
               : 'text-on-surface-variant hover:text-on-surface'
