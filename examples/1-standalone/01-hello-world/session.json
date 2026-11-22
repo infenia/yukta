@@ -10,10 +10,11 @@
       "workflowId": "hello",
       "description": "Text in, default if empty, text to digit, even or odd branch, greeting out",
       "nodes": [
-        { "nodeId": "input", "type": "API_TRIGGER", "config": {} },
+        { "nodeId": "input", "type": "API_TRIGGER", "color": "sky", "config": {} },
         {
           "nodeId": "default-text",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -24,6 +25,7 @@
         {
           "nodeId": "to-digit",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "dropOriginal": false,
@@ -33,6 +35,7 @@
         {
           "nodeId": "even-or-odd",
           "type": "BRANCH",
+          "color": "violet",
           "config": {
             "mode": "EXPRESSION",
             "cases": { "payload.digit % 2 == 0": "even" },
@@ -42,6 +45,7 @@
         {
           "nodeId": "say-even",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": { "greeting": "'Hello, ' + payload.text + '! Digit ' + payload.digit + ' is even.'" }
@@ -50,12 +54,13 @@
         {
           "nodeId": "say-odd",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": { "greeting": "'Hello, ' + payload.text + '! Digit ' + payload.digit + ' is odd.'" }
           }
         },
-        { "nodeId": "print", "type": "CONSOLE_TERMINAL", "config": {} }
+        { "nodeId": "print", "type": "CONSOLE_TERMINAL", "color": "stone", "config": {} }
       ],
       "edges": [
         { "source": "input", "target": "default-text" },

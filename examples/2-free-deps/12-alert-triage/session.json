@@ -10,16 +10,21 @@
   "workflows": {
     "alert": {
       "workflowId": "alert",
+      "groupColors": { "Intake": "sky", "Auto-fix": "teal", "Escalate": "violet", "On-call": "magenta" },
       "description": "Severity routing, bounded auto-remediation, page and incident when it still fails",
       "nodes": [
         {
           "nodeId": "alert-in",
           "type": "API_TRIGGER",
+          "color": "sky",
+          "group": "Intake",
           "config": {}
         },
         {
           "nodeId": "by-severity",
           "type": "BRANCH",
+          "color": "violet",
+          "group": "Intake",
           "config": {
             "mode": "SELECT_KEY",
             "selector": "payload.severity",
@@ -33,6 +38,8 @@
         {
           "nodeId": "format-low",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Auto-fix",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -44,6 +51,8 @@
         {
           "nodeId": "try-fix",
           "type": "LOOP_PREDICATE",
+          "color": "violet",
+          "group": "Auto-fix",
           "config": {
             "targetPluginId": "SUB_WORKFLOW",
             "targetConfig": {
@@ -63,6 +72,8 @@
         {
           "nodeId": "did-it-heal",
           "type": "BRANCH",
+          "color": "violet",
+          "group": "Auto-fix",
           "config": {
             "mode": "EXPRESSION",
             "cases": {
@@ -74,6 +85,8 @@
         {
           "nodeId": "format-resolved",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Auto-fix",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -85,6 +98,8 @@
         {
           "nodeId": "write-record",
           "type": "FILE_WRITE",
+          "color": "teal",
+          "group": "Auto-fix",
           "config": {
             "baseDir": "/tmp/yukta-examples/alert-triage",
             "append": true
@@ -93,11 +108,15 @@
         {
           "nodeId": "end",
           "type": "CONSOLE_TERMINAL",
+          "color": "stone",
+          "group": "Auto-fix",
           "config": {}
         },
         {
           "nodeId": "escalate",
           "type": "RECIPIENT_LIST",
+          "color": "sky",
+          "group": "Escalate",
           "config": {
             "mode": "STATIC",
             "recipients": [
@@ -110,6 +129,8 @@
         {
           "nodeId": "format-page",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Escalate",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -120,6 +141,8 @@
         {
           "nodeId": "page-oncall",
           "type": "NOTIFY_TERMINAL",
+          "color": "stone",
+          "group": "Escalate",
           "config": {
             "url": "http://127.0.0.1:9877/page",
             "timeoutMs": 5000,
@@ -129,6 +152,8 @@
         {
           "nodeId": "format-incident",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Escalate",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -140,6 +165,8 @@
         {
           "nodeId": "open-incident",
           "type": "FILE_WRITE",
+          "color": "teal",
+          "group": "Escalate",
           "config": {
             "baseDir": "/tmp/yukta-examples/alert-triage",
             "path": "incidents.log",
@@ -149,6 +176,8 @@
         {
           "nodeId": "wait-ack",
           "type": "WAIT_FOR_SIGNAL",
+          "color": "magenta",
+          "group": "On-call",
           "config": {
             "signal": "ack",
             "timeoutSeconds": 900,
@@ -159,6 +188,8 @@
         {
           "nodeId": "format-ack",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "On-call",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -248,11 +279,13 @@
         {
           "nodeId": "attempt",
           "type": "API_TRIGGER",
+          "color": "sky",
           "config": {}
         },
         {
           "nodeId": "restart-service",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "sh",
@@ -268,6 +301,7 @@
         {
           "nodeId": "check-health",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "sh",
@@ -285,6 +319,7 @@
         {
           "nodeId": "result-up",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -299,6 +334,7 @@
         {
           "nodeId": "result-down",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -313,6 +349,7 @@
         {
           "nodeId": "end",
           "type": "CONSOLE_TERMINAL",
+          "color": "stone",
           "config": {}
         }
       ],
