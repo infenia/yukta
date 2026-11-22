@@ -150,6 +150,7 @@ jobs:
           make -C cli e2e
           YUKTA_URL="$YUKTA_E2E_URL" YUKTA_API_KEY="$YUKTA_E2E_KEY" \
           YUKTA_VIEWER_KEY=$(release/e2e-server.sh viewer-key) \
+          YUKTA_E2E_EXPECT_MS=45000 \
           pnpm --dir ui test:e2e:real
 
       # Stopping the server (SIGTERM) is what writes the exec file.

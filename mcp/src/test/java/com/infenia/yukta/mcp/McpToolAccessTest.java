@@ -212,4 +212,23 @@ class McpToolAccessTest {
       assertThat(McpToolAccess.permitted(key("VIEWER", "a"), tool, null)).isTrue();
     }
   }
+
+  @Test
+  void toolTagNamesOneKnownToolOnly() {
+    assertThat(tag("{\"method\":\"tools/call\",\"params\":{\"name\":\"search_logs\"}}"))
+        .isEqualTo("search_logs");
+    assertThat(tag("{\"method\":\"tools/call\",\"params\":{\"name\":\"made_up\"}}"))
+        .isEqualTo("other");
+    assertThat(
+            tag(
+                "[{\"method\":\"tools/call\",\"params\":{\"name\":\"list_sessions\"}},"
+                    + "{\"method\":\"tools/call\",\"params\":{\"name\":\"list_sessions\"}}]"))
+        .isEqualTo("other");
+    assertThat(tag("{\"method\":\"tools/list\"}")).isEqualTo("none");
+    assertThat(tag("not json")).isEqualTo("none");
+  }
+
+  private static String tag(final String body) {
+    return McpToolAccess.toolTag(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+  }
 }

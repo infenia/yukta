@@ -2,7 +2,7 @@
 
 Plan for making supervisors the only way to steer a run, and for splitting a supervisor into two clearly separate parts: the **supervisor** (what it owns, who it reports to, what it may do, how it is secured) and its **decision engine** (a plugin that decides). The rule engine, an HTTP endpoint for an external application, an outbound call and a workflow are all engines. Yukta never knows how an engine decides; it only enforces what the supervisor allows.
 
-Status (2026-11-08): **proposal**, nothing built. The "today" statements were read from the code in the working tree on branch `fix/2043-styled-tooltips` (based on `origin/main`); each names the class it comes from. The contract items that were *to confirm* were decided in S0 (see `docs/running/supervisor-contract.mdx` and ADR 0002). The work is not filed; see [Issues](#issues). This version replaces the earlier draft of this file, which kept today's overlapping scopes and supervisor types.
+Status (2026-11-08): **proposal**, nothing built. The "today" statements were read from the code in the working tree on branch `fix/2043-styled-tooltips` (based on `origin/main`); each names the class it comes from. The contract items that were *to confirm* were decided in S0 (see `docs/reference/supervisors/contract.mdx` and ADR 0002). The work is not filed; see [Issues](#issues). This version replaces the earlier draft of this file, which kept today's overlapping scopes and supervisor types.
 
 ## Decisions
 
@@ -335,7 +335,7 @@ A start has a target (the workflow), so it is owned by the **run-level owner** o
 
 ## The supervisor contract (v1)
 
-The contract is what an engine may see and do, and the compatibility promise: additive changes only within a major version. It lives in `docs/running/supervisor-contract.mdx` and as `SupervisorContract` in `plugin-api`; `GET /api/supervisor-contract` returns the version and the operations.
+The contract is what an engine may see and do, and the compatibility promise: additive changes only within a major version. It lives in `docs/reference/supervisors/contract.mdx` and as `SupervisorContract` in `plugin-api`; `GET /api/supervisor-contract` returns the version and the operations.
 
 **Read** (limited to what the supervisor owns, redacted, paged):
 
@@ -406,7 +406,7 @@ Node outputs and message payloads are **not** readable unless `readNodeOutputs` 
 
 ## UI and UX design
 
-Revised 2026-11-09 after the first artboards were rejected; the approved artboards are `design/plans/supervisor-framework/artboards/` (#2153, PR #2206). This section replaces the earlier wizard-first design.
+Revised 2026-11-09 after the first artboards were rejected; the approved artboards (#2153, PR #2206) were removed from the repository in the design cleanup of 2026-11-22; the running UI is the reference, and the files live in git history. This section replaces the earlier wizard-first design.
 
 ### UX principles
 
@@ -512,7 +512,7 @@ The OpenAPI snapshots (`ui/openapi.json`, `docs/api/openapi.json`) and `ui/src/t
 
 ### MCP
 
-**Operator tools** keep their names; their results and descriptions change as above, and the tool descriptions and the `yukta-workflows` skill (in `skills/`, installed as described in `docs/interfaces/mcp.mdx`) tell an agent: call `whoami` first; a refusal naming a supervisor is a decision, not an error to retry; ask the user before asking a supervisor owner to change. The role map in `McpToolAccess` does not change for these.
+**Operator tools** keep their names; their results and descriptions change as above, and the tool descriptions and the `yukta-workflows` skill (in `skills/`, installed as described in `docs/reference/mcp-tools.mdx`) tell an agent: call `whoami` first; a refusal naming a supervisor is a decision, not an error to retry; ask the user before asking a supervisor owner to change. The role map in `McpToolAccess` does not change for these.
 
 **Management tools** (replace the `*_supervisor` tools; `ADMIN` unless stated):
 
@@ -540,7 +540,7 @@ Constraints that apply as before: list results are wrapper records (a `Flux` res
 | `supervisor_send_directive` | A directive with `cause`, `reason`, a selector target and `ifStatus` |
 | `supervisor_answer_review`, `supervisor_answer_delegation`, `supervisor_delegate` | Answer or pass up |
 
-A new skill `skills/yukta-supervisor` teaches an agent the loop (snapshot, then poll, decide, send with a reason), the limits (a refusal is final, `initiative` needs a reason and an allow-list entry, dry run first), and the safe defaults. The same two endpoints serve any MCP client, so the Claude Code, Gemini CLI and other installs in `docs/interfaces/mcp.mdx` apply unchanged.
+A new skill `skills/yukta-supervisor` teaches an agent the loop (snapshot, then poll, decide, send with a reason), the limits (a refusal is final, `initiative` needs a reason and an allow-list entry, dry run first), and the safe defaults. The same two endpoints serve any MCP client, so the Claude Code, Gemini CLI and other installs in `docs/reference/mcp-tools.mdx` apply unchanged.
 
 ### CLI (`cli/`, Go, cobra)
 
@@ -568,7 +568,7 @@ Existing commands (`workflow stop`, `node pause`, `executions …`, `scheduler`)
 | Examples | Replace `examples/16` and `examples/17`; add a **CPU guard** example (an external program using the agent API and `initiative` with `resume held`), a rules example per preset, and a workflow-engine example after S9 |
 | Reference agents | Minimal supervisors in Python and Go (about 60 lines each) against `/api/agent/v1`, kept in `examples/` and run by an acceptance test |
 | Dogfood (`yk`, `examples/dogfood`) | Move `supervisor/*.json` and `yk-ticket.ts` to the new shape in the same PR as S7 |
-| Docs | `docs/interfaces/mcp.mdx`, `cli.mdx`, `web-ui.mdx`, `docs/api/*.mdx`, `docs/running/supervisors.mdx`, a new `docs/running/supervisor-contract.mdx` and `docs/running/writing-a-supervisor.mdx`, `docs/operations/security.mdx`, the glossary and a migration note |
+| Docs | `docs/reference/mcp-tools.mdx`, `cli.mdx`, `web-ui.mdx`, `docs/api/*.mdx`, `docs/concepts/supervisors.mdx`, a new `docs/reference/supervisors/contract.mdx` and `docs/guides/supervise/write-an-agent-supervisor.mdx`, `docs/guides/operate/secure-the-server.mdx`, the glossary and a migration note |
 | Skills | Update `yukta-workflows`, add `yukta-supervisor` |
 
 ### Security of the clients
@@ -581,7 +581,7 @@ Sizes: S under 2 days, M under a week, L more. Each phase is its own issue and P
 
 **S0. Contract and vocabulary (docs, S).** The supervisor-contract page: supervisor and engine layers, assignments and the one-owner rule, delegation, signals and directives (schema v1), the read and act tables, the rule document outline, the compatibility promise. An ADR for the split. Reviewing it settles the open questions before code depends on them. Also the three interaction patterns, the cause of a directive, selectors, the hold ledger, preconditions and the snapshot. Also the UI vocabulary table, the refusal texts and the client compatibility table, so every surface uses the same words.
 
-**S1. One choke point and the inventory (core, web, mcp, architecture, M).** The complete list of control and start callers, classified `OPERATOR`, `SYSTEM` or `ENGINE`. `StartWorkflowCommand` and its `CommandTarget` for a run that does not exist yet. Route `WorkflowStarter` through the dispatcher. `SupervisedControl` as the only entry, stamping the actor kind and a `channel` in every audit line. The ArchUnit rule. A test per entry that proves it reaches the choke point. Measure the extra hop on starts against `design/plans/performance.md`.
+**S1. One choke point and the inventory (core, web, mcp, architecture, M).** The complete list of control and start callers, classified `OPERATOR`, `SYSTEM` or `ENGINE`. `StartWorkflowCommand` and its `CommandTarget` for a run that does not exist yet. Route `WorkflowStarter` through the dispatcher. `SupervisedControl` as the only entry, stamping the actor kind and a `channel` in every audit line. The ArchUnit rule. A test per entry that proves it reaches the choke point. Measure the extra hop on starts with a before and after measurement.
 
 **S2. Ownership (core, web, plus, L).** Assignments and units; the exclusivity check at save of a supervisor, an assignment and a workflow definition; `groups` in the workflow definition and `group:<name>`; the run-level assignment; the default supervisor and fallback; the operator-gateway rule (`operatorAccess`, `409 CONTROLLED_BY_SUPERVISOR`); owner-only review replaces the fan-out; remove the arbiter; the migration and the `conflict` status. Tests: every overlap shape (workflow vs node, session vs workflow, prefix vs id, a new workflow version that creates an overlap, groups), no owner, default disabled, owner review of an operator command. **Client minimum, shipped in the same PR:** the new refusals (`CONTROLLED_BY_SUPERVISOR`, `AWAITING_APPROVAL`) and `via` in REST, MCP and CLI results, `GET /api/supervision`, and S8a, so that nothing a user could click is refused without a reason.
 
@@ -603,7 +603,7 @@ Sizes: S under 2 days, M under a week, L more. Each phase is its own issue and P
 
 **S9. `workflow` engine and nodes (plugins, core, L).** Begin with a spike that answers the evaluation question; then `SUPERVISOR_SIGNAL`, `SUPERVISOR_DECISION`, `SUPERVISOR_READ` and the engine, and port the example `examples/1-standalone/09-supervisor-workflow`. The engine declares the signal kinds that start it; `Tick` is how it initiates.
 
-**S10. Hardening and more engines (M and L).** A threat-model review of the new endpoints against the table above; fuzzing of the directive body; a chaos test (the engine disconnects mid-review, the credential is revoked during a command); the `process` engine; a scaffold `yk new engine <name>`; the docs and the migration note (`docs/operations/security.mdx`, `docs/running/supervisors.mdx`, `docs/api`, `core/.claude/rules/supervisors.md`, `docs/contributing/core-reference.mdx` then `core/scripts/check-core-reference.sh`); regenerate `ui/openapi.json`, `docs/api/openapi.json` and `ui/src/types/api.generated.ts`.
+**S10. Hardening and more engines (M and L).** A threat-model review of the new endpoints against the table above; fuzzing of the directive body; a chaos test (the engine disconnects mid-review, the credential is revoked during a command); the `process` engine; a scaffold `yk new engine <name>`; the docs and the migration note (`docs/guides/operate/secure-the-server.mdx`, `docs/concepts/supervisors.mdx`, `docs/api`, `core/.claude/rules/supervisors.md`, `docs/contributing/core-reference.mdx` then `core/scripts/check-core-reference.sh`); regenerate `ui/openapi.json`, `docs/api/openapi.json` and `ui/src/types/api.generated.ts`.
 
 **S11. Clients (mcp, cli, web, docs, examples, L; delivered with the phase that changes each surface).** The [Clients](#clients-mcp-cli-rest-and-others) section: the operator results and descriptions (S2); the management tools, the CLI management commands and `/api/supervisor-engines` (S4 and S7); the rules and credential endpoints, tools and commands (S5 and S6); the supervisor MCP endpoint `/api/agent/v1/mcp` and the `yukta-supervisor` skill (S6); the reference agent command and the Python and Go reference agents; the CPU guard and other examples; the Bruno collections; the OpenAPI snapshots and generated types; the docs listed there. This phase tracks the checklist; each item is done in the PR of the phase that needs it.
 

@@ -1,0 +1,11 @@
+ ❯ src/math.test.ts (2 tests | 1 failed) 5ms
+   × adds numbers 3ms
+ FAIL  src/math.test.ts > math > adds numbers
+AssertionError: expected 3 to be 2 // Object.is equality
+ FAIL  src/other.test.ts
+src/app.ts(3,5): error TS2322: Type 'string' is not assignable to type 'number'.
+src/b.ts:7:1 - error TS2304: Cannot find name 'x'.
+
+/repo/ui/src/c.tsx
+  3:5  error  'y' is defined but never used  no-unused-vars
+  4:1  warning  Unexpected console statement  no-console

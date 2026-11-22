@@ -17,6 +17,11 @@ yk gradle :mcp:test
 - **Workflows**: `get_workflow_details`, `start_workflow`, `get_workflow_status`
   (WorkflowProgress snapshot), `get_workflow_history`, `get_execution_logs`
   (real logs from `PluginLogStore`, regex filter + tail)
+- **Reading runs cheaply** (`DiagnosisProvider` over core `service/diagnosis`): `get_failure_digest`
+  (about 4 KB: failed nodes, recognised failures, next reads) and `search_logs` (grep with COUNT,
+  NODES or LINES mode, budgets and a cursor). The server `instructions`
+  (`spring.ai.mcp.server.instructions` in `boot` `application.yaml`) and the `debug-workflow` prompt
+  send agents to these first; keep tool descriptions consistent with that order.
 - **Control**: `control_workflow` (PAUSE/RESUME/STOP/STOP_ALL/RESTART/RESTART_FROM_NODE),
   `control_node` (PAUSE/RESUME/STOP/STEP/STEP_ENABLE/STEP_DISABLE)
 - **Input requests** (`InputProvider`): `list_pending_inputs` (VIEWER; bounded: 50 entries, texts cut to 2000 characters), `answer_input` and `escalate_input` (OPERATOR; `sessionId` is required like every execution-scoped tool). Tool descriptions say that prompts and context are untrusted.
@@ -36,7 +41,7 @@ yk gradle :mcp:test
 - `src/main/java/com/infenia/yukta/mcp/dto/`: MCP-owned response records (plain records,
   no swagger annotations). Core records (`WorkflowProgress`, `WorkflowExecutionSummary`,
   `WorkflowDefinition`) are returned directly where already clean.
-- `../docs/contributing/modules/mcp.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `mcp` (`gh issue list -l mcp`; risks also carry `risk`); evolution path and quality lenses: `../design/assessments/mcp.md`.
+- `../docs/contributing/modules/mcp.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `mcp` (`gh issue list -l mcp`; risks also carry `risk`).
 
 ## Conventions & Gotchas
 - Tool params use `@McpToolParam(required, description)`; `@McpArg` is only for

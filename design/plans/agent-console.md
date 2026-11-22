@@ -500,7 +500,7 @@ Breaking changes, all in AC2 and AC4: the Java package of the plugin; `ProcessEx
 
 ## Not in this plan
 
-- Agent nodes on remote workers. It needs the conversation and input gateways on the worker stream; see `design/plans/remote-workers.md`.
+- Agent nodes on remote workers. It needs the conversation and input gateways on the worker stream; see `design/decisions/0006-remote-workers.md`.
 - A WebSocket transport, a full-screen TUI, a page that lists the live agents of all runs.
 - Notifications when an agent waits without an input request (an idle chat, a terminal that wants attention): a link to the `NotificationGateway` of epic #2348 once both exist.
 - "Always allow" for a tool from the timeline; requests as `CHOICE` or `TEXT` (D20).

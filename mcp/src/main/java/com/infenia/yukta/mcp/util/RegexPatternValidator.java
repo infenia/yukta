@@ -2,29 +2,28 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.util;
 
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
+import com.infenia.yukta.logging.api.GrepPattern;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
-/** Compiles and applies agent-supplied regex filters with bounds on pattern size and match time. */
+/**
+ * Compiles and applies agent-supplied regex filters. They run on {@link GrepPattern} (RE2/J, linear
+ * time), so a filter cannot stall the server; only the pattern size is bounded.
+ */
 @UtilityClass
-@SuppressWarnings("PMD.CommentDefaultAccessModifier")
 public class RegexPatternValidator {
 
   /** Longest accepted pattern; longer ones are rejected. */
-  public static final int MAX_PATTERN_LENGTH = 200;
-
-  /** Time one line may spend in the regex engine before the filter is rejected. */
-  private static final long MATCH_BUDGET_NANOS = 50_000_000L;
+  public static final int MAX_PATTERN_LENGTH = GrepPattern.MAX_PATTERN;
 
   /**
-   * Compile a filter pattern once so it can be reused for every line.
+   * Compiles a filter.
    *
-   * @param pattern the regex, possibly null or blank
-   * @return the compiled pattern, or null when no filter was given
-   * @throws IllegalArgumentException if the pattern is too long or invalid
+   * @param pattern the filter, in RE2 syntax, or null or blank for none
+   * @return the compiled filter, or null for none
+   * @throws IllegalArgumentException if it is too long or not a valid RE2 expression
    */
-  public static Pattern compile(final String pattern) {
+  public static @Nullable GrepPattern compile(@Nullable final String pattern) {
     if (pattern == null || pattern.isBlank()) {
       return null;
     }
@@ -33,55 +32,20 @@ public class RegexPatternValidator {
           "Regex pattern too long (max " + MAX_PATTERN_LENGTH + " characters).");
     }
     try {
-      return Pattern.compile(pattern);
-    } catch (final PatternSyntaxException e) {
+      return GrepPattern.compile(pattern);
+    } catch (IllegalArgumentException e) {
       throw new IllegalArgumentException("Invalid regex pattern: " + e.getMessage(), e);
     }
   }
 
   /**
-   * Check whether text matches a compiled pattern within the time budget.
+   * Whether a text passes a filter: it contains a match anywhere, or there is no filter.
    *
-   * @param text the text to match
-   * @param pattern the compiled pattern, or null to match everything
-   * @return true if the text matches or there is no pattern
-   * @throws IllegalArgumentException if matching exceeds the time budget (catastrophic
-   *     backtracking)
+   * @param text the text
+   * @param pattern the filter, or null for none
+   * @return whether it passes
    */
-  public static boolean matches(final String text, final Pattern pattern) {
-    return pattern == null || pattern.matcher(budgeted(text)).find();
-  }
-
-  /** Wrap text so the regex engine aborts once the per-line time budget is spent. */
-  static CharSequence budgeted(final String text) {
-    return new Budgeted(text, System.nanoTime() + MATCH_BUDGET_NANOS);
-  }
-
-  /** Char sequence that aborts the regex engine once its deadline has passed. */
-  private record Budgeted(String text, long deadline) implements CharSequence {
-
-    @Override
-    public char charAt(final int index) {
-      if (System.nanoTime() > deadline) {
-        throw new IllegalArgumentException(
-            "Regex filter is too expensive to evaluate; simplify the pattern.");
-      }
-      return text.charAt(index);
-    }
-
-    @Override
-    public int length() {
-      return text.length();
-    }
-
-    @Override
-    public CharSequence subSequence(final int start, final int end) {
-      return new Budgeted(text.substring(start, end), deadline);
-    }
-
-    @Override
-    public String toString() {
-      return text;
-    }
+  public static boolean matches(final String text, @Nullable final GrepPattern pattern) {
+    return pattern == null || pattern.find(text);
   }
 }

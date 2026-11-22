@@ -2,7 +2,7 @@
 
 Scripts and the runbook for building, packaging and publishing a Yukta release. The scripts work the
 same on the release machine and in CI. The plan and the reasons behind it are in
-[`design/plans/releases.md`](../design/plans/releases.md).
+[`design/decisions/0007-releases.md`](../design/decisions/0007-releases.md).
 
 **Scope today (alpha):** Native server and CLI for linux-amd64, linux-arm64, darwin-amd64 (Intel; Apple silicon runs it through Rosetta 2) and windows-amd64, `install.sh`,
 `.deb`/`.rpm`/`.tar.gz` (Linux), `.tar.gz` (macOS), `.zip` (Windows), and a multi-architecture

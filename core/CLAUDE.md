@@ -64,7 +64,7 @@ The detailed reference that used to live here is in path-scoped rules: each load
 - **Services**: `src/main/java/com/infenia/yukta/service/`
 - **Validation**: `src/main/java/com/infenia/yukta/validation/`
 - **Module reference (architecture, feature catalog, settings, metrics)**: `../docs/contributing/core-reference.mdx`. When you add, change or remove a core feature, setting or meter, update it and run `core/scripts/check-core-reference.sh` (then `--stamp`); the page's "Maintaining this document" section says what to edit.
-- **Module guide (components, scenarios, ADRs)**: `../docs/contributing/modules/core.mdx`; open risks, bugs and features: GitHub issues labelled `core` (`gh issue list -l core`); assessment and plans: `../design/assessments/core.md`, `../design/plans/`
+- **Module guide (components, scenarios, ADRs)**: `../docs/contributing/modules/core.mdx`; open risks, bugs and features: GitHub issues labelled `core` (`gh issue list -l core`); design decisions: `../design/decisions/`
 
 ## Testing speed
 Follow the tiered "Test Execution Policy (speed)" in the root `CLAUDE.md`: run `--tests` for the classes you changed first; full `:core:test` only when many files changed.

@@ -15,7 +15,7 @@ The mcp module is Yukta's door for AI agents. An agent (a program driven by a la
 | Open unless you set a key | The endpoint accepts the same named keys as REST (roles VIEWER, OPERATOR, ADMIN, optional session limits), and each tools/call is checked against the key's role. No key is set in the shipped config, so on loopback it is still open; boot refuses to listen on another address without a key. |
 
 <Note>
-  Open work for this module is tracked in GitHub issues: [risks](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Arisk%20label%3Amcp), [bugs](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Amcp) and [all open issues](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Amcp). Its evolution path and quality lenses are in [design/assessments/mcp.md](https://github.com/infenia/yukta/blob/main/design/assessments/mcp.md).
+  Open work for this module is tracked in GitHub issues: [risks](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Arisk%20label%3Amcp), [bugs](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Amcp) and [all open issues](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Amcp).
 </Note>
 
 ## Primer
@@ -77,7 +77,7 @@ An agent is told 'run e-42 in session ci failed, find out why and fix it'. Click
 
 **Why it works this way.** The filter is a regular expression, compiled once and applied to each formatted line as it streams from the log store. Only the last 50 matches are kept in memory. Without tailLines the cap is 5,000 lines, so one call cannot flood the agent's context.
 
-**Can go wrong.** A pattern longer than 200 characters, a syntax error, or one that takes more than 50 ms on a single line is rejected with an explanation.
+**Can go wrong.** A pattern longer than 200 characters, a syntax error, or RE2-unsupported syntax (back-references, lookaround) is rejected with an explanation.
 
 </Step>
 <Step title="Read the DAG">
@@ -113,9 +113,9 @@ An agent is told 'run e-42 in session ci failed, find out why and fix it'. Click
 
 </Step>
 <Step title="Bad regex">
-**What happens.** The call fails before any log is read, with 'Regex pattern too long', 'Invalid regex pattern: ...' or 'Regex filter is too expensive to evaluate; simplify the pattern.'
+**What happens.** The call fails before any log is read, with 'Regex pattern too long' or 'Invalid regex pattern: ...' (which names RE2 syntax when a back-reference or lookaround was used).
 
-**Why it works this way.** The agent writes the regex, so it is treated as untrusted input. A pattern can make matching take exponential time (catastrophic backtracking), so each line gets a 50 ms budget.
+**Why it works this way.** The agent writes the regex, so it is treated as untrusted input. On a backtracking engine a pattern can make matching take exponential time (catastrophic backtracking), so every caller-supplied pattern runs on RE2/J (`GrepPattern`), a linear-time engine: no pattern can stall the server, and no per-line budget is needed.
 
 **Can go wrong.** A pattern that is expensive on one long line fails the whole call. The agent has to rewrite it and ask again.
 
@@ -270,16 +270,16 @@ Reads the stored plugin logs of one execution, filters lines with the agent's re
 - The regex is checked first: empty means no filter, longer than 200 characters is rejected, a syntax error is reported with the engine's message. It is compiled once per call and reused for every line.
 - Lines stream from core's log store, each is formatted ('[timestamp] [level] ...'), tested with a 'contains a match' search, and only the last N matches are kept. N is tailLines, or 5,000 if absent or not positive, and never more than 5,000. Streaming and keeping only the tail means memory stays bounded by N lines even for a very large log.
 - The result reports executionId, totalLines (how many lines matched in all), returnedLines and the lines. An agent can see that 131 lines matched and it received 50, and ask for a narrower filter instead of paging.
-- Each line has a 50 ms budget in the regex engine. The text is wrapped so that reading a character past the deadline throws, which cuts off a pattern like (a+)+$ that would otherwise run for minutes. The whole call then fails with 'too expensive to evaluate; simplify the pattern.'
+- Patterns run on RE2/J (`GrepPattern` in core), which matches in time proportional to pattern times text and never backtracks: a pattern like `(a+)+$` finishes as fast as any other. The price is RE2 syntax, without back-references or lookaround.
 - The ownership check runs after the pattern check and before any line is read, so a foreign id never causes a log read.
 - The resource form yukta://sessions/.../logs calls the same method with no filter and no tail.
 
-- **Guarantees.** One call returns at most 5,000 lines, a hostile pattern cannot run longer than 50 ms per line, and a foreign execution's logs are never read.
+- **Guarantees.** One call returns at most 5,000 lines (100 by default), a hostile pattern runs in linear time, and a foreign execution's logs are never read.
 - **State.** None. The log content is held by core's log store, which depends on how that store is configured.
 - **Ceiling.** The whole execution log is still read from the store line by line. A multi-gigabyte log costs time even though little is kept. There is no paging: 5,000 lines is a hard ceiling per call.
 - **On failure.** An expensive pattern fails the whole call, not just the slow line. Logs are raw plugin output that can contain secrets or text meant to steer a model; mcp passes them on as they are.
 
-**Settings:** `tailLines (default and max 5,000)`, `filterPattern (max 200 chars)`, `per-line budget 50 ms`
+**Settings:** `tailLines (default 100, max 5,000)`, `filterPattern (max 200 chars, RE2 syntax)`, `yukta.mcp.log-default-chars (16000)`
 
 ### Session provider
 

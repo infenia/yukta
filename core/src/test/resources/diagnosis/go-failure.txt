@@ -1,0 +1,9 @@
+=== RUN   TestParse
+--- FAIL: TestParse (0.00s)
+    parse_test.go:21: got "a", want "b"
+=== RUN   TestOther
+--- PASS: TestOther (0.00s)
+--- FAIL: TestSilent (0.00s)
+FAIL
+FAIL	github.com/infenia/yukta/cli/internal/parse	0.012s
+./cmd/main.go:14:2: undefined: missing

@@ -61,6 +61,8 @@ class AppMcpToolsTest {
   private InputProvider inputProvider;
   private com.infenia.yukta.mcp.provider.NotificationProvider notificationProvider;
 
+  private com.infenia.yukta.mcp.provider.DiagnosisProvider diagnosisProvider;
+
   @BeforeEach
   void setUp() {
     sessionInfoProvider = mock(SessionInfoProvider.class);
@@ -75,10 +77,12 @@ class AppMcpToolsTest {
     supervisorProvider = mock(com.infenia.yukta.mcp.provider.SupervisorProvider.class);
     inputProvider = mock(InputProvider.class);
     notificationProvider = mock(com.infenia.yukta.mcp.provider.NotificationProvider.class);
+    diagnosisProvider = mock(com.infenia.yukta.mcp.provider.DiagnosisProvider.class);
     mcpTools =
         new AppMcpTools(
             sessionInfoProvider,
             logProvider,
+            diagnosisProvider,
             workflowExecutionProvider,
             workflowControlProvider,
             pluginInfoProvider,
@@ -89,6 +93,39 @@ class AppMcpToolsTest {
             supervisorProvider,
             inputProvider,
             notificationProvider);
+  }
+
+  @Test
+  void testGetFailureDigestAndSearchLogsDelegateToTheProvider() {
+    final var digest =
+        new com.infenia.yukta.mcp.dto.FailureDigestResult(
+            new com.infenia.yukta.service.diagnosis.FailureDigest(
+                "e1", "wf", "FAILURE", true, 1, List.of(), List.of(), 0, List.of()),
+            "n");
+    final var search =
+        new com.infenia.yukta.mcp.dto.LogSearchResult(
+            new com.infenia.yukta.service.diagnosis.RunLogSearch(
+                "e1",
+                com.infenia.yukta.service.diagnosis.LogSearchMode.COUNT,
+                1,
+                0,
+                0,
+                List.of(),
+                0,
+                List.of(),
+                false,
+                null,
+                null),
+            "n");
+    when(diagnosisProvider.getFailureDigest("s1", "e1")).thenReturn(Mono.just(digest));
+    when(diagnosisProvider.searchLogs("s1", "e1", true, "a", "all", "ERROR", "x", 1, null, 5, null))
+        .thenReturn(Mono.just(search));
+
+    StepVerifier.create(mcpTools.getFailureDigest("s1", "e1")).expectNext(digest).verifyComplete();
+    StepVerifier.create(
+            mcpTools.searchLogs("s1", "e1", true, "a", "all", "ERROR", "x", 1, null, 5, null))
+        .expectNext(search)
+        .verifyComplete();
   }
 
   @Test
@@ -125,9 +162,10 @@ class AppMcpToolsTest {
   @Test
   void testGetExecutionLogs() {
     var logs = new ExecutionLogs("e1", 1, 1, List.of("line1"));
-    when(logProvider.getExecutionLogs("s1", "e1", null, null, null)).thenReturn(Mono.just(logs));
+    when(logProvider.getExecutionLogs("s1", "e1", null, null, null, "n", "ERROR"))
+        .thenReturn(Mono.just(logs));
 
-    StepVerifier.create(mcpTools.getExecutionLogs("s1", "e1", null, null, null))
+    StepVerifier.create(mcpTools.getExecutionLogs("s1", "e1", null, null, null, "n", "ERROR"))
         .expectNext(logs)
         .verifyComplete();
   }
@@ -173,8 +211,42 @@ class AppMcpToolsTest {
     when(workflowExecutionProvider.getWorkflowStatus("s1", "e1", null))
         .thenReturn(Mono.just(progress));
 
-    StepVerifier.create(mcpTools.getWorkflowStatus("s1", "e1", null))
+    StepVerifier.create(mcpTools.getWorkflowStatus("s1", "e1", null, null))
         .expectNext(progress)
+        .verifyComplete();
+  }
+
+  @Test
+  void testGetWorkflowStatusCanHideSucceededNodes() {
+    final var ok =
+        new com.infenia.yukta.model.execution.TaskProgress(
+            "ok", "M", com.infenia.yukta.model.execution.TaskStatus.SUCCESS, null, null, null);
+    final var bad =
+        new com.infenia.yukta.model.execution.TaskProgress(
+            "bad", "M", com.infenia.yukta.model.execution.TaskStatus.FAILURE, null, null, null);
+    final var progress =
+        new WorkflowProgress(
+            "e1",
+            "s1",
+            "wf",
+            com.infenia.yukta.model.execution.TaskStatus.FAILURE,
+            List.of(ok, bad),
+            java.time.Instant.EPOCH,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    when(workflowExecutionProvider.getWorkflowStatus("s1", "e1", 0))
+        .thenReturn(Mono.just(progress));
+
+    StepVerifier.create(mcpTools.getWorkflowStatus("s1", "e1", 0, true))
+        .assertNext(p ->
+            org.assertj.core.api.Assertions.assertThat(p.tasks())
+                .extracting(t -> t.nodeId())
+                .containsExactly("bad"))
         .verifyComplete();
   }
 
@@ -184,7 +256,7 @@ class AppMcpToolsTest {
     when(workflowExecutionProvider.getWorkflowHistory("s1"))
         .thenReturn(Mono.just(List.of(summary)));
 
-    StepVerifier.create(mcpTools.getWorkflowHistory("s1"))
+    StepVerifier.create(mcpTools.getWorkflowHistory("s1", null, null))
         .expectNext(new WorkflowHistory(List.of(summary)))
         .verifyComplete();
   }
@@ -216,7 +288,7 @@ class AppMcpToolsTest {
     final var run = Fixtures.summary("e1", "wf", TaskStatus.RUNNING, null, null);
     when(workflowControlProvider.getExecutionTree("s1", "e1")).thenReturn(Mono.just(List.of(run)));
 
-    StepVerifier.create(mcpTools.getExecutionTree("s1", "e1"))
+    StepVerifier.create(mcpTools.getExecutionTree("s1", "e1", null, null))
         .assertNext(history ->
             org.assertj.core.api.Assertions.assertThat(history.executions()).containsExactly(run))
         .verifyComplete();

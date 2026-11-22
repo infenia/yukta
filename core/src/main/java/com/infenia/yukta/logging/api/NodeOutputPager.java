@@ -6,8 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -25,16 +23,10 @@ public class NodeOutputPager {
   public static final int DEFAULT_LIMIT = 50;
 
   /** Longest text kept per line; also the longest a pattern is matched against. */
-  public static final int MAX_LINE = 2000;
-
-  /** Longest pattern accepted, against runaway regular expressions. */
-  private static final int MAX_PATTERN = 200;
-
-  /** Time one line may spend in the regex engine before the read is refused. */
-  private static final long MATCH_BUDGET_NANOS = 50_000_000L;
+  public static final int MAX_LINE = GrepPattern.MAX_LINE;
 
   /** Most context lines either side of a match. */
-  private static final int MAX_CONTEXT = 20;
+  public static final int MAX_CONTEXT = 20;
 
   /**
    * Slices the lines of a node.
@@ -70,7 +62,7 @@ public class NodeOutputPager {
     final List<NodeOutputSlice.Line> lines = new ArrayList<>();
     for (int i = window.from(); i < window.end(); i++) {
       final String text = all.get(picks[i]);
-      lines.add(new NodeOutputSlice.Line(picks[i] + 1L, cut(text)));
+      lines.add(new NodeOutputSlice.Line(picks[i] + 1L, GrepPattern.cut(text)));
     }
     final long bytes =
         all.stream().mapToLong(line -> line.getBytes(StandardCharsets.UTF_8).length + 1L).sum();
@@ -108,10 +100,6 @@ public class NodeOutputPager {
     return window;
   }
 
-  private static String cut(final String text) {
-    return text.length() > MAX_LINE ? text.substring(0, MAX_LINE) : text;
-  }
-
   private static void nonNegative(final Number... numbers) {
     for (final Number number : numbers) {
       if (number != null && number.longValue() < 0) {
@@ -135,62 +123,14 @@ public class NodeOutputPager {
     if (grep == null || grep.isEmpty()) {
       selected.set(0, all.size());
     } else {
-      final Pattern pattern = pattern(grep);
+      final GrepPattern pattern = GrepPattern.compile(grep);
       final int around = Math.min(context, MAX_CONTEXT);
       for (int i = 0; i < all.size(); i++) {
-        if (matches(pattern, all.get(i))) {
+        if (pattern.matches(all.get(i))) {
           selected.set(Math.max(0, i - around), Math.min(all.size(), i + around + 1));
         }
       }
     }
     return selected;
-  }
-
-  private static boolean matches(final Pattern pattern, final String line) {
-    return pattern.matcher(new Budgeted(cut(line), System.nanoTime() + MATCH_BUDGET_NANOS)).find();
-  }
-
-  private static Pattern pattern(final String grep) {
-    if (grep.length() > MAX_PATTERN) {
-      throw new IllegalArgumentException("grep is longer than " + MAX_PATTERN + " characters");
-    }
-    try {
-      // The pattern is the caller's on purpose (a grep): it is at most 200 characters and each line
-      // is matched within a time budget.
-      return Pattern.compile(grep); // lgtm[java/regex-injection]
-    } catch (PatternSyntaxException e) {
-      throw new IllegalArgumentException(
-          "grep is not a valid regular expression: " + e.getDescription(), e);
-    }
-  }
-
-  /**
-   * Char sequence that aborts the regex engine once its deadline has passed (catastrophic
-   * backtracking).
-   */
-  /* package */ record Budgeted(String text, long deadline) implements CharSequence {
-    @Override
-    public char charAt(final int index) {
-      if (System.nanoTime() > deadline) {
-        throw new IllegalArgumentException(
-            "grep is too expensive to evaluate; simplify the pattern");
-      }
-      return text.charAt(index);
-    }
-
-    @Override
-    public int length() {
-      return text.length();
-    }
-
-    @Override
-    public CharSequence subSequence(final int start, final int end) {
-      return new Budgeted(text.substring(start, end), deadline);
-    }
-
-    @Override
-    public String toString() {
-      return text;
-    }
   }
 }

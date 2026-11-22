@@ -58,11 +58,7 @@ class McpAgentJourneyE2eTest {
           call(mcp, "start_workflow", Map.of("sessionId", session, "workflowId", "w"))
               .path("executionId")
               .asString();
-      final JsonNode status =
-          call(
-              mcp,
-              "get_workflow_status",
-              Map.of("sessionId", session, "executionId", execution, "waitSeconds", 20));
+      final JsonNode status = mcp.awaitTerminal(session, execution, WAIT);
 
       assertThat(status.path("status").asString()).isEqualTo("SUCCESS");
       assertThat(

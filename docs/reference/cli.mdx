@@ -140,6 +140,8 @@ The key for the agents comes from `--token`, `--token-file` or `YUKTA_TOKEN`, li
 | `workflow executions search` | Searches runs across sessions. Flags: `--session`, `--filter <expr>`, `--limit N`. |
 | `result <session-id> <execution-id>` | Streams the result. Flag: `--node <id>` (one terminal node). |
 | `logs <session-id> <execution-id>` | Streams the logs. See below for flags. |
+| `digest <execution-id>` | Why a run failed, in a few lines: failed nodes (also of failed sub-runs), the failures recognised in their output (tests, compile errors, lint, tasks, with `file:line`) and the commands that show more. Read it before any log. |
+| `logs search <execution-id>` | A grep over a run's logs, counts first. See below for flags. |
 
 ### `logs` flags
 | Flag | Type | Description |
@@ -153,6 +155,19 @@ The key for the agents comes from `--token`, `--token-file` or `YUKTA_TOKEN`, li
 | `--limit N` | integer | Page size; default 50, at most 500. |
 | `--grep <regex>` | string | Only matching lines. |
 | `--context N` | integer | Lines around each match; at most 20. |
+
+### `logs search` flags
+| Flag | Type | Description |
+|---|---|---|
+| `--mode` | string | `COUNT` (default: lines, errors, warnings and matches per node), `NODES` (only nodes that matched) or `LINES` (the matching lines). |
+| `--children` | boolean | Also searches the runs it started (same session only). |
+| `--nodes` | string | Comma-separated node ids. |
+| `--stream` | string | `stdout`, `stderr` or `all`. |
+| `--level` | string | Lowest level: `ERROR`, `WARN` or `INFO`. |
+| `--grep <regex>` | string | Lines that contain this regular expression (at most 200 characters). |
+| `--context N` | integer | `LINES`: lines of the same node around each match; at most 20. |
+| `--max N` | integer | `LINES`: most matching lines; default 50, at most 500 (and 16 KB). |
+| `--cursor` | string | The cursor a cut answer printed on stderr, for the next page. |
 
 ## Nodes
 

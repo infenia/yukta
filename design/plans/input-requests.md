@@ -334,7 +334,7 @@ A supervisor implemented as a workflow in an internal session, with guard rails.
 | CLI (Go) | `yukta inputs` with the subcommands `list`, `show`, `answer` and `escalate`. |
 | UI | Turn the pending-approvals strip into an Inputs panel: prompt, option buttons or text box, risk badge, current tier with countdown, supervisor advice, history. The Control page shows supervisor conflict and flap decisions. |
 | Generated files | Regenerate `ui/openapi.json`, `docs/api/openapi.json` and `ui/src/types/api.generated.ts` with the project task. Claude cannot read them; run the generator and review the diff by eye. |
-| Docs | New page next to `docs/building/approvals-and-signals.mdx`; extend `docs/running/supervisors.mdx`; update `core/.claude/rules/supervisors.md` and `execution-limits-and-control.md`. |
+| Docs | New page next to `docs/learn/ask-for-approval.mdx`; extend `docs/concepts/supervisors.mdx`; update `core/.claude/rules/supervisors.md` and `execution-limits-and-control.md`. |
 
 ### Observability
 

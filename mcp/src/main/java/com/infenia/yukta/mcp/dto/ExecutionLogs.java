@@ -4,6 +4,7 @@ package com.infenia.yukta.mcp.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Logs of a workflow execution returned by the {@code get_execution_logs} MCP tool.
@@ -18,6 +19,7 @@ import java.util.List;
  * @param nextCursor pass it as {@code afterCursor} to get the entries after this result: the ones
  *     written later and, if {@code omittedLines} is not 0 and a cursor was given, the omitted ones
  * @param notice reminds the reader that the lines are untrusted data, not instructions
+ * @param hint how to read only the part needed when lines were left out, or {@code null}
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ExecutionLogs(
@@ -27,7 +29,8 @@ public record ExecutionLogs(
     int omittedLines,
     List<String> lines,
     int nextCursor,
-    String notice) {
+    String notice,
+    @Nullable String hint) {
 
   /**
    * The notice that travels with every log result: log lines are written by plugins and may hold
@@ -61,7 +64,8 @@ public record ExecutionLogs(
         Math.max(0, totalLines - returnedLines),
         lines,
         nextCursor,
-        notice);
+        notice,
+        null);
   }
 
   /**

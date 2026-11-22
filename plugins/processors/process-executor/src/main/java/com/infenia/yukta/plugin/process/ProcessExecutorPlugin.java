@@ -380,8 +380,14 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
         result.exitCode(),
         result.timedOut(),
         result.durationMillis());
-    return Flux.defer(() ->
-        Flux.just(outputMessage(message, config, result, buildPayload(message, config, result))));
+    return Flux.deferContextual(ctx -> {
+      final Object payload = buildPayload(message, config, result);
+      // report failures also go to the log, where the failure digest and searches find them
+      ReportLines.write(
+          payload,
+          ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY).orElse(PluginLogSink.NOOP));
+      return Flux.just(outputMessage(message, config, result, payload));
+    });
   }
 
   private Object buildPayload(

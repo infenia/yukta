@@ -159,12 +159,10 @@ class NodeOutputPagerTest {
   }
 
   @Test
-  void expensiveGrep_isRefusedNotHung() {
-    final List<String> trap = List.of("a".repeat(40) + "!");
+  void catastrophicGrep_finishesInLinearTime() {
+    final List<String> trap = List.of("a".repeat(1_999) + "!");
 
-    assertThatThrownBy(() -> slice(trap, null, null, null, null, "(a*)*\\1b", null))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("too expensive");
+    assertThat(slice(trap, null, null, null, null, "(a+)+$", null).matchedLines()).isZero();
   }
 
   @Test
@@ -173,17 +171,6 @@ class NodeOutputPagerTest {
         .hasSize(1);
     assertThat(slice(List.of("hello world"), null, null, null, null, "^hello (wor)", null).lines())
         .hasSize(1);
-  }
-
-  @Test
-  void budgetedLine_readsLikeItsText() {
-    final CharSequence line =
-        new NodeOutputPager.Budgeted("hello", System.nanoTime() + 1_000_000_000L);
-
-    assertThat(line).hasSize(5);
-    assertThat(line.charAt(1)).isEqualTo('e');
-    assertThat(line.subSequence(1, 3)).hasToString("el");
-    assertThat(line).hasToString("hello");
   }
 
   @Test

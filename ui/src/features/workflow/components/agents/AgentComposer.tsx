@@ -4,6 +4,11 @@
 import { useState, type KeyboardEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupTextarea,
+} from '@/components/ui/input-group';
 import type { Conversation } from '@/types/conversations';
 import {
   endConversation,
@@ -11,6 +16,12 @@ import {
   sendConversationMessage,
 } from '../../api/conversations';
 import { isForbidden, steerErrorMessage } from '../../lib/steerErrors';
+
+const SendIcon = () => (
+  <span aria-hidden="true" className="material-symbols-outlined text-base">
+    send
+  </span>
+);
 
 /** Why the composer cannot send, or null when it can. */
 function reasonDisabled(c: Conversation, forbidden: boolean): string | null {
@@ -34,28 +45,20 @@ export function AgentComposer({
   if (!conversation) {
     return (
       <div className="mx-auto flex w-full max-w-3xl px-4 pt-1 pb-3">
-        <div className="border-border bg-surface flex min-w-0 flex-1 items-center gap-2 rounded-2xl border px-3 py-2 opacity-60">
-          <input
+        <InputGroup className="opacity-60">
+          <InputGroupTextarea
             disabled
+            rows={1}
             aria-label="Message to the agent"
             placeholder="Select an agent in the list to send it a message."
-            className="text-body-md min-w-0 flex-1 bg-transparent px-1 py-1 outline-none"
+            className="text-body-md min-h-9"
           />
-          <Button
-            type="button"
-            size="icon"
-            className="size-8 rounded-full"
-            aria-label="Send"
-            disabled
-          >
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-lg"
-            >
-              send
-            </span>
-          </Button>
-        </div>
+          <InputGroupAddon align="inline-end" className="self-end pb-1.5">
+            <Button size="icon" aria-label="Send" disabled>
+              <SendIcon />
+            </Button>
+          </InputGroupAddon>
+        </InputGroup>
       </div>
     );
   }
@@ -115,11 +118,11 @@ function Composer({ conversation }: { conversation: Conversation }) {
           sent when the turn ends.
         </p>
       )}
-      <div className="border-border bg-surface focus-within:border-ring shadow-card flex flex-col gap-1 rounded-2xl border px-3 py-2">
+      <InputGroup>
         <label htmlFor={`composer-${conversation.id}`} className="sr-only">
           Message to {conversation.nodeId}
         </label>
-        <textarea
+        <InputGroupTextarea
           id={`composer-${conversation.id}`}
           rows={1}
           value={text}
@@ -130,9 +133,9 @@ function Composer({ conversation }: { conversation: Conversation }) {
             disabled ??
             'Message the agent. Enter sends, Shift+Enter adds a line.'
           }
-          className="text-body-md max-h-40 min-w-0 resize-none bg-transparent px-1 py-1 outline-none disabled:opacity-60"
+          className="text-body-md max-h-40 min-h-9"
         />
-        <div className="flex items-center justify-end gap-1">
+        <InputGroupAddon align="block-end" className="justify-end gap-1">
           {conversation.state !== 'ENDED' && (
             <Button
               type="button"
@@ -170,19 +173,13 @@ function Composer({ conversation }: { conversation: Conversation }) {
           <Button
             type="submit"
             size="icon"
-            className="size-8 rounded-full"
             aria-label={working ? 'Queue' : 'Send'}
             disabled={disabled !== null || empty || send.isPending}
           >
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-lg"
-            >
-              send
-            </span>
+            <SendIcon />
           </Button>
-        </div>
-      </div>
+        </InputGroupAddon>
+      </InputGroup>
       {error ? (
         <span role="alert" className="text-body-sm text-destructive">
           {steerErrorMessage(error)}

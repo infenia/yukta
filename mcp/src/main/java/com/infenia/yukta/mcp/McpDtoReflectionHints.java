@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp;
 
+import io.modelcontextprotocol.spec.McpError;
 import java.util.regex.Pattern;
 import lombok.NoArgsConstructor;
 import org.springframework.aot.hint.MemberCategory;
@@ -17,9 +18,10 @@ import org.springframework.core.type.filter.RegexPatternTypeFilter;
 import org.springframework.util.ClassUtils;
 
 /**
- * Keeps the reflection data of the MCP result records in the native image. Jackson (tool output)
- * and springdoc ({@code /v3/api-docs}) read their components by reflection, which AOT cannot see;
- * without this a native build fails every tool call and the API description.
+ * Keeps the reflection data of the MCP result records, and of the error the transport serializes,
+ * in the native image. Jackson (tool output) and springdoc ({@code /v3/api-docs}) read their
+ * components by reflection, which AOT cannot see; without this a native build fails every tool call
+ * and the API description.
  */
 @Configuration(proxyBeanMethods = false)
 @NoArgsConstructor
@@ -39,6 +41,13 @@ public class McpDtoReflectionHints {
               return true;
             }
           };
+      // The stateless transport answers a bad message with a serialized McpError. Jackson reads its
+      // getters (getCause, getStackTrace, ...) by reflection; McpErrorFilter then swaps the body
+      // for a plain 400. Without the data, native drops the connection instead.
+      for (final Class<?> type :
+          new Class<?>[] {Throwable.class, StackTraceElement.class, McpError.class}) {
+        hints.reflection().registerType(type, MemberCategory.INVOKE_PUBLIC_METHODS);
+      }
       scanner.setResourceLoader(new DefaultResourceLoader(classLoader));
       scanner.addIncludeFilter(new RegexPatternTypeFilter(Pattern.compile(".*")));
       for (final BeanDefinition candidate :
@@ -49,6 +58,7 @@ public class McpDtoReflectionHints {
                 ClassUtils.resolveClassName(candidate.getBeanClassName(), classLoader),
                 MemberCategory.INVOKE_PUBLIC_METHODS,
                 MemberCategory.INVOKE_DECLARED_METHODS,
+                MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
                 MemberCategory.ACCESS_DECLARED_FIELDS);
       }
     }

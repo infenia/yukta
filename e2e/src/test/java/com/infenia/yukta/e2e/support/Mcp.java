@@ -3,7 +3,9 @@
 package com.infenia.yukta.e2e.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.security.ApiRole;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
@@ -89,6 +91,34 @@ public final class Mcp implements AutoCloseable {
         client.callTool(McpSchema.CallToolRequest.builder().name(name).arguments(args).build());
     assertThat(result.isError()).as("%s failed: %s", name, result.content()).isNotEqualTo(true);
     return result;
+  }
+
+  /**
+   * Polls {@code get_workflow_status} (each call waits up to 5 s for a change) until the run has a
+   * terminal status. One long-poll is not enough: it answers on any change, such as a node
+   * starting.
+   *
+   * @param sessionId the session
+   * @param executionId the run
+   * @param timeout how long to wait in all
+   * @return the last progress snapshot, whose {@code status} is terminal
+   */
+  public JsonNode awaitTerminal(
+      final String sessionId, final String executionId, final Duration timeout) {
+    final JsonNode[] last = new JsonNode[1];
+    await()
+        .atMost(timeout)
+        .pollInterval(Duration.ofMillis(100))
+        .until(() -> {
+          last[0] =
+              json(
+                  call(
+                      "get_workflow_status",
+                      Map.of(
+                          "sessionId", sessionId, "executionId", executionId, "waitSeconds", 5)));
+          return TaskStatus.isTerminalName(last[0].path("status").asString());
+        });
+    return last[0];
   }
 
   /**

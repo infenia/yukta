@@ -1,0 +1,7 @@
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Could not resolve all files for configuration ':core:compileClasspath'.
+> Could not find com.example:missing:1.0.
+
+* Try:

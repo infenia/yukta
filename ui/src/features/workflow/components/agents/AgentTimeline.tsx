@@ -1,8 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { Bubble, BubbleContent } from '@/components/ui/bubble';
+import { Message, MessageContent } from '@/components/ui/message';
+import {
+  TraceCollapsible,
+  TraceCollapsibleContent,
+  TraceCollapsibleTrigger,
+  TraceIcon,
+  TraceLine,
+  TraceTitle,
+} from '@/components/ui/trace';
 import { cn } from '@/lib/utils';
 import type { Conversation } from '@/types/conversations';
 import type { AgentItem } from '../../lib/agentItems';
@@ -31,9 +41,6 @@ function FailedMark({ status }: { status: string }) {
   );
 }
 
-const quietRow =
-  'text-muted-foreground hover:text-on-surface transition-standard flex w-fit max-w-full cursor-pointer list-none items-center gap-2 rounded-md px-2 py-0.5 [&::-webkit-details-marker]:hidden';
-
 /** A call still going, in words. */
 function spinner(status: string) {
   return (
@@ -43,21 +50,65 @@ function spinner(status: string) {
   );
 }
 
+const isRunning = (status: string) =>
+  !DONE.includes(status) && status !== 'failed';
+
+/** The status of one call as a trace line: a spinner, a check or a cross. */
+function CallLine({
+  status,
+  children,
+}: {
+  status: 'failed' | 'running' | 'done';
+  children: ReactNode;
+}) {
+  const icon = {
+    failed: { name: 'error', tone: 'text-destructive' },
+    running: { name: 'progress_activity', tone: 'text-attention animate-spin' },
+    done: { name: 'check_circle', tone: 'text-success' },
+  }[status];
+  return (
+    <TraceLine
+      status={
+        status === 'failed'
+          ? 'error'
+          : status === 'running'
+            ? 'running'
+            : undefined
+      }
+    >
+      <TraceIcon>
+        <span
+          aria-hidden="true"
+          className={cn('material-symbols-outlined text-base', icon.tone)}
+        >
+          {icon.name}
+        </span>
+      </TraceIcon>
+      {children}
+    </TraceLine>
+  );
+}
+
 /** One tool call: a quiet line with its name; what went in and out shows when opened. */
 function ToolCall({ item }: { item: ToolItem }) {
+  const running = isRunning(item.status);
   return (
-    <details className="group/call">
-      <summary className={quietRow}>
-        <span className="text-body-sm">{item.title}</span>
-        <FailedMark status={item.status} />
-        {!DONE.includes(item.status) &&
-          item.status !== 'failed' &&
-          spinner(item.status)}
-      </summary>
-      <div className="border-border ml-3 flex flex-col gap-1 border-l pl-3">
+    <TraceCollapsible>
+      <TraceCollapsibleTrigger>
+        <CallLine
+          status={
+            item.status === 'failed' ? 'failed' : running ? 'running' : 'done'
+          }
+        >
+          <TraceTitle className="text-body-sm">{item.title}</TraceTitle>
+          <FailedMark status={item.status} />
+          {running && spinner(item.status)}
+        </CallLine>
+      </TraceCollapsibleTrigger>
+      <TraceCollapsibleContent className="flex flex-col gap-1">
         {item.input && (
           <pre
-            className="text-code-sm text-muted-foreground mt-1 overflow-x-auto whitespace-pre-wrap"
+            className="text-code-sm text-muted-foreground overflow-x-auto whitespace-pre-wrap"
             aria-label="Input"
           >
             {item.input}
@@ -65,7 +116,7 @@ function ToolCall({ item }: { item: ToolItem }) {
         )}
         {item.output && (
           <pre
-            className="text-code-sm mt-1 overflow-x-auto whitespace-pre-wrap"
+            className="text-code-sm text-on-surface overflow-x-auto whitespace-pre-wrap"
             aria-label="Output"
           >
             {item.output}
@@ -74,8 +125,8 @@ function ToolCall({ item }: { item: ToolItem }) {
         {item.truncated && (
           <p className="text-body-sm text-muted-foreground">Shortened.</p>
         )}
-      </div>
-    </details>
+      </TraceCollapsibleContent>
+    </TraceCollapsible>
   );
 }
 
@@ -84,32 +135,32 @@ function ToolGroup({ tools }: { tools: ToolItem[] }) {
   const counts = new Map<string, number>();
   tools.forEach((t) => counts.set(t.title, (counts.get(t.title) ?? 0) + 1));
   const failed = tools.filter((t) => t.status === 'failed').length;
-  const running = tools.some(
-    (t) => !DONE.includes(t.status) && t.status !== 'failed'
-  );
-  const status = failed > 0 ? 'failed' : running ? 'running' : 'completed';
+  const running = tools.some((t) => isRunning(t.status));
+  const status = failed > 0 ? 'failed' : running ? 'running' : 'done';
   return (
-    <details className="group/tools">
-      <summary className={quietRow}>
-        <span className="text-body-sm min-w-0 truncate">
-          <span className="sr-only">{tools.length} tool calls</span>
-          {[...counts]
-            .map(([title, n]) => (n > 1 ? `${title} ×${n}` : title))
-            .join(', ')}
-        </span>
-        {failed > 0 && (
-          <span className="text-destructive text-label-sm shrink-0">
-            {failed} failed
-          </span>
-        )}
-        {running && spinner(status)}
-      </summary>
-      <div className="border-border ml-3 flex flex-col border-l pl-2">
+    <TraceCollapsible>
+      <TraceCollapsibleTrigger>
+        <CallLine status={status}>
+          <TraceTitle className="text-body-sm">
+            <span className="sr-only">{tools.length} tool calls</span>
+            {[...counts]
+              .map(([title, n]) => (n > 1 ? `${title} ×${n}` : title))
+              .join(', ')}
+          </TraceTitle>
+          {failed > 0 && (
+            <span className="text-destructive text-label-sm shrink-0">
+              {failed} failed
+            </span>
+          )}
+          {running && spinner(status)}
+        </CallLine>
+      </TraceCollapsibleTrigger>
+      <TraceCollapsibleContent className="flex flex-col gap-1">
         {tools.map((tool) => (
           <ToolCall key={tool.key} item={tool} />
         ))}
-      </div>
-    </details>
+      </TraceCollapsibleContent>
+    </TraceCollapsible>
   );
 }
 
@@ -150,24 +201,26 @@ function ItemBody({
       if (item.role === 'user') {
         return (
           <Tip label={when}>
-            <div className="flex flex-col items-end gap-1">
+            <Message align="end">
+              <MessageContent className="items-end gap-1">
               {item.queued && (
                 <span className="text-muted-foreground text-label-sm">
                   Queued
                 </span>
               )}
-              <div
-                className={cn(
-                  'text-body-md max-w-[80%] rounded-2xl px-4 py-2.5 break-words whitespace-pre-wrap',
-                  item.queued
-                    ? 'border-border border border-dashed'
-                    : 'bg-muted text-on-surface'
-                )}
-              >
-                <Clamped text={item.text} />
-                {item.queued && <span className="sr-only"> (queued)</span>}
-              </div>
-            </div>
+              <Bubble align="end" variant={item.queued ? 'outline' : 'default'}>
+                <BubbleContent
+                  className={cn(
+                    'text-body-md rounded-2xl rounded-br-md px-3 py-2 whitespace-pre-wrap',
+                    item.queued ? 'border-dashed' : 'assistant-gradient'
+                  )}
+                >
+                  <Clamped text={item.text} />
+                  {item.queued && <span className="sr-only"> (queued)</span>}
+                </BubbleContent>
+              </Bubble>
+              </MessageContent>
+            </Message>
           </Tip>
         );
       }
@@ -181,9 +234,15 @@ function ItemBody({
       }
       return (
         <Tip label={when}>
-          <p className="text-body-md px-2 leading-relaxed break-words whitespace-pre-wrap">
-            {item.text}
-          </p>
+          <Message>
+            <MessageContent>
+              <Bubble variant="ghost">
+                <BubbleContent className="text-body-md text-on-surface whitespace-pre-wrap">
+                  {item.text}
+                </BubbleContent>
+              </Bubble>
+            </MessageContent>
+          </Message>
         </Tip>
       );
     }

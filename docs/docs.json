@@ -95,6 +95,7 @@
             "public": true,
             "pages": [
               "guides/ai/connect-an-assistant",
+              "guides/ai/read-runs-efficiently",
               "guides/ai/configure-with-an-assistant",
               "guides/ai/call-an-llm",
               "guides/ai/use-tools-and-mcp-servers",

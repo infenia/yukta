@@ -6,9 +6,34 @@ import { IconButton } from '@/components/common/IconButton';
 import { InlineError } from '@/components/common/InlineError';
 import { Markdown } from '@/components/common/Markdown';
 import { Button } from '@/components/ui/button';
-import { textareaFieldClassName } from '@/components/ui/native-select';
+import { Bubble, BubbleContent } from '@/components/ui/bubble';
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupTextarea,
+} from '@/components/ui/input-group';
+import {
+  Message,
+  MessageContent,
+  MessageFooter,
+} from '@/components/ui/message';
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from '@/components/ui/message-scroller';
+import {
+  TraceCollapsible,
+  TraceCollapsibleContent,
+  TraceCollapsibleTrigger,
+  TraceIcon,
+  TraceLine,
+  TraceTitle,
+} from '@/components/ui/trace';
 import { Tip } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 import { useAssistant } from '../hooks/useAssistant';
 import { BUSY_ASSISTANT_EVENT } from '../lib/open';
 import type { PageContext } from '../lib/pageContext';
@@ -45,7 +70,6 @@ export function Chat({
   const [draft, setDraft] = useState('');
   const [shown, setShown] = useState(WINDOW);
   const input = useRef<HTMLTextAreaElement>(null);
-  const scroller = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) (input.current as HTMLTextAreaElement).focus();
@@ -56,10 +80,6 @@ export function Chat({
       new CustomEvent(BUSY_ASSISTANT_EVENT, { detail: busy })
     );
   }, [busy]);
-  useEffect(() => {
-    const el = scroller.current as HTMLDivElement;
-    el.scrollTop = el.scrollHeight;
-  }, [messages, pending]);
 
   const submit = (text: string) => {
     const clean = text.trim();
@@ -82,12 +102,8 @@ export function Chat({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div
-        ref={scroller}
-        aria-live="polite"
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-3"
-      >
-        {messages.length === 0 ? (
+      {messages.length === 0 ? (
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <div className="flex h-full flex-col justify-end gap-3 pb-2">
             <span
               aria-hidden="true"
@@ -117,80 +133,98 @@ export function Chat({
               ))}
             </div>
           </div>
-        ) : (
-          messages.map((m: Msg, index) =>
-            index < messages.length - shown ? (
-              index === 0 ? (
-                <Button
-                  key="earlier"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShown(shown + WINDOW)}
-                >
-                  Show earlier
-                </Button>
-              ) : null
-            ) : m.role === 'user' ? (
-              <div key={index} className="my-3 flex justify-end">
-                <p className="assistant-gradient text-body-md max-w-[85%] rounded-2xl rounded-br-md px-3 py-2 wrap-break-word whitespace-pre-wrap">
-                  {m.text}
-                </p>
-              </div>
-            ) : m.role === 'assistant' ? (
-              <div key={index} className="text-body-md text-on-surface my-3">
-                {m.text && <Markdown source={m.text} />}
-                {m.calls.map((call) => (
-                  <ToolCard
-                    key={call.id}
-                    call={call}
-                    result={results.get(call.id)}
-                    awaiting={pending?.call.id === call.id}
-                    onApprove={approve}
-                  />
-                ))}
-                {busy && index === last && (
-                  <span
-                    aria-hidden="true"
-                    className="bg-on-surface-variant inline-block h-4 w-1.5 animate-pulse rounded-sm align-middle"
-                  />
+          <InlineError message={error} />
+        </div>
+      ) : (
+        <MessageScrollerProvider autoScroll defaultScrollPosition="end">
+          <MessageScroller>
+            <MessageScrollerViewport
+              aria-label="Conversation"
+              className="px-4 py-3"
+            >
+              <MessageScrollerContent className="gap-3">
+                {messages.length > shown && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShown(shown + WINDOW)}
+                  >
+                    Show earlier
+                  </Button>
                 )}
-                <div className="flex flex-wrap gap-2">
-                  {m.calls
-                    .flatMap((c) => sources(results.get(c.id)?.result))
-                    .map(({ title, url }) => (
-                      <a
-                        key={url}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="border-border text-label-sm text-primary transition-standard hover:bg-surface-container-high rounded-full border px-2.5 py-1"
-                      >
-                        {title}
-                      </a>
-                    ))}
-                </div>
-                {!busy && index === last && m.text && (
-                  <div className="mt-1 flex gap-1">
-                    <IconButton
-                      icon="content_copy"
-                      label="Copy answer"
-                      onClick={() =>
-                        void navigator.clipboard?.writeText(m.text)
-                      }
-                    />
-                    <IconButton
-                      icon="refresh"
-                      label="Retry"
-                      onClick={() => void retry()}
-                    />
-                  </div>
+                {messages.map((m: Msg, index) =>
+                  index < messages.length - shown ? null : m.role === 'user' ? (
+                    <MessageScrollerItem key={index} scrollAnchor>
+                      <Message align="end">
+                        <MessageContent>
+                          <Bubble align="end">
+                            <BubbleContent
+                              render={<p />}
+                              className="assistant-gradient text-body-md rounded-2xl rounded-br-md px-3 py-2 whitespace-pre-wrap"
+                            >
+                              {m.text}
+                            </BubbleContent>
+                          </Bubble>
+                        </MessageContent>
+                      </Message>
+                    </MessageScrollerItem>
+                  ) : m.role === 'assistant' ? (
+                    <MessageScrollerItem key={index}>
+                      <Message>
+                        <MessageContent className="text-body-md text-on-surface">
+                          <Bubble variant="ghost">
+                            <BubbleContent className="text-body-md">
+                              {m.text && <Markdown source={m.text} />}
+                              {m.calls.map((call) => (
+                                <ToolCard
+                                  key={call.id}
+                                  call={call}
+                                  result={results.get(call.id)}
+                                  awaiting={pending?.call.id === call.id}
+                                  onApprove={approve}
+                                />
+                              ))}
+                              {busy && index === last && (
+                                <span
+                                  aria-hidden="true"
+                                  className="bg-on-surface-variant inline-block h-4 w-1.5 animate-pulse rounded-sm align-middle"
+                                />
+                              )}
+                              <Sources
+                                found={m.calls.flatMap((c) =>
+                                  sources(results.get(c.id)?.result)
+                                )}
+                              />
+                            </BubbleContent>
+                          </Bubble>
+                          {!busy && index === last && m.text && (
+                            <MessageFooter className="gap-1">
+                              <IconButton
+                                icon="content_copy"
+                                label="Copy answer"
+                                onClick={() =>
+                                  void navigator.clipboard?.writeText(m.text)
+                                }
+                              />
+                              <IconButton
+                                icon="refresh"
+                                label="Retry"
+                                onClick={() => void retry()}
+                              />
+                            </MessageFooter>
+                          )}
+                        </MessageContent>
+                      </Message>
+                    </MessageScrollerItem>
+                  ) : null
                 )}
-              </div>
-            ) : null
-          )
-        )}
-        <InlineError message={error} />
-      </div>
+                <InlineError message={error} />
+              </MessageScrollerContent>
+            </MessageScrollerViewport>
+            <MessageScrollerButton />
+          </MessageScroller>
+        </MessageScrollerProvider>
+      )}
       <div className="border-primary/15 bg-card/50 flex flex-col gap-2 border-t p-3 backdrop-blur-sm">
         {(context.label || usage) && (
           <div className="text-label-sm text-on-surface-variant flex justify-between gap-2">
@@ -208,8 +242,8 @@ export function Chat({
             )}
           </div>
         )}
-        <div className="flex items-end gap-2">
-          <textarea
+        <InputGroup>
+          <InputGroupTextarea
             ref={input}
             value={draft}
             rows={Math.min(5, draft.split('\n').length)}
@@ -217,41 +251,81 @@ export function Chat({
             placeholder="Ask Yukta"
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={onKeyDown}
-            className={cn(textareaFieldClassName, 'min-h-9 flex-1 resize-none')}
+            className="min-h-9"
           />
-          {busy ? (
-            <Tip label="Stop">
+          <InputGroupAddon align="inline-end" className="self-end pb-1.5">
+            {busy ? (
+              <Tip label="Stop">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  aria-label="Stop"
+                  onClick={stop}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-base"
+                  >
+                    stop
+                  </span>
+                </Button>
+              </Tip>
+            ) : (
               <Button
-                size="icon-lg"
-                variant="outline"
-                aria-label="Stop"
-                onClick={stop}
+                size="icon"
+                aria-label="Send"
+                disabled={!draft.trim()}
+                onClick={() => submit(draft)}
               >
                 <span
                   aria-hidden="true"
                   className="material-symbols-outlined text-base"
                 >
-                  stop
+                  send
                 </span>
               </Button>
-            </Tip>
-          ) : (
-            <Button
-              size="icon-lg"
-              aria-label="Send"
-              disabled={!draft.trim()}
-              onClick={() => submit(draft)}
-            >
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-base"
-              >
-                send
-              </span>
-            </Button>
-          )}
-        </div>
+            )}
+          </InputGroupAddon>
+        </InputGroup>
       </div>
     </div>
+  );
+}
+
+/** The docs pages a reply drew on, behind one "Used N sources" line. */
+function Sources({ found }: { found: { title: string; url: string }[] }) {
+  const unique = [...new Map(found.map((f) => [f.url, f])).values()];
+  if (unique.length === 0) return null;
+  return (
+    <TraceCollapsible className="mt-2">
+      <TraceCollapsibleTrigger>
+        <TraceLine>
+          <TraceIcon>
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-base"
+            >
+              menu_book
+            </span>
+          </TraceIcon>
+          <TraceTitle className="text-label-md">
+            Used {unique.length} {unique.length === 1 ? 'source' : 'sources'}
+          </TraceTitle>
+        </TraceLine>
+      </TraceCollapsibleTrigger>
+      <TraceCollapsibleContent className="flex flex-wrap gap-2">
+        {unique.map(({ title, url }) => (
+          <a
+            key={url}
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="border-border text-label-sm text-primary transition-standard hover:bg-surface-container-high rounded-full border px-2.5 py-1"
+          >
+            {title}
+          </a>
+        ))}
+      </TraceCollapsibleContent>
+    </TraceCollapsible>
   );
 }
