@@ -38,6 +38,9 @@ With --node N the command reads part of what that node wrote instead of streamin
 (with --context N lines around each). Lines are printed as "<line number>: <text>"; a note on
 stderr says when lines were left out and where the next page starts.
 
+To find something without reading whole logs, use "logs search <execution-id>" (counts per
+node first, then only the matching lines) and "digest <execution-id>" (why a run failed).
+
 Press Ctrl-C to stop watching logs at any time.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -85,6 +88,7 @@ Press Ctrl-C to stop watching logs at any time.`,
 	cmd.Flags().IntVar(&limit, "limit", -1, "With --node: page size (default 50, at most 500)")
 	cmd.Flags().StringVar(&grep, "grep", "", "With --node: only lines matching this regular expression")
 	cmd.Flags().IntVar(&ctxLines, "context", -1, "With --node: lines of context around each --grep match (at most 20)")
+	cmd.AddCommand(SearchCmd(c))
 	return cmd
 }
 
