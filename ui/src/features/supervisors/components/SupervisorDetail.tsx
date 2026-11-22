@@ -7,9 +7,12 @@ import { useQuery } from '@tanstack/react-query';
 import { buttonVariants } from '@/components/ui/button';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
-import { KpiTile } from '@/components/dashboard/KpiTile';
 import { Tabs } from '@/components/ui/tabs';
-import { formatRelative } from '@/features/workflow/lib/timeFormat';
+import { Callout } from '@/components/common/Callout';
+import {
+  formatDateTime,
+  formatRelative,
+} from '@/features/workflow/lib/timeFormat';
 import { getSupervisionSummary } from '../api/supervision';
 import { getRules } from '../api/supervisors';
 import {
@@ -25,6 +28,7 @@ import { Activity } from './Activity';
 import { CredentialPanel, ExternalFlow } from './ExternalSettings';
 import { HistoryTab, SettingsTab } from './SettingsHistoryTabs';
 import { SupervisionMap } from './SupervisionMap';
+import { Chip, OwnerLink, SupervisorShell } from './SupervisorCard';
 import { HierarchyTab, OperationsTab, OwnsTab } from './SupervisorDetailTabs';
 import { Tip } from '@/components/ui/tooltip';
 
@@ -48,8 +52,6 @@ const LABEL: Record<DetailTab, string> = {
   changes: 'Changes',
   decisions: 'Decisions',
 };
-
-const BUCKETS = 24;
 
 /** Edit link for the supervisor, and the agent or CLI commands for changes made outside the UI. */
 function ChangeSupervisor({ id }: { id: string }) {
@@ -151,19 +153,8 @@ function DetailHeader({
   );
 }
 
-/** Decisions per bucket over the span they cover, for the sparkline. */
-function decisionSeries(times: number[]) {
-  if (times.length < 2) return [];
-  const from = Math.min(...times);
-  const step = Math.max(1, (Math.max(...times) - from) / BUCKETS);
-  const buckets = Array.from({ length: BUCKETS }, () => 0);
-  times.forEach((t) => {
-    buckets[Math.min(BUCKETS - 1, Math.floor((t - from) / step))]++;
-  });
-  return buckets;
-}
-
-function KpiRow({
+/** The five numbers of a supervisor, as one quiet strip inside its header card. */
+function StatStrip({
   supervisor,
   onOwns,
 }: {
@@ -172,27 +163,44 @@ function KpiRow({
 }) {
   const decisions = useSupervisorDecisions(supervisor.id);
   const owned = useOwnedNodes(supervisor.id);
-  const times = (decisions.data ?? []).map((d) => Date.parse(d.time));
   const newest = decisions.data?.[0]?.time;
+  const stat = (label: string, tip: string, value: ReactNode) => (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <dt className="text-overline text-on-surface-variant">
+        <Tip label={tip}>
+          <span>{label}</span>
+        </Tip>
+      </dt>
+      <dd className="text-headline-md text-on-surface num">{value}</dd>
+    </div>
+  );
   return (
     <section
       aria-label="At a glance"
-      className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+      className="border-border/60 relative mt-3 border-t pt-3"
     >
-      <KpiTile
-        label="Applied"
-        value={String(supervisor.applied)}
-        series={decisionSeries(times)}
-      />
-      <KpiTile label="Refused" value={String(supervisor.rejected)} />
-      <KpiTile label="Rate limited" value={String(supervisor.rateLimited)} />
-      <div className="border-border bg-card flex min-w-0 flex-col gap-1 rounded-xl border p-4">
-        <span className="text-label-md text-on-surface-variant">Owns</span>
-        <span className="text-body-md">
-          {owned.workflows} {owned.workflows === 1 ? 'workflow' : 'workflows'} ·{' '}
-          <Tip
-            label={`A target is a workflow, node or session this supervisor is assigned to. It has ${supervisor.attachments} ${supervisor.attachments === 1 ? 'target' : 'targets'}.`}
-          >
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-5">
+        {stat(
+          'Applied',
+          'Commands it sent that took effect',
+          supervisor.applied
+        )}
+        {stat(
+          'Refused',
+          'Commands the server refused: not allowed, out of scope or not the owner',
+          supervisor.rejected
+        )}
+        {stat(
+          'Rate limited',
+          'Commands held back because it sent too many too fast',
+          supervisor.rateLimited
+        )}
+        {stat(
+          'Owns',
+          `A target is a workflow, node or session this supervisor is assigned to. It has ${supervisor.attachments} ${supervisor.attachments === 1 ? 'target' : 'targets'}.`,
+          <span className="text-body-md">
+            {owned.workflows} {owned.workflows === 1 ? 'workflow' : 'workflows'}{' '}
+            ·{' '}
             <button
               type="button"
               className="text-primary font-semibold"
@@ -201,14 +209,72 @@ function KpiRow({
               {owned.count}
               {owned.partial ? '+' : ''} {owned.count === 1 ? 'node' : 'nodes'}
             </button>
-          </Tip>
-        </span>
-      </div>
-      <KpiTile
-        label="Last decision"
-        value={newest ? formatRelative(newest) : '–'}
-      />
+          </span>
+        )}
+        {stat(
+          'Last decision',
+          newest ? formatDateTime(newest) : 'No decision yet',
+          newest ? formatRelative(newest) : '–'
+        )}
+      </dl>
     </section>
+  );
+}
+
+/** The supervisor card of the node tab and the run sheet, at page scale: who it is, its state, what it is for, and its numbers. */
+function SupervisorHero({
+  supervisor,
+  typeName,
+  onOwns,
+}: {
+  supervisor: SupervisorView;
+  typeName: string;
+  onOwns: () => void;
+}) {
+  const parents = supervisor.parents ?? [];
+  return (
+    <SupervisorShell direct={false} className="p-4">
+      <div className="relative flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="bg-primary/15 text-primary ring-primary/30 shadow-card flex size-12 shrink-0 items-center justify-center rounded-xl ring-1"
+        >
+          <span className="material-symbols-outlined text-[26px]!">
+            shield_person
+          </span>
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-overline text-on-surface-variant">Supervisor</p>
+          <h2 className="text-headline-md text-on-surface break-all">
+            {supervisor.id}
+          </h2>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Chip>{typeName}</Chip>
+            <code className="text-code-sm text-on-surface-variant select-all">
+              {supervisor.type}
+            </code>
+            {supervisor.dryRun ? (
+              <Chip tone="attention">Dry run</Chip>
+            ) : (
+              <Chip tone="success">Live</Chip>
+            )}
+            {supervisor.system && <Chip>Built in (read only)</Chip>}
+            {parents.slice(0, 2).map((parent) => (
+              <Chip key={parent}>
+                Reports to <OwnerLink owner={parent} />
+              </Chip>
+            ))}
+            {parents.length > 2 && <Chip>+{parents.length - 2}</Chip>}
+          </div>
+        </div>
+      </div>
+      {supervisor.description && (
+        <p className="text-body-md text-on-surface relative mt-3 max-w-prose">
+          {supervisor.description}
+        </p>
+      )}
+      <StatStrip supervisor={supervisor} onOwns={onOwns} />
+    </SupervisorShell>
   );
 }
 
@@ -425,15 +491,17 @@ export function SupervisorDetail({
   const decisions = useSupervisorDecisions(supervisor.id);
   return (
     <article className="mx-auto flex max-w-5xl min-w-0 flex-col gap-5">
-      <DetailHeader
-        title={supervisor.id}
-        engine={supervisor.type}
-        color={maker.color}
-        state={supervisor.dryRun ? 'dry-run' : 'live'}
-        system={supervisor.system}
-        description={supervisor.description}
+      <SupervisorHero
+        supervisor={supervisor}
+        typeName={maker.name}
+        onOwns={() => setTab('owns')}
       />
-      <KpiRow supervisor={supervisor} onOwns={() => setTab('owns')} />
+      {supervisor.dryRun && (
+        <Callout kind="warning" compact title="Dry run: recorded, not applied">
+          It records the commands it would send and applies none.
+          {!supervisor.system && ' Turn dry run off in Edit supervisor.'}
+        </Callout>
+      )}
       <SupervisionMap
         supervisor={supervisor}
         all={all}

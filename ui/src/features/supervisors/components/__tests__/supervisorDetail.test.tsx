@@ -2,7 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -108,20 +114,40 @@ const renderAt = (url: string) =>
   );
 
 describe('the supervisor detail', () => {
-  it('draws the sparkline of applied decisions over their span', async () => {
-    supervisors = [sup('lead')];
-    decisions = [
-      decision('2026-11-09T12:00:00Z'),
-      decision('2026-11-09T12:05:00Z'),
-      decision('2026-11-09T12:10:00Z'),
+  it('shows the header card with its chips and the numbers at a glance', async () => {
+    supervisors = [
+      sup('lead', {
+        applied: 7,
+        rejected: 2,
+        rateLimited: 1,
+        parents: ['boss'],
+      }),
+      sup('boss'),
     ];
+    decisions = [decision('2026-11-09T12:00:00Z')];
     renderAt('/supervisors?supervisor=lead');
     const glance = await screen.findByRole('region', { name: 'At a glance' });
-    expect(screen.getByText('Applied')).toBeInTheDocument();
-    // the sparkline is drawn only once the decisions have arrived
-    await expect
-      .poll(() => glance.querySelector('polyline') !== null)
-      .toBe(true);
+    expect(within(glance).getByText('Applied')).toBeInTheDocument();
+    expect(within(glance).getByText('7')).toBeInTheDocument();
+    expect(within(glance).getByText('Refused')).toBeInTheDocument();
+    expect(within(glance).getByText('Rate limited')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'lead', level: 2 })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Live')).toBeInTheDocument();
+    expect(screen.getByText(/Reports to/)).toBeInTheDocument();
+  });
+
+  it('warns about a dry run in the header and the callout', async () => {
+    supervisors = [sup('lead', { dryRun: true })];
+    renderAt('/supervisors?supervisor=lead');
+    expect(await screen.findByText('Dry run')).toBeInTheDocument();
+    expect(
+      screen.getByText('Dry run: recorded, not applied')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Turn dry run off in Edit supervisor/)
+    ).toBeInTheDocument();
   });
 
   it('shows no engine facts for a decision maker type it does not know', async () => {
