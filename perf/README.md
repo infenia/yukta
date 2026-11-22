@@ -24,7 +24,7 @@ own status never turns final, so leave it off. Open problems found by these test
 
 `perf/run.sh inputs` starts 1,000 runs (`OPEN_REQUESTS`, spread over `SESSIONS`=25 sessions because a session may
 have 50 open requests) that each wait on an `ASK_INPUT` node, waits until all 1,000 requests are open, then in
-10 seconds (`ANSWER_SECONDS`) answers 500 of them (`ANSWERS`) over REST while 50 clients (`READERS`) list the
+10 seconds (`ANSWER_SECONDS`) answers 500 of them (`ANSWERS`) over REST while 20 clients (`READERS`) list the
 open requests once a second. Thresholds (they fail the nightly run): answer p95 under 500 ms, read p95 under 1 s, at
 least 99% of the answers sent and accepted, no request lost (500 stay open), none of the answered runs still
 `RUNNING` after `GRACE` seconds, heap under 1.5 GB, sweep mean under 250 ms. Not covered: supervisors that follow the SSE feed (k6 cannot
