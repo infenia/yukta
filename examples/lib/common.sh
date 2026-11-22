@@ -84,6 +84,7 @@ run_workflow() {
   if [[ "$status" == "$want_status" ]] && grep -qF -- "$want_text" <<<"$logs"; then
     echo "    PASS $wf: status=$status, found '$want_text'"
   else
+    EID=$eid skip_if_refused "$logs"
     echo "    FAIL $wf: status=$status (want $want_status), '$want_text' in logs: $(grep -qF -- "$want_text" <<<"$logs" && echo yes || echo no)"
     return 1
   fi
@@ -103,7 +104,8 @@ skip_if_refused() {
   local all
   all="$1 $(api GET "/api/executions/${EID:-none}" 2>/dev/null | jq -c '[.data.tasks[]?.metadata.error]' 2>/dev/null || true)"
   if grep -qE "is not in yukta.process.allowed-commands|Process execution is off" <<<"$all"; then
-    echo "SKIP: the server does not allow these commands (start it with YUKTA_PROCESS_ALLOWED_COMMANDS=git,uv,bun,node,npm)"
+    echo "SKIP: the server does not allow a command this example runs ($(grep -oE "Command '[^']*' is not in" <<<"$all" | head -1 | sed "s/ is not in//"))."
+    echo "      Start it with YUKTA_PROCESS_ALLOWED_COMMANDS naming it; examples/README.md lists what each example needs."
     exit 3
   fi
   if grep -qF "sys.java.io.tmpdir" <<<"$all"; then
