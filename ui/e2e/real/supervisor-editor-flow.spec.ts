@@ -18,7 +18,9 @@ test('a supervisor is created in dry run with a parent and opens in the list', a
   await page.getByLabel('Name', { exact: true }).fill(id);
   await page.getByLabel('Description').fill('created by the editor e2e');
   await choose(page.getByLabel('Decision maker'), 'rules');
-  await page.getByLabel('Reports to').fill(parent);
+  await page.getByLabel('Reports to').click();
+  await page.getByRole('option', { name: parent, exact: true }).click();
+  await page.keyboard.press('Escape');
   await page.getByLabel('Settings (JSON)').fill('{"rules":[]}');
   await page.getByRole('button', { name: 'Save' }).click();
 
@@ -26,9 +28,7 @@ test('a supervisor is created in dry run with a parent and opens in the list', a
   await expect(
     page.getByRole('article').getByRole('heading', { name: id })
   ).toBeVisible();
-  await expect(page.getByRole('article').locator('header')).toContainText(
-    'Dry run'
-  );
+  await expect(page.getByRole('article')).toContainText('Dry run');
   const body = (await (await request.get(`/api/supervisors/${id}`)).json()) as {
     data: {
       dryRun: boolean;
@@ -74,7 +74,9 @@ test('a supervisor is changed and the server keeps the change; a cycle is refuse
   await page.goto(`/supervisors/${a}/edit`);
   await expect(page.getByLabel('Name', { exact: true })).toBeDisabled();
 
-  await page.getByLabel('Reports to').fill(b);
+  await page.getByLabel('Reports to').click();
+  await page.getByRole('option', { name: b, exact: true }).click();
+  await page.keyboard.press('Escape');
   await page.getByRole('checkbox', { name: /Dry run/ }).check();
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page).toHaveURL(new RegExp(`/supervisors\\?supervisor=${a}$`));

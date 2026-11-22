@@ -2,8 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -90,9 +89,7 @@ const renderAt = (url: string) =>
 
 describe('a built-in supervisor', () => {
   it('shows no versions, and asks the server for nothing it does not store', async () => {
-    const user = userEvent.setup();
     renderAt('/supervisors?supervisor=rules');
-    await user.click(await screen.findByRole('tab', { name: 'Changes' }));
     expect(
       await screen.findByText('Built in, no stored versions')
     ).toBeInTheDocument();
@@ -100,24 +97,22 @@ describe('a built-in supervisor', () => {
   });
 
   it('shows its allowed operations at once, without a loading state', async () => {
-    const user = userEvent.setup();
     renderAt('/supervisors?supervisor=rules');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Allowed operations' })
-    );
+    const operations = await screen.findByRole('region', {
+      name: 'Allowed operations',
+    });
     expect(
-      await screen.findByRole('columnheader', { name: 'Commands' })
+      await within(operations).findByRole('region', { name: 'It may send' })
     ).toBeInTheDocument();
-    expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
+    expect(within(operations).queryByText('Loading…')).not.toBeInTheDocument();
     expect(notFound).toEqual([]);
   });
 
   it('shows a loading state for a stored supervisor until its engine entry arrives', async () => {
-    const user = userEvent.setup();
     renderAt('/supervisors?supervisor=lead');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Allowed operations' })
-    );
-    expect(await screen.findByText('Loading…')).toBeInTheDocument();
+    const operations = await screen.findByRole('region', {
+      name: 'Allowed operations',
+    });
+    expect(await within(operations).findByText('Loading…')).toBeInTheDocument();
   });
 });

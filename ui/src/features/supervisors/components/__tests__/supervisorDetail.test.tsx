@@ -1,9 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  vi,
+} from 'vitest';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
@@ -107,38 +120,59 @@ const renderAt = (url: string) =>
     </QueryClientProvider>
   );
 
+// jsdom has no scrollIntoView; the page calls it on the section named in the URL
+const scrollIntoView = vi.fn();
+beforeAll(() => {
+  Element.prototype.scrollIntoView = scrollIntoView;
+});
+
 describe('the supervisor detail', () => {
-  it('draws the sparkline of applied decisions over their span', async () => {
-    supervisors = [sup('lead')];
-    decisions = [
-      decision('2026-11-09T12:00:00Z'),
-      decision('2026-11-09T12:05:00Z'),
-      decision('2026-11-09T12:10:00Z'),
+  it('shows the header card with its chips and the numbers at a glance', async () => {
+    supervisors = [
+      sup('lead', {
+        applied: 7,
+        rejected: 2,
+        rateLimited: 1,
+        parents: ['boss'],
+      }),
+      sup('boss'),
     ];
+    decisions = [decision('2026-11-09T12:00:00Z')];
     renderAt('/supervisors?supervisor=lead');
     const glance = await screen.findByRole('region', { name: 'At a glance' });
-    expect(screen.getByText('Applied')).toBeInTheDocument();
-    // the sparkline is drawn only once the decisions have arrived
-    await expect
-      .poll(() => glance.querySelector('polyline') !== null)
-      .toBe(true);
+    expect(within(glance).getByText('Applied')).toBeInTheDocument();
+    expect(within(glance).getByText('7')).toBeInTheDocument();
+    expect(within(glance).getByText('Refused')).toBeInTheDocument();
+    expect(within(glance).getByText('Rate limited')).toBeInTheDocument();
+    await waitFor(() => expect(within(glance).queryByText('–')).toBeNull());
+    expect(
+      screen.getByRole('heading', { name: 'lead', level: 2 })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Live')).toBeInTheDocument();
+    // the header chip and the Hierarchy section both say it
+    expect(screen.getAllByText(/Reports to/).length).toBeGreaterThan(0);
+  });
+
+  it('warns about a dry run in the header and the callout', async () => {
+    supervisors = [sup('lead', { dryRun: true })];
+    renderAt('/supervisors?supervisor=lead');
+    expect(await screen.findByText('Dry run')).toBeInTheDocument();
+    expect(
+      screen.getByText('Dry run: recorded, not applied')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Turn dry run off in Edit supervisor/)
+    ).toBeInTheDocument();
   });
 
   it('shows no engine facts for a decision maker type it does not know', async () => {
-    const user = userEvent.setup();
     supervisors = [sup('lead', { type: 'custom-engine' })];
     renderAt('/supervisors?supervisor=lead');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Decision maker' })
-    );
-    expect(
-      await screen.findByRole('tab', { name: 'Decision maker' })
-    ).toHaveAttribute('aria-selected', 'true');
-    expect(screen.queryByText('Open the rules')).not.toBeInTheDocument();
+    await screen.findByRole('region', { name: 'Decision maker' });
+    expect(screen.queryByText('Endpoint')).not.toBeInTheDocument();
   });
 
   it('explains direct control in its operations and decision maker tabs', async () => {
-    const user = userEvent.setup();
     server.use(
       http.get('/api/supervision/ownership', () =>
         ok({
@@ -151,29 +185,25 @@ describe('the supervisor detail', () => {
       )
     );
     renderAt('/supervisors?supervisor=default');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Allowed operations' })
-    );
+    await screen.findByRole('region', { name: 'Allowed operations' });
     expect(
       await screen.findByText(/Direct control is switched off/)
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Decision maker' }));
+    expect(
+      screen.getByRole('region', { name: 'Decision maker' })
+    ).toBeInTheDocument();
     expect(await screen.findByText(/decides with/)).toBeInTheDocument();
   });
 
   it('says direct control is on in the operations tab when the default supervisor is on', async () => {
-    const user = userEvent.setup();
     renderAt('/supervisors?supervisor=default');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Allowed operations' })
-    );
+    await screen.findByRole('region', { name: 'Allowed operations' });
     expect(
       await screen.findByText(/Everything: people and agents/)
     ).toBeInTheDocument();
   });
 
   it('counts no rules when the rules document lists none', async () => {
-    const user = userEvent.setup();
     server.use(
       http.get('/api/supervisors/:id/engine/rules', () =>
         ok({ version: 3, rules: { schemaVersion: 1 } })
@@ -181,14 +211,11 @@ describe('the supervisor detail', () => {
     );
     supervisors = [sup('lead')];
     renderAt('/supervisors?supervisor=lead');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Decision maker' })
-    );
+    await screen.findByRole('region', { name: 'Decision maker' });
     expect(await screen.findByText('0 · version 3')).toBeInTheDocument();
   });
 
   it('says the rules could not be read when the rules request fails', async () => {
-    const user = userEvent.setup();
     server.use(
       http.get('/api/supervisors/:id/engine/rules', () =>
         HttpResponse.json(
@@ -199,14 +226,11 @@ describe('the supervisor detail', () => {
     );
     supervisors = [sup('lead')];
     renderAt('/supervisors?supervisor=lead');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Decision maker' })
-    );
+    await screen.findByRole('region', { name: 'Decision maker' });
     expect(await screen.findByText('Could not be read')).toBeInTheDocument();
   });
 
   it('shows the decision workflow and its limits of a workflow decision maker', async () => {
-    const user = userEvent.setup();
     supervisors = [
       sup('lead', {
         type: 'workflow',
@@ -220,24 +244,19 @@ describe('the supervisor detail', () => {
       }),
     ];
     renderAt('/supervisors?supervisor=lead');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Decision maker' })
-    );
+    await screen.findByRole('region', { name: 'Decision maker' });
     expect(
       await screen.findByRole('link', { name: 'decide / judge' })
     ).toBeInTheDocument();
     expect(screen.getByText('run.failed, run.stalled')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
+    expect(screen.getAllByText('4').length).toBeGreaterThan(0);
     expect(screen.getByText('90 s')).toBeInTheDocument();
   });
 
   it('shows the defaults of a workflow decision maker with no settings', async () => {
-    const user = userEvent.setup();
     supervisors = [sup('lead', { type: 'workflow', settings: {} })];
     renderAt('/supervisors?supervisor=lead');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Decision maker' })
-    );
+    await screen.findByRole('region', { name: 'Decision maker' });
     expect(await screen.findByText('not set')).toBeInTheDocument();
     expect(screen.getAllByText('–').length).toBeGreaterThan(0);
     expect(screen.getAllByText('2').length).toBeGreaterThan(0);
@@ -245,7 +264,6 @@ describe('the supervisor detail', () => {
   });
 
   it('shows the program and arguments of a process decision maker', async () => {
-    const user = userEvent.setup();
     supervisors = [
       sup('lead', {
         type: 'process',
@@ -253,34 +271,50 @@ describe('the supervisor detail', () => {
       }),
     ];
     renderAt('/supervisors?supervisor=lead');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Decision maker' })
-    );
+    await screen.findByRole('region', { name: 'Decision maker' });
     expect(await screen.findByText('run-guard.sh')).toBeInTheDocument();
     expect(screen.getByText('--strict --quiet')).toBeInTheDocument();
   });
 
   it('shows the defaults of a process decision maker with no settings', async () => {
-    const user = userEvent.setup();
     supervisors = [sup('lead', { type: 'process', settings: {} })];
     renderAt('/supervisors?supervisor=lead');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Decision maker' })
-    );
+    await screen.findByRole('region', { name: 'Decision maker' });
     expect(await screen.findByText('not set')).toBeInTheDocument();
     expect(screen.getByText('none')).toBeInTheDocument();
   });
 
-  it('falls back to the owns tab in direct control for a supervisor-only section', async () => {
+  it('shows the same sections in direct control, and reads a legacy settings section', async () => {
+    scrollIntoView.mockClear();
     renderAt('/supervisors?supervisor=default&section=settings');
-    expect(await screen.findByRole('tab', { name: /Owns/ })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(
+      await screen.findByRole('region', { name: 'Owns' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Decision maker' })
+    ).toBeVisible();
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
   });
 
-  it('opens the owns tab from the "more" box of the supervision map', async () => {
-    const user = userEvent.setup();
+  it('shows nothing to scroll to when direct control lacks the named section', async () => {
+    scrollIntoView.mockClear();
+    renderAt('/supervisors?supervisor=default&section=hierarchy');
+    expect(
+      await screen.findByRole('region', { name: 'Owns' })
+    ).toBeInTheDocument();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('scrolls to the section named in the URL, and opens Changes when asked', async () => {
+    scrollIntoView.mockClear();
+    supervisors = [sup('lead')];
+    renderAt('/supervisors?supervisor=lead&section=changes');
+    const changes = await screen.findByRole('group', { name: 'Changes' });
+    expect(changes).toHaveAttribute('open');
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
+  });
+
+  it('scrolls to Owns from the "more" box of the supervision map', async () => {
     supervisors = [sup('lead')];
     // more workflows than the map draws, so it ends in a "+1 more" box
     mine = Array.from({ length: 7 }, (_, i) => ({
@@ -291,20 +325,15 @@ describe('the supervisor detail', () => {
       source: 'MANUAL',
     }));
     renderAt('/supervisors?supervisor=lead');
-    await user.click(
-      await screen.findByRole('tab', { name: 'Allowed operations' })
-    );
     const map = await screen.findByRole('region', {
       name: 'Supervision map',
     });
     await expect
       .poll(() => map.querySelector('[data-id="more"]') !== null)
       .toBe(true);
+    scrollIntoView.mockClear();
     fireEvent.click(map.querySelector('[data-id="more"]') as HTMLElement);
-    expect(await screen.findByRole('tab', { name: /Owns/ })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledOnce());
   });
 
   describe('the links of the supervision map and the hierarchy', () => {
@@ -321,13 +350,8 @@ describe('the supervisor detail', () => {
           </MemoryRouter>
         </QueryClientProvider>
       );
-    const openMap = async () => {
-      const user = userEvent.setup();
-      await user.click(
-        await screen.findByRole('tab', { name: 'Allowed operations' })
-      );
-      return screen.findByRole('region', { name: 'Supervision map' });
-    };
+    const openMap = () =>
+      screen.findByRole('region', { name: 'Supervision map' });
 
     it('opens a child supervisor when its box of the map is clicked', async () => {
       supervisors = [sup('lead'), sup('kid', { parents: ['lead'] })];
@@ -416,18 +440,32 @@ describe('the supervisor detail', () => {
     });
 
     it('reads a supervisor without parents as reporting to nobody', async () => {
-      const user = userEvent.setup();
       supervisors = [
         sup('lead', { parents: undefined }),
         sup('kid', { parents: undefined }),
       ];
       renderWithPath('/supervisors?supervisor=lead');
-      await user.click(await screen.findByRole('tab', { name: 'Hierarchy' }));
+      await screen.findByRole('region', { name: 'Hierarchy' });
       expect(
         await screen.findByText(
           'nobody; people answer what it asks in the inbox'
         )
       ).toBeInTheDocument();
     });
+  });
+
+  it('says no decision yet and names every parent past the first two', async () => {
+    supervisors = [
+      sup('lead', { parents: ['boss', 'chief', 'head', 'owner'] }),
+      sup('boss'),
+      sup('chief'),
+      sup('head'),
+      sup('owner'),
+    ];
+    decisions = [];
+    renderAt('/supervisors?supervisor=lead');
+    const glance = await screen.findByRole('region', { name: 'At a glance' });
+    expect(within(glance).getByText('–')).toBeInTheDocument();
+    expect(screen.getByText('+2')).toBeInTheDocument();
   });
 });

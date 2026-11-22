@@ -102,7 +102,7 @@ describe('AppHeader', () => {
     expect(screen.queryByRole('navigation', { name: 'Home' })).toBeNull();
   });
 
-  it('links Sessions, Runs, Plugins, Supervisors and Control from the sidebar', () => {
+  it('links Sessions, Runs, Supervisors, Plugins and Control from the sidebar', () => {
     renderWithRouter(<Sidebar />);
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(nav).toHaveClass('fixed', 'w-16', 'hidden', 'sm:flex');
@@ -113,8 +113,8 @@ describe('AppHeader', () => {
     expect(links).toEqual([
       ['Sessions', '/sessions'],
       ['Runs', '/runs'],
-      ['Plugins', '/plugins'],
       ['Supervisors', '/supervisors'],
+      ['Plugins', '/plugins'],
       ['Control', '/control'],
       ['Config', '/config'],
     ]);

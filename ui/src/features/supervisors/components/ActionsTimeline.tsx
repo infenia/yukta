@@ -3,12 +3,86 @@
 
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
+import { Tip } from '@/components/ui/tooltip';
 import { formatDateTime } from '@/features/workflow/lib/timeFormat';
 import type { Decision } from '../types';
 
 /** `PauseWorkflowCommand` as `Pause`. */
 const commandName = (command: string) =>
   command.replace(/(Workflow|Node)?Command$/, '');
+
+const DOT_TONE = {
+  success: 'bg-success',
+  attention: 'bg-attention',
+  warning: 'bg-warning',
+  muted: 'bg-muted-foreground/50',
+} as const;
+
+/** The dot on a timeline's line: green for applied, orange for refused, grey for recorded only. */
+export function TimelineDot({ tone }: { tone: keyof typeof DOT_TONE }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'absolute top-3 -left-[4.5px] size-2 rounded-full',
+        DOT_TONE[tone]
+      )}
+    />
+  );
+}
+
+/**
+ * A node name as a small mono chip. With `onClick` it is a button; `mine` marks the nodes of the
+ * supervisor being looked at, and `owner` names who owns it when that is someone else.
+ */
+export function NodeChip({
+  id,
+  mine,
+  owner,
+  onClick,
+}: {
+  id: string;
+  mine?: boolean;
+  owner?: string;
+  onClick?: () => void;
+}) {
+  const tone = cn(
+    'text-code-sm transition-standard inline-flex items-center gap-1.5 rounded-lg border px-2 py-1',
+    mine === false
+      ? 'border-border bg-surface-container-low text-on-surface-variant'
+      : mine
+        ? 'border-primary/40 bg-primary/10 text-on-surface'
+        : 'border-border bg-surface-container-low text-on-surface'
+  );
+  const dot = (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'size-1.5 shrink-0 rounded-full',
+        mine === false ? 'bg-muted-foreground/50' : 'bg-primary/60'
+      )}
+    />
+  );
+  const chip = onClick ? (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        tone,
+        'hover:border-primary/40 hover:bg-primary/5 cursor-pointer'
+      )}
+    >
+      {dot}
+      {id}
+    </button>
+  ) : (
+    <span className={tone}>
+      {dot}
+      {id}
+    </span>
+  );
+  return owner ? <Tip label={`Owned by ${owner}`}>{chip}</Tip> : chip;
+}
 
 /**
  * What supervisors did, newest first, one line per action: the command, where it went, the
@@ -42,12 +116,8 @@ export function ActionsTimeline({
             key={`${d.time}-${d.supervisorId}-${d.command}-${d.executionId}-${d.nodeId ?? ''}`}
             className="relative flex flex-col gap-0.5 py-1.5 pl-3.5"
           >
-            <span
-              aria-hidden="true"
-              className={cn(
-                'absolute top-3 -left-[4.5px] size-2 rounded-full',
-                d.outcome === 'applied' ? 'bg-success' : 'bg-attention'
-              )}
+            <TimelineDot
+              tone={d.outcome === 'applied' ? 'success' : 'attention'}
             />
             <div className="flex items-baseline justify-between gap-2">
               <span className="text-body-md text-on-surface font-medium">

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { REQUIRED_ROLE, useMe, type Permission } from '@/lib/identity';
 import type { Capability } from '../api/supervision';
 import type { SupervisorView } from '../types';
@@ -19,7 +19,7 @@ import {
   useSupervisorTypes,
 } from '../hooks/useSupervisorTypes';
 import { controlledBy } from './RequireControl';
-import { ActionsCard } from './ActionsTimeline';
+import { ActionsCard, NodeChip } from './ActionsTimeline';
 import { SupervisorCard } from './SupervisorCard';
 
 /** The nodes of each owner, in the order the owners first appear. */
@@ -147,7 +147,7 @@ function Commands({
     <section aria-label="Run commands" className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-overline text-on-surface-variant">
-          What you can do with this run
+          What you can do with this {hasRun ? 'run' : 'workflow'}
         </h3>
         {rows.length > 0 && (
           <span className="text-label-sm text-on-surface-variant">
@@ -155,7 +155,7 @@ function Commands({
           </span>
         )}
       </div>
-      {rows.length === 0 && (
+      {(rows.length === 0 || !hasRun) && (
         <p className="text-body-sm text-on-surface-variant">
           {hasRun
             ? 'The server did not say which commands are allowed.'
@@ -251,27 +251,7 @@ function NodeList({
       <ul className="flex flex-wrap gap-1.5">
         {shown.map((id) => (
           <li key={id}>
-            {onNode ? (
-              <button
-                type="button"
-                onClick={() => onNode(id)}
-                className="text-code-sm border-border bg-surface-container-low text-on-surface transition-standard hover:border-primary/40 hover:bg-primary/5 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1"
-              >
-                <span
-                  aria-hidden="true"
-                  className="bg-primary/60 size-1.5 shrink-0 rounded-full"
-                />
-                {id}
-              </button>
-            ) : (
-              <span className="text-code-sm border-border bg-surface-container-low text-on-surface transition-standard inline-flex items-center gap-1.5 rounded-lg border px-2 py-1">
-                <span
-                  aria-hidden="true"
-                  className="bg-primary/60 size-1.5 shrink-0 rounded-full"
-                />
-                {id}
-              </span>
-            )}
+            <NodeChip id={id} onClick={onNode && (() => onNode(id))} />
           </li>
         ))}
       </ul>
@@ -467,6 +447,34 @@ function RunActions({
 }
 
 /**
+ * What the run sheet shows: who controls the workflow, what you may do, and what they did. The
+ * Supervisors page shows the same body for a workflow, with no run chosen.
+ */
+export function SupervisionBody({
+  sessionId,
+  workflowId,
+  executionId,
+  onNode,
+}: {
+  sessionId: string;
+  workflowId: string;
+  executionId: string | null;
+  onNode?: (nodeId: string) => void;
+}) {
+  return (
+    <>
+      <SupervisionPanel
+        sessionId={sessionId}
+        workflowId={workflowId}
+        executionId={executionId}
+        onNode={onNode}
+      />
+      <RunActions workflowId={workflowId} executionId={executionId} />
+    </>
+  );
+}
+
+/**
  * Who controls this workflow and what they did, as a side sheet over the progress panel (as the
  * node sheet is); `?supervision=1` opens it (the toolbar, a node's owner icon, the palette, a link).
  * It is not modal: the graph and the run controls stay usable beside it.
@@ -520,6 +528,18 @@ export function WorkflowSupervision({
             </p>
           </div>
         </div>
+        <Link
+          to={`/supervisors?view=workflows&session=${encodeURIComponent(sessionId)}&workflow=${encodeURIComponent(workflowId)}`}
+          className="text-label-md text-primary ml-auto flex items-center gap-1 hover:underline"
+        >
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
+            open_in_new
+          </span>
+          Open in Supervisors
+        </Link>
         <button
           type="button"
           onClick={close}
@@ -531,13 +551,12 @@ export function WorkflowSupervision({
           </span>
         </button>
       </div>
-      <SupervisionPanel
+      <SupervisionBody
         sessionId={sessionId}
         workflowId={workflowId}
         executionId={executionId}
         onNode={onNode}
       />
-      <RunActions workflowId={workflowId} executionId={executionId} />
     </aside>
   );
 }

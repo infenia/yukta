@@ -16,13 +16,13 @@ import { openCommandPalette } from './CommandPalette.helpers';
 const NAV = [
   { to: '/sessions', section: '/sessions', label: 'Sessions', icon: 'folder' },
   { to: '/runs', section: '/runs', label: 'Runs', icon: 'history' },
-  { to: '/plugins', section: '/plugins', label: 'Plugins', icon: 'extension' },
   {
     to: '/supervisors',
     section: '/supervisors',
     label: 'Supervisors',
     icon: 'shield_person',
   },
+  { to: '/plugins', section: '/plugins', label: 'Plugins', icon: 'extension' },
   { to: '/control', section: '/control', label: 'Control', icon: 'hub' },
   {
     to: '/config',

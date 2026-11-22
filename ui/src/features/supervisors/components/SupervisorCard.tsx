@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { Link } from 'react-router';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { Tip } from '@/components/ui/tooltip';
 import type { SupervisorView } from '../types';
@@ -13,15 +13,17 @@ export function Chip({
   tone = 'muted',
 }: {
   children: ReactNode;
-  tone?: 'muted' | 'attention';
+  tone?: 'muted' | 'attention' | 'success';
 }) {
   return (
     <span
       className={cn(
         'text-label-sm rounded-full border px-2 py-px',
-        tone === 'attention'
-          ? 'border-attention/30 bg-attention/10 text-attention'
-          : 'border-border bg-background/60 text-on-surface-variant'
+        tone === 'attention' &&
+          'border-attention/30 bg-attention/10 text-attention',
+        tone === 'success' && 'border-success/30 bg-success/10 text-success',
+        tone === 'muted' &&
+          'border-border bg-background/60 text-on-surface-variant'
       )}
     >
       {children}
@@ -41,6 +43,42 @@ export const OwnerLink = ({ owner }: { owner: string }) =>
       {owner}
     </Link>
   );
+
+/**
+ * The card background of a supervisor view: a primary-tinted gradient with a soft glow, or a plain
+ * muted card for Direct control. The supervisor card and the supervisor page's header share it.
+ */
+export function SupervisorShell({
+  direct,
+  className,
+  children,
+  ...rest
+}: {
+  direct: boolean;
+  className?: string;
+  children: ReactNode;
+} & Omit<ComponentProps<'section'>, 'className' | 'children'>) {
+  return (
+    <section
+      {...rest}
+      className={cn(
+        'relative overflow-hidden rounded-xl border p-3',
+        direct
+          ? 'border-border bg-muted/30'
+          : 'border-primary/25 from-primary/15 via-primary/5 bg-linear-to-br to-transparent',
+        className
+      )}
+    >
+      {!direct && (
+        <span
+          aria-hidden="true"
+          className="bg-primary/20 pointer-events-none absolute -top-12 -right-12 size-36 rounded-full blur-3xl"
+        />
+      )}
+      {children}
+    </section>
+  );
+}
 
 /**
  * Who controls something, as one card: the owner and its type, what it is for, then a line for
@@ -71,22 +109,11 @@ export function SupervisorCard({
   const direct = owner === 'default';
   const parents = supervisor?.parents ?? [];
   return (
-    <section
+    <SupervisorShell
+      direct={direct}
       aria-label="Supervisor"
-      className={cn(
-        'relative overflow-hidden rounded-xl border p-3',
-        direct
-          ? 'border-border bg-muted/30'
-          : 'border-primary/25 from-primary/15 via-primary/5 bg-linear-to-br to-transparent',
-        className
-      )}
+      className={className}
     >
-      {!direct && (
-        <span
-          aria-hidden="true"
-          className="bg-primary/20 pointer-events-none absolute -top-12 -right-12 size-36 rounded-full blur-3xl"
-        />
-      )}
       <div className="relative flex items-center gap-3">
         <span
           aria-hidden="true"
@@ -157,6 +184,6 @@ export function SupervisorCard({
         )}
         {children}
       </div>
-    </section>
+    </SupervisorShell>
   );
 }
