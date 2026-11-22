@@ -186,7 +186,8 @@ describe('the Supervisors tab', () => {
     // a flat list, alphabetical, with Direct control last
     const rows = within(nav())
       .getAllByRole('button')
-      .map((b) => b.textContent);
+      // the icon glyph is the first text of each row
+      .map((b) => b.textContent?.replace(/^(shield_person|person)/, ''));
     expect(rows[0]).toMatch(/^agent/);
     expect(rows[rows.length - 1]).toMatch(/^Direct control/);
     expect(within(nav()).getAllByText('http').length).toBeGreaterThan(0);
@@ -482,6 +483,74 @@ describe('the Supervisors tab', () => {
     ).toBeInTheDocument();
   });
 
+  it('filters the list by search, type and state, and clears the filters', async () => {
+    const user = userEvent.setup();
+    supervisors = [
+      sup('alpha'),
+      sup('beta', { type: 'http', dryRun: true }),
+      sup('gamma', { system: true, rejected: 3 }),
+    ];
+    renderAt('/supervisors?supervisor=alpha');
+    expect(
+      await screen.findByRole('heading', { name: 'alpha' })
+    ).toBeInTheDocument();
+    const rows = () => within(nav()).getAllByRole('button').length;
+    expect(rows()).toBe(4);
+    expect(within(nav()).getByText('Built in')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    // the type name matches the search too
+    await user.type(
+      screen.getByRole('searchbox', { name: 'Filter supervisors' }),
+      'external'
+    );
+    expect(rows()).toBe(2);
+    await user.clear(
+      screen.getByRole('searchbox', { name: 'Filter supervisors' })
+    );
+    await user.click(screen.getByLabelText('Filter by type'));
+    await user.click(await screen.findByRole('option', { name: 'Rules' }));
+    await user.keyboard('{Escape}');
+    // alpha and gamma are rules; Direct control stays
+    expect(rows()).toBe(3);
+    await user.click(screen.getByLabelText('Filter by state'));
+    await user.click(await screen.findByRole('option', { name: 'Dry run' }));
+    await user.keyboard('{Escape}');
+    expect(screen.getByText('No supervisor matches')).toBeInTheDocument();
+    // Direct control is still there, and the no-match message is outside the nav
+    expect(rows()).toBe(1);
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(rows()).toBe(4);
+    // with no type filter, the dry-run one is checked against the state filter too
+    await user.click(screen.getByLabelText('Filter by state'));
+    await user.click(await screen.findByRole('option', { name: 'Dry run' }));
+    await user.keyboard('{Escape}');
+    expect(rows()).toBe(2);
+  });
+
+  it('shows how many workflows nobody supervises on Direct control', async () => {
+    supervisors = [sup('alpha')];
+    server.use(
+      http.get('/api/supervision/summary', () =>
+        ok({ unowned: 5, unownedWorkflows: [] })
+      )
+    );
+    renderAt('/supervisors?supervisor=alpha');
+    await screen.findByRole('heading', { name: 'alpha' });
+    const direct = await within(nav()).findByRole('button', {
+      name: /Direct control/,
+    });
+    await expect.poll(() => direct.textContent).toMatch(/5$/);
+  });
+
+  it('points to New supervisor when there are none', async () => {
+    renderAt('/supervisors');
+    expect(await screen.findByText(/No supervisors yet\./)).toBeInTheDocument();
+    // the header button and the link in the empty list
+    expect(
+      screen.getAllByRole('link', { name: 'New supervisor' })
+    ).toHaveLength(2);
+  });
+
   it('keeps the section in the URL, opens the types sheet, and sends the activity to Control', async () => {
     const user = userEvent.setup();
     supervisors = [sup('lead')];
@@ -492,7 +561,8 @@ describe('the Supervisors tab', () => {
     await user.click(
       within(screen.getByRole('tablist', { name: 'lead details' })).getByRole(
         'tab',
-        { name: 'Decisions' }
+        // the tab carries the number of decisions once they are loaded
+        { name: /^Decisions/ }
       )
     );
     expect(screen.getByLabelText('where')).toHaveTextContent(

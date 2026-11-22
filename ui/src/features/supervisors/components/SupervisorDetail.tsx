@@ -410,7 +410,7 @@ function DecisionMakerTab({
   const types = useSupervisorTypes();
   const maker = decisionMaker(supervisor.type, types.data);
   // a type the catalog does not list (a plugin's) has no page to open
-  const listed = types.data?.some((t) => t.type === supervisor.type) ?? false;
+  const listed = types.data?.some((t) => t.type === supervisor.type) === true;
   return (
     <div className="flex flex-col gap-3">
       <div className="border-border bg-card text-body-md shadow-card flex flex-col gap-2 rounded-xl border p-4">

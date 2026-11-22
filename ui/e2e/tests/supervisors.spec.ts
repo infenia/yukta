@@ -185,6 +185,10 @@ async function mockSupervisors(page: Page) {
   await page.route(/\/api\/supervisors\/decisions(\?|$)/, (r) =>
     r.fulfill(envelope('/decisions', DECISIONS))
   );
+  // the list's Direct control count
+  await page.route(/\/api\/supervision\/summary$/, (r) =>
+    r.fulfill(envelope('/summary', { unowned: 0, unownedWorkflows: [] }))
+  );
 }
 
 test.describe('Supervisors', () => {

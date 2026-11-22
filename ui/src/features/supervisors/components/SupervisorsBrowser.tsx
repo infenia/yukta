@@ -1,71 +1,124 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useState, type ReactNode } from 'react';
+import { Link, useSearchParams } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { MultiSelect } from '@/components/ui/select';
 import { StateMessage } from '@/components/common/StateMessage';
+import { Tip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useSupervisors } from '../hooks/useSupervisorTypes';
+import { getSupervisionSummary } from '../api/supervision';
+import {
+  useSupervisors,
+  useSupervisorTypes,
+} from '../hooks/useSupervisorTypes';
+import { decisionMaker } from '../lib/decisionMakers';
+import type { SupervisorView } from '../types';
 import { StaleNotice } from './StaleNotice';
+import { Chip } from './SupervisorCard';
 import {
   DirectControlDetail,
   DETAIL_TABS,
   SupervisorDetail,
   type DetailTab,
 } from './SupervisorDetail';
-import { Tip } from '@/components/ui/tooltip';
 
-function NavItem({
+const STATES = [
+  { value: 'live', label: 'Live' },
+  { value: 'dry-run', label: 'Dry run' },
+  { value: 'built-in', label: 'Built in' },
+];
+
+const stateOf = (s: SupervisorView) => [
+  s.dryRun ? 'dry-run' : 'live',
+  ...(s.system ? ['built-in'] : []),
+];
+
+/** One row of the list: an icon tile with its state dot, the name, its type, and small counts. */
+function SupervisorListItem({
   id,
   label = id,
   sub,
   selected,
   onSelect,
   live,
+  system,
   owns,
+  refused,
+  ownsTip,
 }: {
   id: string;
   /** What is shown when it is not the id itself, such as "Direct control". */
   label?: string;
-  /** The engine id, in mono. */
-  sub: string;
+  sub: ReactNode;
   selected: boolean;
   onSelect: (id: string) => void;
-  /** A Live or Dry-run dot; none for Direct control. */
+  /** The Live or Dry-run dot; none for Direct control. */
   live?: boolean;
+  system?: boolean;
   owns?: number;
+  refused?: number;
+  ownsTip?: string;
 }) {
+  const direct = live === undefined;
   return (
     <button
       type="button"
       aria-current={selected}
       onClick={() => onSelect(id)}
       className={cn(
-        'text-body-md transition-standard flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left',
+        'transition-standard flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left',
         selected
-          ? 'bg-accent text-accent-foreground font-semibold'
+          ? 'bg-accent text-accent-foreground'
           : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
       )}
     >
-      {live !== undefined && (
-        <Tip label={live ? 'Live' : 'Dry run: recorded, not applied'}>
-          <span
-            role="img"
-            aria-label={live ? 'Live' : 'Dry run'}
-            className={cn(
-              'size-2 shrink-0 rounded-full',
-              live ? 'bg-success' : 'ring-attention ring-2 ring-inset'
-            )}
-          />
+      <span className="relative shrink-0">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'flex size-8 items-center justify-center rounded-lg ring-1',
+            direct
+              ? 'bg-muted text-on-surface-variant ring-border'
+              : 'bg-primary/10 text-primary ring-primary/20'
+          )}
+        >
+          <span className="material-symbols-outlined text-lg">
+            {direct ? 'person' : 'shield_person'}
+          </span>
+        </span>
+        {live !== undefined && (
+          <Tip label={live ? 'Live' : 'Dry run: recorded, not applied'}>
+            <span
+              role="img"
+              aria-label={live ? 'Live' : 'Dry run'}
+              className={cn(
+                'ring-card absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full ring-2',
+                live ? 'bg-success' : 'bg-attention'
+              )}
+            />
+          </Tip>
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="text-body-md block truncate font-medium">{label}</span>
+        <span className="text-label-sm block truncate">{sub}</span>
+      </span>
+      {system && <Chip>Built in</Chip>}
+      {refused !== undefined && refused > 0 && (
+        <Tip label={`${refused} refused`}>
+          <span className="bg-attention/10 text-attention text-label-sm rounded-full px-2 tabular-nums">
+            {refused}
+          </span>
         </Tip>
       )}
-      <span className="min-w-0 flex-1">
-        <span className="block truncate">{label}</span>
-        <span className="text-code-sm block text-[11px] opacity-75">{sub}</span>
-      </span>
       {owns !== undefined && owns > 0 && (
-        <Tip label={`Owns ${owns} ${owns === 1 ? 'target' : 'targets'}`}>
+        <Tip
+          label={ownsTip ?? `Owns ${owns} ${owns === 1 ? 'target' : 'targets'}`}
+        >
           <span className="bg-muted text-label-sm text-on-surface-variant rounded-full px-2 tabular-nums">
             {owns}
           </span>
@@ -78,8 +131,15 @@ function NavItem({
 /** The flat list of supervisors on the left, the chosen one on the right. */
 export function SupervisorsBrowser() {
   const supervisors = useSupervisors();
+  const types = useSupervisorTypes();
+  const summary = useQuery({
+    queryKey: ['supervision', 'summary'],
+    queryFn: getSupervisionSummary,
+  });
   const [params, setParams] = useSearchParams();
   const [filter, setFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [stateFilter, setStateFilter] = useState<string[]>([]);
   if (supervisors.isPending) {
     return <StateMessage tone="loading" title="Loading supervisors…" />;
   }
@@ -118,53 +178,118 @@ export function SupervisorsBrowser() {
       else next.set('section', tab);
     });
   const needle = filter.trim().toLowerCase();
+  const typeName = (type: string) => decisionMaker(type, types.data).name;
+  const shown = all.filter(
+    (s) =>
+      (!needle ||
+        [s.id, s.type, typeName(s.type)].some((t) =>
+          t.toLowerCase().includes(needle)
+        )) &&
+      (typeFilter.length === 0 || typeFilter.includes(s.type)) &&
+      (stateFilter.length === 0 ||
+        stateOf(s).some((state) => stateFilter.includes(state)))
+  );
+  const clear = () => {
+    setFilter('');
+    setTypeFilter([]);
+    setStateFilter([]);
+  };
+  const typeOptions = [...new Set(all.map((s) => s.type))].map((type) => ({
+    value: type,
+    label: typeName(type),
+  }));
+  const unowned = summary.data?.unowned ?? 0;
   return (
     <>
       <StaleNotice query={supervisors} />
-      <div className="flex flex-col gap-6 md:flex-row">
-        <nav
-          aria-label="Supervisors"
-          className="flex shrink-0 flex-col gap-4 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-70 md:self-start md:overflow-y-auto"
-        >
-          <Input
-            type="search"
-            aria-label="Filter supervisors"
-            placeholder="Filter by name"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-          <ul className="flex flex-col gap-0.5">
-            {all
-              .filter((s) => s.id.toLowerCase().includes(needle))
-              .map((s) => (
+      <div className="flex flex-col gap-4 md:flex-row">
+        <div className="flex shrink-0 flex-col gap-3 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-64 md:self-start md:overflow-y-auto xl:w-72">
+          <div className="flex flex-col gap-2">
+            <Input
+              type="search"
+              aria-label="Filter supervisors"
+              placeholder="Search by name or type"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <MultiSelect
+                ariaLabel="Filter by type"
+                placeholder="Any type"
+                values={typeFilter}
+                onValuesChange={setTypeFilter}
+                options={typeOptions}
+                className="min-w-0 flex-1"
+              />
+              <MultiSelect
+                ariaLabel="Filter by state"
+                placeholder="Any state"
+                values={stateFilter}
+                onValuesChange={setStateFilter}
+                options={STATES}
+                className="min-w-0 flex-1"
+              />
+            </div>
+          </div>
+          <nav aria-label="Supervisors" className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-0.5">
+              {shown.map((s) => (
                 <li key={s.id}>
-                  <NavItem
+                  <SupervisorListItem
                     id={s.id}
-                    sub={s.type}
+                    sub={
+                      typeName(s.type) === s.type ? (
+                        <code className="text-code-sm">{s.type}</code>
+                      ) : (
+                        <>
+                          {typeName(s.type)} ·{' '}
+                          <code className="text-code-sm">{s.type}</code>
+                        </>
+                      )
+                    }
                     live={!s.dryRun}
+                    system={s.system}
                     owns={s.attachments}
+                    refused={s.rejected}
                     selected={!showDefault && s.id === selected?.id}
                     onSelect={select}
                   />
                 </li>
               ))}
-          </ul>
+            </ul>
+            <div className="border-border mt-1 border-t pt-2">
+              <SupervisorListItem
+                id="default"
+                label="Direct control"
+                sub="For workflows nobody owns"
+                owns={unowned}
+                ownsTip={`${unowned} workflows nobody supervises`}
+                selected={showDefault}
+                onSelect={select}
+              />
+            </div>
+          </nav>
+          {all.length > 0 && shown.length === 0 && (
+            <StateMessage compact icon="search" title="No supervisor matches">
+              Try another name or clear the filters.
+              <Button variant="ghost" size="sm" onClick={clear}>
+                Clear filters
+              </Button>
+            </StateMessage>
+          )}
           {all.length === 0 && (
-            <p className="text-body-sm text-on-surface-variant px-3">
+            <p className="border-border text-body-sm text-on-surface-variant rounded-xl border border-dashed p-3">
               No supervisors yet. An agent adds them with MCP{' '}
               <code className="text-code-sm">save_supervisor</code>, the CLI (
               <code className="text-code-sm">yukta supervisors</code>) or the
-              API.
+              API. Or create one by hand with{' '}
+              <Link to="/supervisors/new" className="text-primary">
+                New supervisor
+              </Link>
+              .
             </p>
           )}
-          <NavItem
-            id="default"
-            label="Direct control"
-            sub="For workflows nobody owns"
-            selected={showDefault}
-            onSelect={select}
-          />
-        </nav>
+        </div>
         <div className="min-w-0 flex-1">
           {showDefault || !selected ? (
             <DirectControlDetail tab={section} setTab={setSection} />
