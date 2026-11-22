@@ -1,0 +1,75 @@
+---
+title: "Find out why a run failed without reading its logs"
+sidebarTitle: "Read runs efficiently"
+description: "Let an AI agent (or you) explain a failed run in a few kilobytes: the failure digest first, then a grep over the logs that counts before it shows lines, then only the part of one node's output that matters."
+keywords: ["get_failure_digest", "search_logs", "digest", "logs search", "tokens", "context", "grep", "failed test", "MCP", "token cost"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to read a failed run in the fewest tokens, over MCP, REST or the CLI"
+  time="5 minutes"
+  need="a running server and a run that failed"
+  end="an agent that reads the digest first and never pulls a whole log into its context"
+/>
+
+**Use this when** an AI agent spends many tokens on Yukta runs. A log can be megabytes; what the agent needs is usually a failing test name and a `file:line`. Every read below is bounded by default and says how to get the next part.
+
+## The order: digest, search, then one node
+
+| Step | MCP tool | REST | CLI | Size |
+|---|---|---|---|---|
+| 1. Why did it fail? | `get_failure_digest` | `GET /api/executions/{id}/digest` | `yukta-cli digest <id>` | about 4 KB |
+| 2. Where are the lines? | `search_logs` (`mode=COUNT`, then `NODES`) | `GET /api/executions/{id}/logs/search` | `yukta-cli logs search <id>` | counts only |
+| 3. Show me the lines | `search_logs` (`mode=LINES` with `nodes`, `level`, `grep`) | same, `mode=LINES` | `logs search --mode LINES` | at most 50 matches and 16 KB |
+| 4. Read around one spot | `get_node_output` (`offset`, `grep`, `context`) | `GET /api/executions/{id}/nodes/{node}/output` | `logs <session> <id> --node N` | a page |
+
+`get_execution_logs` stays for following a running run; without `tailLines` it returns only the last 100 lines (16 KB).
+
+The MCP server sends this order to every client at connect time (server `instructions`), and the `debug-workflow` prompt follows it.
+
+## 1. The failure digest
+
+The digest lists:
+- the run's status, and whether it has ended;
+- the nodes that failed or timed out, also in failed sub-runs of the same session, with the error the engine recorded;
+- the failures recognised in their output: failed tests (Gradle/JUnit, Go, Vitest, Jest), compile errors (javac, Kotlin, tsc, Go), lint findings (Checkstyle, PMD, ESLint) and failed tasks, each with its `file:line` and its line in the node's output;
+- `next`: the reads that show more. `NODE_OUTPUT` means `get_node_output` with that `nodeId` and `offset`; `SEARCH` means `search_logs` with that node and level.
+
+```json
+{ "status": "FAILURE",
+  "failedNodes": [{ "nodeId": "build", "status": "FAILURE", "error": "exit 1", "lines": 9204, "errorLines": 3 }],
+  "findings": [{ "kind": "TEST", "name": "com.x.FooTest > adds()", "location": "FooTest.java:27",
+                 "message": "AssertionFailedError: expected: <2> but was: <3>", "line": 8811 }],
+  "next": [{ "kind": "NODE_OUTPUT", "nodeId": "build", "offset": 8805, "why": "the lines around com.x.FooTest > adds()" }] }
+```
+
+When no extractor knows the output, the digest shows the node's first error lines and suggests a search.
+
+### Exact test names from reports
+
+`PROCESS_EXECUTOR` with `reports` (JUnit XML, Checkstyle XML or SARIF) also writes every failure it reads to the node's log as one `TestFailure:` or `LintFailure:` line, which the digest reads before anything else:
+
+```json
+"reports": [{ "format": "junit", "glob": "**/build/test-results/test/TEST-*.xml" }]
+```
+
+## 2 and 3. The search
+
+`search_logs` is a grep over a run's logs, and over its sub-runs with `includeChildren`. Start cheap:
+- `mode=COUNT` (default): lines, errors, warnings and matches per node, no lines;
+- `mode=NODES`: only the nodes that matched;
+- `mode=LINES`: the matching lines with `context` lines from the same node. A cut answer has `nextCursor`; pass it as `cursor` for the next page.
+
+`hint` always names the cheapest next search, for example `Read the lines with mode=LINES and nodes=build, level=ERROR.`
+
+## Measuring it
+
+`yukta.mcp.response.bytes{tool}` records the size of every MCP answer per tool, so you can see which reads fill an agent's context (`/actuator/metrics/yukta.mcp.response.bytes?tag=tool:get_execution_logs`).
+
+## Related
+
+- [MCP tools](/reference/mcp-tools): every tool with its arguments and role.
+- [CLI](/reference/cli): `digest` and `logs search`.
+- [Observe runs](/guides/operate/observe-runs).

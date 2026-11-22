@@ -229,6 +229,7 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `service.workflow / workflow.store` | Definitions, versions, diff, topological sort, prepared-workflow cache | `TopologicalSortService` `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
 | `service.session` | Session config and its stores | `SessionService` `FileSessionConfigStore` (plus) `InMemorySessionConfigStore` | DUR-05 |
 | `service.result / streaming` | Terminal results channel; progress history cache | `ExecutionResultService` `StatusHistoryCache` | OBS |
+| `service.diagnosis` | Failure digest, failure extractors, run log search | `FailureDigestService` `RunLogSearcher` `FailureExtractor` | OBS-06 |
 | `service.worker / leader` | Worker registry and remote node execution; leader election | `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `LeaderElection` | SCL |
 | `service.plugin` | Plugin lookup by type | `PluginRegistry` | EXT-01 |
 | `security` | API keys, roles, request path rules | `ApiKeys` `ApiRole` `RequestPaths` | SEC-01 |
@@ -803,6 +804,24 @@ Each run is one Micrometer observation `yukta.run`, the parent of one `yukta.nod
 **Configure:** Add a Micrometer tracer to the classpath. No Yukta setting.
 
 **Source:** `RunTelemetry`
+
+### OBS-06: Run diagnosis (digest and log search)
+
+**Status:** stable
+
+Token-efficient reads of a run for agents and other clients: why it failed in about 4 KB, and a grep over its logs that counts before it shows lines.
+
+**Behaviour**
+
+- The failure digest lists the failed or timed-out nodes of the run and of its failed sub-runs of the same session (with `NodeStreams.ERROR_KEY`), the failures every `FailureExtractor` bean recognises in their output (Gradle/JUnit, javac, Kotlin, Checkstyle, PMD, Go, Vitest/Jest, tsc, ESLint, and `TestFailure:`/`LintFailure:` report lines), deduplicated, tests and compile errors first, cut to the budget, and the next reads (`NODE_OUTPUT` at an offset, `SEARCH`). A node nothing recognises contributes its first three ERROR lines.
+- The log search reads the run (and with `includeChildren` its sub-runs of the same session), groups lines by node, matches stream, level (the level the tracker rated) and a guarded regex (`GrepPattern`), and answers `COUNT`, `NODES` or `LINES` (same-node context, at most 500 matches and 64 KB, default 50 and 16 KB) with a cursor and a hint.
+- Neither checks session ownership: the caller (REST, MCP) does. Every line passes the caller's redaction before it is matched.
+
+**Surface:** REST `GET /api/executions/{e}/digest`, `GET /api/executions/{e}/logs/search`. MCP `get_failure_digest`, `search_logs`. CLI `yukta-cli digest`, `yukta-cli logs search`.
+
+**Source:** `FailureDigestService` `FailureDigestAssembler` `FailureExtractor` `RunLogSearcher` `LogSearchPass` `RunLogQuery` `SearchArguments` `GrepPattern`
+
+**Limits:** Reads the in-memory log store, so only what it still holds (newest 10,000 lines per run, retention capped at 24 h). Extractors read console output by pattern; a tool with another format needs a new `FailureExtractor` bean.
 
 ## Durability and persistence
 
