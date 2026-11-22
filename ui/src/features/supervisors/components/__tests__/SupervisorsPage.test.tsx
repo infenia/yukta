@@ -378,9 +378,7 @@ describe('the activity tab', () => {
       </QueryClientProvider>
     );
     await waitFor(() =>
-      expect(screen.getByLabelText('path')).toHaveTextContent(
-        '/control'
-      )
+      expect(screen.getByLabelText('path')).toHaveTextContent('/control')
     );
   });
 });
