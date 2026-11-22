@@ -7,6 +7,7 @@ import com.infenia.yukta.mcp.dto.AgentConversationView;
 import com.infenia.yukta.mcp.dto.AgentScreen;
 import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.provider.ConversationProvider;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
@@ -193,6 +194,7 @@ public class ConversationTools {
    *
    * @param sessionId the session
    * @param conversationId the conversation
+   * @param tailRows only the last rows of text, or null for all
    * @return the screen
    */
   @McpTool(
@@ -201,7 +203,8 @@ public class ConversationTools {
       description =
           "Read the latest settled screen of an agent that runs in a terminal (capability"
               + " terminal) as text with its size. unsupported for any other agent; not found"
-              + " before the program has drawn a screen."
+              + " before the program has drawn a screen. Pass tailRows to get only the last rows"
+              + " (where a prompt or the latest output usually is)."
               + UNTRUSTED,
       generateOutputSchema = true,
       annotations =
@@ -211,8 +214,18 @@ public class ConversationTools {
               openWorldHint = false))
   public Mono<AgentScreen> readAgentScreen(
       @McpToolParam(description = SESSION) final String sessionId,
-      @McpToolParam(description = CONVERSATION) final String conversationId) {
-    return conversations.screen(sessionId, conversationId);
+      @McpToolParam(description = CONVERSATION) final String conversationId,
+      @McpToolParam(required = false, description = "Only the last N rows of text; all if absent")
+          final Integer tailRows) {
+    final Mono<AgentScreen> screen = conversations.screen(sessionId, conversationId);
+    return tailRows == null || tailRows <= 0
+        ? screen
+        : screen.map(full -> {
+          final List<String> rows = full.text().lines().toList();
+          final String tail =
+              String.join("\n", rows.subList(Math.max(0, rows.size() - tailRows), rows.size()));
+          return new AgentScreen(full.conversationId(), full.cols(), full.rows(), tail);
+        });
   }
 
   /**

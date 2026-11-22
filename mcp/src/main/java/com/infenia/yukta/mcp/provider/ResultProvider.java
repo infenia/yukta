@@ -33,22 +33,28 @@ public class ResultProvider {
   /** Removes secrets from the payloads. */
   private final LogSanitizer sanitizer;
 
+  /** Most characters of payload one call returns; later events wait for the next call. */
+  private final int maxChars;
+
   /**
    * Create the provider.
    *
    * @param results records the results
    * @param controlBus resolves execution ownership
    * @param redactPatterns regexes whose matches are replaced in every payload; empty uses defaults
+   * @param maxChars most payload characters one call returns, 0 for no cap
    */
   @Autowired
   @SuppressFBWarnings("EI_EXPOSE_REP2")
   public ResultProvider(
       final ExecutionResultService results,
       final ControlBusGateway controlBus,
-      @Value("${yukta.mcp.log-redact-patterns:}") final List<String> redactPatterns) {
+      @Value("${yukta.mcp.log-redact-patterns:}") final List<String> redactPatterns,
+      @Value("${yukta.mcp.result-max-chars:32000}") final int maxChars) {
     this.results = results;
     this.controlBus = controlBus;
     this.sanitizer = new LogSanitizer(redactPatterns, 0);
+    this.maxChars = maxChars;
   }
 
   /**
@@ -58,7 +64,7 @@ public class ResultProvider {
    * @param controlBus resolves execution ownership
    */
   public ResultProvider(final ExecutionResultService results, final ControlBusGateway controlBus) {
-    this(results, controlBus, List.of());
+    this(results, controlBus, List.of(), 0);
   }
 
   /**
@@ -95,13 +101,46 @@ public class ResultProvider {
                     event.truncated(),
                     event.timestamp()))
             .toList();
+    final List<ResultEvent> kept = withinBudget(events);
+    if (kept.size() == events.size()) {
+      return new ExecutionResultView(
+          read.executionId(),
+          read.complete(),
+          read.status(),
+          read.truncated(),
+          read.nextCursor(),
+          events,
+          ExecutionResultView.UNTRUSTED_NOTICE);
+    }
+    // events were held back: the caller reads them from the cursor, so the run is not complete yet
     return new ExecutionResultView(
         read.executionId(),
-        read.complete(),
-        read.status(),
+        false,
+        null,
         read.truncated(),
-        read.nextCursor(),
-        events,
-        ExecutionResultView.UNTRUSTED_NOTICE);
+        kept.getLast().sequence() + 1,
+        kept,
+        ExecutionResultView.UNTRUSTED_NOTICE,
+        (events.size() - kept.size())
+            + " more events were held back to stay within the size budget: pass nextCursor as"
+            + " afterCursor for them. Leave out include, or use get_failure_digest and"
+            + " search_logs, to read less.");
+  }
+
+  /** The oldest events whose payloads fit in {@code maxChars}; the first one always. */
+  private List<ResultEvent> withinBudget(final List<ResultEvent> events) {
+    if (maxChars <= 0) {
+      return events;
+    }
+    long used = 0;
+    int count = 0;
+    for (final ResultEvent event : events) {
+      used += String.valueOf(event.payload()).length();
+      if (count > 0 && used > maxChars) {
+        break;
+      }
+      count++;
+    }
+    return events.subList(0, count);
   }
 }

@@ -4,17 +4,20 @@ package com.infenia.yukta.mcp.provider;
 
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.NodeOutputPager;
+import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.mcp.dto.ExecutionLogs;
 import com.infenia.yukta.mcp.dto.NodeOutputResult;
 import com.infenia.yukta.mcp.util.LogSanitizer;
 import com.infenia.yukta.mcp.util.RegexPatternValidator;
+import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -33,6 +36,9 @@ public class LogProvider {
   /** Hard cap on lines returned by one call. */
   public static final int MAX_LINES = 5_000;
 
+  /** Lines returned when the caller names no tail: enough to see the end, not a whole log. */
+  public static final int DEFAULT_LINES = 100;
+
   /** Store of persisted plugin log entries. */
   private final PluginLogStore logStore;
 
@@ -45,6 +51,9 @@ public class LogProvider {
   /** Most characters one call returns; the oldest lines are dropped first. 0 means no cap. */
   private final int maxChars;
 
+  /** Most characters a call that names no tail returns. 0 means only {@link #maxChars} applies. */
+  private final int defaultChars;
+
   /**
    * Create the provider.
    *
@@ -53,6 +62,7 @@ public class LogProvider {
    * @param redactPatterns regexes whose matches are replaced in every line; empty uses defaults
    * @param maxLineChars longest line returned, 0 for no cut
    * @param maxChars most characters one call returns, 0 for no cap
+   * @param defaultChars most characters a call without {@code tailLines} returns, 0 for maxChars
    */
   @Autowired
   @SuppressFBWarnings("EI_EXPOSE_REP2")
@@ -61,11 +71,13 @@ public class LogProvider {
       final ControlBusGateway controlBus,
       @Value("${yukta.mcp.log-redact-patterns:}") final List<String> redactPatterns,
       @Value("${yukta.mcp.log-max-line-chars:2000}") final int maxLineChars,
-      @Value("${yukta.mcp.log-max-chars:200000}") final int maxChars) {
+      @Value("${yukta.mcp.log-max-chars:200000}") final int maxChars,
+      @Value("${yukta.mcp.log-default-chars:16000}") final int defaultChars) {
     this.logStore = logStore;
     this.controlBus = controlBus;
     this.sanitizer = new LogSanitizer(redactPatterns, maxLineChars);
     this.maxChars = maxChars;
+    this.defaultChars = defaultChars;
   }
 
   /**
@@ -75,7 +87,7 @@ public class LogProvider {
    * @param controlBus resolves execution ownership
    */
   public LogProvider(final PluginLogStore logStore, final ControlBusGateway controlBus) {
-    this(logStore, controlBus, List.of(), 2_000, 0);
+    this(logStore, controlBus, List.of(), 2_000, 0, 0);
   }
 
   /**
@@ -107,7 +119,7 @@ public class LogProvider {
       @Nullable final String grep,
       @Nullable final Integer context) {
     return Mono.defer(() -> {
-      final String which = stream == null ? "all" : stream.toLowerCase(java.util.Locale.ROOT);
+      final String which = stream == null ? "all" : stream.toLowerCase(Locale.ROOT);
       if (!List.of("all", "stdout", "stderr").contains(which)) {
         return Mono.error(new IllegalArgumentException("stream must be stdout, stderr or all"));
       }
@@ -179,11 +191,70 @@ public class LogProvider {
       final Integer tailLines,
       final String filterPattern,
       final Integer afterCursor) {
+    return getExecutionLogs(
+        sessionId, executionId, tailLines, filterPattern, afterCursor, null, null);
+  }
+
+  /**
+   * Get the logs of a workflow execution, optionally of one node and from a level up. Without
+   * {@code tailLines} only the last {@value #DEFAULT_LINES} lines (within the default character
+   * budget) are returned, with a hint to the cheaper reads when more matched.
+   *
+   * @param sessionId the session that owns the execution
+   * @param executionId the execution identifier
+   * @param tailLines optional maximum number of lines to return
+   * @param filterPattern optional regex applied to each formatted log line
+   * @param afterCursor the {@code nextCursor} of the previous call, or null
+   * @param nodeId only lines of this node, or null for all
+   * @param level only lines of this level or higher (ERROR, WARN, INFO, DEBUG), or null
+   * @return Mono containing the execution logs; errors if the execution is unknown or an argument
+   *     is invalid
+   */
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<ExecutionLogs> getExecutionLogs(
+      final String sessionId,
+      final String executionId,
+      @Nullable final Integer tailLines,
+      @Nullable final String filterPattern,
+      @Nullable final Integer afterCursor,
+      @Nullable final String nodeId,
+      @Nullable final String level) {
     return Mono.defer(() -> {
       final Pattern pattern = RegexPatternValidator.compile(filterPattern);
+      final Filter filter =
+          new Filter(pattern, nodeId == null || nodeId.isBlank() ? null : nodeId, level(level));
+      final int budget = tailLines == null && defaultChars > 0 ? cap(defaultChars) : maxChars;
       return ExecutionOwnership.require(controlBus, sessionId, executionId)
-          .then(readTail(executionId, pattern, limit(tailLines), afterCursor));
+          .then(readTail(executionId, filter, limit(tailLines), afterCursor, budget));
     });
+  }
+
+  /** What a line must match. */
+  private record Filter(
+      @Nullable Pattern pattern, @Nullable String nodeId, @Nullable LogLevel level) {
+
+    /* default */ boolean admits(final PluginLogEntry entry) {
+      return (nodeId == null || nodeId.equals(entry.pluginId()))
+          && (level == null
+              || (entry.logLevel() == null ? LogLevel.INFO : entry.logLevel()).compareTo(level)
+                  >= 0);
+    }
+  }
+
+  /** The default budget, never above the hard one. */
+  private int cap(final int chars) {
+    return maxChars > 0 ? Math.min(chars, maxChars) : chars;
+  }
+
+  private static @Nullable LogLevel level(@Nullable final String level) {
+    if (level == null || level.isBlank()) {
+      return null;
+    }
+    try {
+      return LogLevel.valueOf(level.strip().toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException("level must be ERROR, WARN, INFO or DEBUG", e);
+    }
   }
 
   /**
@@ -193,9 +264,10 @@ public class LogProvider {
    */
   private Mono<ExecutionLogs> readTail(
       final String executionId,
-      final Pattern pattern,
+      final Filter filter,
       final int limit,
-      @Nullable final Integer afterCursor) {
+      @Nullable final Integer afterCursor,
+      final int budget) {
     final boolean forward = afterCursor != null;
     final int after = cursor(afterCursor);
     return Mono.defer(() -> {
@@ -206,9 +278,9 @@ public class LogProvider {
           .readIndexed(executionId)
           // the end of the log, counting lines the store dropped: where a follower resumes
           .doOnNext(line -> stored.set((int) line.sequence() + 1))
-          .filter(line -> line.sequence() >= after)
+          .filter(line -> line.sequence() >= after && filter.admits(line.entry()))
           .map(line -> new Line((int) line.sequence(), sanitizer.clean(line.entry().format())))
-          .filter(line -> RegexPatternValidator.matches(line.text(), pattern))
+          .filter(line -> RegexPatternValidator.matches(line.text(), filter.pattern()))
           .doOnNext(line -> {
             total.incrementAndGet();
             if (!forward || kept.size() < limit) {
@@ -219,8 +291,8 @@ public class LogProvider {
             }
           })
           .then(
-              Mono.fromSupplier(
-                  () -> result(executionId, forward, total.get(), stored.get(), after, kept)));
+              Mono.fromSupplier(() ->
+                  result(executionId, forward, total.get(), stored.get(), after, kept, budget)));
     });
   }
 
@@ -230,8 +302,9 @@ public class LogProvider {
       final int total,
       final int stored,
       final int after,
-      final Deque<Line> kept) {
-    final List<Line> shown = capChars(List.copyOf(kept), forward);
+      final Deque<Line> kept,
+      final int budget) {
+    final List<Line> shown = capChars(List.copyOf(kept), forward, budget);
     final List<String> lines = shown.stream().map(Line::text).toList();
     final int end = Math.max(stored, after);
     // Following: stop after the last line returned while matching lines remain, else after the
@@ -245,7 +318,19 @@ public class LogProvider {
         total - lines.size(),
         lines,
         cursor,
-        ExecutionLogs.UNTRUSTED_NOTICE);
+        ExecutionLogs.UNTRUSTED_NOTICE,
+        hint(total - lines.size(), forward));
+  }
+
+  /** Where to read instead when lines were left out. */
+  private static @Nullable String hint(final int omitted, final boolean forward) {
+    if (omitted <= 0) {
+      return null;
+    }
+    return omitted
+        + " more matching lines were left out. Read only what you need: get_failure_digest,"
+        + " search_logs (mode=COUNT, then LINES with nodes, level or grep) or get_node_output"
+        + (forward ? "; or pass nextCursor as afterCursor for the rest." : "; or raise tailLines.");
   }
 
   /**
@@ -253,7 +338,8 @@ public class LogProvider {
    * for a tail. The first one in that order is always kept, cut to {@code maxChars} if it alone is
    * longer, so a very long line cannot stop a follower.
    */
-  private List<Line> capChars(final List<Line> lines, final boolean forward) {
+  private static List<Line> capChars(
+      final List<Line> lines, final boolean forward, final int maxChars) {
     final List<Line> ordered = forward ? lines : lines.reversed();
     final List<Line> out = new ArrayList<>();
     long used = 0;
@@ -279,6 +365,9 @@ public class LogProvider {
 
   /** Requested tail size, bounded so one call cannot flood an agent's context. */
   private static int limit(final Integer tailLines) {
-    return tailLines == null || tailLines <= 0 ? MAX_LINES : Math.min(tailLines, MAX_LINES);
+    if (tailLines == null) {
+      return DEFAULT_LINES;
+    }
+    return tailLines <= 0 ? MAX_LINES : Math.min(tailLines, MAX_LINES);
   }
 }

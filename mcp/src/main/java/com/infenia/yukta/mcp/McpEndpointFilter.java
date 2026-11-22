@@ -11,10 +11,14 @@ import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.security.RequestPaths;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.MeterBinder;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -26,6 +30,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
+import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.http.server.reactive.ServerHttpResponseDecorator;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -45,10 +51,12 @@ import reactor.core.publisher.Mono;
  * with {@code Retry-After}. {@code start_workflow} and {@code get_execution_logs} with a {@code
  * filterPattern} (a regex run over every line) also count against {@code
  * yukta.mcp.heavy-rate-limit-per-minute} (default 60, 0 = unlimited), refused calls are counted in
- * {@code yukta.mcp.heavy.refused}. An endpoint with no key (loopback only) is not limited.
+ * {@code yukta.mcp.heavy.refused}. An endpoint with no key (loopback only) is not limited. For a
+ * keyed caller the size of every answer is recorded in {@code yukta.mcp.response.bytes}, tagged
+ * with the tool it called.
  */
 @Component
-@SuppressWarnings("PMD.ExcessiveImports")
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyMethods"})
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class McpEndpointFilter implements WebFilter, MeterBinder {
 
@@ -77,6 +85,9 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
 
   /** Costly calls refused so far. */
   private final LongAdder heavyRefused = new LongAdder();
+
+  /** Where the response sizes go, once the filter is bound to a registry. */
+  private final AtomicReference<MeterRegistry> registry = new AtomicReference<>();
 
   /**
    * Create the filter from the configuration.
@@ -146,6 +157,7 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
         .description(
             "MCP tool calls refused by the lower limit for start_workflow and regex log reads")
         .register(registry);
+    this.registry.set(registry);
   }
 
   @Override
@@ -204,10 +216,54 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
           if (heavyOverLimit(match.name(), bytes)) {
             return tooMany(exchange);
           }
-          return chain.filter(withBody(exchange, bytes));
+          final String tool = bytes.length == 0 ? "none" : McpToolAccess.toolTag(bytes);
+          final AtomicLong written = new AtomicLong();
+          return chain
+              .filter(measured(withBody(exchange, bytes), written))
+              .doFinally(_ -> recordSize(tool, written.get()));
         })
         .onErrorResume(
             DataBufferLimitException.class, _ -> reject(exchange, HttpStatus.CONTENT_TOO_LARGE));
+  }
+
+  /**
+   * Counts the bytes of the response, so {@code yukta.mcp.response.bytes} shows which tools fill an
+   * agent's context.
+   */
+  private static ServerWebExchange measured(
+      final ServerWebExchange exchange, final AtomicLong written) {
+    final ServerHttpResponse response =
+        new ServerHttpResponseDecorator(exchange.getResponse()) {
+          @Override
+          public Mono<Void> writeWith(final Publisher<? extends DataBuffer> body) {
+            return super.writeWith(
+                Flux.from(body).doOnNext(buffer -> written.addAndGet(buffer.readableByteCount())));
+          }
+
+          @Override
+          public Mono<Void> writeAndFlushWith(
+              final Publisher<? extends Publisher<? extends DataBuffer>> body) {
+            return super.writeAndFlushWith(
+                Flux.from(body)
+                    .map(part ->
+                        Flux.from(part)
+                            .doOnNext(buffer -> written.addAndGet(buffer.readableByteCount()))));
+          }
+        };
+    return exchange.mutate().response(response).build();
+  }
+
+  /** Records the size of one answer under its tool. */
+  private void recordSize(final String tool, final long bytes) {
+    final MeterRegistry meters = registry.get();
+    if (meters != null && bytes > 0) {
+      DistributionSummary.builder("yukta.mcp.response.bytes")
+          .description("Bytes of MCP responses, per tool called: what fills an agent's context")
+          .baseUnit("bytes")
+          .tag("tool", tool)
+          .register(meters)
+          .record(bytes);
+    }
   }
 
   /** Whether the costly calls in the body put this caller over its lower limit (counts them). */

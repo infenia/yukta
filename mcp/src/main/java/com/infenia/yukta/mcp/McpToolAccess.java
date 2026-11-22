@@ -98,6 +98,40 @@ class McpToolAccess {
   /** Reads JSON-RPC messages. */
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
+  /** The JSON-RPC method of a tool call. */
+  private static final String TOOLS_CALL = "tools/call";
+
+  /** The JSON-RPC method field. */
+  private static final String METHOD = "method";
+
+  /**
+   * The tool a request calls, as a meter tag: a known tool's name, {@code other} for an unknown one
+   * or a batch of several calls, {@code none} when it calls no tool (initialize, tools/list).
+   *
+   * @param body the request body
+   * @return the tag, from a bounded set
+   */
+  /* default */ String toolTag(final byte[] body) {
+    try {
+      final JsonNode root = JSON.readTree(body);
+      final List<String> tools = new java.util.ArrayList<>();
+      for (final JsonNode message : root.isArray() ? root : List.of(root)) {
+        final boolean call = TOOLS_CALL.equals(message.path(METHOD).asString(""));
+        if (call) {
+          tools.add(message.path("params").path("name").asString(""));
+        }
+      }
+      if (tools.isEmpty()) {
+        return "none";
+      }
+      return tools.size() == 1 && REQUIRED.containsKey(tools.getFirst())
+          ? tools.getFirst()
+          : "other";
+    } catch (JacksonException e) {
+      return "none";
+    }
+  }
+
   /**
    * Whether the key may send these JSON-RPC messages: every {@code tools/call} and {@code
    * resources/read} in them must be allowed, other methods (initialize, tools/list, notifications)
@@ -112,14 +146,14 @@ class McpToolAccess {
       final JsonNode root = JSON.readTree(body);
       for (final JsonNode message : root.isArray() ? root : List.of(root)) {
         final JsonNode params = message.path("params");
-        if ("tools/call".equals(message.path("method").asString(""))
+        if ("tools/call".equals(message.path(METHOD).asString(""))
             && !permitted(
                 key,
                 params.path("name").asString(""),
                 params.path("arguments").path("sessionId").asString(null))) {
           return false;
         }
-        if ("resources/read".equals(message.path("method").asString(""))
+        if ("resources/read".equals(message.path(METHOD).asString(""))
             && !permittedResource(key, params.path("uri").asString(""))) {
           return false;
         }
@@ -161,7 +195,7 @@ class McpToolAccess {
       final JsonNode root = JSON.readTree(body);
       int heavy = 0;
       for (final JsonNode message : root.isArray() ? root : List.of(root)) {
-        if (!"tools/call".equals(message.path("method").asString(""))) {
+        if (!"tools/call".equals(message.path(METHOD).asString(""))) {
           continue;
         }
         final JsonNode params = message.path("params");
