@@ -401,78 +401,87 @@ test.describe('Supervisors - one supervisor', () => {
     await expect(glance).toContainText(/\d+ workflow/);
   });
 
-  test('has the seven tabs in order, with the number it owns and its decisions', async ({
+  test('shows every part of the supervisor on one page, with the number it owns and its decisions', async ({
     page,
   }) => {
     await page.goto('/supervisors?supervisor=release-lead');
 
-    const tabs = page.getByRole('tablist', { name: 'release-lead details' });
-    await expect(tabs.getByRole('tab')).toHaveText([
-      /Owns\s*4/,
-      /Allowed operations/,
-      /Hierarchy/,
-      /Decision maker/,
-      /Settings/,
-      /Changes/,
-      /Decisions\s*1/,
-    ]);
-    await expect(tabs.getByRole('tab', { name: /Owns/ })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    await expect(page.getByRole('tablist')).toHaveCount(0);
+    for (const name of [
+      'Owns',
+      'Allowed operations',
+      'Hierarchy',
+      'Decision maker',
+      'Decisions',
+    ]) {
+      await expect(page.getByRole('region', { name })).toBeVisible();
+    }
+    await expect(page.getByRole('group', { name: 'Changes' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /^Owns\s*4/ })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /^Decisions\s*1/ })
+    ).toBeVisible();
   });
 
-  for (const [tab, label] of [
+  for (const [section, label] of [
     ['operations', 'Allowed operations'],
     ['hierarchy', 'Hierarchy'],
     ['decision-maker', 'Decision maker'],
-    ['settings', 'Settings'],
-    ['changes', 'Changes'],
     ['decisions', 'Decisions'],
   ]) {
-    test(`the ${label} tab opens from its tab and from a link, and is in the URL`, async ({
+    test(`a link to the ${label} section is kept in the URL`, async ({
       page,
     }) => {
-      await page.goto('/supervisors?supervisor=release-lead');
+      await page.goto(
+        `/supervisors?supervisor=release-lead&section=${section}`
+      );
 
-      await page.getByRole('tab', { name: new RegExp(label) }).click();
-      await expect(page).toHaveURL(new RegExp(`section=${tab}`));
-      await expect(page.getByRole('tabpanel', { name: label })).toBeVisible();
-
-      await page.goto(`/supervisors?supervisor=release-lead&section=${tab}`);
-      await expect(
-        page.getByRole('tab', { name: new RegExp(label) })
-      ).toHaveAttribute('aria-selected', 'true');
-      await expect(page.getByRole('tabpanel', { name: label })).toBeVisible();
+      await expect(page.getByRole('region', { name: label })).toBeVisible();
     });
   }
 
-  test('choosing another supervisor goes back to its Owns tab', async ({
+  test('the Changes section opens from a link, and the old Settings link goes to Decision maker', async ({
     page,
   }) => {
+    await page.goto('/supervisors?supervisor=release-lead&section=changes');
+    await expect(page.getByRole('group', { name: 'Changes' })).toHaveAttribute(
+      'open',
+      ''
+    );
+
     await page.goto('/supervisors?supervisor=release-lead&section=settings');
+    await expect(
+      page.getByRole('region', { name: 'Decision maker' })
+    ).toBeVisible();
+  });
+
+  test('choosing another supervisor clears the section from the URL', async ({
+    page,
+  }) => {
+    await page.goto(
+      '/supervisors?supervisor=release-lead&section=decision-maker'
+    );
 
     await item(page, /audit-bot/).click();
 
     await expect(page).not.toHaveURL(/section=/);
-    await expect(page.getByRole('tab', { name: /Owns/ })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    await expect(page).toHaveURL(/supervisor=audit-bot/);
   });
 
-  test('the Owns tab names what it is assigned to', async ({ page }) => {
+  test('the Owns section names what it is assigned to', async ({ page }) => {
     await page.goto('/supervisors?supervisor=release-lead');
 
-    await expect(page.getByRole('tabpanel', { name: 'Owns' })).toContainText(
+    await expect(page.getByRole('region', { name: 'Owns' })).toContainText(
       'release-flow'
     );
   });
 
-  test('the Decisions tab lists what it decided', async ({ page }) => {
+  test('the Decisions section lists what it decided', async ({ page }) => {
     await page.goto('/supervisors?supervisor=release-lead&section=decisions');
 
-    const panel = page.getByRole('tabpanel', { name: 'Decisions' });
+    const panel = page.getByRole('region', { name: 'Decisions' });
     await expect(panel).toContainText('release-flow');
     await expect(panel).toContainText('3 failures in 60 s');
   });
@@ -503,11 +512,12 @@ test.describe('Supervisors - Direct control', () => {
     await expect(
       article.getByText('Controls the workflows that no supervisor owns.')
     ).toBeVisible();
-    await expect(article.getByRole('tab')).toHaveText([
-      /Owns\s*2/,
-      /Allowed operations/,
-      /Decision maker/,
-    ]);
+    await expect(
+      article.getByRole('heading', { name: /^Owns\s*2/ })
+    ).toBeVisible();
+    for (const name of ['Allowed operations', 'Decision maker']) {
+      await expect(article.getByRole('region', { name })).toBeVisible();
+    }
     await article.getByRole('link', { name: 'build / check' }).click();
 
     await expect(page).toHaveURL(/\/sessions\/build\/workflow\/check$/);
@@ -549,20 +559,18 @@ test.describe('Supervisors - Direct control', () => {
     await page.goto('/supervisors?supervisor=default&section=decision-maker');
 
     await expect(
-      page.getByRole('tabpanel', { name: 'Decision maker' })
+      page.getByRole('region', { name: 'Decision maker' })
     ).toContainText('the inbox, the control bar and the API');
   });
 
-  test('a section the view does not have falls back to Owns', async ({
-    page,
-  }) => {
+  test('reads the old Settings section as Decision maker', async ({ page }) => {
     await mockSupervisors(page);
     await page.goto('/supervisors?supervisor=default&section=settings');
 
-    await expect(page.getByRole('tab', { name: /Owns/ })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    await expect(
+      page.getByRole('region', { name: 'Decision maker' })
+    ).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Owns' })).toBeVisible();
   });
 
   test('says when what nobody owns cannot be loaded', async ({ page }) => {

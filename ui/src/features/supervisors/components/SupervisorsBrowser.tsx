@@ -21,9 +21,9 @@ import { StaleNotice } from './StaleNotice';
 import { Chip } from './SupervisorCard';
 import {
   DirectControlDetail,
-  DETAIL_TABS,
+  DETAIL_SECTIONS,
   SupervisorDetail,
-  type DetailTab,
+  type DetailSection,
 } from './SupervisorDetail';
 
 const STATES = [
@@ -110,7 +110,7 @@ function SupervisorListItem({
       {system && <Chip>Built in</Chip>}
       {refused !== undefined && refused > 0 && (
         <Tip label={`${refused} refused`}>
-          <span className="bg-attention/10 text-attention text-label-sm rounded-full px-2 tabular-nums">
+          <span className="bg-attention/10 text-label-sm text-attention rounded-full px-2 tabular-nums">
             {refused}
           </span>
         </Tip>
@@ -160,8 +160,12 @@ export function SupervisorsBrowser() {
   const selectedId = params.get('supervisor') ?? all[0]?.id ?? 'default';
   const selected = all.find((s) => s.id === selectedId) ?? all[0];
   const showDefault = selectedId === 'default' || !selected;
-  const section =
-    DETAIL_TABS.find((t) => t === params.get('section')) ?? 'owns';
+  // the old Settings tab is now part of Decision maker
+  const named =
+    params.get('section') === 'settings'
+      ? 'decision-maker'
+      : params.get('section');
+  const section = DETAIL_SECTIONS.find((t) => t === named) ?? null;
   const update = (change: (next: URLSearchParams) => void) => {
     const next = new URLSearchParams(params);
     change(next);
@@ -172,11 +176,8 @@ export function SupervisorsBrowser() {
       next.set('supervisor', id);
       next.delete('section');
     });
-  const setSection = (tab: DetailTab) =>
-    update((next) => {
-      if (tab === 'owns') next.delete('section');
-      else next.set('section', tab);
-    });
+  const setSection = (target: DetailSection) =>
+    update((next) => next.set('section', target));
   const needle = filter.trim().toLowerCase();
   const typeName = (type: string) => decisionMaker(type, types.data).name;
   const shown = all.filter(
@@ -292,15 +293,15 @@ export function SupervisorsBrowser() {
         </div>
         <div className="min-w-0 flex-1">
           {showDefault || !selected ? (
-            <DirectControlDetail tab={section} setTab={setSection} />
+            <DirectControlDetail section={section} />
           ) : (
             <SupervisorDetail
               key={selected.id}
               supervisor={selected}
               all={all}
               onSelect={select}
-              tab={section}
-              setTab={setSection}
+              section={section}
+              setSection={setSection}
             />
           )}
         </div>

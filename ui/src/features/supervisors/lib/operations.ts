@@ -2,9 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 /** The commands a supervisor may send, in the groups people think in. */
-export const COMMAND_GROUPS: { label: string; commands: string[] }[] = [
+export const COMMAND_GROUPS: {
+  label: string;
+  icon: string;
+  commands: string[];
+}[] = [
   {
     label: 'Pause and resume',
+    icon: 'pause',
     commands: [
       'PauseWorkflowCommand',
       'ResumeWorkflowCommand',
@@ -12,9 +17,14 @@ export const COMMAND_GROUPS: { label: string; commands: string[] }[] = [
       'ResumeNodeCommand',
     ],
   },
-  { label: 'Stop', commands: ['StopWorkflowCommand', 'StopNodeCommand'] },
+  {
+    label: 'Stop',
+    icon: 'stop',
+    commands: ['StopWorkflowCommand', 'StopNodeCommand'],
+  },
   {
     label: 'Skip and step',
+    icon: 'skip_next',
     commands: [
       'SkipNodeCommand',
       'StepNodeCommand',
@@ -25,15 +35,22 @@ export const COMMAND_GROUPS: { label: string; commands: string[] }[] = [
   },
   {
     label: 'Restart and recover',
+    icon: 'replay',
     commands: ['RestartCommand', 'RestartFromNodeCommand', 'RecoverCommand'],
   },
   {
     label: 'Start runs',
+    icon: 'play_arrow',
     commands: ['StartWorkflowCommand', 'SetPriorityCommand'],
   },
-  { label: 'Change limits', commands: ['SetLimitsCommand', 'DrainCommand'] },
+  {
+    label: 'Change limits',
+    icon: 'low_priority',
+    commands: ['SetLimitsCommand', 'DrainCommand'],
+  },
   {
     label: 'Answer input requests',
+    icon: 'person',
     commands: ['AnswerInputCommand', 'EscalateInputCommand'],
   },
 ];
@@ -52,6 +69,7 @@ const listOf = (value: unknown): string[] | null =>
 /** One row of the allowed operations table. */
 export interface OperationRow {
   label: string;
+  icon: string;
   send: Reach;
   onItsOwn: Reach;
   people: Reach;
@@ -74,8 +92,9 @@ export function operationRows(
     allowed === null || allowed.includes(command);
   const initiative = listOf(settings.initiative) ?? [];
   const people = listOf(settings.operatorAccess) ?? [];
-  return COMMAND_GROUPS.map(({ label, commands }) => ({
+  return COMMAND_GROUPS.map(({ label, icon, commands }) => ({
     label,
+    icon,
     send: reach(mayCommand, commands),
     onItsOwn: reach((c) => mayCommand(c) && initiative.includes(c), commands),
     people: reach((c) => people.includes(c), commands),

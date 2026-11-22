@@ -203,15 +203,13 @@ describe('the Supervisors tab', () => {
     expect(screen.getByText('In the definition')).toBeInTheDocument();
     expect(screen.getByText('Disabled')).toBeInTheDocument();
     expect(
-      within(screen.getByRole('tabpanel', { name: 'Owns' })).getByText(
+      within(screen.getByRole('region', { name: 'Owns' })).getByText(
         'The server'
       )
     ).toBeInTheDocument();
     expect(screen.getAllByText('Direct control').length).toBeGreaterThan(0);
     // the decision maker tab names the one it decides with, and opens the catalog at its type
-    await userEvent
-      .setup()
-      .click(screen.getByRole('tab', { name: 'Decision maker' }));
+    await screen.findByRole('region', { name: 'Decision maker' });
     expect(
       await screen.findByRole('link', { name: 'Browse decision maker types' })
     ).toHaveAttribute('href', '/supervisors?tab=decision-makers&type=http');
@@ -275,21 +273,21 @@ describe('the Supervisors tab', () => {
       await screen.findByRole('button', { name: /^\d+\+? nodes?$/ })
     );
     expect(screen.getByText(/\d+ workflows?/)).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /^Owns/ })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByLabelText('where')).toHaveTextContent('section=owns');
     expect((await screen.findAllByText('deploy.prod')).length).toBeGreaterThan(
       0
     );
 
-    await user.click(screen.getByRole('tab', { name: 'Allowed operations' }));
     expect(
-      await screen.findByRole('cell', { name: 'Pause and resume' })
+      screen.getByRole('region', { name: 'Allowed operations' })
     ).toBeInTheDocument();
-    expect(screen.getAllByText('Some').length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByText('Partly allowed: Pause and resume')).length
+    ).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
+    expect(
+      screen.getByRole('region', { name: 'Hierarchy' })
+    ).toBeInTheDocument();
     expect(
       screen.getByText('Asks all: every one must agree')
     ).toBeInTheDocument();
@@ -298,7 +296,7 @@ describe('the Supervisors tab', () => {
       screen.getByText('Asks in order: the first answer decides')
     ).toBeInTheDocument();
     await user.click(
-      within(screen.getByRole('tabpanel', { name: 'Hierarchy' })).getByRole(
+      within(screen.getByRole('region', { name: 'Hierarchy' })).getByRole(
         'button',
         { name: 'lead' }
       )
@@ -309,12 +307,14 @@ describe('the Supervisors tab', () => {
     expect(
       await screen.findByRole('button', { name: /^\d+\+? nodes?$/ })
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
+    expect(
+      screen.getByRole('region', { name: 'Hierarchy' })
+    ).toBeInTheDocument();
     expect(
       screen.getByText('nobody; people answer what it asks in the inbox')
     ).toBeInTheDocument();
     await user.click(
-      within(screen.getByRole('tabpanel', { name: 'Hierarchy' })).getByRole(
+      within(screen.getByRole('region', { name: 'Hierarchy' })).getByRole(
         'button',
         { name: 'guard' }
       )
@@ -365,8 +365,7 @@ describe('the Supervisors tab', () => {
     }
   );
 
-  it('the Decision maker tab of a rules supervisor gives the rule count and version, and opens the rules', async () => {
-    const user = userEvent.setup();
+  it('the Decision maker section of a rules supervisor gives the rule count and version', async () => {
     supervisors = [sup('lead', { type: 'rules' })];
     server.use(
       http.get('/api/supervisors/:id/engine/rules', () =>
@@ -381,10 +380,6 @@ describe('the Supervisors tab', () => {
     expect(
       screen.getByText('GET/PUT /api/supervisors/lead/engine/rules')
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Open the rules' }));
-    expect(screen.getByLabelText('where')).toHaveTextContent(
-      'section=settings'
-    );
   });
 
   it('lists several parents and children, and falls back to the first for an unknown id', async () => {
@@ -403,13 +398,17 @@ describe('the Supervisors tab', () => {
     expect(
       await screen.findByRole('heading', { name: 'agent' })
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
+    expect(
+      screen.getByRole('region', { name: 'Hierarchy' })
+    ).toBeInTheDocument();
     expect(
       screen.getByText('Reports to it:', { exact: false })
     ).toBeInTheDocument();
     await user.click(within(nav()).getAllByRole('button', { name: /lead/ })[0]);
-    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
-    const panel = screen.getByRole('tabpanel', { name: 'Hierarchy' });
+    expect(
+      screen.getByRole('region', { name: 'Hierarchy' })
+    ).toBeInTheDocument();
+    const panel = screen.getByRole('region', { name: 'Hierarchy' });
     expect(
       within(panel).getByRole('button', { name: 'agent' })
     ).toBeInTheDocument();
@@ -417,8 +416,10 @@ describe('the Supervisors tab', () => {
       within(panel).getByRole('button', { name: 'guard' })
     ).toBeInTheDocument();
     await user.click(within(panel).getByRole('button', { name: 'agent' }));
-    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
-    const again = screen.getByRole('tabpanel', { name: 'Hierarchy' });
+    expect(
+      screen.getByRole('region', { name: 'Hierarchy' })
+    ).toBeInTheDocument();
+    const again = screen.getByRole('region', { name: 'Hierarchy' });
     expect(
       within(again).getByRole('button', { name: 'lead' })
     ).toBeInTheDocument();
@@ -559,15 +560,9 @@ describe('the Supervisors tab', () => {
       await screen.findByRole('heading', { name: 'lead' })
     ).toBeInTheDocument();
     await user.click(
-      within(screen.getByRole('tablist', { name: 'lead details' })).getByRole(
-        'tab',
-        // the tab carries the number of decisions once they are loaded
-        { name: /^Decisions/ }
-      )
+      await screen.findByRole('button', { name: /^\d+\+? nodes?$/ })
     );
-    expect(screen.getByLabelText('where')).toHaveTextContent(
-      'section=decisions'
-    );
+    expect(screen.getByLabelText('where')).toHaveTextContent('section=owns');
     expect(await screen.findByText('No activity yet')).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'New supervisor' })
