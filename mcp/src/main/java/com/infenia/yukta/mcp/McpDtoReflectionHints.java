@@ -58,6 +58,7 @@ public class McpDtoReflectionHints {
                 ClassUtils.resolveClassName(candidate.getBeanClassName(), classLoader),
                 MemberCategory.INVOKE_PUBLIC_METHODS,
                 MemberCategory.INVOKE_DECLARED_METHODS,
+                MemberCategory.INVOKE_DECLARED_CONSTRUCTORS,
                 MemberCategory.ACCESS_DECLARED_FIELDS);
       }
     }
