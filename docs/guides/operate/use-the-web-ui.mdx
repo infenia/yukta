@@ -19,7 +19,7 @@ import { UiShot } from "/snippets/ui-shot.jsx";
 
 **Prerequisites:** open the server address in a browser: `http://localhost:9858` by default. With no key configured (the default on loopback) the UI asks for nothing. When the server answers `401` or `403`, the UI asks for the API key once and sends it as `Authorization: Bearer <key>`. The key stays in that browser tab and is gone when the tab closes. **Change API key** is in the account menu. Controls your key's role cannot use are shown disabled.
 
-A narrow rail (a tab bar on a phone) links to **Sessions**, **Runs**, **Plugins**, **Supervisors**, **Control** and **Configuration**. The search box and jump palette is on `⌘K` (`Ctrl+K`), and the account menu holds the theme toggle (light, dark or system). A breadcrumb row shows where you are.
+A narrow rail (a tab bar on a phone) links to **Sessions**, **Runs**, **Supervisors**, **Plugins**, **Control** and **Configuration**. The search box and jump palette is on `⌘K` (`Ctrl+K`), and the account menu holds the theme toggle (light, dark or system). A breadcrumb row shows where you are.
 
 ## Find a session and its workflows
 
@@ -49,7 +49,7 @@ Create one with **New session**: it asks for an id, name, description, initiator
 4. **Set failure behaviour:** the **Policy** tab holds retries, timeouts, what a failing message does and when a node with several parents starts. See [Handle failures](/guides/build/handle-failures).
 5. **Connect nodes:** the **Connections** tab and the **Edges** tab of the outline list a node's edges. On the **Edges** tab choose a source node, optionally one of its output ports, and a target, then **Add edge**. After you change a node, select **Validate** so its port list refreshes.
 6. **Try a step:** the **Test** tab of a node runs the draft without saving it. Enter a sample input (a JSON object), then **Run up to here** runs the node and every node before it, and **Test this step** runs only that node, fed the sample as if its parent had sent it. The output is shown and kept as a pinned output in your browser. See [Test-run a draft](/api/workflows#test-run-a-draft).
-7. **Validate** checks the draft with the rules the server applies before a run and lists the problems, or shows "Workflow is valid." **Save version** validates first and, only if the draft is valid, saves the whole session and opens the workflow page. Undo and redo are in the header, **Shortcuts** lists the keys (Ctrl/⌘ Z, Ctrl/⌘ Shift Z, Delete, Esc), and **Discard** goes back to the saved version.
+7. **Validate** checks the draft with the rules the server applies before a run and lists the problems, or shows "Workflow is valid." **Save version** validates first and, only if the draft is valid, saves the whole session and opens the workflow page. Undo and redo are in the header, **Shortcuts** lists the keys (Ctrl/⌘ Z, Ctrl/⌘ Shift Z or Ctrl Y, Delete, Esc, and Enter in the step search to pick the first step listed), and **Discard** goes back to the saved version.
 
 The model behind the forms is in [Define a workflow](/guides/build/define-a-workflow).
 
@@ -99,6 +99,10 @@ Every node has a menu with only the actions that make sense for its state: pause
 />
 
 When a node waits for a person, the **Inputs** panel above the graph lists the open requests with the prompt, the risk and the run. Choose an option (**Approve** or **Reject** for an approval), type a free answer, or select **Escalate** to hand it to the next tier. A high-risk answer asks for confirmation. See [Ask for input](/guides/ai/ask-for-input) and [Route input requests](/guides/supervise/route-input-requests).
+
+## Read your inbox
+
+The bell in the header counts the questions waiting for you and the unread alerts, and raises a toast for each new one. **Inbox** (`/inbox`) lists them on three tabs: **Needs action**, **All** and **Resolved**. Answer a question there, or hand it up with **Escalate**; a link such as `/inbox?item=<id>` opens one item. Preferences per category and muted sessions are on the same page. What is in the inbox and who sees what is in [Notifications](/concepts/notifications); the settings are in [Configure notifications](/guides/operate/notifications).
 
 ## Search past runs
 
