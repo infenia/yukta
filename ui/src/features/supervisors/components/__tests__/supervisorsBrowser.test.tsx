@@ -134,7 +134,7 @@ describe('a supervisor whose type the catalog does not list', () => {
         });
       })
     );
-    renderAt('/supervisors?tab=decision-makers&type=RuleSupervisor');
+    renderAt('/supervisors?view=decision-makers&type=RuleSupervisor');
     await expect.poll(() => asked).toContain('rules');
     expect(asked).not.toContain('RuleSupervisor');
   });
@@ -212,7 +212,7 @@ describe('the Supervisors tab', () => {
     await screen.findByRole('region', { name: 'Decision maker' });
     expect(
       await screen.findByRole('link', { name: 'Browse decision maker types' })
-    ).toHaveAttribute('href', '/supervisors?tab=decision-makers&type=http');
+    ).toHaveAttribute('href', '/supervisors?view=decision-makers&type=http');
   });
 
   it('marks dry run, built-in and the nodes it owns; switches tabs and supervisors', async () => {
@@ -581,7 +581,7 @@ describe('the Supervisors tab', () => {
     expect(nav()).not.toHaveClass('max-md:hidden');
   });
 
-  it('keeps the section in the URL, opens the types sheet, and sends the activity to Control', async () => {
+  it('keeps the section in the URL, and reaches the decision makers view', async () => {
     const user = userEvent.setup();
     supervisors = [sup('lead')];
     renderAt('/supervisors?tab=nope');
@@ -596,23 +596,72 @@ describe('the Supervisors tab', () => {
     expect(
       screen.getByRole('link', { name: 'New supervisor' })
     ).toHaveAttribute('href', '/supervisors/new');
-    await user.click(
-      screen.getByRole('button', { name: 'Decision maker types' })
-    );
+    // the header has no types button any more: they are a view of their own
+    expect(
+      screen.queryByRole('button', { name: 'Decision maker types' })
+    ).toBeNull();
+    await user.click(screen.getByRole('link', { name: /Decision makers/ }));
     expect(screen.getByLabelText('where')).toHaveTextContent(
-      'tab=decision-makers'
+      'view=decision-makers'
     );
     expect(
-      await screen.findByRole('dialog', { name: 'Decision maker types' })
+      await screen.findByRole('navigation', { name: 'Decision makers' })
     ).toBeInTheDocument();
   });
 
-  it('opens the types sheet on an old decision-makers link, falling back to the first for an unknown type', async () => {
+  it('opens the decision makers view on an old link, falling back to the first for an unknown type', async () => {
     supervisors = [sup('lead')];
     renderAt('/supervisors?tab=decision-makers&type=nope');
     expect(
-      await screen.findByRole('dialog', { name: 'Decision maker types' })
+      await screen.findByRole('navigation', { name: 'Decision makers' })
     ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Rules', level: 2 })
+    ).toBeInTheDocument();
+  });
+
+  it('sorts decision makers by category, then by name within a category', async () => {
+    supervisors = [sup('lead')];
+    server.use(
+      http.get('/api/supervisor-engines', () =>
+        ok([
+          {
+            type: 'zeta',
+            displayName: 'Zeta',
+            category: 'RULES',
+            icon: 'rule',
+          },
+          {
+            type: 'alpha',
+            displayName: 'Alpha',
+            category: 'RULES',
+            icon: 'rule',
+          },
+          {
+            type: 'http',
+            displayName: 'External system',
+            category: 'EXTERNAL_SYSTEM',
+            icon: 'api',
+          },
+          {
+            type: 'mystery',
+            displayName: 'Mystery',
+            category: 'UNKNOWN_CATEGORY',
+            icon: 'x',
+          },
+        ])
+      )
+    );
+    renderAt('/supervisors?tab=decision-makers&type=zeta');
+    const list = within(
+      await screen.findByRole('navigation', { name: 'Decision makers' })
+    );
+    const names = list.getAllByRole('button').map((a) => a.textContent ?? '');
+    const at = (name: string) => names.findIndex((n) => n.includes(name));
+    expect(at('Alpha')).toBeGreaterThanOrEqual(0);
+    expect(at('Alpha')).toBeLessThan(at('Zeta'));
+    expect(at('Zeta')).toBeLessThan(at('External system'));
+    expect(at('External system')).toBeLessThan(at('Mystery'));
   });
 
   it('redirects the old activity tab to the Control page', async () => {

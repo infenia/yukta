@@ -10,23 +10,25 @@ import { useEffect, useState, type RefObject } from 'react';
  * nothing is rendered twice.
  *
  * The page owns `detailRef` and puts it on the detail element; the hook only reads it in an effect.
+ * A detail that loads before it has a heading passes `ready` as false until it has one.
  */
 export function useListDisclosure(
   selection: string | null,
-  detailRef: RefObject<HTMLDivElement | null>
+  detailRef: RefObject<HTMLDivElement | null>,
+  ready = true
 ) {
   const [open, setOpen] = useState(false);
   // The selection a person picked from: once the selection changes, the new detail takes focus.
   const [pending, setPending] = useState<{ from: string | null } | null>(null);
   useEffect(() => {
-    if (pending === null || pending.from === selection) return;
+    if (pending === null || pending.from === selection || !ready) return;
     const heading = detailRef.current?.querySelector('h2');
     if (!heading) return;
     heading.setAttribute('tabindex', '-1');
     heading.focus();
     heading.scrollIntoView?.({ block: 'start' });
     setPending(null);
-  }, [pending, selection, detailRef]);
+  }, [pending, selection, detailRef, ready]);
   return {
     open,
     toggle: () => setOpen((now) => !now),

@@ -10,14 +10,17 @@ import { ListToggle, useListDisclosure } from '../ListDisclosure';
 function Probe({
   selection,
   heading = true,
+  ready = true,
 }: {
   selection: string | null;
   heading?: boolean;
+  ready?: boolean;
 }) {
   const detailRef = useRef<HTMLDivElement>(null);
   const { open, toggle, listClass, onPick } = useListDisclosure(
     selection,
-    detailRef
+    detailRef,
+    ready
   );
   return (
     <>
@@ -77,6 +80,16 @@ describe('the phone list disclosure', () => {
     rerender(<Probe selection="b" />);
     expect(screen.getByRole('heading', { name: 'Title' })).toHaveFocus();
     expect(scrollIntoView).toHaveBeenCalledOnce();
+  });
+
+  it('waits until the detail says it is ready, then moves focus to its heading', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<Probe selection="a" />);
+    await user.click(screen.getByRole('button', { name: 'pick' }));
+    rerender(<Probe selection="b" ready={false} />);
+    expect(screen.getByRole('heading', { name: 'Title' })).not.toHaveFocus();
+    rerender(<Probe selection="b" ready />);
+    expect(screen.getByRole('heading', { name: 'Title' })).toHaveFocus();
   });
 
   it('keeps focus where it is when the selection changes without a pick', () => {

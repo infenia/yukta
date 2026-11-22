@@ -149,48 +149,66 @@ const renderAt = (url: string) =>
     </QueryClientProvider>
   );
 
-describe('the Decision makers tab', () => {
-  it('groups decision makers by where they decide and shows the first', async () => {
-    renderAt('/supervisors?tab=decision-makers');
+describe('the Decision makers view', () => {
+  const nav = () => screen.getByRole('navigation', { name: 'Decision makers' });
+
+  it('lists the decision makers by where they decide, with a tooltip for how one is used', async () => {
+    const user = userEvent.setup();
+    renderAt('/supervisors?view=decision-makers');
     expect(
       await screen.findByRole('heading', { name: 'Rules', level: 2 })
     ).toBeInTheDocument();
-    const nav = screen.getByRole('navigation', { name: 'Decision makers' });
-    expect(
-      within(nav).getByRole('heading', { name: /External system/ })
-    ).toBeInTheDocument();
-    expect(
-      within(nav).getByRole('heading', { name: /On this server/ })
-    ).toBeInTheDocument();
-    expect(
-      within(nav).getByRole('heading', { name: /Other/ })
-    ).toBeInTheDocument();
-    expect(screen.getByText('Use it for exact cases')).toBeInTheDocument();
-    expect(screen.getByText('events')).toBeInTheDocument();
+    const names = within(nav())
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+    // Rules, External system and On this server in order, the unknown category last
+    expect(names).toHaveLength(4);
+    expect(names[0]).toContain('Rules');
+    expect(names[1]).toContain('External system');
+    expect(names[2]).toContain('Local program');
+    expect(names[3]).toContain('Odd one');
+    expect(screen.getByText('What rules does')).toBeInTheDocument();
+    await user.hover(screen.getByRole('img', { name: 'How it is used' }));
+    expect(await screen.findByText('Use it for exact cases')).toHaveAttribute(
+      'data-slot',
+      'tooltip-content'
+    );
+    expect(screen.queryByText('Acts on its own')).toBeNull();
   });
 
-  it('shows signals, settings, presets, the example and who uses it', async () => {
+  it('shows the signals as tiles, the settings, presets, the example and who uses it', async () => {
     const user = userEvent.setup();
-    renderAt('/supervisors?tab=decision-makers&type=http');
+    renderAt('/supervisors?view=decision-makers&type=http');
     expect(
       await screen.findByRole('heading', { name: 'External system', level: 2 })
     ).toBeInTheDocument();
-    expect(screen.getByText('can act on its own')).toBeInTheDocument();
-    expect(screen.getByText('Events, Reviews, ODD')).toBeInTheDocument();
+    expect(screen.getByText('Acts on its own')).toBeInTheDocument();
+    const signals = screen.getByRole('region', { name: 'Signals' });
+    expect(within(signals).getByText('Events')).toBeInTheDocument();
+    expect(within(signals).getByText('Reviews')).toBeInTheDocument();
+    // a signal the UI does not know keeps its own name
+    await user.hover(
+      within(signals).getByText('ODD').parentElement as HTMLElement
+    );
+    expect(await screen.findAllByText('ODD')).not.toHaveLength(0);
+    await user.hover(
+      within(signals).getByText('Reviews').parentElement as HTMLElement
+    );
     expect(
-      screen.getByText('A command someone sent, for it to allow or refuse')
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Settings' }));
-    expect(screen.getByText('(required)')).toBeInTheDocument();
-    // the supervisor behind the sheet shows settings too
+      await screen.findByText(
+        'Reviews: A command someone sent, for it to allow or refuse'
+      )
+    ).toHaveAttribute('data-slot', 'tooltip-content');
+    const settings = screen.getByRole('region', { name: 'Settings' });
+    expect(within(settings).getByText('(required)')).toBeInTheDocument();
+    expect(within(settings).getByText('3000')).toBeInTheDocument();
     expect(
-      within(screen.getByRole('dialog')).getByText('3000')
+      await within(screen.getByRole('region', { name: 'Presets' })).findByText(
+        'No presets'
+      )
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Presets' }));
-    expect(await screen.findByText('No presets')).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Example' }));
+    expect(screen.getByText('Example')).toBeInTheDocument();
     expect(screen.getByText(/https:\/\/x/)).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Used by' }));
     expect(await screen.findByRole('link', { name: 'agent' })).toHaveAttribute(
       'href',
       '/supervisors?supervisor=agent'
@@ -199,22 +217,20 @@ describe('the Decision makers tab', () => {
 
   it('shows presets, a type with no settings, and nobody using it; filters and chooses', async () => {
     const user = userEvent.setup();
-    renderAt('/supervisors?tab=decision-makers');
+    renderAt('/supervisors?view=decision-makers');
     await screen.findByRole('heading', { name: 'Rules', level: 2 });
-    await user.click(screen.getByRole('tab', { name: 'Settings' }));
     expect(
       screen.getByText(/It has no settings of its own/)
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Presets' }));
     expect(
       await screen.findByText('Pauses after failures')
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Used by' }));
     expect(
       await screen.findByText('No supervisor is wired to it')
     ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Odd one/ }));
     expect(screen.getByLabelText('where')).toHaveTextContent('type=odd');
+    // a category the UI does not know shows as it is
     expect(await screen.findByText('GUARD')).toBeInTheDocument();
     await user.type(
       screen.getByRole('searchbox', { name: 'Filter decision makers' }),
@@ -228,19 +244,61 @@ describe('the Decision makers tab', () => {
     ).toBeInTheDocument();
   });
 
-  it('says when the catalog, a decision maker, its presets or its users cannot be read', async () => {
+  it('filters by category, says when nothing matches, and clears the filters', async () => {
     const user = userEvent.setup();
+    renderAt('/supervisors?view=decision-makers');
+    await screen.findByRole('heading', { name: 'Rules', level: 2 });
+    const count = () => within(nav()).getAllByRole('button').length;
+    await user.click(screen.getByLabelText('Filter by category'));
+    await user.click(await screen.findByRole('option', { name: 'Other' }));
+    await user.keyboard('{Escape}');
+    expect(count()).toBe(1);
+    await user.type(
+      screen.getByRole('searchbox', { name: 'Filter decision makers' }),
+      'zzz'
+    );
+    expect(screen.getByText('No decision maker matches')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(count()).toBe(4);
+  });
+
+  it('folds the list on a phone once a decision maker is chosen', async () => {
+    const user = userEvent.setup();
+    renderAt('/supervisors?view=decision-makers&type=http');
+    await screen.findByRole('heading', { name: 'External system', level: 2 });
+    expect(nav()).toHaveClass('max-md:hidden');
+    await user.click(
+      screen.getByRole('button', { name: /All decision makers \(4\)/ })
+    );
+    expect(nav()).not.toHaveClass('max-md:hidden');
+    await user.click(within(nav()).getByRole('button', { name: /Rules/ }));
+    expect(nav()).toHaveClass('max-md:hidden');
+    expect(
+      await screen.findByRole('heading', { name: 'Rules', level: 2 })
+    ).toHaveFocus();
+  });
+
+  it('goes from the old decision-makers link to the view, keeping the type', async () => {
+    renderAt('/supervisors?tab=decision-makers&type=http');
+    expect(
+      await screen.findByRole('heading', { name: 'External system', level: 2 })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('where')).toHaveTextContent(
+      'view=decision-makers'
+    );
+    expect(screen.getByLabelText('where')).not.toHaveTextContent('tab=');
+  });
+
+  it('says when the catalog, a decision maker, its presets or its users cannot be read', async () => {
     server.use(
       http.get('/api/supervisor-engines/:type/usage', () => failed()),
       http.get('/api/supervisor-engines/:type/presets', () => failed())
     );
-    renderAt('/supervisors?tab=decision-makers');
+    renderAt('/supervisors?view=decision-makers');
     await screen.findByRole('heading', { name: 'Rules', level: 2 });
-    await user.click(screen.getByRole('tab', { name: 'Presets' }));
     expect(
       await screen.findByText('Failed to load the presets.')
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Used by' }));
     expect(
       await screen.findByText('Failed to load who uses it.')
     ).toBeInTheDocument();
@@ -248,14 +306,13 @@ describe('the Decision makers tab', () => {
 
   it('says when one decision maker cannot be read', async () => {
     server.use(http.get('/api/supervisor-engines/:type', () => failed()));
-    renderAt('/supervisors?tab=decision-makers');
+    renderAt('/supervisors?view=decision-makers');
     expect(
       await screen.findByText('Failed to load rules.')
     ).toBeInTheDocument();
   });
 
   it('shows an object default as JSON in the settings', async () => {
-    const user = userEvent.setup();
     server.use(
       http.get('/api/supervisor-engines/:type', ({ params }) =>
         ok({
@@ -266,23 +323,24 @@ describe('the Decision makers tab', () => {
         })
       )
     );
-    renderAt('/supervisors?tab=decision-makers&type=http');
+    renderAt('/supervisors?view=decision-makers&type=http');
     await screen.findByRole('heading', { name: 'External system', level: 2 });
-    await user.click(screen.getByRole('tab', { name: 'Settings' }));
     expect(
-      within(screen.getByRole('dialog')).getByText('{"A":"b"}')
+      within(screen.getByRole('region', { name: 'Settings' })).getByText(
+        '{"A":"b"}'
+      )
     ).toBeInTheDocument();
   });
 
   it('says when there are none, or the catalog fails', async () => {
     server.use(http.get('/api/supervisor-engines', () => ok([])));
-    const first = renderAt('/supervisors?tab=decision-makers');
+    const first = renderAt('/supervisors?view=decision-makers');
     expect(
       await screen.findByText('No decision makers are installed')
     ).toBeInTheDocument();
     first.unmount();
     server.use(http.get('/api/supervisor-engines', () => failed()));
-    renderAt('/supervisors?tab=decision-makers');
+    renderAt('/supervisors?view=decision-makers');
     expect(
       await screen.findByText('Failed to load the decision makers.')
     ).toBeInTheDocument();

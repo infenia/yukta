@@ -186,6 +186,10 @@ async function mockSupervisors(page: Page) {
   await page.route(/\/api\/supervisors\/decisions(\?|$)/, (r) =>
     r.fulfill(envelope('/decisions', DECISIONS))
   );
+  // the Decision makers view reads the presets and the users of the chosen type
+  await page.route(/\/api\/supervisor-engines\/[^/?]+\/(presets|usage)$/, (r) =>
+    r.fulfill(envelope('/engine', []))
+  );
   // the list's Direct control count
   await page.route(/\/api\/supervision\/summary$/, (r) =>
     r.fulfill(envelope('/summary', { unowned: 0, unownedWorkflows: [] }))
@@ -230,7 +234,10 @@ test.describe('Supervisors', () => {
     ).toContainText('not-owner: not owned');
     await shot(page, info, 'activity');
 
-    await page.getByRole('button', { name: 'Decision maker types' }).click();
+    await page
+      .getByRole('navigation', { name: 'Supervision views' })
+      .getByRole('link', { name: /Decision makers/ })
+      .click();
     await expect(page.getByText('External system').first()).toBeVisible();
     await shot(page, info, 'decision-makers');
   });

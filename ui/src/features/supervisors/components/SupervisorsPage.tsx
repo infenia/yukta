@@ -4,10 +4,8 @@
 import { Link, Navigate, useSearchParams } from 'react-router';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { IconButton } from '@/components/common/IconButton';
 import { buttonVariants } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
-import { DecisionMakersTab } from './DecisionMakersTab';
+import { DecisionMakersBrowser } from './DecisionMakersBrowser';
 import { SupervisionOverview } from './SupervisionOverview';
 import { SupervisorsBrowser } from './SupervisorsBrowser';
 import { WorkflowsBrowser } from './WorkflowsBrowser';
@@ -16,6 +14,7 @@ const LENSES = [
   { id: 'supervisors', label: 'By supervisor', icon: 'shield_person' },
   { id: 'workflows', label: 'By workflow', icon: 'account_tree' },
   { id: 'map', label: 'Map', icon: 'hub' },
+  { id: 'decision-makers', label: 'Decision makers', icon: 'category' },
 ] as const;
 
 /** The ways to look at supervision, as links: the lens is in the URL. */
@@ -58,28 +57,23 @@ function LensSwitch({
 }
 
 /**
- * Supervisors: the list and the detail of each. The decision maker types open in a sheet
- * (`?tab=decision-makers&type=<id>`, the old link); the activity lives on the Control page.
+ * Supervisors: the list and the detail of each, or the same supervision seen by workflow, as a map,
+ * or by decision maker type (`?view=`). The old `?tab=decision-makers&type=<id>` link goes to the
+ * last; the activity lives on the Control page.
  */
 export function SupervisorsPage() {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   if (params.get('tab') === 'activity') {
     return <Navigate to="/control?tab=activity" replace />;
   }
-  const view =
-    params.get('view') === 'map' || params.get('view') === 'workflows'
-      ? (params.get('view') as 'map' | 'workflows')
-      : 'supervisors';
-  const typesOpen = params.get('tab') === 'decision-makers';
-  const setTypesOpen = (open: boolean) => {
+  if (params.get('tab') === 'decision-makers') {
     const next = new URLSearchParams(params);
-    if (open) next.set('tab', 'decision-makers');
-    else {
-      next.delete('tab');
-      next.delete('type');
-    }
-    setParams(next, { replace: true });
-  };
+    next.delete('tab');
+    next.set('view', 'decision-makers');
+    return <Navigate to={`/supervisors?${next}`} replace />;
+  }
+  const view =
+    LENSES.find((l) => l.id === params.get('view'))?.id ?? 'supervisors';
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
       <PageHeader
@@ -98,11 +92,6 @@ export function SupervisorsPage() {
         }
         actions={
           <div className="flex flex-wrap gap-2">
-            <IconButton
-              icon="category"
-              label="Decision maker types"
-              onClick={() => setTypesOpen(true)}
-            />
             <Link to="/supervisors/new" className={buttonVariants()}>
               <span
                 aria-hidden="true"
@@ -120,7 +109,13 @@ export function SupervisorsPage() {
         hrefFor={(lens) => {
           const next = new URLSearchParams(params);
           // each lens keeps only its own selection
-          for (const key of ['supervisor', 'section', 'session', 'workflow']) {
+          for (const key of [
+            'supervisor',
+            'section',
+            'session',
+            'workflow',
+            'type',
+          ]) {
             next.delete(key);
           }
           if (lens === 'supervisors') next.delete('view');
@@ -131,12 +126,7 @@ export function SupervisorsPage() {
       {view === 'map' && <SupervisionOverview />}
       {view === 'workflows' && <WorkflowsBrowser />}
       {view === 'supervisors' && <SupervisorsBrowser />}
-      <Sheet open={typesOpen} onOpenChange={setTypesOpen}>
-        <SheetContent className="sm:w-[min(72rem,92vw)]">
-          <SheetTitle>Decision maker types</SheetTitle>
-          <DecisionMakersTab />
-        </SheetContent>
-      </Sheet>
+      {view === 'decision-makers' && <DecisionMakersBrowser />}
     </div>
   );
 }
