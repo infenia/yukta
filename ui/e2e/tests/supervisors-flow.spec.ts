@@ -129,6 +129,10 @@ async function mockSupervisors(
   await page.route(/\/api\/supervisors\/[^/]+\/versions$/, (r) =>
     r.fulfill(envelope('/versions', []))
   );
+  // the Decision makers view reads the presets and the users of the chosen type
+  await page.route(/\/api\/supervisor-engines\/[^/?]+\/(presets|usage)$/, (r) =>
+    r.fulfill(envelope('/engine', []))
+  );
   // a rules supervisor's Decision maker section reads its rules
   await page.route(/\/api\/supervisors\/[^/]+\/engine\/rules$/, (r) =>
     r.fulfill(

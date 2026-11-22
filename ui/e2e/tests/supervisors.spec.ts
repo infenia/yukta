@@ -186,6 +186,10 @@ async function mockSupervisors(page: Page) {
   await page.route(/\/api\/supervisors\/decisions(\?|$)/, (r) =>
     r.fulfill(envelope('/decisions', DECISIONS))
   );
+  // the Decision makers view reads the presets and the users of the chosen type
+  await page.route(/\/api\/supervisor-engines\/[^/?]+\/(presets|usage)$/, (r) =>
+    r.fulfill(envelope('/engine', []))
+  );
   // the list's Direct control count
   await page.route(/\/api\/supervision\/summary$/, (r) =>
     r.fulfill(envelope('/summary', { unowned: 0, unownedWorkflows: [] }))
