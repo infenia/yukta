@@ -2,14 +2,14 @@
 title: "Core module reference: architecture and features"
 sidebarTitle: "Core module reference"
 description: "Architecture, feature catalog and reference for the Yukta core module: the execution engine, admission, control plane, observability, durability and security."
-verifiedCommit: "9bf2a89d1"
-verifiedDate: "2026-11-17"
+verifiedCommit: "6e64677be"
+verifiedDate: "2026-11-22"
 keywords: ["core module", "architecture", "feature catalog"]
 ---
 
 The `core` module is the engine and control plane of Yukta. It takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and records enough to explain or resume it afterwards.
 
-Last verified against commit `9bf2a89d1` on 2026-11-17.
+Last verified against commit `6e64677be` on 2026-11-22.
 
 <CardGroup cols={2}>
   <Card title="Reactive">
@@ -229,6 +229,7 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `service.workflow / workflow.store` | Definitions, versions, diff, topological sort, prepared-workflow cache | `TopologicalSortService` `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
 | `service.session` | Session config and its stores | `SessionService` `FileSessionConfigStore` (plus) `InMemorySessionConfigStore` | DUR-05 |
 | `service.result / streaming` | Terminal results channel; progress history cache | `ExecutionResultService` `StatusHistoryCache` | OBS |
+| `service.diagnosis` | Failure digest, failure extractors, run log search | `FailureDigestService` `RunLogSearcher` `FailureExtractor` | OBS-06 |
 | `service.worker / leader` | Worker registry and remote node execution; leader election | `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `LeaderElection` | SCL |
 | `service.plugin` | Plugin lookup by type | `PluginRegistry` | EXT-01 |
 | `security` | API keys, roles, request path rules | `ApiKeys` `ApiRole` `RequestPaths` | SEC-01 |
@@ -804,6 +805,24 @@ Each run is one Micrometer observation `yukta.run`, the parent of one `yukta.nod
 
 **Source:** `RunTelemetry`
 
+### OBS-06: Run diagnosis (digest and log search)
+
+**Status:** stable
+
+Token-efficient reads of a run for agents and other clients: why it failed in about 4 KB, and a grep over its logs that counts before it shows lines.
+
+**Behaviour**
+
+- The failure digest lists the failed or timed-out nodes of the run and of its failed sub-runs of the same session (with `NodeStreams.ERROR_KEY`), the failures every `FailureExtractor` bean recognises in their output (Gradle/JUnit, javac, Kotlin, Checkstyle, PMD, Go, Vitest/Jest, tsc, ESLint, and `TestFailure:`/`LintFailure:` report lines), deduplicated, tests and compile errors first, cut to the budget, and the next reads (`NODE_OUTPUT` at an offset, `SEARCH`). A node nothing recognises contributes its first three ERROR lines.
+- The log search reads the run (and with `includeChildren` its sub-runs of the same session), groups lines by node, matches stream, level (the level the tracker rated) and a guarded regex (`GrepPattern`), and answers `COUNT`, `NODES` or `LINES` (same-node context, at most 500 matches and 64 KB, default 50 and 16 KB) with a cursor and a hint.
+- Neither checks session ownership: the caller (REST, MCP) does. Every line passes the caller's redaction before it is matched.
+
+**Surface:** REST `GET /api/executions/{e}/digest`, `GET /api/executions/{e}/logs/search`. MCP `get_failure_digest`, `search_logs`. CLI `yukta-cli digest`, `yukta-cli logs search`.
+
+**Source:** `FailureDigestService` `FailureDigestAssembler` `FailureExtractor` `RunLogSearcher` `LogSearchPass` `RunLogQuery` `SearchArguments` `GrepPattern`
+
+**Limits:** Reads the in-memory log store, so only what it still holds (newest 10,000 lines per run, retention capped at 24 h). Extractors read console output by pattern; a tool with another format needs a new `FailureExtractor` bean.
+
 ## Durability and persistence
 
 Making a run explainable and resumable after the process dies. Each backend has its own switch, so a deployment can be half durable: see the [durability matrix](#durability-matrix).
@@ -1079,6 +1098,8 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.version` (start payload key) | current | [DEF-01](#def-01-definition-store-and-versions) | Run a saved version of the workflow |
 | `yukta.stop.drain-timeout` | 30s | [CTL-03](#ctl-03-stop-modes) | Deadline for `DRAIN` stop |
 | `yukta.supervisor.max-commands-per-second` | 20 | [CTL-07](#ctl-07-supervisors) | Rate limit per supervisor |
+| `yukta.http.allowed-hosts` | empty | [CTL-07](#ctl-07-supervisors) | Hosts the `http` supervisor engine may post to even inside the network (`Egress`); others are checked against private, loopback and link-local addresses |
+| `yukta.plugins.enabled` | empty | [EXT-01](#ext-01-plugin-contract-and-registry) | Plugin types (or `all`) registered beyond CORE and unrestricted EXTENDED ones: SPECIFIC and restricted plugins (`PluginRegistry`) |
 | `yukta.supervisor.max-attachments` | 200 | [CTL-07](#ctl-07-supervisors) | Most supervisor attachments at once |
 | `yukta.supervisor.reserved-slots` | 4 | [CTL-07](#ctl-07-supervisors) | Slots of their own for workflow supervisor runs |
 | `yukta.execution.max-concurrent-children` | 0 (off) | [ADM-01](#adm-01-scheduler-limits-and-queue) | Child runs one parent may have at once |
@@ -1165,6 +1186,7 @@ All meters are Micrometer. Tags in braces.
 |---|---|---|---|
 | `yukta.node.executions` `{module, status}` | counter | [OBS-04](#obs-04-metrics) | Nodes reaching a terminal status |
 | `yukta.node.duration` `{module}` | timer | [OBS-04](#obs-04-metrics) | Node run time |
+| `yukta.secrets.masked` | counter | [SEC-02](#sec-02-expressions-variables-and-secrets) | Log lines in which a resolved secret was masked (`SecretScrubber`) |
 | `yukta.node.retries` `{module}` | counter | [ENG-04](#eng-04-failure-policy-engine-config) | Retried messages |
 | `yukta.execution.duration` `{status}` | timer | [OBS-04](#obs-04-metrics) | Run time |
 | `yukta.execution.queue.wait` | timer | [ADM-01](#adm-01-scheduler-limits-and-queue) | Time a start waited for a slot |

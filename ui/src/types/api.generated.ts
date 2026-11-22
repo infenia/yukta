@@ -685,6 +685,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/executions/{executionId}/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Why a run failed, in a few kilobytes
+         * @description The run's status, its failed or timed-out nodes (also of failed sub-runs) with their error, the failures recognised in their output (tests, compile errors, lint violations, tasks, with file:line) and the reads that show more. 404 for an unknown execution.
+         */
+        get: operations["getDigest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/executions/{executionId}/inputs/{requestId}": {
         parameters: {
             query?: never;
@@ -739,6 +759,26 @@ export interface paths {
          * @description Hands a request that waits up to the next tier with a reason and optional advice, as a control command. Errors as for answering.
          */
         post: operations["escalateInput"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/executions/{executionId}/logs/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search the logs of a run like grep
+         * @description COUNT (default) returns lines, errors, warnings and matches per node; NODES only the nodes that matched; LINES the matching lines with context from the same node, within maxMatches (default 50) and 16 KB, with nextCursor for the next page and a hint for the next search. 400 for a bad argument, 404 for an unknown execution.
+         */
+        get: operations["search_1"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3128,6 +3168,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseFailureDigest: {
+            /** @description The response data */
+            data?: components["schemas"]["FailureDigest"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseInputRequestView: {
             /** @description The response data */
             data?: components["schemas"]["InputRequestView"];
@@ -4753,6 +4826,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseRunLogSearch: {
+            /** @description The response data */
+            data?: components["schemas"]["RunLogSearch"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseSchedulerLimits: {
             /** @description The response data */
             data?: components["schemas"]["SchedulerLimits"];
@@ -6059,6 +6165,30 @@ export interface components {
             reached?: string[];
             status?: string;
         };
+        FailedNode: {
+            error?: string | null;
+            /** Format: int64 */
+            errorLines?: number;
+            executionId?: string;
+            /** Format: int64 */
+            lines?: number;
+            module?: string;
+            nodeId?: string;
+            status?: string;
+        };
+        FailureDigest: {
+            complete?: boolean;
+            executionId?: string;
+            failedNodes?: components["schemas"]["FailedNode"][];
+            findings?: components["schemas"]["Finding"][];
+            /** Format: int32 */
+            findingsOmitted?: number;
+            next?: components["schemas"]["NextRead"][];
+            /** Format: int32 */
+            runsSearched?: number;
+            status?: string;
+            workflowId?: string;
+        };
         /** @description Field-specific validation error detail */
         FieldError: {
             /**
@@ -6075,6 +6205,17 @@ export interface components {
         FieldIssue: {
             field?: string;
             message?: string;
+        };
+        Finding: {
+            executionId?: string;
+            /** @enum {string} */
+            kind?: "TEST" | "COMPILE" | "LINT" | "TASK" | "ERROR";
+            /** Format: int64 */
+            line?: number;
+            location?: string | null;
+            message?: string;
+            name?: string | null;
+            nodeId?: string;
         };
         HeatCell: {
             /** Format: int32 */
@@ -6393,6 +6534,16 @@ export interface components {
             failures?: number;
             module?: string;
         };
+        NextRead: {
+            executionId?: string;
+            /** @enum {string} */
+            kind?: "NODE_OUTPUT" | "SEARCH";
+            level?: string | null;
+            nodeId?: string | null;
+            /** Format: int64 */
+            offset?: number | null;
+            why?: string;
+        };
         /** @description A single node in the workflow DAG */
         Node: {
             /** @description Palette color of the node, for display only: teal, sky, violet, magenta, stone */
@@ -6414,6 +6565,18 @@ export interface components {
         NodeCommandResponse: {
             /** @description The node's reply */
             payload?: unknown;
+        };
+        NodeCount: {
+            /** Format: int64 */
+            errors?: number;
+            executionId?: string;
+            /** Format: int64 */
+            lines?: number;
+            /** Format: int64 */
+            matches?: number;
+            nodeId?: string;
+            /** Format: int64 */
+            warnings?: number;
         };
         NodeOutputSlice: {
             lines?: components["schemas"]["Line"][];
@@ -6663,6 +6826,24 @@ export interface components {
                 [key: string]: string;
             };
             run?: components["schemas"]["RunView"];
+        };
+        RunLogSearch: {
+            executionId?: string;
+            /** Format: int64 */
+            executionsScanned?: number;
+            hint?: string | null;
+            lines?: components["schemas"]["Line"][];
+            /** Format: int64 */
+            linesScanned?: number;
+            /** Format: int64 */
+            matches?: number;
+            /** @enum {string} */
+            mode?: "COUNT" | "NODES" | "LINES";
+            nextCursor?: string | null;
+            nodes?: components["schemas"]["NodeCount"][];
+            /** Format: int32 */
+            nodesOmitted?: number;
+            truncated?: boolean;
         };
         RunView: {
             executionId?: string;
@@ -8418,6 +8599,29 @@ export interface operations {
             };
         };
     };
+    getDigest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseFailureDigest"];
+                };
+            };
+        };
+    };
     getInput: {
         parameters: {
             query?: never;
@@ -8497,6 +8701,48 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseInputRequestView"];
+                };
+            };
+        };
+    };
+    search_1: {
+        parameters: {
+            query?: {
+                /** @description Also search the runs it started */
+                includeChildren?: boolean;
+                /** @description Comma-separated node ids; all if absent */
+                nodes?: string;
+                /** @description stdout, stderr or all */
+                stream?: string;
+                /** @description Lowest level: ERROR, WARN, INFO or DEBUG */
+                level?: string;
+                /** @description Regular expression a line must contain, at most 200 characters */
+                grep?: string;
+                /** @description Context lines around a match (LINES), at most 20 */
+                context?: number;
+                /** @description COUNT, NODES or LINES */
+                mode?: "COUNT" | "NODES" | "LINES";
+                /** @description Most matching lines (LINES), default 50, at most 500 */
+                maxMatches?: number;
+                /** @description nextCursor of the previous answer */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Execution ID */
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRunLogSearch"];
                 };
             };
         };

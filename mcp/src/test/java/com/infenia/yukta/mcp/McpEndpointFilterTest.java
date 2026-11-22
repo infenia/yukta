@@ -350,4 +350,78 @@ class McpEndpointFilterTest {
 
     assertThat(exchange.getResponse().getStatusCode()).isNull();
   }
+
+  @Test
+  void testResponseSizesAreRecordedPerTool() {
+    final var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    final var filter = new McpEndpointFilter(limited("VIEWER", null));
+    filter.bindTo(registry);
+    final var exchange =
+        MockServerWebExchange.from(
+            MockServerHttpRequest.post("/mcp")
+                .header("X-API-Key", "k")
+                .body("{\"method\":\"tools/call\",\"params\":{\"name\":\"list_sessions\"}}"));
+
+    filter
+        .filter(
+            exchange,
+            (ServerWebExchange e) ->
+                e.getResponse()
+                    .writeWith(
+                        Mono.just(
+                            e.getResponse()
+                                .bufferFactory()
+                                .wrap("12345".getBytes(java.nio.charset.StandardCharsets.UTF_8)))))
+        .block();
+    final var streamed =
+        MockServerWebExchange.from(
+            MockServerHttpRequest.post("/mcp")
+                .header("X-API-Key", "k")
+                .body("{\"method\":\"tools/list\"}"));
+    filter
+        .filter(
+            streamed,
+            (ServerWebExchange e) ->
+                e.getResponse()
+                    .writeAndFlushWith(
+                        Mono.just(
+                            Mono.just(
+                                e.getResponse()
+                                    .bufferFactory()
+                                    .wrap(
+                                        "abc".getBytes(java.nio.charset.StandardCharsets.UTF_8))))))
+        .block();
+    final var empty =
+        MockServerWebExchange.from(MockServerHttpRequest.get("/mcp").header("X-API-Key", "k"));
+    filter.filter(empty, (ServerWebExchange e) -> Mono.empty()).block();
+
+    assertThat(
+            registry
+                .get("yukta.mcp.response.bytes")
+                .tag("tool", "list_sessions")
+                .summary()
+                .totalAmount())
+        .isEqualTo(5.0);
+    assertThat(registry.get("yukta.mcp.response.bytes").tag("tool", "none").summary().count())
+        .isEqualTo(1);
+  }
+
+  @Test
+  void testSizesAreNotRecordedBeforeTheFilterIsBound() {
+    final var exchange =
+        MockServerWebExchange.from(
+            MockServerHttpRequest.post("/mcp")
+                .header("X-API-Key", "k")
+                .body("{\"method\":\"tools/list\"}"));
+
+    new McpEndpointFilter(limited("VIEWER", null))
+        .filter(
+            exchange,
+            (ServerWebExchange e) ->
+                e.getResponse()
+                    .writeWith(Mono.just(e.getResponse().bufferFactory().wrap(new byte[] {1}))))
+        .block();
+
+    assertThat(exchange.getResponse().getStatusCode()).isNull();
+  }
 }

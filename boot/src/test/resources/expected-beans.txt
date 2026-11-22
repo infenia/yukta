@@ -32,6 +32,7 @@ com.infenia.yukta.controller.NodeOutputController
 com.infenia.yukta.controller.NotificationsController
 com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.ProjectPathController
+com.infenia.yukta.controller.RunDiagnosisController
 com.infenia.yukta.controller.SessionConfigController
 com.infenia.yukta.controller.SupervisionController
 com.infenia.yukta.controller.SupervisorContractController
@@ -73,6 +74,7 @@ com.infenia.yukta.mcp.McpEndpointFilter
 com.infenia.yukta.mcp.McpErrorAdvice
 com.infenia.yukta.mcp.McpErrorFilter
 com.infenia.yukta.mcp.provider.ConversationProvider
+com.infenia.yukta.mcp.provider.DiagnosisProvider
 com.infenia.yukta.mcp.provider.InputProvider
 com.infenia.yukta.mcp.provider.LogProvider
 com.infenia.yukta.mcp.provider.MetricsProvider
@@ -175,6 +177,12 @@ com.infenia.yukta.service.control.processor.SetBreakpointCommandProcessor
 com.infenia.yukta.service.control.processor.SkipNodeCommandProcessor
 com.infenia.yukta.service.control.processor.StopNodeCommandProcessor
 com.infenia.yukta.service.control.processor.StopWorkflowCommandProcessor
+com.infenia.yukta.service.diagnosis.FailureDigestService
+com.infenia.yukta.service.diagnosis.GoFailureExtractor
+com.infenia.yukta.service.diagnosis.GradleFailureExtractor
+com.infenia.yukta.service.diagnosis.JsFailureExtractor
+com.infenia.yukta.service.diagnosis.ReportLineExtractor
+com.infenia.yukta.service.diagnosis.RunLogSearcher
 com.infenia.yukta.service.input.ActorResolver
 com.infenia.yukta.service.input.DefaultAnswerAuthorizer
 com.infenia.yukta.service.input.DefaultInputGateway

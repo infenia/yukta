@@ -69,6 +69,20 @@ class ConversationToolsTest {
     final AgentScreen screen = new AgentScreen("c", 80, 24, "text");
     when(provider.screen("s", "c")).thenReturn(Mono.just(screen));
 
-    StepVerifier.create(tools.readAgentScreen("s", "c")).expectNext(screen).verifyComplete();
+    StepVerifier.create(tools.readAgentScreen("s", "c", null)).expectNext(screen).verifyComplete();
+    StepVerifier.create(tools.readAgentScreen("s", "c", 0)).expectNext(screen).verifyComplete();
+  }
+
+  @Test
+  void screenTailKeepsTheLastRows() {
+    when(provider.screen("s", "c"))
+        .thenReturn(Mono.just(new AgentScreen("c", 80, 24, "one\ntwo\nthree")));
+
+    StepVerifier.create(tools.readAgentScreen("s", "c", 2))
+        .expectNext(new AgentScreen("c", 80, 24, "two\nthree"))
+        .verifyComplete();
+    StepVerifier.create(tools.readAgentScreen("s", "c", 9))
+        .expectNext(new AgentScreen("c", 80, 24, "one\ntwo\nthree"))
+        .verifyComplete();
   }
 }

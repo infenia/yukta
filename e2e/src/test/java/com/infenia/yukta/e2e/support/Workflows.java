@@ -78,6 +78,23 @@ public final class Workflows {
     return session(id, "failing", shell("f", "exit 3"));
   }
 
+  /**
+   * A run whose step prints noise, a failing JUnit test the way Gradle reports it, and fails: what
+   * the failure digest has to find.
+   */
+  public static String failingTest(final String id) {
+    return session(
+        id,
+        "failing-test",
+        shell(
+            "build",
+            "for i in $(seq 1 200); do echo \"compiling file $i\"; done;"
+                + " echo 'com.x.FooTest > adds() FAILED';"
+                + " echo '    org.opentest4j.AssertionFailedError: expected: <2> but was: <3>';"
+                + " echo '        at app//com.x.FooTest.adds(FooTest.java:27)';"
+                + " exit 1"));
+  }
+
   /** A run that asks for an approval and waits. */
   public static String asking(final String id) {
     return session(

@@ -5,6 +5,7 @@ package com.infenia.yukta.model.execution;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
+import lombok.With;
 import org.jspecify.annotations.Nullable;
 
 /** Represents the progress of a workflow. */
@@ -13,7 +14,7 @@ public record WorkflowProgress(
     String sessionId,
     String workflowId,
     TaskStatus status,
-    List<TaskProgress> tasks,
+    @With List<TaskProgress> tasks,
     Instant startTime,
     @Schema(nullable = true) @Nullable Instant endTime,
     @Schema(nullable = true) @Nullable String controlState,

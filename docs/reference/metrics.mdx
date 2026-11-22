@@ -115,6 +115,7 @@ Values of the `reason` tag on `yukta.executions.rejected`, from `ExecutionSchedu
 |---|---|---|---|
 | `yukta.mcp.call` | timer | `tool`, `outcome` | `MCP_TOOL_CALL` duration; `outcome` is `SUCCESS` or `FAILURE` |
 | `yukta.mcp.heavy.refused` | counter (function) | none | MCP server tool calls refused by the lower limit for `start_workflow` and regex log reads |
+| `yukta.mcp.response.bytes` | distribution summary | `tool` | Size of MCP answers to keyed callers, per tool called (`other` for unknown tools and batches, `none` without a tool call): which reads fill an agent's context |
 | `llm.tokens` | counter | `provider`, `direction` | Model tokens used; `direction` is `input` or `output` |
 | `llm.cost` | counter | `provider` | Model cost, when the node reports it |
 

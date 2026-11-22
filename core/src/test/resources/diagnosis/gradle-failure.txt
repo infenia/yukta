@@ -1,0 +1,28 @@
+> Task :core:compileJava UP-TO-DATE
+> Task :core:checkstyleMain
+[ant:checkstyle] [ERROR] /repo/core/src/main/java/com/x/Foo.java:42:7: Missing a Javadoc comment. [MissingJavadocMethod]
+/repo/core/src/main/java/com/x/Bar.java:17:	UnusedPrivateField:	Avoid unused private fields such as 'count'.
+> Task :core:test
+
+com.x.FooTest > adds() FAILED
+    org.opentest4j.AssertionFailedError: expected: <2> but was: <3>
+        at app//org.junit.jupiter.api.AssertionFailureBuilder.build(AssertionFailureBuilder.java:151)
+        at app//com.x.FooTest.adds(FooTest.java:27)
+
+com.x.BarTest > divides() FAILED
+    java.lang.ArithmeticException at BarTest.java:12
+
+2 tests completed, 2 failed
+
+> Task :core:test FAILED
+/repo/core/src/main/java/com/x/Baz.java:9: error: cannot find symbol
+e: file:///repo/plugins/k/src/main/kotlin/K.kt:5:3 Unresolved reference: foo
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///repo/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --stacktrace option to get the stack trace.

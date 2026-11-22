@@ -39,6 +39,8 @@ netty = "4.2.20.Final"
 archunit = "1.5.1"
 
 [libraries]
+# linear-time regex for callers' grep patterns (BSD-3-Clause)
+re2j = { group = "com.google.re2j", name = "re2j", version = "1.8" }
 h2 = { group = "com.h2database", name = "h2", version = "2.5.252" }
 spring-boot-starter = { group = "org.springframework.boot", name = "spring-boot-starter" }
 spring-boot-autoconfigure = { group = "org.springframework.boot", name = "spring-boot-autoconfigure" }

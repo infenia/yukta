@@ -65,6 +65,32 @@ class ResultProviderTest {
   }
 
   @Test
+  void bigPayloadsAreHeldBackForTheNextCall() {
+    provider = new ResultProvider(results, controlBus, List.of(), 100);
+    results.publish("e1", "t1", "a".repeat(80));
+    results.publish("e1", "t1", "b".repeat(80));
+    results.publish("e1", "t1", "c".repeat(10));
+    results.complete("e1", "SUCCESS");
+
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", null, null))
+        .assertNext(read -> {
+          assertThat(read.events()).hasSize(1);
+          assertThat(read.complete()).isFalse();
+          assertThat(read.status()).isNull();
+          assertThat(read.nextCursor()).isEqualTo(1);
+          assertThat(read.hint()).startsWith("3 more events").contains("afterCursor");
+        })
+        .verifyComplete();
+    StepVerifier.create(provider.getExecutionResult("s1", "e1", 1L, null))
+        .assertNext(read -> {
+          assertThat(read.events()).hasSize(3);
+          assertThat(read.complete()).isTrue();
+          assertThat(read.hint()).isNull();
+        })
+        .verifyComplete();
+  }
+
+  @Test
   void payloadsAreRedactedAndTheNoticeTravelsWithThem() {
     results.publish("e1", "t1", "the key is sk-abcdefghijklmnopqrstuvwx ok");
     results.publish(

@@ -111,6 +111,40 @@ class McpDtoTest {
   }
 
   @Test
+  void testHistoryKeepsNewestRunsOfStatusInOrder() {
+    final java.time.Instant t0 = java.time.Instant.parse("2026-01-01T00:00:00Z");
+    final List<com.infenia.yukta.model.execution.WorkflowExecutionSummary> runs =
+        java.util.stream.IntStream.range(0, 60)
+            .mapToObj(i -> run("r" + i, i % 2 == 0 ? "FAILURE" : "SUCCESS", t0.plusSeconds(i)))
+            .toList();
+
+    final WorkflowHistory failed = WorkflowHistory.select(runs, " failure ", 5);
+    assertThat(failed.executions())
+        .extracting(com.infenia.yukta.model.execution.WorkflowExecutionSummary::executionId)
+        .containsExactly("r50", "r52", "r54", "r56", "r58");
+    assertThat(failed.omitted()).isEqualTo(55);
+
+    assertThat(WorkflowHistory.select(runs, null, null).executions())
+        .hasSize(WorkflowHistory.DEFAULT_LIMIT);
+    assertThat(WorkflowHistory.select(runs, "", 0).omitted()).isEqualTo(10);
+    assertThat(WorkflowHistory.select(runs, null, 10_000).executions()).hasSize(60);
+    assertThat(
+            WorkflowHistory.select(List.of(run("x", "RUNNING", null)), "running", 1).executions())
+        .hasSize(1);
+  }
+
+  private static com.infenia.yukta.model.execution.WorkflowExecutionSummary run(
+      final String id, final String status, final java.time.Instant start) {
+    final var summary =
+        org.mockito.Mockito.mock(com.infenia.yukta.model.execution.WorkflowExecutionSummary.class);
+    org.mockito.Mockito.when(summary.executionId()).thenReturn(id);
+    org.mockito.Mockito.when(summary.status())
+        .thenReturn(com.infenia.yukta.model.execution.TaskStatus.valueOf(status));
+    org.mockito.Mockito.when(summary.startTime()).thenReturn(start);
+    return summary;
+  }
+
+  @Test
   void testListWrappersNullListsDefaultToEmpty() {
     assertThat(new SessionList(null).sessions()).isEmpty();
     assertThat(new SessionList(List.of(new SessionSummary("s1", 1))).sessions()).hasSize(1);

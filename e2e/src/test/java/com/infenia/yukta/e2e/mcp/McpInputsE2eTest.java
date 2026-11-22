@@ -84,12 +84,7 @@ class McpInputsE2eTest {
           .contains("approve");
 
       assertThat(
-              call(
-                      mcp,
-                      "get_workflow_status",
-                      Map.of("sessionId", run[0], "executionId", run[1], "waitSeconds", 20))
-                  .path("status")
-                  .asString())
+              mcp.awaitTerminal(run[0], run[1], Duration.ofSeconds(30)).path("status").asString())
           .isEqualTo("SUCCESS");
     }
   }

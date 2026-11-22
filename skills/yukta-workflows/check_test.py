@@ -40,7 +40,7 @@ if code != 0:
     sys.exit(1)
 must_fail("unknown tool", lambda s: s.replace("| `start_workflow` |", "| `start_workflows` |"), "start_workflows")
 must_fail("wrong role", lambda s: s.replace("| `start_workflow` | `OPERATOR` |", "| `start_workflow` | `VIEWER` |"), "role VIEWER here, OPERATOR")
-must_fail("unknown argument", lambda s: s.replace("`sessionId`, `executionId` |\n| `get_workflow_history`", "`sessionId`, `executionId`, `payload` |\n| `get_workflow_history`", 1), "argument payload")
+must_fail("unknown argument", lambda s: s.replace("| `get_failure_digest` | `VIEWER` | `sessionId`, `executionId` |", "| `get_failure_digest` | `VIEWER` | `sessionId`, `executionId`, `payload` |", 1), "argument payload")
 must_fail("a tool dropped", lambda s: "\n".join(l for l in s.splitlines() if not l.startswith("| `delete_workflow` |")), "delete_workflow of the docs is missing")
 must_fail("a made-up tool in the text", lambda s: s + "\nThen call `restart_everything`.\n", "restart_everything")
 must_fail("an unknown action", lambda s: s + "\nUse `EXPLODE`.\n", "EXPLODE")

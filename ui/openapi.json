@@ -499,6 +499,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseFailureDigest" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/FailureDigest",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseInputRequestView" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -2709,6 +2752,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseRunLogSearch" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RunLogSearch",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseSchedulerLimits" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -4844,6 +4930,77 @@
         },
         "type" : "object"
       },
+      "FailedNode" : {
+        "properties" : {
+          "error" : {
+            "type" : [ "string", "null" ]
+          },
+          "errorLines" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "module" : {
+            "type" : "string"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "FailureDigest" : {
+        "properties" : {
+          "complete" : {
+            "type" : "boolean"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "failedNodes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/FailedNode"
+            },
+            "type" : "array"
+          },
+          "findings" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Finding"
+            },
+            "type" : "array"
+          },
+          "findingsOmitted" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "next" : {
+            "items" : {
+              "$ref" : "#/components/schemas/NextRead"
+            },
+            "type" : "array"
+          },
+          "runsSearched" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "FieldError" : {
         "description" : "Field-specific validation error detail",
         "properties" : {
@@ -4866,6 +5023,34 @@
             "type" : "string"
           },
           "message" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Finding" : {
+        "properties" : {
+          "executionId" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "enum" : [ "TEST", "COMPILE", "LINT", "TASK", "ERROR" ],
+            "type" : "string"
+          },
+          "line" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "location" : {
+            "type" : [ "string", "null" ]
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "nodeId" : {
             "type" : "string"
           }
         },
@@ -5698,6 +5883,31 @@
         },
         "type" : "object"
       },
+      "NextRead" : {
+        "properties" : {
+          "executionId" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "enum" : [ "NODE_OUTPUT", "SEARCH" ],
+            "type" : "string"
+          },
+          "level" : {
+            "type" : [ "string", "null" ]
+          },
+          "nodeId" : {
+            "type" : [ "string", "null" ]
+          },
+          "offset" : {
+            "format" : "int64",
+            "type" : [ "integer", "null" ]
+          },
+          "why" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Node" : {
         "description" : "A single node in the workflow DAG",
         "properties" : {
@@ -5740,6 +5950,33 @@
         "properties" : {
           "payload" : {
             "description" : "The node's reply"
+          }
+        },
+        "type" : "object"
+      },
+      "NodeCount" : {
+        "properties" : {
+          "errors" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "matches" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "warnings" : {
+            "format" : "int64",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -6366,6 +6603,55 @@
           },
           "run" : {
             "$ref" : "#/components/schemas/RunView"
+          }
+        },
+        "type" : "object"
+      },
+      "RunLogSearch" : {
+        "properties" : {
+          "executionId" : {
+            "type" : "string"
+          },
+          "executionsScanned" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "hint" : {
+            "type" : [ "string", "null" ]
+          },
+          "lines" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Line"
+            },
+            "type" : "array"
+          },
+          "linesScanned" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "matches" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "mode" : {
+            "enum" : [ "COUNT", "NODES", "LINES" ],
+            "type" : "string"
+          },
+          "nextCursor" : {
+            "type" : [ "string", "null" ]
+          },
+          "nodes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/NodeCount"
+            },
+            "type" : "array"
+          },
+          "nodesOmitted" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "truncated" : {
+            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -9586,6 +9872,35 @@
         "tags" : [ "Agent Conversations API" ]
       }
     },
+    "/api/executions/{executionId}/digest" : {
+      "get" : {
+        "description" : "The run's status, its failed or timed-out nodes (also of failed sub-runs) with their error, the failures recognised in their output (tests, compile errors, lint violations, tasks, with file:line) and the reads that show more. 404 for an unknown execution.",
+        "operationId" : "getDigest",
+        "parameters" : [ {
+          "description" : "Execution ID",
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseFailureDigest"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Why a run failed, in a few kilobytes",
+        "tags" : [ "Run Diagnosis API" ]
+      }
+    },
     "/api/executions/{executionId}/inputs/{requestId}" : {
       "get" : {
         "description" : "The request with its options, risk, tier, deadline, advice and, once answered, the answer. 404 when the run has no such request.",
@@ -9715,6 +10030,115 @@
         },
         "summary" : "Escalate an input request",
         "tags" : [ "Input Requests API" ]
+      }
+    },
+    "/api/executions/{executionId}/logs/search" : {
+      "get" : {
+        "description" : "COUNT (default) returns lines, errors, warnings and matches per node; NODES only the nodes that matched; LINES the matching lines with context from the same node, within maxMatches (default 50) and 16 KB, with nextCursor for the next page and a hint for the next search. 400 for a bad argument, 404 for an unknown execution.",
+        "operationId" : "search_1",
+        "parameters" : [ {
+          "description" : "Execution ID",
+          "in" : "path",
+          "name" : "executionId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Also search the runs it started",
+          "in" : "query",
+          "name" : "includeChildren",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Comma-separated node ids; all if absent",
+          "in" : "query",
+          "name" : "nodes",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "stdout, stderr or all",
+          "in" : "query",
+          "name" : "stream",
+          "required" : false,
+          "schema" : {
+            "default" : "all",
+            "type" : "string"
+          }
+        }, {
+          "description" : "Lowest level: ERROR, WARN, INFO or DEBUG",
+          "in" : "query",
+          "name" : "level",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Regular expression a line must contain, at most 200 characters",
+          "in" : "query",
+          "name" : "grep",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Context lines around a match (LINES), at most 20",
+          "in" : "query",
+          "name" : "context",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "COUNT, NODES or LINES",
+          "in" : "query",
+          "name" : "mode",
+          "required" : false,
+          "schema" : {
+            "default" : "COUNT",
+            "enum" : [ "COUNT", "NODES", "LINES" ],
+            "type" : "string"
+          }
+        }, {
+          "description" : "Most matching lines (LINES), default 50, at most 500",
+          "in" : "query",
+          "name" : "maxMatches",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "nextCursor of the previous answer",
+          "in" : "query",
+          "name" : "cursor",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRunLogSearch"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Search the logs of a run like grep",
+        "tags" : [ "Run Diagnosis API" ]
       }
     },
     "/api/executions/{executionId}/nodes/{nodeId}/breakpoint" : {
@@ -14219,6 +14643,9 @@
   }, {
     "description" : "The catalog of supervisor types",
     "name" : "Supervisor types API"
+  }, {
+    "description" : "Why a run failed, and a search over its logs",
+    "name" : "Run Diagnosis API"
   }, {
     "description" : "Workflow DAG graph with plugin metadata and per-workflow execution history",
     "name" : "Workflow Details API"
