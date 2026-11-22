@@ -44,6 +44,10 @@ const FIELDS = [
   'until',
 ] as const;
 
+/** The statuses chosen: `status` holds them comma-separated in the URL. */
+export const statusList = (status: string): string[] =>
+  status ? status.split(',').filter(Boolean) : [];
+
 export function parseFilters(params: URLSearchParams): RunFilters {
   const range = params.get('range') ?? '';
   return {
@@ -76,18 +80,16 @@ export function timeBounds(
 ): { since?: string; until?: string } {
   if (filters.range === 'custom') {
     return {
-      ...(filters.since && { since: filters.since }),
-      ...(filters.until && { until: filters.until }),
+      ...(filters.since && { since: toInstant(filters.since) }),
+      ...(filters.until && { until: toInstant(filters.until) }),
     };
   }
   const ms = RANGE_MS[filters.range];
-  // The server compares zone-less date-times, so send the local clock time of the bound.
-  // ponytail: assumes the browser and the server share a time zone; send the server's offset if not
-  return ms ? { since: localDateTime(new Date(now - ms)) } : {};
+  return ms ? { since: new Date(now - ms).toISOString() } : {};
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
-
-function localDateTime(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+/** A typed local date-time (`datetime-local`) as the UTC instant the server compares. */
+function toInstant(local: string): string {
+  const date = new Date(local);
+  return Number.isNaN(date.getTime()) ? local : date.toISOString();
 }
