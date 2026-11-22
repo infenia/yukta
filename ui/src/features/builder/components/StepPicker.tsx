@@ -21,6 +21,7 @@ import {
   readRecent,
   rememberRecent,
 } from './StepPicker.helpers';
+import { Tip } from '@/components/ui/tooltip';
 
 /**
  * A searchable list of the plugins a step can be, opened from `children` (the button). Rows show
@@ -97,34 +98,37 @@ export function StepPicker({
                 const disabled = p.enabled === false;
                 return (
                   <li key={p.type}>
-                    <button
-                      type="button"
+                    <Tip
+                      label={disabled ? (p.enableWith ?? undefined) : undefined}
                       disabled={disabled}
-                      title={disabled ? (p.enableWith ?? undefined) : undefined}
-                      onClick={() => pick(p.type)}
-                      className="hover:bg-accent focus-visible:bg-accent flex w-full items-start gap-3 rounded-xl px-2 py-1.5 text-left outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                     >
-                      <span
-                        aria-hidden="true"
-                        className="material-symbols-outlined mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-xl"
-                        style={{
-                          color: categoryAccent(p.category),
-                          background: categoryTint(p.category),
-                        }}
+                      <button
+                        type="button"
+                        onClick={() => pick(p.type)}
+                        className="hover:bg-accent focus-visible:bg-accent flex w-full items-start gap-3 rounded-xl px-2 py-1.5 text-left outline-none disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                       >
-                        {pluginIcon(p.type, p.category)}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="text-label-md text-on-surface block">
-                          {pluginLabel(p.type)}
+                        <span
+                          aria-hidden="true"
+                          className="material-symbols-outlined mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg text-xl"
+                          style={{
+                            color: categoryAccent(p.category),
+                            background: categoryTint(p.category),
+                          }}
+                        >
+                          {pluginIcon(p.type, p.category)}
                         </span>
-                        <span className="text-body-sm text-muted-foreground line-clamp-2 block">
-                          {disabled
-                            ? `Not enabled${p.enableWith ? `: ${p.enableWith}` : ''}`
-                            : p.description}
+                        <span className="min-w-0">
+                          <span className="text-label-md text-on-surface block">
+                            {pluginLabel(p.type)}
+                          </span>
+                          <span className="text-body-sm text-muted-foreground line-clamp-2 block">
+                            {disabled
+                              ? `Not enabled${p.enableWith ? `: ${p.enableWith}` : ''}`
+                              : p.description}
+                          </span>
                         </span>
-                      </span>
-                    </button>
+                      </button>
+                    </Tip>
                   </li>
                 );
               })}

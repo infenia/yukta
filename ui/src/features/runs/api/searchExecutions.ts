@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { fetchApi } from '@/lib/apiClient';
-import { timeBounds, type RunFilters } from '../lib/filters';
+import { statusList, timeBounds, type RunFilters } from '../lib/filters';
 
 /** One run found by the search. */
 export interface RunHit {
@@ -31,16 +31,36 @@ export const getRunCounts = () => fetchApi<RunCounts>('/api/executions/counts');
 export const MAX_RUNS = 1000;
 
 /** The newest `limit` runs that match, across all sessions (or one). */
-export function searchExecutions(
+export async function searchExecutions(
   filters: RunFilters,
   limit: number,
   now = Date.now()
+): Promise<RunHit[]> {
+  const statuses = statusList(filters.status);
+  if (statuses.length < 2)
+    return searchOne(filters, statuses[0] ?? '', limit, now);
+  // The server takes one status per search: ask for each, then keep the newest of all.
+  // ponytail: one request per status (at most nine); repeat `status` on the server if that costs
+  const found = await Promise.all(
+    statuses.map((status) => searchOne(filters, status, limit, now))
+  );
+  return found
+    .flat()
+    .sort((a, b) => (b.startTime ?? '').localeCompare(a.startTime ?? ''))
+    .slice(0, limit);
+}
+
+function searchOne(
+  filters: RunFilters,
+  status: string,
+  limit: number,
+  now: number
 ): Promise<RunHit[]> {
   const params = new URLSearchParams({ limit: String(limit) });
   const wanted: Record<string, string> = {
     sessionId: filters.session,
     workflowId: filters.workflow,
-    status: filters.status,
+    status,
     text: filters.text,
     ...timeBounds(filters, now),
   };

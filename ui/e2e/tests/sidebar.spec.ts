@@ -7,8 +7,8 @@ import { envelope } from '../api-envelope';
 const SECTIONS = [
   { label: 'Sessions', path: '/sessions' },
   { label: 'Runs', path: '/runs' },
-  { label: 'Plugins', path: '/plugins' },
   { label: 'Supervisors', path: '/supervisors' },
+  { label: 'Plugins', path: '/plugins' },
   { label: 'Control', path: '/control' },
   { label: 'Config', path: '/config' },
 ];
@@ -22,9 +22,12 @@ test.describe('Sidebar (desktop rail)', () => {
       .first()
       .getByRole('link');
     await expect(links).toHaveCount(6);
-    await expect(links).toHaveText(
-      SECTIONS.map((s) => new RegExp(`${s.label}$`))
-    );
+    // icon-only: the label is the accessible name, shown in a tooltip
+    expect(
+      await links.evaluateAll((els) =>
+        els.map((el) => el.getAttribute('aria-label'))
+      )
+    ).toEqual(SECTIONS.map((s) => s.label));
   });
 
   for (const { label, path } of SECTIONS) {
@@ -66,17 +69,21 @@ test.describe('Sidebar (desktop rail)', () => {
       .getByRole('navigation', { name: 'Primary' })
       .first()
       .getByRole('link', { name: 'Runs' });
-    const label = link.locator('span').last();
-    await expect(label).toHaveCSS('opacity', '0');
+    const tip = page.locator('[data-slot="tooltip-content"]', {
+      hasText: 'Runs',
+    });
+    await expect(tip).toHaveCount(0);
 
     await link.hover();
-    await expect(label).toHaveCSS('opacity', '1');
+    await expect(tip).toBeVisible();
 
     await page.mouse.move(600, 400);
+    await expect(tip).toHaveCount(0);
+    await page.keyboard.press('Tab');
     await link.focus();
     await page.keyboard.press('Tab');
     await page.keyboard.press('Shift+Tab');
-    await expect(label).toHaveCSS('opacity', '1');
+    await expect(tip).toBeVisible();
   });
 
   test('is replaced by the bottom bar on a phone', async ({ page }) => {

@@ -27,6 +27,7 @@ import {
   formatRelative,
 } from '../lib/timeFormat';
 import { InputRow } from './InputRow';
+import { Tip } from '@/components/ui/tooltip';
 
 type Tab = 'open' | 'history';
 
@@ -58,20 +59,21 @@ function HistoryItem({ request }: { request: InputRequest }) {
   const when = answer?.answeredAt ?? request.updatedAt;
   return (
     <li className="hover:bg-muted/40 flex items-start gap-3 px-3 py-2.5">
-      <span
-        data-testid="input-state"
-        data-status={request.state}
-        title={result.label}
-        aria-label={result.label}
-        className={cn(
-          'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full',
-          TONES[result.tone]
-        )}
-      >
-        <span aria-hidden className="material-symbols-outlined">
-          {result.icon}
+      <Tip label={result.label}>
+        <span
+          data-testid="input-state"
+          data-status={request.state}
+          aria-label={result.label}
+          className={cn(
+            'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full',
+            TONES[result.tone]
+          )}
+        >
+          <span aria-hidden className="material-symbols-outlined">
+            {result.icon}
+          </span>
         </span>
-      </span>
+      </Tip>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <span className="text-body-md text-on-surface line-clamp-2">
           {request.prompt}
@@ -92,13 +94,14 @@ function HistoryItem({ request }: { request: InputRequest }) {
           {answer && <> · took {formatDuration(request.createdAt, when)}</>}
         </span>
       </div>
-      <time
-        dateTime={when}
-        title={formatDateTime(when)}
-        className="text-label-sm text-on-surface-variant shrink-0"
-      >
-        {formatRelative(when)}
-      </time>
+      <Tip label={formatDateTime(when)}>
+        <time
+          dateTime={when}
+          className="text-label-sm text-on-surface-variant shrink-0"
+        >
+          {formatRelative(when)}
+        </time>
+      </Tip>
     </li>
   );
 }
@@ -180,14 +183,15 @@ function EmptyWaiting({
           {askingNodes.map((node) => (
             <li key={node.nodeId}>
               {onNode ? (
-                <button
-                  type="button"
-                  title={`Open ${node.nodeId}`}
-                  onClick={() => onNode(node.nodeId)}
-                  className="border-border bg-card text-label-sm hover:bg-muted rounded-full border px-2.5 py-1"
-                >
-                  {node.nodeId} · {node.label}
-                </button>
+                <Tip label={`Open ${node.nodeId}`}>
+                  <button
+                    type="button"
+                    onClick={() => onNode(node.nodeId)}
+                    className="border-border bg-card text-label-sm hover:bg-muted rounded-full border px-2.5 py-1"
+                  >
+                    {node.nodeId} · {node.label}
+                  </button>
+                </Tip>
               ) : (
                 <span className="border-border bg-card text-label-sm rounded-full border px-2.5 py-1">
                   {node.nodeId} · {node.label}

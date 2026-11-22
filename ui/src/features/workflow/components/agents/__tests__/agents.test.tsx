@@ -525,10 +525,10 @@ describe('the look of an item', () => {
 
     expect(screen.getByText('2 tool calls')).toBeInTheDocument();
     expect(screen.queryByText(/failed$/)).not.toBeInTheDocument();
-    expect(screen.getAllByTitle('running')).toHaveLength(1);
-    // opened, the running call carries the status as well
+    expect(screen.getAllByText('running')).toHaveLength(1);
+    // opened, the running call carries the status as well: the spinner and its screen-reader text
     await userEvent.click(screen.getByRole('button', { name: /2 tool calls/ }));
-    expect(screen.getAllByTitle('running')).toHaveLength(2);
+    expect(screen.getAllByText('running')).toHaveLength(3);
   });
 
   it('colours a tool by how it went', () => {

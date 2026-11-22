@@ -119,8 +119,18 @@ function useWrite<A, R>(fn: (arg: A) => Promise<R>) {
 
 export const useCreateSupervisor = () => useWrite(createSupervisor);
 export const useReplaceSupervisor = () => useWrite(replaceSupervisor);
-export const useSetAttachmentEnabled = () =>
-  useWrite((a: { id: string; enabled: boolean }) =>
-    setAttachmentEnabled(a.id, a.enabled)
-  );
 export const useRollbackSupervisor = () => useWrite(rollbackSupervisor);
+
+/** Turns one assignment on or off. The ownership maps and capabilities live under `supervision`, so they refresh too. */
+export function useSetAttachmentEnabled() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (a: { id: string; enabled: boolean }) =>
+      setAttachmentEnabled(a.id, a.enabled),
+    onSettled: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: ROOT }),
+        client.invalidateQueries({ queryKey: ['supervision'] }),
+      ]),
+  });
+}

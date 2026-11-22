@@ -1,115 +1,247 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { useState } from 'react';
 import { Link } from 'react-router';
+import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/common/IconButton';
+import { InlineError } from '@/components/common/InlineError';
+import { RequirePermission } from '@/components/common/RequirePermission';
+import { Tip } from '@/components/ui/tooltip';
 import { StateMessage } from '@/components/common/StateMessage';
 import { cn } from '@/lib/utils';
 import {
   useAttachments,
   useOwnership,
+  useSetAttachmentEnabled,
   useSupervisorType,
 } from '../hooks/useSupervisorTypes';
+import { NodeChip } from './ActionsTimeline';
+import { Chip, OwnerLink } from './SupervisorCard';
 import { ownerLabel, parseScope, targetLabel } from '../lib/ownership';
-import { operationRows, type Reach } from '../lib/operations';
+import {
+  operationRows,
+  type OperationRow,
+  type Reach,
+} from '../lib/operations';
 import type { AttachmentView, SupervisorView } from '../types';
 
-const SOURCE: Record<AttachmentView['source'], string> = {
-  MANUAL: 'assigned by hand or by an agent',
-  DEFINITION: 'declared in the definition',
-  SYSTEM: 'set by the server',
-};
+const SOURCE: Record<AttachmentView['source'], { label: string; tip: string }> =
+  {
+    MANUAL: { label: 'By hand', tip: 'Assigned by hand or by an agent' },
+    DEFINITION: {
+      label: 'In the definition',
+      tip: 'Declared in the workflow definition',
+    },
+    SYSTEM: { label: 'Set by the server', tip: 'Set by the server' },
+  };
 
-/** The nodes of one workflow with their owners, this supervisor's highlighted. */
-function WorkflowOwners({
+/** Turns an assignment on or off; only the ones made by hand can be, the others say where to change them. */
+function AttachmentToggle({ assignment }: { assignment: AttachmentView }) {
+  const toggle = useSetAttachmentEnabled();
+  const [confirm, setConfirm] = useState(false);
+  const target = targetLabel(parseScope(assignment.scope));
+  if (assignment.source !== 'MANUAL') {
+    return (
+      <Tip
+        label={
+          assignment.source === 'DEFINITION'
+            ? 'Declared in the workflow definition: change it there'
+            : 'Set by the server: it cannot be changed here'
+        }
+      >
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-on-surface-variant text-lg"
+        >
+          lock
+        </span>
+      </Tip>
+    );
+  }
+  const apply = (enabled: boolean) =>
+    toggle.mutate(
+      { id: assignment.id, enabled },
+      { onSettled: () => setConfirm(false) }
+    );
+  if (confirm) {
+    return (
+      <div
+        role="alertdialog"
+        aria-label="Disable the assignment?"
+        className="border-border bg-muted/40 flex flex-wrap items-center gap-2 rounded-lg border px-2 py-1"
+      >
+        <span className="text-body-sm text-on-surface">
+          Its nodes go back to the next owner or Direct control.
+        </span>
+        <Button
+          size="sm"
+          variant="destructive"
+          autoFocus
+          disabled={toggle.isPending}
+          onClick={() => apply(false)}
+        >
+          Disable now
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <RequirePermission perm="editSessions">
+        <IconButton
+          icon={
+            toggle.isPending
+              ? 'progress_activity'
+              : assignment.enabled
+                ? 'block'
+                : 'play_arrow'
+          }
+          label={`${assignment.enabled ? 'Disable' : 'Enable'} ${assignment.supervisorId} on ${target}`}
+          tip={
+            toggle.isPending
+              ? 'Saving…'
+              : assignment.enabled
+                ? 'Disable: stop this supervisor owning these nodes'
+                : 'Enable: let this supervisor own these nodes again'
+          }
+          tone={assignment.enabled ? 'attention' : 'success'}
+          disabled={toggle.isPending}
+          onClick={() => (assignment.enabled ? setConfirm(true) : apply(true))}
+        />
+      </RequirePermission>
+      <InlineError
+        message={toggle.error ? (toggle.error as Error).message : null}
+      />
+    </div>
+  );
+}
+
+const MAX_CHIPS = 12;
+
+/** One assignment: where it applies, how it was made, whether it is on, and its nodes with their owners. */
+export function AssignmentCard({
   supervisorId,
   assignment,
+  showSupervisor = false,
 }: {
   supervisorId: string;
   assignment: AttachmentView;
+  /** Names the supervisor, for a list of the assignments of one workflow. */
+  showSupervisor?: boolean;
 }) {
   const target = parseScope(assignment.scope);
   const ownership = useOwnership(target.sessionId, target.workflowId);
+  const [all, setAll] = useState(false);
+  const source = SOURCE[assignment.source];
+  const scope =
+    target.kind === 'run'
+      ? 'Run level'
+      : target.selectors.length === 0
+        ? 'Whole workflow'
+        : `Nodes: ${target.selectors.join(', ')}`;
+  const nodes = Object.entries(ownership.data?.nodes ?? {});
+  const shown = all ? nodes : nodes.slice(0, MAX_CHIPS);
   return (
-    <div className="border-border bg-card shadow-card rounded-xl border p-4">
+    <section
+      aria-label={`${targetLabel(target)} assignment`}
+      className="border-border bg-card shadow-card flex flex-col gap-2.5 rounded-xl border p-3"
+    >
       <div className="flex flex-wrap items-center gap-2">
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-primary text-lg"
+        >
+          {target.kind === 'run' || target.selectors.length === 0
+            ? 'account_tree'
+            : 'hub'}
+        </span>
         {target.sessionId ? (
-          <Link
-            to={`/sessions/${encodeURIComponent(target.sessionId)}/workflow/${encodeURIComponent(String(target.workflowId))}`}
-            className="text-label-md text-primary"
-          >
-            {target.sessionId} / {target.workflowId}
-          </Link>
+          <>
+            <Link
+              to={`/supervisors?view=workflows&session=${encodeURIComponent(target.sessionId)}&workflow=${encodeURIComponent(String(target.workflowId))}`}
+              className="text-label-md text-primary hover:underline"
+            >
+              {target.sessionId} / {target.workflowId}
+            </Link>
+            <Tip label="Open the workflow">
+              <Link
+                to={`/sessions/${encodeURIComponent(target.sessionId)}/workflow/${encodeURIComponent(String(target.workflowId))}?supervision=1`}
+                aria-label={`Open ${target.sessionId} / ${target.workflowId}`}
+                className="text-on-surface-variant hover:text-primary flex"
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  open_in_new
+                </span>
+              </Link>
+            </Tip>
+          </>
         ) : (
           <span className="text-label-md">{target.workflowId}</span>
         )}
-        <span className="text-body-sm text-muted-foreground">
-          {target.kind === 'run'
-            ? 'run level'
-            : target.selectors.length === 0
-              ? 'whole workflow'
-              : `by ${target.selectors.join(', ')}`}{' '}
-          · {SOURCE[assignment.source]}
-        </span>
-        {!assignment.enabled && (
-          <span className="text-body-sm text-error inline-flex items-center gap-1">
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-base"
-            >
-              block
-            </span>
-            Disabled
+        {showSupervisor && (
+          <span className="text-label-md">
+            · <OwnerLink owner={assignment.supervisorId} />
           </span>
         )}
+        <Chip>{scope}</Chip>
+        <Tip label={source.tip}>
+          <span>
+            <Chip>{source.label}</Chip>
+          </span>
+        </Tip>
+        {!assignment.enabled && <Chip tone="attention">Disabled</Chip>}
         <span className="flex-1" />
-        {ownership.data && (
-          <span className="text-body-sm text-muted-foreground">
-            Run level: {ownerLabel(ownership.data.run)}
-          </span>
-        )}
+        <AttachmentToggle assignment={assignment} />
       </div>
-      {ownership.isPending && target.sessionId && (
-        <p className="text-body-sm text-muted-foreground mt-2">
-          Loading the nodes…
+      {ownership.data && (
+        <p className="text-label-sm text-on-surface-variant">
+          Run level: {ownerLabel(ownership.data.run)}
         </p>
       )}
+      {ownership.isPending && target.sessionId && (
+        <p className="text-body-sm text-muted-foreground">Loading the nodes…</p>
+      )}
       {ownership.error && (
-        <p className="text-body-sm text-error mt-2">
+        <p className="text-body-sm text-error">
           Could not load the owners of this workflow.
         </p>
       )}
-      {ownership.data && (
-        <ul className="mt-2 flex flex-wrap gap-2">
-          {Object.entries(ownership.data.nodes).map(([node, owner]) => {
+      {nodes.length > 0 && (
+        <ul
+          className={cn(
+            'flex flex-wrap gap-1.5',
+            !assignment.enabled && 'opacity-60'
+          )}
+        >
+          {shown.map(([node, owner]) => {
             const mine = owner === supervisorId;
             return (
-              <li
-                key={node}
-                className={cn(
-                  'text-body-sm inline-flex items-center gap-2 rounded-full border px-3 py-1',
-                  mine
-                    ? 'border-primary bg-accent text-accent-foreground'
-                    : 'border-border bg-card text-on-surface-variant'
-                )}
-              >
-                {mine && (
-                  <span
-                    aria-hidden="true"
-                    className="material-symbols-outlined text-base"
-                  >
-                    check_circle
-                  </span>
-                )}
-                <code className="text-code-sm">{node}</code>
-                <span className={mine ? undefined : 'text-muted-foreground'}>
-                  {mine ? 'owned here' : ownerLabel(owner)}
-                </span>
+              <li key={node}>
+                <NodeChip
+                  id={node}
+                  mine={mine}
+                  owner={mine ? undefined : ownerLabel(owner)}
+                />
               </li>
             );
           })}
+          {nodes.length > MAX_CHIPS && !all && (
+            <li>
+              <Button size="sm" variant="ghost" onClick={() => setAll(true)}>
+                +{nodes.length - MAX_CHIPS} more
+              </Button>
+            </li>
+          )}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -141,17 +273,18 @@ export function OwnsTab({ supervisor }: { supervisor: SupervisorView }) {
   const others = data.filter((a) => !workflows.includes(a));
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-body-md text-on-surface-variant">
-        Each node has one owner. A node nobody owns is under Direct control:
-        people and agents send its commands themselves.
+      <p className="text-body-sm text-on-surface-variant">
+        Each node has one owner. Nodes nobody owns are under Direct control.
       </p>
-      {workflows.map((a) => (
-        <WorkflowOwners
-          key={a.id}
-          supervisorId={supervisor.id}
-          assignment={a}
-        />
-      ))}
+      <div className="grid gap-3 xl:grid-cols-2">
+        {workflows.map((a) => (
+          <AssignmentCard
+            key={a.id}
+            supervisorId={supervisor.id}
+            assignment={a}
+          />
+        ))}
+      </div>
       {others.length > 0 && (
         <ul className="text-body-md flex flex-col gap-1">
           {others.map((a) => (
@@ -163,22 +296,109 @@ export function OwnsTab({ supervisor }: { supervisor: SupervisorView }) {
   );
 }
 
-const REACH: Record<Reach, { icon: string; text: string; tone: string }> = {
-  all: { icon: 'check_circle', text: 'Yes', tone: 'text-success' },
-  some: { icon: 'rule', text: 'Some', tone: 'text-attention' },
-  none: { icon: 'remove', text: 'No', tone: 'text-muted-foreground' },
-};
+const TILE = {
+  all: {
+    box: 'border-success/30 bg-success/5',
+    glyph: 'bg-success/15 text-success',
+    verb: 'Allowed',
+  },
+  some: {
+    box: 'border-attention/30 bg-attention/5',
+    glyph: 'bg-attention/15 text-attention',
+    verb: 'Partly allowed',
+  },
+} as const;
 
-const ReachCell = ({ reach }: { reach: Reach }) => (
-  <td className="px-3 py-2">
-    <span className={cn('inline-flex items-center gap-1', REACH[reach].tone)}>
-      <span aria-hidden="true" className="material-symbols-outlined text-base">
-        {REACH[reach].icon}
+/** One operation group as an icon tile: green when all of its commands are allowed, orange when some are. */
+function OperationTile({
+  label,
+  icon,
+  reach,
+}: {
+  label: string;
+  icon: string;
+  reach: 'all' | 'some';
+}) {
+  const tone = TILE[reach];
+  return (
+    <Tip label={reach === 'all' ? label : `${label}: some of its commands`}>
+      <span
+        className={cn(
+          'flex size-12 items-center justify-center rounded-lg border',
+          tone.box
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className={cn(
+            'flex size-7 items-center justify-center rounded-md',
+            tone.glyph
+          )}
+        >
+          <span className="material-symbols-outlined text-lg">{icon}</span>
+        </span>
+        <span className="sr-only">
+          {tone.verb}: {label}
+        </span>
       </span>
-      {REACH[reach].text}
-    </span>
-  </td>
-);
+    </Tip>
+  );
+}
+
+/** What one question about a supervisor allows: tiles for the groups it may, one line for the rest. */
+function OperationGroup({
+  title,
+  tip,
+  rows,
+  pick,
+}: {
+  title: string;
+  tip: string;
+  rows: OperationRow[];
+  pick: (row: OperationRow) => Reach;
+}) {
+  const allowed = rows.filter((r) => pick(r) !== 'none');
+  const blocked = rows.filter((r) => pick(r) === 'none');
+  return (
+    <section aria-label={title} className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h4 className="text-overline text-on-surface-variant">
+          <Tip label={tip}>
+            <span>{title}</span>
+          </Tip>
+        </h4>
+        <span className="text-label-sm text-on-surface-variant tabular-nums">
+          {allowed.length} of {rows.length}
+        </span>
+      </div>
+      {allowed.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {allowed.map((row) => (
+            <OperationTile
+              key={row.label}
+              label={row.label}
+              icon={row.icon}
+              reach={pick(row) as 'all' | 'some'}
+            />
+          ))}
+        </div>
+      )}
+      <p className="text-body-sm text-on-surface-variant flex items-center gap-1.5">
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-base"
+        >
+          lock
+        </span>
+        {blocked.length === 0
+          ? 'Nothing is blocked'
+          : allowed.length === 0
+            ? `Nothing: ${blocked.map((r) => r.label).join(', ')}`
+            : `Not allowed: ${blocked.map((r) => r.label).join(', ')}`}
+      </p>
+    </section>
+  );
+}
 
 /** What it may send, what it sends on its own, and what people may still send through it. */
 export function OperationsTab({ supervisor }: { supervisor: SupervisorView }) {
@@ -190,45 +410,25 @@ export function OperationsTab({ supervisor }: { supervisor: SupervisorView }) {
     type.data?.defaultAllowedCommands ?? null
   );
   return (
-    <div className="flex flex-col gap-2">
-      <div className="border-border bg-card shadow-card overflow-x-auto rounded-xl border">
-        <table className="text-body-md w-full">
-          <thead className="bg-muted">
-            <tr>
-              {[
-                'Commands',
-                'It may send',
-                'Acts on its own',
-                'People can, through it',
-              ].map((h) => (
-                <th
-                  key={h}
-                  className="text-label-md text-on-surface-variant px-3 py-2 text-left"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.label} className="border-border border-t">
-                <td className="px-3 py-2">{row.label}</td>
-                <ReachCell reach={row.send} />
-                <ReachCell reach={row.onItsOwn} />
-                <ReachCell reach={row.people} />
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-body-sm text-muted-foreground">
-        “Acts on its own”: what it may send with no event to react to. “People
-        can”: what people may still do on what it owns, through it. Settings{' '}
-        <code className="text-code-sm">allowedCommands</code>,{' '}
-        <code className="text-code-sm">initiative</code> and{' '}
-        <code className="text-code-sm">operatorAccess</code>.
-      </p>
+    <div className="flex flex-col gap-4">
+      <OperationGroup
+        title="It may send"
+        tip="Setting allowedCommands"
+        rows={rows}
+        pick={(r) => r.send}
+      />
+      <OperationGroup
+        title="Acts on its own"
+        tip="What it may send with no event to react to (setting initiative)"
+        rows={rows}
+        pick={(r) => r.onItsOwn}
+      />
+      <OperationGroup
+        title="People can, through it"
+        tip="What people may still send on what it owns, through it (setting operatorAccess)"
+        rows={rows}
+        pick={(r) => r.people}
+      />
     </div>
   );
 }

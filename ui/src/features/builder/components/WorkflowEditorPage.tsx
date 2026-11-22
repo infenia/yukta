@@ -48,6 +48,7 @@ import {
   toPreviewGraph,
 } from './WorkflowEditorPage.helpers';
 import { readDraft, writeDraft } from './workflowDraft';
+import { Tip } from '@/components/ui/tooltip';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 const NO_TASKS = {};
@@ -477,24 +478,24 @@ function Editor({
           className="w-full sm:w-72"
         />
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-          <button
-            type="button"
-            className={buttonVariants({ variant: 'ghost' })}
-            disabled={!history.canUndo}
-            title="Undo (Ctrl+Z)"
-            onClick={history.undo}
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            className={buttonVariants({ variant: 'ghost' })}
-            disabled={!history.canRedo}
-            title="Redo (Ctrl+Shift+Z)"
-            onClick={history.redo}
-          >
-            Redo
-          </button>
+          <Tip label="Undo (Ctrl+Z)" disabled={!history.canUndo}>
+            <button
+              type="button"
+              className={buttonVariants({ variant: 'ghost' })}
+              onClick={history.undo}
+            >
+              Undo
+            </button>
+          </Tip>
+          <Tip label="Redo (Ctrl+Shift+Z)" disabled={!history.canRedo}>
+            <button
+              type="button"
+              className={buttonVariants({ variant: 'ghost' })}
+              onClick={history.redo}
+            >
+              Redo
+            </button>
+          </Tip>
           <ShortcutsHelp />
           {dirty && (
             <>

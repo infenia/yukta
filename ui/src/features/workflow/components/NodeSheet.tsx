@@ -293,17 +293,21 @@ export function NodeSheet({
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {onShowLogs && (
-              <button
-                type="button"
-                onClick={() => onShowLogs(node.nodeId)}
-                aria-label="Show this node's logs"
-                title="Show this node's logs"
-                className="text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface flex size-8 items-center justify-center rounded-lg"
-              >
-                <span aria-hidden="true" className="material-symbols-outlined">
-                  terminal
-                </span>
-              </button>
+              <Tip label="Show this node's logs">
+                <button
+                  type="button"
+                  onClick={() => onShowLogs(node.nodeId)}
+                  aria-label="Show this node's logs"
+                  className="text-on-surface-variant transition-standard hover:bg-muted hover:text-on-surface flex size-8 items-center justify-center rounded-lg"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined"
+                  >
+                    terminal
+                  </span>
+                </button>
+              </Tip>
             )}
             <button
               type="button"

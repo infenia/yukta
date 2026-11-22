@@ -3,13 +3,14 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { buttonVariants } from '@/components/ui/button';
+import { IconLink } from '@/components/common/IconButton';
 import { HeatStrip } from '@/components/dashboard/Strips';
 import { Panel } from '@/components/dashboard/Tile';
 import { useFallbackPoll } from '@/features/control/context/ControlEventsContext';
 import { getSupervisorDecisions } from '../api/supervisors';
 import { getSupervisionSummary } from '../api/supervision';
 import { useAttachments, useSupervisors } from '../hooks/useSupervisorTypes';
+import { Tip } from '@/components/ui/tooltip';
 
 const BUCKETS = 48;
 const TOP = 5;
@@ -62,12 +63,11 @@ export function SupervisorsSummary() {
     <Panel
       title="Supervisors"
       action={
-        <Link
+        <IconLink
           to="/supervisors"
-          className={buttonVariants({ variant: 'ghost', size: 'sm' })}
-        >
-          Open supervisors
-        </Link>
+          icon="arrow_forward"
+          label="Open supervisors"
+        />
       }
     >
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
@@ -150,10 +150,12 @@ function Stat({
   title?: string;
 }) {
   const body = (
-    <div title={title}>
-      <dt className="text-label-sm text-on-surface-variant">{label}</dt>
-      <dd className="text-headline-md num text-on-surface">{value}</dd>
-    </div>
+    <Tip label={title}>
+      <div>
+        <dt className="text-label-sm text-on-surface-variant">{label}</dt>
+        <dd className="text-headline-md num text-on-surface">{value}</dd>
+      </div>
+    </Tip>
   );
   return to ? (
     <Link to={to} aria-label={aria}>

@@ -310,12 +310,12 @@ test.describe('Notifications - the inbox filters', () => {
     page,
   }) => {
     await expectOptions(
-      page.getByLabel('Session'),
+      page.getByLabel('Session', { exact: true }),
       ['All sessions', 's1', 's2'],
       'contains'
     );
 
-    await choose(page.getByLabel('Session'), 's2');
+    await choose(page.getByLabel('Session', { exact: true }), 's2');
 
     await expect(page.getByText('Queue is slow')).toBeVisible();
     await expect(page.getByText('Nightly run failed')).toHaveCount(0);
@@ -338,7 +338,7 @@ test.describe('Notifications - the inbox filters', () => {
     await expect(page.getByText('Nightly run failed')).toBeVisible();
 
     await choose(page.getByLabel('Category'), 'scheduler');
-    await choose(page.getByLabel('Session'), 's1');
+    await choose(page.getByLabel('Session', { exact: true }), 's1');
     await expect(page.getByText('Nothing here')).toBeVisible();
   });
 

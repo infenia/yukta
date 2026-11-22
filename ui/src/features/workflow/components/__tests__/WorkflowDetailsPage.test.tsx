@@ -20,7 +20,7 @@ import {
   within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -707,6 +707,87 @@ describe('WorkflowDetailsPage', () => {
     expect(toggle).toHaveTextContent('right_panel_open');
 
     await user.click(toggle);
+    expect(screen.getByTestId('progress-panel')).toBeInTheDocument();
+  });
+
+  it('opens and closes the supervision sheet from the toolbar', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByTestId('progress-panel');
+    const toggle = screen.getByRole('button', { name: 'Supervision' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await user.click(toggle);
+    expect(
+      await screen.findByRole('dialog', { name: 'Who controls this workflow' })
+    ).toBeInTheDocument();
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await user.click(toggle);
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Who controls this workflow' })
+      ).toBeNull()
+    );
+  });
+
+  it('presses a node in the supervision sheet and keeps the sheet open', async () => {
+    server.use(
+      http.get('/api/supervision/ownership', () =>
+        HttpResponse.json({
+          timestamp: 't',
+          status: 200,
+          message: 'ok',
+          path: '/ownership',
+          data: {
+            sessionId: 'SESSION_A92_XP_2024',
+            workflowId: 'wf-982-xk-11',
+            defaultSupervisor: true,
+            run: 'default',
+            nodes: { 'vectorize-batch': 'default' },
+          },
+        })
+      )
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByTestId('progress-panel');
+    await user.click(screen.getByRole('button', { name: 'Supervision' }));
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Who controls this workflow',
+    });
+    await user.click(
+      await within(dialog).findByRole('button', { name: 'vectorize-batch' })
+    );
+    expect(dialog).toBeInTheDocument();
+  });
+
+  it('opens the supervision sheet from a link even when the progress panel is hidden', async () => {
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <MemoryRouter
+          initialEntries={[
+            '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11',
+          ]}
+        >
+          <Link to="?supervision=1">Open supervision</Link>
+          <Routes>
+            <Route
+              path="/sessions/:sessionId/workflow/:workflowId"
+              element={<WorkflowDetailsPage />}
+            />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await screen.findByTestId('progress-panel');
+    await user.click(screen.getByRole('button', { name: 'Workflow progress' }));
+    await waitFor(() =>
+      expect(screen.queryByTestId('progress-panel')).toBeNull()
+    );
+    await user.click(screen.getByRole('link', { name: 'Open supervision' }));
+    expect(
+      await screen.findByRole('dialog', { name: 'Who controls this workflow' })
+    ).toBeInTheDocument();
     expect(screen.getByTestId('progress-panel')).toBeInTheDocument();
   });
 

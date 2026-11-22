@@ -280,6 +280,22 @@ export async function choose(
   await list.waitFor({ state: 'detached' });
 }
 
+/** Toggles options of a MultiSelect (its popup stays open until Escape). */
+export async function toggleOptions(
+  trigger: Locator,
+  values: string[]
+): Promise<void> {
+  const page = trigger.page();
+  await trigger.click();
+  const list = page.locator('[role="listbox"]:visible').last();
+  await list.waitFor();
+  for (const value of values) {
+    await list.locator(`[role="option"][data-value="${value}"]`).click();
+  }
+  await page.keyboard.press('Escape');
+  await list.waitFor({ state: 'detached' });
+}
+
 /** Closes the open Select by picking the option already chosen (Escape does not unmount it). */
 async function closeSelect(page: Page): Promise<void> {
   const list = page.locator('[role="listbox"]:visible').last();

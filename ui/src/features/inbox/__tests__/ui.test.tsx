@@ -23,7 +23,7 @@ import {
 } from '../NotificationsContext';
 import { plain } from '../severity';
 import type { AppNotification } from '../api';
-import { must } from '@/test/utils/testUtils';
+import { expectTooltip, must } from '@/test/utils/testUtils';
 import { action, input, note } from '../testFixtures';
 
 vi.mock('@/features/workflow/api/inputs', async (importOriginal) => ({
@@ -119,12 +119,12 @@ describe('NotificationBell', () => {
     expect(within(quiet).queryByTestId('bell-count')).toBeNull();
   });
 
-  it('is muted and says so while the live stream is down', () => {
+  it('is muted and says so while the live stream is down', async () => {
     view(state([], { connected: false }), <NotificationBell />);
 
     const bell = screen.getByRole('button', { name: 'Notifications' });
     expect(bell).toHaveAttribute('data-connected', 'false');
-    expect(bell).toHaveAttribute('title', expect.stringContaining('paused'));
+    await expectTooltip(bell, 'Live updates paused: checking every 30 s');
     expect(bellLabel(0, 0)).toBe('Notifications');
   });
 

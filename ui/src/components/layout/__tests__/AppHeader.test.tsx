@@ -55,7 +55,7 @@ describe('AppHeader', () => {
       .getAllByRole('link')
       .filter((link) => link.getAttribute('aria-current') === 'page');
     expect(current).toHaveLength(1);
-    expect(current[0]).toHaveTextContent(label);
+    expect(current[0]).toHaveAccessibleName(label);
   });
 
   it('does not treat a path that only shares a prefix as the section', () => {
@@ -102,19 +102,19 @@ describe('AppHeader', () => {
     expect(screen.queryByRole('navigation', { name: 'Home' })).toBeNull();
   });
 
-  it('links Sessions, Runs, Plugins, Supervisors and Control from the sidebar', () => {
+  it('links Sessions, Runs, Supervisors, Plugins and Control from the sidebar', () => {
     renderWithRouter(<Sidebar />);
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(nav).toHaveClass('fixed', 'w-16', 'hidden', 'sm:flex');
     const links = Array.from(nav.querySelectorAll('a')).map((a) => [
-      a.textContent?.replace(/^[a-z_]+/, ''),
+      a.getAttribute('aria-label'),
       a.getAttribute('href'),
     ]);
     expect(links).toEqual([
       ['Sessions', '/sessions'],
       ['Runs', '/runs'],
-      ['Plugins', '/plugins'],
       ['Supervisors', '/supervisors'],
+      ['Plugins', '/plugins'],
       ['Control', '/control'],
       ['Config', '/config'],
     ]);
@@ -178,7 +178,7 @@ describe('AppHeader', () => {
     window.removeEventListener('yukta:open-command-palette', opened);
   });
 
-  it('shows every nav label, not only icons', () => {
+  it('names every icon-only rail link', () => {
     renderWithRouter(
       <>
         <AppHeader />
@@ -188,7 +188,7 @@ describe('AppHeader', () => {
     for (const label of ['Sessions', 'Runs', 'Plugins', 'Control']) {
       expect(
         screen.getByRole('link', { name: new RegExp(label) })
-      ).toHaveTextContent(label);
+      ).toHaveAccessibleName(label);
     }
   });
 });

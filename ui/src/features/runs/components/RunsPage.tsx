@@ -8,7 +8,8 @@ import { Link, useNavigate, useSearchParams } from 'react-router';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
+import { MultiSelect, Select } from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -44,6 +45,7 @@ import {
 import {
   RUN_STATUSES,
   parseFilters,
+  statusList,
   toParams,
   type Range,
   type RunFilters,
@@ -210,22 +212,20 @@ function Runs() {
           ]}
           className="w-48"
         />
-        <Select
+        <MultiSelect
           ariaLabel="Status"
-          value={filters.status}
-          onValueChange={(status) => set({ status })}
-          options={[
-            { value: '', label: 'Any status' },
-            ...RUN_STATUSES.map((status) => ({
-              value: status,
-              // FAILURE and ERROR both read "Failed"; the filter still tells them apart
-              label:
-                status === 'ERROR'
-                  ? 'Failed (error)'
-                  : toStatusDisplay(status).label,
-            })),
-          ]}
-          className="w-40"
+          values={statusList(filters.status)}
+          onValuesChange={(statuses) => set({ status: statuses.join(',') })}
+          placeholder="Any status"
+          options={RUN_STATUSES.map((status) => ({
+            value: status,
+            // FAILURE and ERROR both read "Failed"; the filter still tells them apart
+            label:
+              status === 'ERROR'
+                ? 'Failed (error)'
+                : toStatusDisplay(status).label,
+          }))}
+          className="w-48"
         />
         <Input
           aria-label="Run id contains"
@@ -243,19 +243,19 @@ function Runs() {
         />
         {filters.range === 'custom' && (
           <>
-            <Input
-              type="datetime-local"
-              aria-label="Since"
+            <DateTimePicker
+              ariaLabel="Since"
+              placeholder="Since…"
               value={filters.since}
-              onChange={(event) => set({ since: event.target.value })}
-              className="w-52"
+              onValueChange={(since) => set({ since })}
+              className="w-60"
             />
-            <Input
-              type="datetime-local"
-              aria-label="Until"
+            <DateTimePicker
+              ariaLabel="Until"
+              placeholder="Until…"
               value={filters.until}
-              onChange={(event) => set({ until: event.target.value })}
-              className="w-52"
+              onValueChange={(until) => set({ until })}
+              className="w-60"
             />
           </>
         )}

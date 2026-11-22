@@ -18,6 +18,7 @@ import type { Conversation } from '@/types/conversations';
 import type { AgentItem } from '../../lib/agentItems';
 import { clock } from '../../lib/agentLabels';
 import { OpenRequest } from './OpenRequest';
+import { Tip } from '@/components/ui/tooltip';
 
 const ROW_ESTIMATE = 28;
 const FOLLOW_SLACK = 48;
@@ -43,9 +44,9 @@ function FailedMark({ status }: { status: string }) {
 /** A call still going, in words. */
 function spinner(status: string) {
   return (
-    <span title={status} className="text-label-sm animate-pulse">
-      running
-    </span>
+    <Tip label={status}>
+      <span className="text-label-sm animate-pulse">running</span>
+    </Tip>
   );
 }
 
@@ -199,26 +200,31 @@ function ItemBody({
     case 'message': {
       if (item.role === 'user') {
         return (
-          <Message align="end" title={when}>
-            <MessageContent className="items-end gap-1">
-              {item.queued && (
-                <span className="text-muted-foreground text-label-sm">
-                  Queued
-                </span>
-              )}
-              <Bubble align="end" variant={item.queued ? 'outline' : 'default'}>
-                <BubbleContent
-                  className={cn(
-                    'text-body-md rounded-2xl rounded-br-md px-3 py-2 whitespace-pre-wrap',
-                    item.queued ? 'border-dashed' : 'assistant-gradient'
-                  )}
+          <Tip label={when}>
+            <Message align="end">
+              <MessageContent className="items-end gap-1">
+                {item.queued && (
+                  <span className="text-muted-foreground text-label-sm">
+                    Queued
+                  </span>
+                )}
+                <Bubble
+                  align="end"
+                  variant={item.queued ? 'outline' : 'default'}
                 >
-                  <Clamped text={item.text} />
-                  {item.queued && <span className="sr-only"> (queued)</span>}
-                </BubbleContent>
-              </Bubble>
-            </MessageContent>
-          </Message>
+                  <BubbleContent
+                    className={cn(
+                      'text-body-md rounded-2xl rounded-br-md px-3 py-2 whitespace-pre-wrap',
+                      item.queued ? 'border-dashed' : 'assistant-gradient'
+                    )}
+                  >
+                    <Clamped text={item.text} />
+                    {item.queued && <span className="sr-only"> (queued)</span>}
+                  </BubbleContent>
+                </Bubble>
+              </MessageContent>
+            </Message>
+          </Tip>
         );
       }
       if (item.role === 'thought') {
@@ -230,15 +236,17 @@ function ItemBody({
         );
       }
       return (
-        <Message title={when}>
-          <MessageContent>
-            <Bubble variant="ghost">
-              <BubbleContent className="text-body-md text-on-surface whitespace-pre-wrap">
-                {item.text}
-              </BubbleContent>
-            </Bubble>
-          </MessageContent>
-        </Message>
+        <Tip label={when}>
+          <Message>
+            <MessageContent>
+              <Bubble variant="ghost">
+                <BubbleContent className="text-body-md text-on-surface whitespace-pre-wrap">
+                  {item.text}
+                </BubbleContent>
+              </Bubble>
+            </MessageContent>
+          </Message>
+        </Tip>
       );
     }
     case 'plan':

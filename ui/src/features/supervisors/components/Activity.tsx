@@ -3,11 +3,13 @@
 
 import { useState } from 'react';
 import { StateMessage } from '@/components/common/StateMessage';
-import { Select } from '@/components/ui/select';
+import { IconButton } from '@/components/common/IconButton';
+import { MultiSelect } from '@/components/ui/select';
 import { formatDateTime } from '@/features/workflow/lib/timeFormat';
 import { useSupervisorDecisions } from '../hooks/useSupervisorTypes';
 import { groupDecisions, type DecisionGroup } from '../lib/activity';
 import type { Decision } from '../types';
+import { TimelineDot } from './ActionsTimeline';
 import { StaleNotice } from './StaleNotice';
 
 const CAUSES: Record<string, { label: string; icon: string }> = {
@@ -55,6 +57,16 @@ const targetOf = (d: Decision) =>
 
 const commandOf = (command: string) => command.replace(/Command$/, '');
 
+/** The dot of a group: green when everything applied, grey for dry runs, yellow when waiting, orange otherwise. */
+function toneOf(group: DecisionGroup) {
+  const outcomes = new Set(group.items.map((d) => d.outcome));
+  if (outcomes.size === 1 && outcomes.has('applied')) return 'success';
+  if (outcomes.size === 1 && outcomes.has('dry-run')) return 'muted';
+  if (outcomes.size === 1 && outcomes.has('awaiting-approval'))
+    return 'warning';
+  return 'attention';
+}
+
 /** The header of one group: when, why, who, on what, which command and how it went. */
 function Group({ group }: { group: DecisionGroup }) {
   const [first] = group.items;
@@ -62,7 +74,8 @@ function Group({ group }: { group: DecisionGroup }) {
   const several = group.items.length > 1;
   const applied = group.items.filter((d) => d.outcome === 'applied').length;
   return (
-    <li className="border-border flex flex-col gap-1 border-b px-3 py-2 last:border-b-0">
+    <li className="relative flex flex-col gap-1 py-2 pl-4">
+      <TimelineDot tone={toneOf(group)} />
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-muted-foreground tabular-nums">
           {formatDateTime(first.time)}
@@ -116,29 +129,26 @@ const distinct = (values: (string | null | undefined)[]) =>
 
 function Filter({
   label,
-  value,
+  values,
   onChange,
   options,
-  all,
+  any,
   name = (v: string) => v,
 }: {
   label: string;
-  value: string;
-  onChange: (next: string) => void;
+  values: string[];
+  onChange: (next: string[]) => void;
   options: string[];
-  all: string;
+  any: string;
   name?: (value: string) => string;
 }) {
   return (
-    <Select
-      searchable={options.length > 6}
+    <MultiSelect
       ariaLabel={label}
-      value={value}
-      onValueChange={onChange}
-      options={[
-        { value: '', label: all },
-        ...options.map((o) => ({ value: o, label: name(o) })),
-      ]}
+      values={values}
+      onValuesChange={onChange}
+      placeholder={any}
+      options={options.map((o) => ({ value: o, label: name(o) }))}
     />
   );
 }
@@ -150,12 +160,8 @@ function Filter({
 export function Activity({ supervisor }: { supervisor?: string }) {
   const decisions = useSupervisorDecisions(supervisor);
   const { data, isPending, error, refetch } = decisions;
-  const [filters, setFilters] = useState({
-    supervisorId: '',
-    cause: '',
-    outcome: '',
-    workflowId: '',
-  });
+  const none = { supervisorId: [], cause: [], outcome: [], workflowId: [] };
+  const [filters, setFilters] = useState<Record<string, string[]>>(none);
   if (isPending) return <StateMessage tone="loading" title="Loading…" />;
   // pending is handled above, so no data means the first fetch failed
   if (!data) {
@@ -176,66 +182,82 @@ export function Activity({ supervisor }: { supervisor?: string }) {
       </StateMessage>
     );
   }
-  const set = (key: keyof typeof filters) => (value: string) =>
-    setFilters({ ...filters, [key]: value });
+  const set = (key: string) => (values: string[]) =>
+    setFilters({ ...filters, [key]: values });
+  // a decision matches when a filter is empty or lists its value
   const shown = data.filter((d) =>
-    (Object.keys(filters) as (keyof typeof filters)[]).every(
-      (key) => !filters[key] || d[key] === filters[key]
+    Object.entries(filters).every(
+      ([key, values]) =>
+        values.length === 0 ||
+        values.includes(String(d[key as keyof Decision] ?? ''))
     )
   );
   return (
     <div className="flex flex-col gap-3">
       <StaleNotice query={decisions} />
       <p className="text-body-md text-muted-foreground max-w-prose">
-        What {supervisor ?? 'every supervisor'} did since the server started:
-        the cause, the target, the command and its outcome. “On its own” always
-        shows its reason. A command for several targets shows a result per
-        target.
+        What {supervisor ?? 'every supervisor'} did since the server started,
+        newest first.
       </p>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {!supervisor && (
           <Filter
             label="Supervisor"
-            all="All supervisors"
-            value={filters.supervisorId}
+            any="Any supervisor"
+            values={filters.supervisorId}
             onChange={set('supervisorId')}
             options={distinct(data.map((d) => d.supervisorId))}
           />
         )}
         <Filter
           label="Cause"
-          all="All causes"
-          value={filters.cause}
+          any="Any cause"
+          values={filters.cause}
           onChange={set('cause')}
           options={distinct(data.map((d) => d.cause))}
           name={(c) => causeOf(c).label}
         />
         <Filter
           label="Outcome"
-          all="All outcomes"
-          value={filters.outcome}
+          any="Any outcome"
+          values={filters.outcome}
           onChange={set('outcome')}
           options={distinct(data.map((d) => d.outcome))}
         />
         <Filter
           label="Workflow"
-          all="All workflows"
-          value={filters.workflowId}
+          any="Any workflow"
+          values={filters.workflowId}
           onChange={set('workflowId')}
           options={distinct(data.map((d) => d.workflowId))}
         />
+        <span className="text-label-sm text-on-surface-variant ml-auto tabular-nums">
+          {shown.length} shown
+        </span>
       </div>
       {shown.length === 0 ? (
-        <StateMessage compact title="Nothing matches these filters." />
-      ) : (
-        <ul
-          aria-label="Activity"
-          className="border-border bg-card text-body-md shadow-card rounded-xl border"
+        <StateMessage
+          compact
+          icon="search"
+          title="Nothing matches these filters."
         >
-          {groupDecisions(shown).map((group) => (
-            <Group key={group.id} group={group} />
-          ))}
-        </ul>
+          <IconButton
+            icon="close"
+            label="Clear filters"
+            onClick={() => setFilters(none)}
+          />
+        </StateMessage>
+      ) : (
+        <div className="border-border bg-muted/30 rounded-xl border p-3">
+          <ol
+            aria-label="Activity"
+            className="border-border text-body-md ml-1 flex flex-col border-l"
+          >
+            {groupDecisions(shown).map((group) => (
+              <Group key={group.id} group={group} />
+            ))}
+          </ol>
+        </div>
       )}
     </div>
   );

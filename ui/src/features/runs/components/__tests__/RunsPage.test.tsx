@@ -136,19 +136,22 @@ describe('filters', () => {
     ).toEqual(new URLSearchParams());
   });
 
-  it('turns a preset into a local since, and passes a custom range as typed', () => {
+  it('turns a preset into a UTC since, and passes an unparsable custom bound as typed', () => {
     const now = new Date(2026, 6, 26, 15, 0, 0).getTime();
     const base = parseFilters(new URLSearchParams());
     expect(timeBounds({ ...base, range: '1h' }, now)).toEqual({
-      since: '2026-07-26T14:00:00',
+      since: new Date(2026, 6, 26, 14, 0, 0).toISOString(),
     });
     expect(timeBounds({ ...base, range: '7d' }, now)).toEqual({
-      since: '2026-07-19T15:00:00',
+      since: new Date(2026, 6, 19, 15, 0, 0).toISOString(),
     });
     expect(timeBounds(base, now)).toEqual({});
     expect(
       timeBounds({ ...base, range: 'custom', since: 'a', until: 'b' }, now)
     ).toEqual({ since: 'a', until: 'b' });
+    expect(
+      timeBounds({ ...base, range: 'custom', since: '2026-07-01T06:00' }, now)
+    ).toEqual({ since: new Date('2026-07-01T06:00').toISOString() });
     expect(timeBounds({ ...base, range: 'custom' }, now)).toEqual({});
   });
 });
@@ -443,7 +446,9 @@ describe('RunsPage', () => {
       expect(last.get('workflowId')).toBe('wf');
       expect(last.get('status')).toBe('FAILURE');
       expect(last.get('text')).toBe('ab');
-      expect(last.get('since')).toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d$/);
+      expect(last.get('since')).toMatch(
+        /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/
+      );
     });
     expect(screen.getByTestId('where')).toHaveTextContent(
       '/runs?session=s1&workflow=wf&status=FAILURE&text=ab&range=1h'
@@ -453,25 +458,84 @@ describe('RunsPage', () => {
   it('reads the filters from the URL, with custom bounds', async () => {
     total = 1;
     const user = userEvent.setup();
-    renderAt('/runs?range=custom&since=2026-07-01T00:00');
+    renderAt(
+      '/runs?range=custom&since=2026-07-01T00:00&until=2026-07-02T00:00'
+    );
     await screen.findByRole('link', { name: '0000xyz-' });
-    expect(screen.getByLabelText('Since')).toHaveValue('2026-07-01T00:00');
-    fireEvent.change(screen.getByLabelText('Since'), {
-      target: { value: '2026-07-01T06:00' },
+    expect(screen.getByLabelText('Since')).toHaveTextContent('Jul');
+    expect(requests.at(-1)?.get('until')).toBe(
+      new Date('2026-07-02T00:00').toISOString()
+    );
+    await user.click(screen.getByLabelText('Since'));
+    fireEvent.change(await screen.findByLabelText('Hour'), {
+      target: { value: '06' },
     });
     await waitFor(() =>
-      expect(requests.at(-1)?.get('since')).toBe('2026-07-01T06:00')
+      expect(requests.at(-1)?.get('since')).toBe(
+        new Date('2026-07-01T06:00').toISOString()
+      )
     );
+    await user.keyboard('{Escape}');
     await user.click(screen.getByLabelText('Session'));
     expect(
       await screen.findByRole('option', { name: 's2' })
     ).toBeInTheDocument();
     await user.keyboard('{Escape}');
-    await user.type(screen.getByLabelText('Until'), '2026-07-02T00:00');
-    await waitFor(() =>
-      expect(requests.at(-1)?.get('until')).toBe('2026-07-02T00:00')
+    await user.click(screen.getByRole('button', { name: 'Clear Until' }));
+    await waitFor(() => expect(requests.at(-1)?.get('until')).toBeNull());
+    expect(requests.at(-1)?.get('since')).toBe(
+      new Date('2026-07-01T06:00').toISOString()
     );
-    expect(requests.at(-1)?.get('since')).toBe('2026-07-01T06:00');
+  });
+
+  it('filters by several statuses at once, ticks them and can clear or select all', async () => {
+    total = 1;
+    const user = userEvent.setup();
+    renderAt('/runs');
+    await screen.findByRole('link', { name: '0000xyz-' });
+    const trigger = screen.getByLabelText('Status');
+    expect(trigger).toHaveTextContent('Any status');
+
+    await user.click(trigger);
+    await user.click(await screen.findByRole('option', { name: 'Running' }));
+    // the popup stays open to pick the next one
+    await user.click(screen.getByRole('option', { name: 'Failed' }));
+    await waitFor(() => {
+      const statuses = requests
+        .slice(-4)
+        .map((r) => r.get('status'))
+        .filter(Boolean);
+      expect(statuses).toEqual(expect.arrayContaining(['RUNNING', 'FAILURE']));
+    });
+    expect(screen.getByTestId('where')).toHaveTextContent(
+      'status=RUNNING%2CFAILURE'
+    );
+    await waitFor(() => expect(trigger).toHaveTextContent('Running, Failed'));
+    const ticked = screen
+      .getAllByRole('option')
+      .filter((o) => o.getAttribute('aria-selected') === 'true')
+      .map((o) => o.textContent);
+    expect(ticked).toEqual(['checkRunning', 'checkFailed']);
+
+    await user.click(screen.getByRole('button', { name: 'Select all' }));
+    await waitFor(() => expect(trigger).toHaveTextContent('9 selected'));
+    expect(screen.getByRole('button', { name: 'Select all' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+    await waitFor(() => expect(trigger).toHaveTextContent('Any status'));
+    expect(screen.getByTestId('where')).toHaveTextContent('/runs');
+    expect(screen.queryByRole('button', { name: 'Clear Status' })).toBeNull();
+  });
+
+  it('clears the statuses from the button on the trigger', async () => {
+    total = 1;
+    const user = userEvent.setup();
+    renderAt('/runs?status=RUNNING');
+    await screen.findByRole('link', { name: '0000xyz-' });
+    await user.click(screen.getByRole('button', { name: 'Clear Status' }));
+    await waitFor(() =>
+      expect(screen.getByLabelText('Status')).toHaveTextContent('Any status')
+    );
   });
 
   it('loads more until the server has no more, and resets on a filter change', async () => {

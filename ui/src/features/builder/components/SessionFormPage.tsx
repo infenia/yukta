@@ -42,7 +42,7 @@ function ScriptedPanel({ session }: { session: SessionDraft }) {
   return (
     <section
       aria-labelledby="scripted-heading"
-      className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-18 lg:self-start"
+      className="flex min-w-0 flex-col gap-2 lg:sticky lg:top-18 lg:h-[calc(100dvh-16.5rem)] lg:self-start"
     >
       <h2 id="scripted-heading" className="text-label-md text-on-surface">
         Same thing, scripted
@@ -66,14 +66,17 @@ function ScriptedPanel({ session }: { session: SessionDraft }) {
           </button>
         ))}
       </div>
-      <CodeBlock
-        label="command"
-        code={toCommand(
-          format,
-          { kind: 'createSession', session },
-          window.location.origin
-        )}
-      />
+      {/* On wide screens the command fills the height left under the tabs; the code scrolls inside. */}
+      <div className="lg:min-h-0 lg:flex-1 lg:[&_pre]:h-full lg:[&_pre]:max-h-none lg:[&>div]:h-full">
+        <CodeBlock
+          label="command"
+          code={toCommand(
+            format,
+            { kind: 'createSession', session },
+            window.location.origin
+          )}
+        />
+      </div>
       <p className="text-body-sm text-on-surface-variant">
         Updates as you type. Agents can create the same session through the
         Yukta MCP server.

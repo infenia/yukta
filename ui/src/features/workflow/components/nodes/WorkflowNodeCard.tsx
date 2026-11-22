@@ -158,20 +158,21 @@ export function WorkflowNodeCard({
         </div>
       )}
       {node.issues && (node.issues.errors > 0 || node.issues.warnings > 0) && (
-        <span
-          role="img"
-          aria-label={issuesLabel(node.issues)}
-          title={issuesLabel(node.issues)}
-          data-testid={`node-issues-${node.nodeId}`}
-          className={cn(
-            'bg-surface text-label-sm shadow-card absolute -top-2 -right-2 z-10 flex h-5 min-w-5 items-center justify-center rounded-full border px-1 font-semibold',
-            node.issues.errors > 0
-              ? 'border-error text-error'
-              : 'border-warning text-warning'
-          )}
-        >
-          {node.issues.errors || node.issues.warnings}
-        </span>
+        <Tip label={issuesLabel(node.issues)}>
+          <span
+            role="img"
+            aria-label={issuesLabel(node.issues)}
+            data-testid={`node-issues-${node.nodeId}`}
+            className={cn(
+              'bg-surface text-label-sm shadow-card absolute -top-2 -right-2 z-10 flex h-5 min-w-5 items-center justify-center rounded-full border px-1 font-semibold',
+              node.issues.errors > 0
+                ? 'border-error text-error'
+                : 'border-warning text-warning'
+            )}
+          >
+            {node.issues.errors || node.issues.warnings}
+          </span>
+        </Tip>
       )}
       {!isTrigger && (
         <Handle

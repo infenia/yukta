@@ -24,6 +24,7 @@ import {
 import { LimitsDialog } from '../components/LimitsDialog';
 import { PanelState } from './PanelState';
 import { tagOf } from './format';
+import { Tip } from '@/components/ui/tooltip';
 
 const LIMITS_KEY = ['control', 'scheduler', 'limits'];
 const DRAIN_KEY = ['control', 'scheduler', 'drain'];
@@ -160,21 +161,24 @@ export function CapacityPanel({ live }: { live: boolean }) {
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <label className="text-body-md flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  role="switch"
-                  checked={drain.data?.draining ?? false}
+                <Tip
+                  label={needs}
                   disabled={
                     !mayChange || drain.isPending || toggleDrain.isPending
                   }
-                  title={needs}
-                  // Ending a drain is safe; starting one refuses every new start, so it asks first
-                  onChange={(e) =>
-                    e.target.checked
-                      ? setConfirmDrain(true)
-                      : toggleDrain.mutate(false)
-                  }
-                />
+                >
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    checked={drain.data?.draining ?? false}
+                    // Ending a drain is safe; starting one refuses every new start, so it asks first
+                    onChange={(e) =>
+                      e.target.checked
+                        ? setConfirmDrain(true)
+                        : toggleDrain.mutate(false)
+                    }
+                  />
+                </Tip>
                 Drain: refuse new starts
                 {drain.data?.draining && (
                   <span className="text-body-sm text-on-surface-variant">
@@ -182,16 +186,16 @@ export function CapacityPanel({ live }: { live: boolean }) {
                   </span>
                 )}
               </label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!mayChange}
-                title={needs}
-                onClick={() => setEditing(true)}
-              >
-                Edit limits
-              </Button>
+              <Tip label={needs} disabled={!mayChange}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditing(true)}
+                >
+                  Edit limits
+                </Button>
+              </Tip>
             </div>
             {rejected.length > 0 && (
               <ul

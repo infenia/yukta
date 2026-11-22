@@ -2,20 +2,22 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { StateMessage } from '@/components/common/StateMessage';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { IconLink } from '@/components/common/IconButton';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { MultiSelect, Select } from '@/components/ui/select';
 import { textareaFieldClassName } from '@/components/ui/native-select';
 import { ApiError } from '@/lib/apiClient';
 import {
   useCreateSupervisor,
   useReplaceSupervisor,
   useSupervisor,
+  useSupervisors,
   useSupervisorTypes,
 } from '../hooks/useSupervisorTypes';
 import type { SupervisorDraft } from '../types';
@@ -28,7 +30,7 @@ interface Values {
   type: string;
   description: string;
   dryRun: boolean;
-  parents: string;
+  parents: string[];
   settings: string;
 }
 
@@ -60,6 +62,7 @@ function SupervisorForm({
 }) {
   const [values, setValues] = useState(initial);
   const types = useSupervisorTypes();
+  const supervisors = useSupervisors();
   const create = useCreateSupervisor();
   const replace = useReplaceSupervisor();
   const saving = create.isPending || replace.isPending;
@@ -75,10 +78,7 @@ function SupervisorForm({
       type: values.type,
       description: values.description || undefined,
       dryRun: values.dryRun,
-      parents: values.parents
-        .split(',')
-        .map((p) => p.trim())
-        .filter(Boolean),
+      parents: values.parents,
       settings: parsed as Record<string, unknown>,
     };
     (existing ? replace : create).mutate(draft, {
@@ -144,26 +144,43 @@ function SupervisorForm({
           </span>
         )}
       </label>
-      <label className="text-body-md flex items-center gap-2">
+      <label className="border-border flex items-start gap-2 rounded-lg border p-3">
         <input
           type="checkbox"
+          className="mt-1"
           checked={values.dryRun}
           onChange={(e) => set({ dryRun: e.target.checked })}
         />
-        Dry run: record its commands, apply none
+        <span className="flex flex-col">
+          <span className="text-body-md">
+            Dry run: record its commands, apply none
+          </span>
+          <span className="text-body-sm text-muted-foreground">
+            Turn it off to let it apply commands.
+          </span>
+        </span>
       </label>
-      <label className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <span className="text-label-md">Reports to</span>
-        <Input
-          aria-label="Reports to"
-          value={values.parents}
-          placeholder="Supervisor ids, comma separated"
-          onChange={(e) => set({ parents: e.target.value })}
+        <MultiSelect
+          ariaLabel="Reports to"
+          placeholder="Nobody"
+          values={values.parents}
+          onValuesChange={(parents) => set({ parents })}
+          // the other supervisors, and any parent no longer listed so it can still be removed
+          options={[
+            ...new Set([
+              ...(supervisors.data ?? [])
+                .map((s) => s.id)
+                .filter((id) => id !== values.id),
+              ...values.parents,
+            ]),
+          ].map((id) => ({ value: id, label: id }))}
         />
         <span className="text-body-sm text-muted-foreground">
           A cycle is refused when it is saved.
         </span>
-      </label>
+      </div>
       <label className="flex flex-col gap-1">
         <span className="text-label-md">Settings (JSON)</span>
         <textarea
@@ -218,7 +235,7 @@ const asValues = (s: {
   type: s.type,
   description: s.description ?? '',
   dryRun: s.dryRun,
-  parents: (s.parents ?? []).join(', '),
+  parents: s.parents ?? [],
   settings: JSON.stringify(s.settings, null, 2),
 });
 
@@ -237,7 +254,7 @@ export function NewSupervisorForm({
         type: '',
         description: '',
         dryRun: true,
-        parents: '',
+        parents: [],
         settings: '{}',
       }}
     />
@@ -258,12 +275,15 @@ export function SupervisorEditPage() {
         title={supervisorId ? `Edit ${supervisorId}` : 'New supervisor'}
         description="For a quick change by hand. Most changes come from an agent; the same change over MCP or the CLI is below."
         actions={
-          <Link
-            to="/supervisors"
-            className={buttonVariants({ variant: 'outline' })}
-          >
-            Back
-          </Link>
+          <IconLink
+            to={
+              supervisorId
+                ? `/supervisors?supervisor=${encodeURIComponent(supervisorId)}`
+                : '/supervisors'
+            }
+            icon="chevron_left"
+            label="Back"
+          />
         }
       />
       {supervisorId && loaded.isPending && (
@@ -285,7 +305,7 @@ export function SupervisorEditPage() {
                   type: '',
                   description: '',
                   dryRun: true,
-                  parents: '',
+                  parents: [],
                   settings: '{}',
                 }
           }

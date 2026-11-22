@@ -17,7 +17,9 @@ export type MapKind =
   | 'workflow'
   | 'nodes'
   | 'more'
-  | 'target';
+  | 'target'
+  | 'supervisor'
+  | 'direct';
 
 export interface MapNode {
   id: string;
@@ -27,6 +29,13 @@ export interface MapNode {
   /** Where a click goes: a route; or a supervisor id when `supervisor` is set. */
   href?: string;
   supervisor?: string;
+  /** A workflow whose nodes open and close on a click: its `<session>/<workflow>` key. */
+  toggle?: string;
+  /** The glyph of its tile, when not the one of its kind. */
+  icon?: string;
+  color?: string;
+  /** A supervisor that records and applies nothing. */
+  dry?: boolean;
   width: number;
   height: number;
   x: number;
@@ -38,6 +47,8 @@ export interface MapEdge {
   source: string;
   target: string;
   label?: string;
+  /** An assignment that is switched off. */
+  dashed?: boolean;
 }
 
 export interface MapInput {
@@ -47,7 +58,7 @@ export interface MapInput {
     delegation?: Record<string, { mode: string }>;
   };
   all: { id: string; parents?: string[] | null }[];
-  maker: { name: string; detail?: string };
+  maker: { name: string; detail?: string; icon?: string; color?: string };
   targets: Target[];
   /** The nodes a whole-workflow assignment owns, by `<session>/<workflow>`, from the ownership map. */
   ownedNodes?: Record<string, string[]>;
@@ -105,14 +116,14 @@ export function ownedNodeCount(
   return { count, partial, workflows: workflows.size };
 }
 
-const SIZE = { width: 190, height: 52 };
-const SMALL = { width: 170, height: 40 };
+export const SIZE = { width: 190, height: 56 };
+export const SMALL = { width: 170, height: 40 };
 const enc = encodeURIComponent;
 // a plain node id; a selector such as `deploy.*` or `group:ci` is not one
 const isNodeId = (text: string) => /^[\w-]+(\.[\w-]+)*$/.test(text);
 const workflowHref = (t: Target) =>
   t.sessionId
-    ? `/sessions/${enc(t.sessionId)}/workflow/${enc(t.workflowId ?? '')}`
+    ? `/sessions/${enc(t.sessionId)}/workflow/${enc(t.workflowId as string)}`
     : undefined;
 
 /**
@@ -137,7 +148,14 @@ export function supervisionGraph(input: MapInput): {
     edges.push({ id: `${source}->${target}`, source, target, label });
 
   add({ id: 'self', kind: 'self', label: supervisor.id });
-  add({ id: 'maker', kind: 'maker', label: maker.name, sub: maker.detail });
+  add({
+    id: 'maker',
+    kind: 'maker',
+    label: maker.name,
+    sub: maker.detail,
+    icon: maker.icon,
+    color: maker.color,
+  });
   link('maker', 'self');
   const modes = new Set(
     Object.values(supervisor.delegation ?? {}).map((d) => d.mode.toLowerCase())
@@ -171,7 +189,7 @@ export function supervisionGraph(input: MapInput): {
     add({
       id,
       kind: 'workflow',
-      label: target.workflowId ?? '',
+      label: target.workflowId as string,
       sub: target.sessionId ?? undefined,
       href: workflowHref(target),
     });
@@ -216,6 +234,14 @@ export function supervisionGraph(input: MapInput): {
     link('self', `target:${i}`);
   });
 
+  return { nodes: layoutGraph(nodes, edges), edges, hidden };
+}
+
+/** Places the boxes left to right with dagre; the layout of every supervision map. */
+export function layoutGraph(
+  nodes: Omit<MapNode, 'x' | 'y'>[],
+  edges: MapEdge[]
+): MapNode[] {
   const graph = new dagre.graphlib.Graph();
   graph.setGraph({ rankdir: 'LR', nodesep: 24, ranksep: 70 });
   graph.setDefaultEdgeLabel(() => ({}));
@@ -224,12 +250,8 @@ export function supervisionGraph(input: MapInput): {
   );
   edges.forEach((e) => graph.setEdge(e.source, e.target));
   dagre.layout(graph);
-  return {
-    nodes: nodes.map((n) => {
-      const p = graph.node(n.id);
-      return { ...n, x: p.x - n.width / 2, y: p.y - n.height / 2 };
-    }),
-    edges,
-    hidden,
-  };
+  return nodes.map((n) => {
+    const p = graph.node(n.id);
+    return { ...n, x: p.x - n.width / 2, y: p.y - n.height / 2 };
+  });
 }

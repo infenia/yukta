@@ -4,6 +4,7 @@
 import type { Page, TestInfo } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
+import { mockSupervisorDetail } from '../supervisor-detail';
 
 // Scenarios of the view-first supervisors UI (design/plans/supervisor-framework.md, S8d). Each
 // attaches screenshots to the report instead of comparing pixels: the committed snapshots are
@@ -185,6 +186,14 @@ async function mockSupervisors(page: Page) {
   await page.route(/\/api\/supervisors\/decisions(\?|$)/, (r) =>
     r.fulfill(envelope('/decisions', DECISIONS))
   );
+  // the Decision makers view reads the presets and the users of the chosen type
+  await page.route(/\/api\/supervisor-engines\/[^/?]+\/(presets|usage)$/, (r) =>
+    r.fulfill(envelope('/engine', []))
+  );
+  // the list's Direct control count
+  await page.route(/\/api\/supervision\/summary$/, (r) =>
+    r.fulfill(envelope('/summary', { unowned: 0, unownedWorkflows: [] }))
+  );
 }
 
 test.describe('Supervisors', () => {
@@ -204,10 +213,7 @@ test.describe('Supervisors', () => {
     ).toBeVisible();
     await shot(page, info, 'supervisor');
 
-    await page
-      .getByRole('tablist', { name: 'release-guard details' })
-      .getByRole('tab', { name: 'Settings' })
-      .click();
+    // Settings and Decisions are sections of the same page
     await expect(
       page.getByText('a node turns FAILURE at least 3 times within 60 s', {
         exact: false,
@@ -218,10 +224,7 @@ test.describe('Supervisors', () => {
     ).toBeVisible();
     await shot(page, info, 'rules-settings');
 
-    await page
-      .getByRole('tablist', { name: 'release-guard details' })
-      .getByRole('tab', { name: 'Decisions' })
-      .click();
+    // Settings and Decisions are sections of the same page
     const activity = page.getByRole('list', { name: 'Activity' });
     await expect(activity).toContainText('on its own');
     await expect(activity).toContainText('Reason: 3 failures in 60 s');
@@ -231,7 +234,10 @@ test.describe('Supervisors', () => {
     ).toContainText('not-owner: not owned');
     await shot(page, info, 'activity');
 
-    await page.getByRole('button', { name: 'Decision maker types' }).click();
+    await page
+      .getByRole('navigation', { name: 'Supervision views' })
+      .getByRole('link', { name: /Decision makers/ })
+      .click();
     await expect(page.getByText('External system').first()).toBeVisible();
     await shot(page, info, 'decision-makers');
   });
@@ -241,10 +247,7 @@ test.describe('Supervisors', () => {
   }, info) => {
     await mockSupervisors(page);
     await page.goto('/supervisors?supervisor=release-lead');
-    await page
-      .getByRole('tablist', { name: 'release-lead details' })
-      .getByRole('tab', { name: 'Settings' })
-      .click();
+    // Settings and Decisions are sections of the same page
 
     await expect(page.getByText(/Out:/)).toBeVisible();
     const panel = page.getByRole('region', { name: 'Credential' });
@@ -282,6 +285,7 @@ test.describe('Supervisors', () => {
     ).toBeVisible();
     await shot(page, info, 'error');
     fail = false;
+    await mockSupervisorDetail(page);
     await page.getByRole('button', { name: /Retry/ }).click();
     await expect(
       page.getByRole('navigation', { name: 'Supervisors' })

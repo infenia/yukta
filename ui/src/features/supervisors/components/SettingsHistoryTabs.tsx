@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { StateMessage } from '@/components/common/StateMessage';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/common/IconButton';
 import {
   Table,
   TableBody,
@@ -22,7 +22,9 @@ import {
   useSupervisorVersions,
 } from '../hooks/useSupervisorTypes';
 import type { SupervisorView } from '../types';
+import { TimelineDot } from './ActionsTimeline';
 import { CredentialPanel, ExternalFlow } from './ExternalSettings';
+import { Chip } from './SupervisorCard';
 import { RulesSettings } from './RulesSettings';
 
 const shown = (value: unknown) =>
@@ -147,44 +149,43 @@ export function HistoryTab({ supervisor }: { supervisor: SupervisorView }) {
   const compared = data.find((v) => v.version === comparing);
   return (
     <div className="flex flex-col gap-3">
-      <ul className="border-border bg-card text-body-md shadow-card rounded-xl border">
+      <ol className="border-border text-body-md ml-1 flex flex-col border-l">
         {data.map((v) => (
           <li
             key={v.version}
-            className="border-border flex flex-wrap items-center gap-2 border-b px-3 py-2 last:border-b-0"
+            className="relative flex flex-wrap items-center gap-2 py-1.5 pl-4"
           >
+            <TimelineDot tone={v === newest ? 'success' : 'muted'} />
             <b className="tabular-nums">v{v.version}</b>
-            <span className="text-muted-foreground">
+            <span className="text-muted-foreground text-label-sm">
               {formatDateTime(v.savedAt)}
             </span>
-            {v === newest && <span className="text-success">current</span>}
+            {v === newest && <Chip tone="success">current</Chip>}
             <span className="flex-1" />
             {v !== newest && (
               <>
-                <Button
-                  size="sm"
-                  variant="ghost"
+                <IconButton
+                  icon="difference"
+                  label="Compare"
+                  tip={`Compare v${v.version} with the current version`}
                   onClick={() => setComparing(v.version)}
-                >
-                  Compare
-                </Button>
+                />
                 <RequirePermission perm="editSessions">
-                  <Button
-                    size="sm"
-                    variant="outline"
+                  <IconButton
+                    icon="restore"
+                    label="Restore"
+                    tip={`Restore v${v.version} as the newest version`}
                     disabled={restore.isPending}
                     onClick={() =>
                       restore.mutate({ id: supervisor.id, version: v.version })
                     }
-                  >
-                    Restore
-                  </Button>
+                  />
                 </RequirePermission>
               </>
             )}
           </li>
         ))}
-      </ul>
+      </ol>
       {restore.error && (
         <p className="text-body-sm text-error">{restore.error.message}</p>
       )}

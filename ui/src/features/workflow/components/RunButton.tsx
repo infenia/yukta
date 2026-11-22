@@ -45,18 +45,19 @@ function FieldRow({
     value !== '' ? 'Set' : input.optional ? 'Optional' : 'Needed, not set';
   return (
     <div className="flex items-center gap-3">
-      <span
-        role="img"
-        aria-label={title}
-        title={title}
-        className={`size-2.5 shrink-0 rounded-full border-2 ${
-          value !== ''
-            ? 'border-success bg-success'
-            : unset
-              ? 'border-warning'
-              : 'border-outline-variant'
-        }`}
-      />
+      <Tip label={title}>
+        <span
+          role="img"
+          aria-label={title}
+          className={`size-2.5 shrink-0 rounded-full border-2 ${
+            value !== ''
+              ? 'border-success bg-success'
+              : unset
+                ? 'border-warning'
+                : 'border-outline-variant'
+          }`}
+        />
+      </Tip>
       <label
         htmlFor={id}
         className="text-body-md text-on-surface w-32 shrink-0 truncate font-mono"

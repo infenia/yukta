@@ -5,6 +5,7 @@ import type { Page } from '@playwright/test';
 import { choose, expectOptions } from '../utils';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
+import { mockSupervisorDetail } from '../supervisor-detail';
 
 const ENGINES = [
   { type: 'rules', displayName: 'Rules', category: 'RULES', icon: 'rule' },
@@ -46,6 +47,7 @@ async function mockEditor(
   }: { saveStatus?: number; saveDelay?: number } = {}
 ): Promise<Calls> {
   const calls: Calls = { creates: [], replaces: [] };
+  await mockSupervisorDetail(page);
   await page.route('**/api/supervisor-engines', (r) =>
     r.fulfill(envelope('/engines', ENGINES))
   );
@@ -65,7 +67,13 @@ async function mockEditor(
             }),
           });
     }
-    return r.fulfill(envelope('/supervisors', [supervisor('release-guard')]));
+    return r.fulfill(
+      envelope('/supervisors', [
+        supervisor('release-guard'),
+        supervisor('release-lead', { parents: [] }),
+        supervisor('audit', { parents: [] }),
+      ])
+    );
   });
   await page.route('**/api/supervisors/release-guard', (r) => {
     if (r.request().method() === 'PUT') {
@@ -210,7 +218,7 @@ test.describe('Supervisor editor - a new supervisor', () => {
     await expect(save(page)).toBeEnabled();
   });
 
-  test('creates it with every field, reports to split into a list, and opens it', async ({
+  test('creates it with every field, reports to chosen from the others, and opens it', async ({
     page,
   }) => {
     const calls = await mockEditor(page);
@@ -220,7 +228,11 @@ test.describe('Supervisor editor - a new supervisor', () => {
     await page.getByLabel('Description').fill('A new supervisor');
     await choose(page.getByLabel('Decision maker'), 'http');
     await page.getByRole('checkbox', { name: /Dry run/ }).uncheck();
-    await page.getByLabel('Reports to').fill(' release-lead , audit,, ');
+    // the popup stays open to pick several
+    await page.getByRole('combobox', { name: 'Reports to' }).click();
+    await page.getByRole('option', { name: 'release-lead' }).click();
+    await page.getByRole('option', { name: 'audit' }).click();
+    await page.keyboard.press('Escape');
     await page
       .getByLabel('Settings (JSON)')
       .fill('{"url": "https://agent.example.com"}');
@@ -316,9 +328,9 @@ test.describe('Supervisor editor - an existing supervisor', () => {
     await expect(
       page.getByRole('checkbox', { name: /Dry run/ })
     ).not.toBeChecked();
-    await expect(page.getByLabel('Reports to')).toHaveValue(
-      'release-lead, audit'
-    );
+    await expect(
+      page.getByRole('combobox', { name: 'Reports to' })
+    ).toContainText('release-lead, audit');
     await expect(page.getByLabel('Settings (JSON)')).toHaveValue(
       JSON.stringify({ rules: [] }, null, 2)
     );
@@ -338,7 +350,7 @@ test.describe('Supervisor editor - an existing supervisor', () => {
 
     await page.getByLabel('Description').fill('Changed by hand');
     await page.getByRole('checkbox', { name: /Dry run/ }).check();
-    await page.getByLabel('Reports to').fill('');
+    await page.getByRole('button', { name: 'Clear Reports to' }).click();
     await save(page).click();
 
     await expect(page).toHaveURL(/\/supervisors\?supervisor=release-guard$/);

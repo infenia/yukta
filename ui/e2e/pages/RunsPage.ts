@@ -10,7 +10,7 @@ export class RunsPage {
   readonly rows: Locator;
 
   constructor(private readonly page: Page) {
-    this.status = page.getByLabel('Status');
+    this.status = page.getByLabel('Status', { exact: true });
     this.loadMore = page.getByRole('button', { name: 'Load more' });
     this.rows = page.getByRole('row');
   }
