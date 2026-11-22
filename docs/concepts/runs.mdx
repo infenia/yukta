@@ -24,7 +24,7 @@ The order is deliberate. If ids were handed out first, two requests racing for t
 
 ## Statuses only move forward
 
-A run and each of its nodes move through states in one direction: created, queued if it had to wait, running, then a final state. The final states are `SUCCESS`, `FAILURE` or `ERROR`, `STOPPED` or `CANCELLED`, and `TIMED_OUT`. There are also two that describe a node that never ran: `SKIPPED` (nothing reached it) and `UPSTREAM_FAILED` (it sat behind a failure). `ABORTED` is assigned on the next boot to a run the server was running when it stopped.
+A run and each of its nodes move through states in one direction: created, queued if it had to wait, running, then a final state. The final states are `SUCCESS`, `FAILURE`, `STOPPED` or `CANCELLED`, and `TIMED_OUT`. There are also two that describe a node that never ran: `SKIPPED` (nothing reached it) and `UPSTREAM_FAILED` (it sat behind a failure). `ABORTED` is assigned on the next boot to a run the server was running when it stopped.
 
 ```mermaid
 flowchart LR

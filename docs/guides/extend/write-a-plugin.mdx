@@ -20,7 +20,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 **Prerequisites:** a clone of the [Yukta repository](https://github.com/infenia/yukta), JDK 25, and these ideas: a node has a role (trigger, processor or terminal), it works on streams of messages, and the engine, not your plugin, handles retries, time limits, pause, skip and failure routing. See [How Yukta works](/concepts/how-it-works).
 
 <Warning>
-  The plugin contract is in alpha and may change before 1.0. Pin your plugin to the server version it was built for. There is no runtime loading: the release binaries and the Docker image contain only the built-in plugins, so a plugin means building the server yourself.
+  The plugin contract is in alpha and may change before 1.0. Pin your plugin to the server version it was built for. A Java plugin is compiled into the server: the release binaries and the Docker image contain only the built-in plugins, so this guide means building the server yourself. To add a node type to a server you did not build, write a [community plugin](/guides/extend/write-a-community-plugin).
 </Warning>
 
 ## Pick a role
@@ -36,7 +36,7 @@ All three live in `com.infenia.yukta.plugin.type` and extend `Plugin` in `com.in
 <Diagram
   name="ops-write-a-plugin"
   alt="A plugin is a module you register in the build and compile into the server; after a restart it appears in the catalogue and as a node type."
-  caption="There is no runtime loading: a new plugin always means a new build of the server."
+  caption="A Java plugin is built into the server, so a new one means a new build."
 />
 
 ## Steps

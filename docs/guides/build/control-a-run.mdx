@@ -164,6 +164,7 @@ yukta start      # detached, plain mode; waits until /actuator/health answers
 yukta status     # running or not, pid, URL, health (exit status 3 when stopped)
 yukta logs -f    # the last 100 lines, then follow
 yukta stop       # drain, then SIGTERM, then SIGKILL after 30 s
+yukta restart    # stop, then start again
 ```
 
 State is kept in `$YUKTA_HOME`, else `$XDG_STATE_HOME/yukta`, else `~/.local/state/yukta` (`yukta.pid` and `yukta.log`, not rotated). Use systemd or the container image on servers; do not run `yukta start` inside either ([Deploy](/guides/operate/deploy)). The daemon commands are for Linux and macOS.

@@ -111,7 +111,7 @@ Pausing freezes every clock, so a pause never causes a timeout. See [How time li
 
 Several checks answer `403`:
 
-- **Role.** A `VIEWER` cannot change anything. An `OPERATOR` reaches only paths under `/api/executions/` and `/api/workflow/`. Defining workflows and changing scheduler limits need `ADMIN`.
+- **Role.** A `VIEWER` cannot change anything. An `OPERATOR` changes things only under `/api/executions/`, `/api/workflow/` and `/api/conversations/`. Defining workflows and changing scheduler limits need `ADMIN`.
 - **Session list.** A key limited to sessions reaches only its own.
 - **Host or Origin.** With no key set, an unknown `Host`, or a foreign `Origin` on a changing request, is refused with no body.
 - **A supervisor.** A supervisor that reviews commands can refuse one with `403` (`CONTROL_REJECTED`). A person's command to a run that a supervisor owns gets `409` (`CONTROLLED_BY_SUPERVISOR`) unless the supervisor's operator access allows it. The CLI exits with code 6 for both. Check `yukta-cli ownership --session <s> --workflow <w>` and the audit.
