@@ -406,7 +406,7 @@ Node outputs and message payloads are **not** readable unless `readNodeOutputs` 
 
 ## UI and UX design
 
-Revised 2026-11-09 after the first artboards were rejected; the approved artboards are `design/plans/supervisor-framework/artboards/` (#2153, PR #2206). This section replaces the earlier wizard-first design.
+Revised 2026-11-09 after the first artboards were rejected; the approved artboards (#2153, PR #2206) were removed from the repository in the design cleanup of 2026-11-22; the running UI is the reference, and the files live in git history. This section replaces the earlier wizard-first design.
 
 ### UX principles
 
