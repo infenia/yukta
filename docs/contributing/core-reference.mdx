@@ -981,7 +981,7 @@ One key set guards both REST and MCP. Named keys carry a role and may be limited
 
 - The filters ask an `ApiAuthenticator` (`Scope.REST` or `Scope.MCP`), whose default is `ApiKeyAuthenticator` (the keys below). A module replaces it by providing another `ApiAuthenticator` bean; `HostOriginFilter` and the start-up exposure check ask the same bean, so they follow it.
 - Keys come from `yukta.api-keys[]` (`name`, `key`, `role`, `sessions`). A key is plain text or `sha256:<hex>`; several keys at once allow rotation without downtime. A request presents `Authorization: Bearer <key>` or `X-API-Key`.
-- Roles: `VIEWER` reads. `OPERATOR` also starts, controls and recovers runs (paths under `/api/executions/` and `/api/workflow/`, no `..`). `ADMIN` everything, including defining sessions and workflows (which can run processes, scripts and SQL), changing scheduler limits and reading `GET /api/config` (the one read a viewer or operator may not do).
+- Roles: `VIEWER` reads. `OPERATOR` also starts, controls and recovers runs (paths under `/api/executions/`, `/api/workflow/` and `/api/conversations/`, no `..`). `ADMIN` everything, including defining sessions and workflows (which can run processes, scripts and SQL), changing scheduler limits and reading `GET /api/config` (the one read a viewer or operator may not do).
 - The audit records the actor as `key:<name>`; `GET /api/control/audit` lists who sent which command.
 - With no key set, the web layer enforces a **Host and Origin check** (`HostOriginFilter`): unknown `Host` or foreign `Origin` on a non-GET gets 403, protecting a local server from CSRF and DNS rebinding.
 
