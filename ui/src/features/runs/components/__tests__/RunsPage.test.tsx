@@ -458,23 +458,34 @@ describe('RunsPage', () => {
   it('reads the filters from the URL, with custom bounds', async () => {
     total = 1;
     const user = userEvent.setup();
-    renderAt('/runs?range=custom&since=2026-07-01T00:00');
+    renderAt(
+      '/runs?range=custom&since=2026-07-01T00:00&until=2026-07-02T00:00'
+    );
     await screen.findByRole('link', { name: '0000xyz-' });
-    expect(screen.getByLabelText('Since')).toHaveValue('2026-07-01T00:00');
-    fireEvent.change(screen.getByLabelText('Since'), {
-      target: { value: '2026-07-01T06:00' },
+    expect(screen.getByLabelText('Since')).toHaveTextContent('Jul');
+    expect(requests.at(-1)?.get('until')).toBe(
+      new Date('2026-07-02T00:00').toISOString()
+    );
+    await user.click(screen.getByLabelText('Since'));
+    fireEvent.change(await screen.findByLabelText('Hour'), {
+      target: { value: '06' },
     });
-    const since = new Date('2026-07-01T06:00').toISOString();
-    const until = new Date('2026-07-02T00:00').toISOString();
-    await waitFor(() => expect(requests.at(-1)?.get('since')).toBe(since));
+    await waitFor(() =>
+      expect(requests.at(-1)?.get('since')).toBe(
+        new Date('2026-07-01T06:00').toISOString()
+      )
+    );
+    await user.keyboard('{Escape}');
     await user.click(screen.getByLabelText('Session'));
     expect(
       await screen.findByRole('option', { name: 's2' })
     ).toBeInTheDocument();
     await user.keyboard('{Escape}');
-    await user.type(screen.getByLabelText('Until'), '2026-07-02T00:00');
-    await waitFor(() => expect(requests.at(-1)?.get('until')).toBe(until));
-    expect(requests.at(-1)?.get('since')).toBe(since);
+    await user.click(screen.getByRole('button', { name: 'Clear Until' }));
+    await waitFor(() => expect(requests.at(-1)?.get('until')).toBeNull());
+    expect(requests.at(-1)?.get('since')).toBe(
+      new Date('2026-07-01T06:00').toISOString()
+    );
   });
 
   it('filters by several statuses at once, ticks them and can clear or select all', async () => {

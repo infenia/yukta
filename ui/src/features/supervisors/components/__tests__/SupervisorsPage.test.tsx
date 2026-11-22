@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -128,6 +128,11 @@ afterEach(() => {
   setMe(null);
 });
 afterAll(() => server.close());
+
+function PathProbe() {
+  const { pathname } = useLocation();
+  return <output aria-label="path">{pathname}</output>;
+}
 
 function Where() {
   const { search } = useLocation();
@@ -359,6 +364,40 @@ describe('a supervisor’s Settings and History', () => {
     const user = await at('Changes');
     await user.click(await screen.findByRole('button', { name: 'Restore' }));
     expect(await screen.findByText('boom')).toBeInTheDocument();
+  });
+});
+
+describe('the activity tab', () => {
+  it('moves to the control activity, which is where the activity lives', async () => {
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <MemoryRouter initialEntries={['/supervisors?tab=activity']}>
+          <SupervisorsPage />
+          <PathProbe />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('path')).toHaveTextContent(
+        '/control'
+      )
+    );
+  });
+});
+
+describe('closing the decision maker types', () => {
+  it('takes the tab out of the address when the sheet is closed', async () => {
+    const user = userEvent.setup();
+    renderAt('/supervisors?tab=decision-makers');
+    expect(
+      await screen.findByRole('heading', { name: 'Rules', level: 2 })
+    ).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(screen.getByLabelText('where')).not.toHaveTextContent(
+        'tab=decision-makers'
+      )
+    );
   });
 });
 

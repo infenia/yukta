@@ -22,7 +22,6 @@ import {
   getSupervisors,
   rollbackSupervisor,
   replaceSupervisor,
-  setAttachmentEnabled,
   type AttachmentFilter,
 } from '../api/supervisors';
 
@@ -119,8 +118,4 @@ function useWrite<A, R>(fn: (arg: A) => Promise<R>) {
 
 export const useCreateSupervisor = () => useWrite(createSupervisor);
 export const useReplaceSupervisor = () => useWrite(replaceSupervisor);
-export const useSetAttachmentEnabled = () =>
-  useWrite((a: { id: string; enabled: boolean }) =>
-    setAttachmentEnabled(a.id, a.enabled)
-  );
 export const useRollbackSupervisor = () => useWrite(rollbackSupervisor);

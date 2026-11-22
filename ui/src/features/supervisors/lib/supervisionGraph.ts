@@ -112,7 +112,7 @@ const enc = encodeURIComponent;
 const isNodeId = (text: string) => /^[\w-]+(\.[\w-]+)*$/.test(text);
 const workflowHref = (t: Target) =>
   t.sessionId
-    ? `/sessions/${enc(t.sessionId)}/workflow/${enc(t.workflowId ?? '')}`
+    ? `/sessions/${enc(t.sessionId)}/workflow/${enc(t.workflowId as string)}`
     : undefined;
 
 /**
@@ -171,7 +171,7 @@ export function supervisionGraph(input: MapInput): {
     add({
       id,
       kind: 'workflow',
-      label: target.workflowId ?? '',
+      label: target.workflowId as string,
       sub: target.sessionId ?? undefined,
       href: workflowHref(target),
     });
