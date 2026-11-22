@@ -97,6 +97,51 @@ class LogProviderTest {
   }
 
   @Test
+  void getNodeOutput_defaultPageIsCutToTheBudgetAndPagesOn() {
+    provider = new LogProvider(logStore, controlBus, List.of(), 2_000, 200_000, 1_000);
+    when(logStore.readExecution(EXECUTION))
+        .thenReturn(Flux.range(0, 30).map(i -> nodeLine("run", LogStream.STDOUT, "x".repeat(300))));
+
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, EXECUTION, "run", null, null, null, null, null, null, null))
+        .assertNext(result -> {
+          assertThat(result.output().lines()).hasSize(3);
+          assertThat(result.output().truncated()).isTrue();
+          assertThat(result.output().nextOffset()).isEqualTo(3L);
+        })
+        .verifyComplete();
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, EXECUTION, "run", null, null, null, 27, null, null, null))
+        .assertNext(result -> {
+          assertThat(result.output().lines()).hasSize(3);
+          assertThat(result.output().nextOffset()).isNull();
+        })
+        .verifyComplete();
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, EXECUTION, "run", null, null, null, 5, null, null, null))
+        .assertNext(result -> assertThat(result.output().nextOffset()).isEqualTo(8L))
+        .verifyComplete();
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, EXECUTION, "run", null, null, null, null, 10, null, null))
+        .assertNext(result -> assertThat(result.output().lines()).hasSize(10))
+        .verifyComplete();
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, EXECUTION, "run", null, null, 6, null, null, null, null))
+        .assertNext(result -> assertThat(result.output().lines()).hasSize(6))
+        .verifyComplete();
+    StepVerifier.create(
+            provider.getNodeOutput(
+                SESSION, EXECUTION, "run", null, 6, null, null, null, null, null))
+        .assertNext(result -> assertThat(result.output().lines()).hasSize(6))
+        .verifyComplete();
+  }
+
+  @Test
   void getNodeOutput_allStreamsTailAndOffsetAreForwarded() {
     when(logStore.readExecution(EXECUTION))
         .thenReturn(

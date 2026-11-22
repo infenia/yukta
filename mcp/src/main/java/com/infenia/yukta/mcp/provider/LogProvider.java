@@ -4,6 +4,7 @@ package com.infenia.yukta.mcp.provider;
 
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.NodeOutputPager;
+import com.infenia.yukta.logging.api.NodeOutputSlice;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.mcp.dto.ExecutionLogs;
@@ -129,30 +130,68 @@ public class LogProvider {
               Mono.defer(() ->
                   logStore
                       .readExecution(executionId)
-                      .filter(entry ->
-                          nodeId.equals(entry.pluginId())
-                              && ("all".equals(which)
-                                  || entry.stream()
-                                      == ("stderr".equals(which)
-                                          ? LogStream.STDERR
-                                          : LogStream.STDOUT)))
+                      .filter(entry -> nodeId.equals(entry.pluginId()) && inStream(entry, which))
                       .map(entry -> sanitizer.clean(entry.message()))
                       .collectList()
                       .map(lines ->
                           new NodeOutputResult(
                               executionId,
-                              NodeOutputPager.slice(
-                                  nodeId,
-                                  which,
-                                  lines,
-                                  tail,
-                                  head,
-                                  offset == null ? null : offset.longValue(),
-                                  limit,
-                                  grep,
-                                  context),
+                              pageWithinBudget(
+                                  NodeOutputPager.slice(
+                                      nodeId,
+                                      which,
+                                      lines,
+                                      tail,
+                                      head,
+                                      offset == null ? null : offset.longValue(),
+                                      limit,
+                                      grep,
+                                      context),
+                                  tail == null && head == null && limit == null,
+                                  offset == null ? 0 : offset),
                               ExecutionLogs.UNTRUSTED_NOTICE))));
     });
+  }
+
+  /**
+   * Whether an entry was written to the stream read: {@code all}, {@code stdout} or {@code stderr}.
+   */
+  private static boolean inStream(final PluginLogEntry entry, final String which) {
+    return "all".equals(which)
+        || entry.stream() == ("stderr".equals(which) ? LogStream.STDERR : LogStream.STDOUT);
+  }
+
+  /**
+   * A default page (no tail, head or limit) cut to the default character budget, so 50 long lines
+   * cannot fill an agent's context; {@code nextOffset} then continues after the last line kept. An
+   * explicit tail, head or limit is the caller's choice and is left as it is.
+   */
+  private NodeOutputSlice pageWithinBudget(
+      final NodeOutputSlice slice, final boolean defaultPage, final int offset) {
+    if (!defaultPage || defaultChars <= 0) {
+      return slice;
+    }
+    final List<NodeOutputSlice.Line> kept = new ArrayList<>();
+    long used = 0;
+    for (final NodeOutputSlice.Line line : slice.lines()) {
+      used += line.text().length();
+      if (!kept.isEmpty() && used > defaultChars) {
+        break;
+      }
+      kept.add(line);
+    }
+    if (kept.size() == slice.lines().size()) {
+      return slice;
+    }
+    return new NodeOutputSlice(
+        slice.nodeId(),
+        slice.stream(),
+        slice.totalLines(),
+        slice.totalBytes(),
+        slice.matchedLines(),
+        true,
+        (long) offset + kept.size(),
+        kept);
   }
 
   /**
