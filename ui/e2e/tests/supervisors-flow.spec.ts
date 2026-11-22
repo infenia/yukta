@@ -536,7 +536,7 @@ test.describe('Supervisors - Direct control', () => {
     );
     await article.getByRole('link', { name: 'Open build / check' }).click();
 
-    await expect(page).toHaveURL(/\/sessions\/build\/workflow\/check$/);
+    await expect(page).toHaveURL(/\/sessions\/build\/workflow\/check\?supervision=1$/);
   });
 
   test('says when every workflow has a supervisor', async ({ page }) => {
