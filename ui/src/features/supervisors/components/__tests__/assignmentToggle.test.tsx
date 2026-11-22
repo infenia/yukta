@@ -135,6 +135,29 @@ describe('AssignmentCard', () => {
     ]);
   });
 
+  it('shows that it is saving while the change is on its way', async () => {
+    const user = userEvent.setup();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.put('/api/supervisors/:id/assignments', async () => {
+        await gate;
+        return ok([]);
+      })
+    );
+    show(assignment({ enabled: false }));
+    await user.click(
+      await screen.findByRole('button', { name: /^Enable guard on / })
+    );
+    expect(
+      (await screen.findByText('Saving…')).closest('button')
+    ).toBeDisabled();
+    release();
+    await waitFor(() => expect(screen.queryByText('Saving…')).toBeNull());
+  });
+
   it('shows the message when saving fails', async () => {
     const user = userEvent.setup();
     failPut = true;

@@ -96,16 +96,12 @@ function DetailHeader({
   title,
   engine,
   color,
-  state,
-  system,
   description,
   actions,
 }: {
   title: string;
   engine: string;
   color: string;
-  state?: 'live' | 'dry-run';
-  system?: boolean;
   description?: string | null;
   actions?: ReactNode;
 }) {
@@ -121,29 +117,6 @@ function DetailHeader({
           />
           <code className="text-code-sm select-all">{engine}</code>
         </span>
-        {state === 'dry-run' && (
-          <span className="text-attention inline-flex items-center gap-1">
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-base"
-            >
-              filter_alt
-            </span>
-            Dry run: recorded, not applied
-          </span>
-        )}
-        {state === 'live' && (
-          <span className="text-success inline-flex items-center gap-1">
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-base"
-            >
-              check_circle
-            </span>
-            Live
-          </span>
-        )}
-        {system && <span>Built in (read only)</span>}
       </div>
       {description && (
         <p className="text-body-md text-on-surface">{description}</p>

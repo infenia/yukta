@@ -131,6 +131,7 @@ describe('the supervisor detail', () => {
     expect(within(glance).getByText('7')).toBeInTheDocument();
     expect(within(glance).getByText('Refused')).toBeInTheDocument();
     expect(within(glance).getByText('Rate limited')).toBeInTheDocument();
+    await waitFor(() => expect(within(glance).queryByText('–')).toBeNull());
     expect(
       screen.getByRole('heading', { name: 'lead', level: 2 })
     ).toBeInTheDocument();
@@ -455,5 +456,20 @@ describe('the supervisor detail', () => {
         )
       ).toBeInTheDocument();
     });
+  });
+
+  it('says no decision yet and names every parent past the first two', async () => {
+    supervisors = [
+      sup('lead', { parents: ['boss', 'chief', 'head', 'owner'] }),
+      sup('boss'),
+      sup('chief'),
+      sup('head'),
+      sup('owner'),
+    ];
+    decisions = [];
+    renderAt('/supervisors?supervisor=lead');
+    const glance = await screen.findByRole('region', { name: 'At a glance' });
+    expect(within(glance).getByText('–')).toBeInTheDocument();
+    expect(screen.getByText('+2')).toBeInTheDocument();
   });
 });
