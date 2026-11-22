@@ -28,7 +28,7 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 ```
 
 <Note>
-  Examples in categories 1 and 2 run operating-system commands, which Yukta refuses by default. Allow only what they need, for example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`; each README names its set. Example 12 also needs `python3`. Set `YUKTA_API_KEY` if your server requires a key. See [Security](/guides/operate/secure-the-server).
+  Examples in categories 1 and 2 run operating-system commands, which Yukta refuses by default. Allow only what they need, for example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`; each README names its set. Example 12 also needs `python3`; examples 18 and 19 need `git`, `uv` and `bun` or `node` (`YUKTA_PROCESS_ALLOWED_COMMANDS=git,uv,bun,node,npm`) and tell you in the inbox when one is missing. Set `YUKTA_API_KEY` if your server requires a key. See [Security](/guides/operate/secure-the-server).
 </Note>
 
 ## Use-case templates
@@ -36,6 +36,8 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 | # | Pain point | What it shows |
 |---|---|---|
 | [11](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/11-agent-verification) | An AI coding agent skips tests and says "done" | Verification gates and a bounded fix loop before "done" exists |
+| [18](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/18-todo-run) | A project you want running on your machine, not just built | Clone, then start a Python backend and a React frontend side by side; stop the run to stop the app |
+| [19](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/19-todo-ci) | CI that stops at the first failing check | Backend lint, format and test, then frontend lint, format and test, as a chain of stages |
 | [02](https://github.com/infenia/yukta/tree/main/examples/1-standalone/02-release-approval) | Production deploy that needs a person, then a check | Approval with a timeout, smoke check, rollback |
 | [03](https://github.com/infenia/yukta/tree/main/examples/1-standalone/03-pr-risk-gate) | Merging risky PRs, or reviewing every routine one | Risk scoring, reviewer gate, secrets stripped from messages |
 | [04](https://github.com/infenia/yukta/tree/main/examples/1-standalone/04-dependency-updates) | Dependency bumps that are either routine or dangerous | Risk routing, maintainer review queue, changelog |

@@ -1,0 +1,244 @@
+{
+  "sessionId": "example-18-todo-run",
+  "name": "Check out and run the todo app",
+  "description": "Check the tools, clone the todo app into a temp folder, then start its Python backend and React frontend side by side. The run stays RUNNING while the app is up; stop the run to stop the app.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "18-todo-run"
+  },
+  "workflows": {
+    "run": {
+      "workflowId": "run",
+      "description": "check python, clone, then backend and frontend (bun, else node) in parallel",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "check-python",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "uv",
+              "python",
+              "find"
+            ],
+            "timeout": 30,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "notify-python",
+          "type": "NOTIFY_TERMINAL",
+          "config": {
+            "target": "inbox",
+            "title": "Python was not found",
+            "severity": "ERROR",
+            "text": "The todo example needs Python. Install it (https://www.python.org) or let uv install one with `uv python install` (https://docs.astral.sh/uv/), then run the example again."
+          }
+        },
+        {
+          "nodeId": "clone",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "git",
+              "clone",
+              "--depth",
+              "1",
+              "${start.repo}",
+              "${start.dir}"
+            ],
+            "timeout": 120
+          }
+        },
+        {
+          "nodeId": "probe-js",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "uv",
+              "run",
+              "--no-project",
+              "python",
+              "-c",
+              "import json,shutil;print(json.dumps({'js':'bun' if shutil.which('bun') else 'node' if shutil.which('node') else 'none'}))"
+            ],
+            "timeout": 60,
+            "outputFormat": "JSON"
+          }
+        },
+        {
+          "nodeId": "js-runtime",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.output.js == 'bun'": "bun",
+              "payload.output.js == 'node'": "node"
+            },
+            "defaultPort": "none"
+          }
+        },
+        {
+          "nodeId": "notify-js",
+          "type": "NOTIFY_TERMINAL",
+          "config": {
+            "target": "inbox",
+            "title": "Neither bun nor node was found",
+            "severity": "ERROR",
+            "text": "The todo frontend needs bun (https://bun.sh) or node (https://nodejs.org). Install one and run the example again."
+          }
+        },
+        {
+          "nodeId": "backend",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "uv",
+              "run",
+              "--no-dev",
+              "app.py"
+            ],
+            "timeout": 3600,
+            "workingDir": "${start.dir}/backend"
+          }
+        },
+        {
+          "nodeId": "install-bun",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "install",
+              "--frozen-lockfile"
+            ],
+            "timeout": 300,
+            "workingDir": "${start.dir}/frontend"
+          }
+        },
+        {
+          "nodeId": "frontend-bun",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "--bun",
+              "run",
+              "dev"
+            ],
+            "timeout": 3600,
+            "workingDir": "${start.dir}/frontend"
+          }
+        },
+        {
+          "nodeId": "install-node",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "${start.npm}",
+              "install"
+            ],
+            "timeout": 300,
+            "workingDir": "${start.dir}/frontend"
+          }
+        },
+        {
+          "nodeId": "frontend-node",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "${start.npm}",
+              "run",
+              "dev"
+            ],
+            "timeout": 3600,
+            "workingDir": "${start.dir}/frontend"
+          }
+        },
+        {
+          "nodeId": "backend-stopped",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        },
+        {
+          "nodeId": "frontend-bun-stopped",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        },
+        {
+          "nodeId": "frontend-node-stopped",
+          "type": "CONSOLE_TERMINAL",
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "check-python"
+        },
+        {
+          "source": "check-python",
+          "target": "clone",
+          "sourcePort": "success"
+        },
+        {
+          "source": "check-python",
+          "target": "notify-python",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "clone",
+          "target": "backend"
+        },
+        {
+          "source": "backend",
+          "target": "backend-stopped"
+        },
+        {
+          "source": "clone",
+          "target": "probe-js"
+        },
+        {
+          "source": "probe-js",
+          "target": "js-runtime"
+        },
+        {
+          "source": "js-runtime",
+          "target": "notify-js",
+          "sourcePort": "none"
+        },
+        {
+          "source": "js-runtime",
+          "target": "install-bun",
+          "sourcePort": "bun"
+        },
+        {
+          "source": "js-runtime",
+          "target": "install-node",
+          "sourcePort": "node"
+        },
+        {
+          "source": "install-bun",
+          "target": "frontend-bun"
+        },
+        {
+          "source": "frontend-bun",
+          "target": "frontend-bun-stopped"
+        },
+        {
+          "source": "install-node",
+          "target": "frontend-node"
+        },
+        {
+          "source": "frontend-node",
+          "target": "frontend-node-stopped"
+        }
+      ]
+    }
+  }
+}

@@ -88,3 +88,43 @@ run_workflow() {
     return 1
   fi
 }
+
+# require_tools CMD...: exit 3 (SKIP) when a command is missing on this machine.
+require_tools() {
+  local t
+  for t in "$@"; do
+    command -v "$t" >/dev/null || { echo "SKIP: '$t' is not installed"; exit 3; }
+  done
+}
+
+# temp_dir PREFIX: a fresh folder in the system temp folder, printed in a form the server understands
+# (on Windows under Git Bash the path is converted to C:/... so a Windows server can use it).
+temp_dir() {
+  local d
+  d=$(mktemp -d "${TMPDIR:-/tmp}/$1.XXXXXX")
+  if command -v cygpath >/dev/null; then cygpath -m "$d"; else printf '%s' "$d"; fi
+}
+
+# skip_if_refused LOGS: exit 3 (SKIP) when the logs say the server may not run the commands.
+skip_if_refused() {
+  if grep -qE "is not in yukta.process.allowed-commands|Process execution is off" <<<"$1"; then
+    echo "SKIP: the server does not allow these commands (start it with YUKTA_PROCESS_ALLOWED_COMMANDS=git,uv,bun)"
+    exit 3
+  fi
+}
+
+# npm_command: the npm launcher on this machine (a Windows server cannot start a bare "npm").
+npm_command() {
+  if command -v cygpath >/dev/null; then printf 'npm.cmd'; else printf 'npm'; fi
+}
+
+# skip_on_notice EXECUTION: exit 3 (SKIP) when a preflight node (notify-*) told the inbox that a tool is
+# missing, and print what it said. The title and text are read from session.json in the example's folder (the script's directory).
+skip_on_notice() {
+  local n
+  n=$(api GET "/api/executions/$1" 2>/dev/null | jq -r '[.data.tasks[]? | select((.nodeId | startswith("notify-")) and .status == "SUCCESS") | .nodeId][0] // empty' || true)
+  [[ -n "$n" ]] || return 0
+  echo "SKIP: the preflight check '$n' found a missing tool; the run told the inbox:"
+  jq -r --arg n "$n" '[.workflows[].nodes[] | select(.nodeId == $n)][0].config | "      \(.title): \(.text)"' session.json
+  exit 3
+}

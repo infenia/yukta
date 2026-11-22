@@ -11,7 +11,7 @@ The examples are grouped by what they need on the machine that runs them.
 | Category | Folder | Needs | Examples |
 |---|---|---|---|
 | 1. Standalone | [`1-standalone/`](1-standalone/) | Only the server. The process allowlist `sh,echo` is enough. | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 17 |
-| 2. Free dependencies | [`2-free-deps/`](2-free-deps/) | Free tools on the machine: `git`, `python3`, `go`. Some examples start a loopback stand-in for an outside service. | 11, 12, 13, 14 |
+| 2. Free dependencies | [`2-free-deps/`](2-free-deps/) | Free tools on the machine: `git`, `python3`, `go`, `uv`, `bun` or `node`. Some examples start a loopback stand-in for an outside service. | 11, 12, 13, 14, 18, 19 |
 | 3. Paid tools | [`3-paid-tools/`](3-paid-tools/) | An AI agent CLI (Claude Code, Codex) or a hosted model. The examples here run against a fake harness unless you configure the real tool. | 15, 16 |
 
 Example 15 is a walkthrough for now (it has no `run.sh`). Its README says how to run it with a real agent CLI.
@@ -79,6 +79,8 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 | # | Category | Domain | Pain point | Key nodes |
 |---|---|---|---|---|
 | [11](2-free-deps/11-agent-verification/) | 2 | AI-assisted development | An agent skips tests or verification and reports "done" | `LOOP_PREDICATE`, `SUB_WORKFLOW`, `BRANCH`, `OUTCOME_TERMINAL` |
+| [18](2-free-deps/18-todo-run/) | 2 | App development | Check a project out and run it, so a person can open it | `PROCESS_EXECUTOR` (git, uv, bun), long-running, in parallel |
+| [19](2-free-deps/19-todo-ci/) | 2 | CI | Lint, format and test a backend and then a frontend, stop at the first failure | `PROCESS_EXECUTOR` stages in a chain |
 | [02](1-standalone/02-release-approval/) | 1 | Release / DevOps | Production deploy with a human approval, a smoke check and a rollback | `WAIT_FOR_SIGNAL`, `PROCESS_EXECUTOR`, `BRANCH`, `NOTIFY_TERMINAL` |
 | [03](1-standalone/03-pr-risk-gate/) | 1 | Code review / app dev | Auto-merge low-risk PRs, block the worst, send borderline ones to a reviewer | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `CONTENT_FILTER` |
 | [04](1-standalone/04-dependency-updates/) | 1 | Supply chain | Auto-merge patch bumps, hold majors and CVE-flagged ones for a maintainer | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `FILE_WRITE` |
