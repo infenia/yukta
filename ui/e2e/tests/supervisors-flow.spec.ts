@@ -354,7 +354,7 @@ test.describe('Supervisors - one supervisor', () => {
       article.getByRole('heading', { name: 'release-lead' })
     ).toBeVisible();
     await expect(article.locator('code', { hasText: 'http' })).toBeVisible();
-    await expect(article.locator('header')).toContainText('Live');
+    await expect(article).toContainText('Live');
     await expect(article.getByText('The release agent.')).toBeVisible();
   });
 
