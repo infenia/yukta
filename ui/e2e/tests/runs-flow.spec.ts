@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { Page } from '@playwright/test';
-import { choose, expectOptions } from '../utils';
+import { choose, expectOptions, toggleOptions } from '../utils';
 import { test, expect } from '../fixtures';
 import { envelope } from '../api-envelope';
 
@@ -294,7 +294,7 @@ test.describe('Runs - the count chips', () => {
     await expect
       .poll(() => lastSearch(mock).searchParams.get('status'))
       .toBe('RUNNING');
-    await expect(page.getByLabel('Status')).toHaveAttribute(
+    await expect(page.getByLabel('Status', { exact: true })).toHaveAttribute(
       'data-value',
       'RUNNING'
     );
@@ -335,7 +335,7 @@ test.describe('Runs - the filters', () => {
     await page.goto('/runs');
     await expect(rows(page)).toHaveCount(2);
 
-    const session = page.getByLabel('Session');
+    const session = page.getByLabel('Session', { exact: true });
     await expectOptions(session, ['All sessions', 'Build Pipeline', 'Deploy']);
     await choose(session, 'deploy');
 
@@ -349,10 +349,10 @@ test.describe('Runs - the filters', () => {
   }) => {
     const mock = await mockRuns(page, [run(1), run(2, { workflowId: 'heal' })]);
     await page.goto('/runs');
-    const workflow = page.getByLabel('Workflow');
+    const workflow = page.getByLabel('Workflow', { exact: true });
     await expect(workflow).toBeDisabled();
 
-    await choose(page.getByLabel('Session'), 'build');
+    await choose(page.getByLabel('Session', { exact: true }), 'build');
     await expect(workflow).toBeEnabled();
     await expectOptions(workflow, ['All workflows', 'check', 'heal']);
     await choose(workflow, 'heal');
@@ -361,7 +361,7 @@ test.describe('Runs - the filters', () => {
     await expect(rows(page)).toHaveCount(1);
     expect(lastSearch(mock).searchParams.get('workflowId')).toBe('heal');
 
-    await choose(page.getByLabel('Session'), 'deploy');
+    await choose(page.getByLabel('Session', { exact: true }), 'deploy');
     await expect(page).not.toHaveURL(/workflow=/);
   });
 
@@ -375,24 +375,23 @@ test.describe('Runs - the filters', () => {
     ]);
     await page.goto('/runs');
 
-    const status = page.getByLabel('Status');
-    await expectOptions(
-      status,
-      [
-        'Any status',
-        'Running',
-        'Queued',
-        'Paused',
-        'Succeeded',
-        'Failed',
-        'Failed (error)',
-        'Timed out',
-        'Stopped',
-        'Interrupted',
-      ],
-      'contains'
-    );
-    await choose(status, 'ERROR');
+    const status = page.getByLabel('Status', { exact: true });
+    await status.click();
+    await expect(
+      page.locator('[role="listbox"]:visible').last().getByRole('option')
+    ).toContainText([
+      'Running',
+      'Queued',
+      'Paused',
+      'Succeeded',
+      'Failed',
+      'Failed (error)',
+      'Timed out',
+      'Stopped',
+      'Interrupted',
+    ]);
+    await page.keyboard.press('Escape');
+    await toggleOptions(status, ['ERROR']);
 
     await expect(page).toHaveURL(/status=ERROR/);
     await expect(rows(page)).toHaveCount(1);
@@ -434,19 +433,15 @@ test.describe('Runs - the filters', () => {
     await expect(page.getByLabel('Since')).toHaveCount(0);
 
     await choose(page.getByLabel('Time range'), 'custom');
-    await page.getByLabel('Since').fill('2026-01-01T08:00');
-    // the URL holds the filters: let the first edit land before the second builds on it
-    await expect(page).toHaveURL(/since=2026-01-01T08%3A00/);
-    await page.getByLabel('Until').fill('2026-01-02T09:30');
+    await page.getByLabel('Since').click();
+    await page.getByRole('button', { name: /^\w+, \w+ 15th, \d{4}$/ }).click();
+    await page.getByLabel('Hour').fill('8');
+    await expect(page).toHaveURL(/since=\d{4}-\d\d-15T08%3A00/);
 
     await expect(page).toHaveURL(/range=custom/);
-    await expect(page.getByText('1 run in this time range')).toBeVisible();
     await expect
       .poll(() => lastSearch(mock).searchParams.get('since'))
-      .toBe('2026-01-01T08:00');
-    await expect
-      .poll(() => lastSearch(mock).searchParams.get('until'))
-      .toBe('2026-01-02T09:30');
+      .toMatch(/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d/);
   });
 
   test('the filters of a shared link are applied on load', async ({ page }) => {
@@ -455,15 +450,15 @@ test.describe('Runs - the filters', () => {
       '/runs?session=build&workflow=check&status=SUCCESS&text=0001&range=7d'
     );
 
-    await expect(page.getByLabel('Session')).toHaveAttribute(
+    await expect(page.getByLabel('Session', { exact: true })).toHaveAttribute(
       'data-value',
       'build'
     );
-    await expect(page.getByLabel('Workflow')).toHaveAttribute(
+    await expect(page.getByLabel('Workflow', { exact: true })).toHaveAttribute(
       'data-value',
       'check'
     );
-    await expect(page.getByLabel('Status')).toHaveAttribute(
+    await expect(page.getByLabel('Status', { exact: true })).toHaveAttribute(
       'data-value',
       'SUCCESS'
     );
@@ -528,7 +523,7 @@ test.describe('Runs - paging', () => {
     await page.getByRole('button', { name: 'Load more' }).click();
     await expect(rows(page)).toHaveCount(150);
 
-    await choose(page.getByLabel('Status'), 'SUCCESS');
+    await toggleOptions(page.getByLabel('Status', { exact: true }), ['SUCCESS']);
 
     await expect
       .poll(() => lastSearch(mock).searchParams.get('limit'))

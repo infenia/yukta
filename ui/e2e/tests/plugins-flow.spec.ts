@@ -315,8 +315,8 @@ test.describe('Plugins - the details', () => {
     ).toBeVisible();
     await expect(article).toContainText('Processor');
     await expect(article).toContainText('Extended');
-    await expect(article.getByText('Restricted')).toHaveAttribute(
-      'title',
+    await article.getByText('Restricted').hover();
+    await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText(
       'Reaches outside the engine; an operator opts in'
     );
     await expect(
