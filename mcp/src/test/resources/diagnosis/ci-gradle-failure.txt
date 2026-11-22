@@ -1,0 +1,1330 @@
+  EVENT: pull_request
+
+▶ ./gradlew :architecture:build :boot:build :core:build :mcp:build :web:build --continue -x spotlessCheck -x :architecture:opengrep -x :architecture:checkstyleMain -x :architecture:checkstyleTest -x :architecture:pmdMain -x :architecture:pmdTest -x :boot:opengrep -x :core:opengrep -x :core:checkstyleMain -x :core:checkstyleTest -x :core:pmdMain -x :core:pmdTest -x :e2e:opengrep -x :e2e:checkstyleMain -x :e2e:checkstyleTest -x :e2e:pmdMain -x :e2e:pmdTest -x :mcp:opengrep -x :mcp:checkstyleMain -x :mcp:checkstyleTest -x :mcp:pmdMain -x :mcp:pmdTest -x :plugins:external:opengrep -x :plugins:external:checkstyleMain -x :plugins:external:checkstyleTest -x :plugins:external:pmdMain -x :plugins:external:pmdTest -x :plugins:processors:agent-session:opengrep -x :plugins:processors:agent-session:checkstyleMain -x :plugins:processors:agent-session:checkstyleTest -x :plugins:processors:agent-session:pmdMain -x :plugins:processors:agent-session:pmdTest -x :plugins:processors:process-executor:opengrep -x :plugins:processors:process-executor:checkstyleMain -x :plugins:processors:process-executor:checkstyleTest -x :plugins:processors:process-executor:pmdMain -x :plugins:processors:process-executor:pmdTest -x :plus:opengrep -x :plus:checkstyleMain -x :plus:checkstyleTest -x :plus:pmdMain -x :plus:pmdTest -x :plus:persistence-postgres:opengrep -x :plus:persistence-postgres:checkstyleMain -x :plus:persistence-postgres:checkstyleTest -x :plus:persistence-postgres:pmdMain -x :plus:persistence-postgres:pmdTest -x :plus:plus-architecture:opengrep -x :plus:plus-architecture:checkstyleMain -x :plus:plus-architecture:checkstyleTest -x :plus:plus-architecture:pmdMain -x :plus:plus-architecture:pmdTest -x :plus:workers:opengrep -x :plus:workers:checkstyleMain -x :plus:workers:checkstyleTest -x :plus:workers:pmdMain -x :plus:workers:pmdTest -x :web:opengrep -x :web:checkstyleMain -x :web:checkstyleTest -x :web:pmdMain -x :web:pmdTest
+Starting a Gradle Daemon (subsequent builds will be faster)
+Calculating task graph as no cached configuration is available for tasks: :architecture:build :boot:build :core:build :mcp:build :web:build
+> Task :build-logic:checkKotlinCompilerVersion
+> Task :build-logic:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :build-logic:generateExternalPluginSpecBuilders FROM-CACHE
+> Task :build-logic:extractPrecompiledScriptPluginPlugins FROM-CACHE
+> Task :build-logic:compilePluginsBlocks FROM-CACHE
+> Task :build-logic:generatePrecompiledScriptPluginAccessors FROM-CACHE
+> Task :build-logic:generateScriptPluginAdapters FROM-CACHE
+> Task :build-logic:compileKotlin FROM-CACHE
+> Task :build-logic:compileJava NO-SOURCE
+> Task :build-logic:pluginDescriptors
+> Task :build-logic:processResources
+> Task :build-logic:classes
+> Task :build-logic:jar
+> Task :architecture:processTestFixturesResources NO-SOURCE
+> Task :architecture:processResources NO-SOURCE
+> Task :architecture:generateTestEffectiveLombokConfig FROM-CACHE
+> Task :core:generateEffectiveLombokConfig FROM-CACHE
+> Task :architecture:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugin-api:generateEffectiveLombokConfig FROM-CACHE
+> Task :architecture:compileJava NO-SOURCE
+> Task :architecture:generateTestFixturesEffectiveLombokConfig FROM-CACHE
+> Task :architecture:classes UP-TO-DATE
+> Task :mcp:generateEffectiveLombokConfig FROM-CACHE
+> Task :messaging:generateEffectiveLombokConfig FROM-CACHE
+> Task :test-support:generateEffectiveLombokConfig FROM-CACHE
+> Task :web:generateEffectiveLombokConfig FROM-CACHE
+> Task :architecture:jar
+> Task :architecture:assemble
+> Task :plugins:processors:process-executor:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:external:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:processors:mcp-tool-call:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:processors:agent-session:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:processors:llm-call:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:processors:sql-query:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:processors:decision:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:processors:file-io:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:processors:http-request:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:terminals:console-terminal:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:terminals:outcome-terminal:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:supervisors:process-engine:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:supervisors:rules:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:terminals:notify-terminal:generateEffectiveLombokConfig FROM-CACHE
+> Task :architecture:compileTestFixturesJava FROM-CACHE
+> Task :architecture:testFixturesClasses UP-TO-DATE
+> Task :messaging:compileJava FROM-CACHE
+> Task :test-support:compileJava FROM-CACHE
+> Task :plugins:processors:internal:internal-core:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:triggers:api-trigger:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:triggers:schedule-trigger:generateEffectiveLombokConfig FROM-CACHE
+> Task :plugins:triggers:constant-source:generateEffectiveLombokConfig FROM-CACHE
+> Task :mcp:processResources NO-SOURCE
+> Task :plugins:processors:internal:script-js:generateEffectiveLombokConfig FROM-CACHE
+> Task :architecture:testFixturesJar
+> Task :architecture:checkstyleTestFixtures FROM-CACHE
+> Task :core:processResources
+> Task :architecture:processTestResources
+> Task :messaging:processResources
+> Task :messaging:classes
+> Task :plugin-api:processResources
+> Task :plugins:external:processResources
+> Task :plugins:processors:decision:processResources NO-SOURCE
+> Task :messaging:jar
+> Task :plugins:processors:http-request:processResources NO-SOURCE
+> Task :plugins:processors:file-io:processResources NO-SOURCE
+> Task :plugins:processors:llm-call:processResources NO-SOURCE
+> Task :plugins:processors:mcp-tool-call:processResources NO-SOURCE
+> Task :plugins:processors:sql-query:processResources NO-SOURCE
+> Task :plugins:supervisors:process-engine:processResources NO-SOURCE
+> Task :plugins:supervisors:rules:processResources NO-SOURCE
+> Task :plugins:terminals:notify-terminal:processResources NO-SOURCE
+> Task :plugins:processors:process-executor:processResources
+> Task :plugins:terminals:outcome-terminal:processResources NO-SOURCE
+> Task :plugins:triggers:api-trigger:processResources NO-SOURCE
+> Task :plugins:triggers:constant-source:processResources NO-SOURCE
+> Task :plugins:terminals:console-terminal:processResources NO-SOURCE
+> Task :plugins:triggers:webhook-trigger:processResources NO-SOURCE
+> Task :plugins:triggers:schedule-trigger:processResources NO-SOURCE
+> Task :plugins:processors:internal:internal-core:processResources NO-SOURCE
+> Task :plugins:processors:agent-session:processResources
+> Task :test-support:processResources
+> Task :test-support:classes
+> Task :plugins:processors:internal:script-js:processResources NO-SOURCE
+> Task :architecture:spotbugsMain NO-SOURCE
+> Task :architecture:licensee FROM-CACHE
+> Task :test-support:jar
+> Task :plugins:triggers:webhook-trigger:generateEffectiveLombokConfig FROM-CACHE
+> Task :architecture:pmdTestFixtures FROM-CACHE
+> Task :ui:nodeSetup SKIPPED
+> Task :boot:generateEffectiveLombokConfig FROM-CACHE
+> Task :ui:generateEffectiveLombokConfig FROM-CACHE
+> Task :web:processResources
+> Task :boot:generateAotEffectiveLombokConfig FROM-CACHE
+> Task :ui:compileJava NO-SOURCE
+> Task :boot:generateTestEffectiveLombokConfig FROM-CACHE
+> Task :architecture:spotbugsTestFixtures FROM-CACHE
+> Task :core:generateTestFixturesEffectiveLombokConfig FROM-CACHE
+> Task :plugin-api:generateTestFixturesEffectiveLombokConfig FROM-CACHE
+> Task :boot:bootBuildInfo
+> Task :boot:generateAotTestEffectiveLombokConfig FROM-CACHE
+> Task :plugin-api:processTestFixturesResources NO-SOURCE
+> Task :boot:verifyNettyVersion
+> Task :core:processTestFixturesResources NO-SOURCE
+> Task :core:generateTestEffectiveLombokConfig FROM-CACHE
+> Task :boot:processTestResources
+> Task :core:licensee FROM-CACHE
+> Task :mcp:generateTestEffectiveLombokConfig FROM-CACHE
+> Task :mcp:processTestResources NO-SOURCE
+> Task :core:processTestResources
+> Task :web:processTestResources NO-SOURCE
+> Task :web:generateTestEffectiveLombokConfig FROM-CACHE
+> Task :boot:licensee FROM-CACHE
+> Task :web:licensee FROM-CACHE
+> Task :mcp:licensee FROM-CACHE
+> Task :boot:cyclonedxDirectBom FROM-CACHE
+> Task :boot:cyclonedxBom FROM-CACHE
+> Task :boot:processResources
+> Task :plugin-api:compileJava FROM-CACHE
+> Task :plugins:processors:mcp-tool-call:compileJava FROM-CACHE
+> Task :plugins:processors:http-request:compileJava FROM-CACHE
+> Task :plugins:processors:file-io:compileJava FROM-CACHE
+> Task :plugins:processors:sql-query:compileJava FROM-CACHE
+> Task :plugins:processors:llm-call:compileJava FROM-CACHE
+> Task :plugins:supervisors:process-engine:compileJava FROM-CACHE
+> Task :plugins:supervisors:rules:compileJava FROM-CACHE
+> Task :plugins:terminals:console-terminal:compileJava FROM-CACHE
+> Task :plugins:terminals:notify-terminal:compileJava FROM-CACHE
+> Task :plugins:terminals:outcome-terminal:compileJava FROM-CACHE
+> Task :plugins:triggers:api-trigger:compileJava FROM-CACHE
+> Task :plugins:triggers:constant-source:compileJava FROM-CACHE
+> Task :plugins:triggers:schedule-trigger:compileJava FROM-CACHE
+> Task :plugin-api:classes
+> Task :plugins:processors:decision:compileJava FROM-CACHE
+> Task :plugins:processors:decision:classes UP-TO-DATE
+> Task :plugins:triggers:webhook-trigger:compileJava FROM-CACHE
+> Task :plugins:processors:file-io:classes UP-TO-DATE
+> Task :plugins:processors:file-io:jar
+> Task :plugins:processors:http-request:classes UP-TO-DATE
+> Task :plugins:processors:decision:jar
+> Task :plugins:processors:llm-call:classes UP-TO-DATE
+> Task :plugins:processors:http-request:jar
+> Task :plugins:processors:mcp-tool-call:classes UP-TO-DATE
+> Task :plugins:processors:internal:internal-core:compileJava FROM-CACHE
+> Task :plugins:processors:llm-call:jar
+> Task :plugins:processors:sql-query:classes UP-TO-DATE
+> Task :plugins:processors:mcp-tool-call:jar
+> Task :plugins:supervisors:process-engine:classes UP-TO-DATE
+> Task :plugins:processors:sql-query:jar
+> Task :plugins:supervisors:rules:classes UP-TO-DATE
+> Task :plugin-api:jar
+> Task :plugins:terminals:console-terminal:classes UP-TO-DATE
+> Task :plugins:supervisors:process-engine:jar
+> Task :plugins:terminals:notify-terminal:classes UP-TO-DATE
+> Task :plugins:terminals:console-terminal:jar
+> Task :plugins:terminals:outcome-terminal:classes UP-TO-DATE
+> Task :plugins:terminals:notify-terminal:jar
+> Task :plugins:triggers:api-trigger:classes UP-TO-DATE
+> Task :plugins:processors:internal:script-js:compileJava FROM-CACHE
+> Task :plugins:triggers:constant-source:classes UP-TO-DATE
+> Task :plugins:supervisors:rules:jar
+> Task :plugins:triggers:schedule-trigger:classes UP-TO-DATE
+> Task :plugins:terminals:outcome-terminal:jar
+> Task :plugins:triggers:webhook-trigger:classes UP-TO-DATE
+> Task :plugins:triggers:api-trigger:jar
+> Task :plugins:processors:internal:internal-core:classes UP-TO-DATE
+> Task :plugins:triggers:constant-source:jar
+> Task :plugins:processors:internal:script-js:classes UP-TO-DATE
+> Task :plugins:triggers:schedule-trigger:jar
+> Task :plugins:triggers:webhook-trigger:jar
+> Task :plugins:processors:internal:script-js:jar
+> Task :plugins:processors:internal:internal-core:jar
+> Task :plugin-api:compileTestFixturesJava FROM-CACHE
+> Task :plugin-api:testFixturesClasses UP-TO-DATE
+> Task :plugin-api:testFixturesJar
+
+> Task :boot:collectReachabilityMetadata
+[native-image-plugin] Using GraalVM reachability metadata repository version 1.0.21
+npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:
+
+npm warn install-scripts   pnpm@12.16.1 (preinstall: node install.js; postinstall: node install.js)
+npm warn install-scripts
+> Task :ui:pnpmSetup
+
+npm warn install-scripts Run `npm install -g --allow-scripts=pnpm` to allow these scripts once, or `npm config set allow-scripts=pnpm --location=user` to allow them for all global installs.
+added 2 packages in 4s
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by lombok.permit.Permit
+WARNING: Please consider reporting this to the maintainers of class lombok.permit.Permit
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+
+> Task :ui:pnpmInstall
+? Verifying lockfile against supply-chain policies (651 entries)...
+Packages are hard linked from the content-addressable store to the virtual store.
+  Content-addressable store is at: /home/runner/setup-pnpm/node_modules/.bin/store/v11
+  Virtual store is at:             node_modules/.pnpm
+Downloading @rolldown/binding-linux-x64-gnu@1.2.19: 0.00 B/8.83 MB
+Downloading material-symbols@0.49.0: 0.00 B/13.04 MB
+[WARN] Tarball download average speed 22 KiB/s (size 24 KiB) is below 50 KiB/s: https://registry.npmjs.org/whatwg-url/-/whatwg-url-17.3.0.tgz (GET)
+[WARN] Tarball download average speed 36 KiB/s (size 58 KiB) is below 50 KiB/s: https://registry.npmjs.org/parse5/-/parse5-8.1.0.tgz (GET)
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by lombok.permit.Permit
+WARNING: Please consider reporting this to the maintainers of class lombok.permit.Permit
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+
+> Task :ui:pnpmInstall
+[WARN] Tarball download average speed 22 KiB/s (size 40 KiB) is below 50 KiB/s: https://registry.npmjs.org/@tailwindcss/node/-/node-4.3.5.tgz (GET)
+[WARN] Tarball download average speed 31 KiB/s (size 69 KiB) is below 50 KiB/s: https://registry.npmjs.org/@testing-library/user-event/-/user-event-14.6.10.tgz (GET)
+[WARN] Tarball download average speed 22 KiB/s (size 43 KiB) is below 50 KiB/s: https://registry.npmjs.org/@typescript-eslint/utils/-/utils-8.72.2.tgz (GET)
+[WARN] Tarball download average speed 48 KiB/s (size 104 KiB) is below 50 KiB/s: https://registry.npmjs.org/minimatch/-/minimatch-11.0.5.tgz (GET)
+[WARN] Tarball download average speed 37 KiB/s (size 77 KiB) is below 50 KiB/s: https://registry.npmjs.org/@typescript-eslint/typescript-estree/-/typescript-estree-8.72.2.tgz (GET)
+[WARN] Tarball download average speed 32 KiB/s (size 65 KiB) is below 50 KiB/s: https://registry.npmjs.org/@typescript-eslint/scope-manager/-/scope-manager-8.72.2.tgz (GET)
+[WARN] Tarball download average speed 47 KiB/s (size 103 KiB) is below 50 KiB/s: https://registry.npmjs.org/@isaacs/nonrecursive-glob-match/-/nonrecursive-glob-match-1.1.0.tgz (GET)
+✓ Lockfile passes supply-chain policies (651 entries in 4.4s)
+Lockfile is up to date, resolution step is skipped
+Packages: +610
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 610, reused 566, downloaded 44, added 610, done
+Agent skills awaiting approval: @tanstack/react-table.
+Run "pnpm approve" to review them.
+
+dependencies:
++ @base-ui/react 1.9.0
++ @dagrejs/dagre 3.1.3
++ @fontsource-variable/inter 5.3.0
++ @fontsource-variable/jetbrains-mono 5.3.0
++ @tanstack/react-query 5.107.1
++ @tanstack/react-table 9.3.1
++ @tanstack/react-virtual 3.14.26
++ @xterm/addon-fit 0.11.0
++ @xterm/xterm 6.0.0
++ @xyflow/react 12.12.1
++ class-variance-authority 0.7.1
++ clsx 2.1.1
++ cn 0.5.2
++ react 19.3.1
++ react-dom 19.3.1
++ react-router 8.5.1
++ recharts 3.10.1
++ tailwind-merge 3.7.0
++ tw-animate-css 1.4.0
+
+devDependencies:
++ @eslint/js 10.0.1
++ @playwright/test 1.65.0
++ @tailwindcss/vite 4.3.5
++ @testing-library/jest-dom 7.0.1
++ @testing-library/react 16.3.3
++ @testing-library/user-event 14.6.10
++ @types/node 26.6.6
++ @types/react 19.3.0
++ @types/react-dom 19.3.0
++ @vitejs/plugin-react 6.3.0
++ @vitest/coverage-v8 4.1.12
++ eslint 10.14.0
++ eslint-config-prettier 10.1.8
++ eslint-plugin-react-hooks 7.1.1
++ eslint-plugin-react-refresh 0.5.7
++ eslint-plugin-tailwindcss 4.4.0
++ glob 14.0.6
++ globals 17.14.0
++ jsdom 31.0.0
++ material-symbols 0.49.0
++ msw 2.15.0
++ open 11.0.4
++ openapi-typescript 7.13.0
++ prettier 3.10.1
++ prettier-plugin-tailwindcss 0.8.1
++ shadcn 4.23.0
++ tailwindcss 4.3.5
++ typescript 6.0.3
++ typescript-eslint 8.72.2
++ vite 8.3.8
++ vitest 4.1.12
+
+Done in 5.5s using pnpm v12.16.1
+/home/runner/work/yukta/yukta/plugins/processors/process-executor/src/main/java/com/infenia/yukta/plugin/process/ProcessExecutorGateway.java:721: warning: [FutureReturnValueIgnored] Return value of methods returning Future must be checked. Ignoring returned Futures suppresses exceptions thrown from the code that completes the Future.
+      started.onExit().thenRun(() -> groupLeaders.remove(pid));
+                              ^
+    (see https://errorprone.info/bugpattern/FutureReturnValueIgnored)
+  Did you mean 'var _ = started.onExit().thenRun(() -> groupLeaders.remove(pid));' or to remove this line?
+1 warning
+
+> Task :plugins:processors:process-executor:compileJava
+
+> Task :plugins:processors:process-executor:classes
+> Task :plugins:processors:process-executor:jar
+$ tsc && tsc -p tsconfig.vitest.json && vite build && node scripts/check-bundle-size.js
+
+> Task :ui:pnpmBuild
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by lombok.permit.Permit
+
+WARNING: Please consider reporting this to the maintainers of class lombok.permit.Permit
+> Task :core:compileJava
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/util/SinkEmit.java:64: warning: [ThreadPriorityCheck] Relying on the thread scheduler is discouraged.
+        Thread.yield();
+                    ^
+    (see https://errorprone.info/bugpattern/ThreadPriorityCheck)
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/config/YuktaProperties.java:38: warning: [InvalidParam] Parameter name `controlBus` is unknown.
+ * @param controlBus the plugin-level control bus
+   ^
+    (see https://errorprone.info/bugpattern/InvalidParam)
+  Did you mean '*'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/store/InMemoryNodeCheckpointStore.java:233: warning: [ReferenceEquality] Comparison using reference equality instead of value equality
+        if (recorded.spillTail == mine) {
+                               ^
+    (see https://errorprone.info/bugpattern/ReferenceEquality)
+  Did you mean 'if (Objects.equals(recorded.spillTail, mine)) {' or 'if (recorded.spillTail.equals(mine)) {'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/notify/InMemoryNotificationStore.java:87: warning: [ReferenceEquality] Comparison using reference equality instead of value equality
+          if (merged == current) {
+                     ^
+    (see https://errorprone.info/bugpattern/ReferenceEquality)
+  Did you mean 'if (Objects.equals(merged, current)) {' or 'if (merged.equals(current)) {'?
+/home/runner/work/yukta/yukta/plugins/processors/agent-session/src/main/java/com/infenia/yukta/plugin/agentsession/AgentSessionPlugin.java:495: warning: [ReferenceEquality] Comparison using reference equality instead of value equality
+
+> Task :plugins:processors:agent-session:compileJava
+    if (conversation != AgentConversationHandle.none()) {
+
+                     ^
+> Task :plugins:processors:agent-session:classes
+    (see https://errorprone.info/bugpattern/ReferenceEquality)
+  Did you mean 'if (!Objects.equals(conversation, AgentConversationHandle.none())) {' or 'if (!conversation.equals(AgentConversationHandle.none())) {'?
+/home/runner/work/yukta/yukta/plugins/processors/agent-session/src/main/java/com/infenia/yukta/plugin/agentsession/AgentSessionPlugin.java:66: warning: [UnnecessaryLambda] Returning a lambda from a helper method or saving it in a constant is unnecessary; prefer to implement the functional interface method directly and use a method reference instead.
+  private static final Runnable NO_BEAT = () -> {};
+                                ^
+    (see https://errorprone.info/bugpattern/UnnecessaryLambda)
+  Did you mean 'private static  void noBeat(){}'?
+/home/runner/work/yukta/yukta/plugins/processors/agent-session/src/main/java/com/infenia/yukta/plugin/agentsession/adapter/JsonPaths.java:24: warning: [StringSplitter] String.split(String) has surprising behavior
+    for (final String segment : path.split("\\.")) {
+> Task :plugins:processors:agent-session:jar
+                                          ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'for (final String segment : Splitter.on('.').split(path)) {'?
+/home/runner/work/yukta/yukta/plugins/processors/agent-session/src/main/java/com/infenia/yukta/plugin/agentsession/adapter/JsonPaths.java:42: warning: [StringSplitter] String.split(String) has surprising behavior
+    for (final String segment : path.split("\\.")) {
+                                          ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'for (final String segment : Splitter.on('.').split(path)) {'?
+/home/runner/work/yukta/yukta/plugins/processors/agent-session/src/main/java/com/infenia/yukta/plugin/agentsession/adapter/PtyFrames.java:34: warning: [ArrayRecordComponent] Record components should not be arrays.
+      byte @Nullable [] data,
+                        ^
+    (see https://errorprone.info/bugpattern/ArrayRecordComponent)
+5 warnings
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/model/workflow/NodePolicy.java:41: warning: [InvalidParam] `elementTimeoutMs` is very close to the parameter `elementTimeout`. Did you mean to reference the parameter?
+
+> Task :core:compileJava
+ *   <li>{@code elementTimeoutMs} (processors): longest time the plugin may take to answer for one
+         ^
+    (see https://errorprone.info/bugpattern/InvalidParam)
+  Did you mean '*   <li>{@code elementTimeout} (processors): longest time the plugin may take to answer for one'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/model/workflow/NodePolicy.java:44: warning: [InvalidParam] `deadlineMs` is very close to the parameter `deadline`. Did you mean to reference the parameter?
+ *   <li>{@code deadlineMs} (any node): longest the node may run, counted from its first activity.
+         ^
+    (see https://errorprone.info/bugpattern/InvalidParam)
+  Did you mean '*   <li>{@code deadline} (any node): longest the node may run, counted from its first activity.'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/model/workflow/NodePolicy.java:47: warning: [InvalidParam] `stallAfterMs` is very close to the parameter `stallAfter`. Did you mean to reference the parameter?
+ *   <li>{@code stallAfterMs} (processors and triggers): a running node that shows no activity (no
+         ^
+    (see https://errorprone.info/bugpattern/InvalidParam)
+  Did you mean '*   <li>{@code stallAfter} (processors and triggers): a running node that shows no activity (no'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/log/LogRetention.java:52: warning: [UnnecessaryAsync] Variables which are initialized and do not escape the current scope do not need to worry about concurrency. Using the non-concurrent type will reduce overhead and verbosity.
+    final java.util.Map<String, Integer> perSession = new ConcurrentHashMap<>();
+                                         ^
+    (see https://errorprone.info/bugpattern/UnnecessaryAsync)
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/supervisor/SupervisorHost.java:495: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+              dryRun || supervisor instanceof BoundSupervisor bound && bound.dryRun(),
+                                                                    ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean 'dryRun || (supervisor instanceof BoundSupervisor bound && bound.dryRun()),'?
+
+Note: /home/runner/work/yukta/yukta/plugins/external/src/main/java/com/infenia/yukta/plugin/external/StdioMcp.java uses unchecked or unsafe operations.
+> Task :plugins:external:compileJava
+
+> Task :plugins:external:classes
+Note: Recompile with -Xlint:unchecked for details.
+> Task :plugins:external:jar
+
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/supervisor/SupervisorHost.java:700: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+        .map(hidden -> !hidden || observeInternal && sessionId.equals(scope.sessionId()));
+> Task :core:compileJava
+                                                  ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '.map(hidden -> !hidden || (observeInternal && sessionId.equals(scope.sessionId())));'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/supervisor/agent/AgentCredentials.java:237: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+            entry.addresses().isEmpty() || remote != null && entry.addresses().contains(remote))
+                                                          ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean 'entry.addresses().isEmpty() || (remote != null && entry.addresses().contains(remote)))'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/supervisor/TurnAroundGuard.java:129: warning: [AvoidCommonTypeNames] com.infenia.yukta.service.supervisor.TurnAroundGuard.Record clashes with java.lang.Record
+  private static final class Record {
+                       ^
+    (see https://errorprone.info/bugpattern/AvoidCommonTypeNames)
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/review/ControlReviewer.java:415: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+                            && sessions.contains(bound.scope().sessionId()))
+                            ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '|| (bound.scope().sessionId() != null'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/review/ControlReviewer.java:480: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+    final boolean dry = dryRun || supervisor instanceof BoundSupervisor bound && bound.dryRun();
+                                                                              ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean 'final boolean dry = dryRun || (supervisor instanceof BoundSupervisor bound && bound.dryRun());'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/input/InputBroker.java:1003: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+              || tier != null && !tier.equals(current.tier())
+                              ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '|| (tier != null && !tier.equals(current.tier()))'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/input/InputBroker.java:1004: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+              || expectedVersion != null && current.version() != expectedVersion) {
+                                         ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '|| (expectedVersion != null && current.version() != expectedVersion)) {'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/input/ActorResolver.java:83: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+    } else if (kind == ControlActor.Kind.KEY || kind == null && actor == null) {
+                                                             ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '} else if (kind == ControlActor.Kind.KEY || (kind == null && actor == null)) {'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/control/processor/SetBreakpointCommandProcessor.java:79: warning: [StringSplitter] String.split(String) has surprising behavior
+      for (final String key : field.substring("payload.".length()).split("\\.")) {
+                                                                        ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'for (final String key : Splitter.on('.').split(field.substring("payload.".length()))) {'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/supervisor/SupervisorSettingsValidator.java:91: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+            && ("true".equalsIgnoreCase(text) || "false".equalsIgnoreCase(text));
+            ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '|| (value instanceof String text'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/supervisor/workflow/WorkflowSupervisorFactory.java:102: warning: [BadImport] Importing nested classes/static methods/static fields with commonly-used names can make code harder to read, because it may not be clear from the context exactly which type is being referred to. Qualifying the name with that of the containing class can make the code clearer. Here we recommend using qualified class: ConfigField.
+            "sessionId", Type.STRING, "An internal session that holds the workflow"),
+                         ^
+    (see https://errorprone.info/bugpattern/BadImport)
+  Did you mean '"sessionId", ConfigField.Type.STRING, "An internal session that holds the workflow"),'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/supervisor/workflow/WorkflowSettings.java:17: warning: [InvalidParam] `workflow` is very close to the parameter `workflowId`. Did you mean to reference the parameter?
+ * The settings of a supervisor of type {@code workflow}, checked once.
+                                        ^
+    (see https://errorprone.info/bugpattern/InvalidParam)
+  Did you mean '* The settings of a supervisor of type {@code workflowId}, checked once.'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/supervisor/agent/Outbound.java:92: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+    if (raw == null || raw instanceof final String blank && blank.isBlank()) {
+                                                         ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean 'if (raw == null || (raw instanceof final String blank && blank.isBlank())) {'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/supervisor/agent/HttpEngineFactory.java:82: warning: [BadImport] Importing nested classes/static methods/static fields with commonly-used names can make code harder to read, because it may not be clear from the context exactly which type is being referred to. Qualifying the name with that of the containing class can make the code clearer. Here we recommend using qualified class: ConfigField.
+            Type.STRING,
+            ^
+    (see https://errorprone.info/bugpattern/BadImport)
+  Did you mean 'ConfigField.Type.STRING,'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/supervisor/SupervisorAssignments.java:300: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+            && lockHolders.contains(actor.substring(KEY_ACTOR.length()));
+            ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '|| (actor != null'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/orchestrator/tracker/DefaultTaskTrackerService.java:613: warning: [StringSplitter] String.split(String) has surprising behavior
+    for (final String piece : safe.split("\\R")) {
+                                        ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'for (final String piece : Splitter.on(Pattern.compile("\\R")).split(safe)) {'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/orchestrator/tracker/LogLineClassifier.java:81: warning: [StringSplitter] String.split(String) has surprising behavior
+    for (final String raw : text.split("\n")) {
+                                      ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'for (final String raw : Splitter.on('\n').split(text)) {'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/orchestrator/validator/StructuralRules.java:108: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+              && NodePolicy.from(node.config()).onError() == NodePolicy.OnError.ROUTE;
+              ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '|| (NodePolicy.ERROR_PORT.equals(port)'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/notify/NotificationRules.java:107: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+        || value != null && globs.stream().anyMatch(glob -> glob(glob).matcher(value).matches());
+                         ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '|| (value != null && globs.stream().anyMatch(glob -> glob(glob).matcher(value).matches()));'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/notify/NotificationRules.java:113: warning: [StringSplitter] String.split(String) has surprising behavior
+    for (final String part : glob.split("(?<=[*?])|(?=[*?])")) {
+                                       ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'for (final String part : Splitter.on(Pattern.compile("(?<=[*?])|(?=[*?])")).split(glob)) {'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/diagnosis/LogSearchPass.java:82: warning: [ArrayRecordComponent] Record components should not be arrays.
+  private record Rated(String[] texts, BitSet hits) {}
+                                ^
+    (see https://errorprone.info/bugpattern/ArrayRecordComponent)
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/diagnosis/GradleFailureExtractor.java:91: warning: [StringSplitter] String.split(String) has surprising behavior
+    final String simpleName = className.substring(className.lastIndexOf('.') + 1).split("\\$")[0];
+                                                                                       ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'final String simpleName = Iterables.get(Splitter.on('$').split(className.substring(className.lastIndexOf('.') + 1)), 0);'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/review/ReviewVerdicts.java:54: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+      if (ttl == null || need.ttl() != null && need.ttl().compareTo(ttl) < 0) {
+                                            ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean 'if (ttl == null || (need.ttl() != null && need.ttl().compareTo(ttl) < 0)) {'?
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/testing/WorkflowTestRunner.java:156: warning: [UnnecessaryAsync] Variables which are initialized and do not escape the current scope do not need to worry about concurrency. Using the non-concurrent type will reduce overhead and verbosity.
+      final Map<String, Boolean> started = new java.util.concurrent.ConcurrentHashMap<>();
+                                 ^
+    (see https://errorprone.info/bugpattern/UnnecessaryAsync)
+/home/runner/work/yukta/yukta/core/src/main/java/com/infenia/yukta/service/testing/WorkflowTestRunner.java:196: warning: [StringSplitter] String.split(String) has surprising behavior
+    for (final String part : trimmed.split("\\.")) {
+                                          ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'for (final String part : Splitter.on('.').split(trimmed)) {'?
+34 warnings
+
+> Task :core:classes
+> Task :core:jar
+> Task :core:assemble
+
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+> Task :core:compileTestFixturesJava
+  reason: class file for io.swagger.v3.oas.annotations.media.Schema$RequiredMode not found
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+  reason: class file for io.swagger.v3.oas.annotations.media.Schema$RequiredMode not found
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+  reason: class file for io.swagger.v3.oas.annotations.media.Schema$RequiredMode not found
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+  reason: class file for io.swagger.v3.oas.annotations.media.Schema$RequiredMode not found
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+  reason: class file for io.swagger.v3.oas.annotations.media.Schema$RequiredMode not found
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+warning: unknown enum constant RequiredMode.NOT_REQUIRED
+90 warnings
+/home/runner/work/yukta/yukta/web/src/main/java/com/infenia/yukta/mapper/SessionMapper.java:60: warning: Unmapped target properties: "withSessionId, withName, withDescription, withInitiator, withTags, withProjectPath, withWorkflowCount, withLastRun".
+
+> Task :core:testFixturesClasses
+  SessionListItem sessionConfigResponseToSessionListItem(SessionConfigResponse response);
+                  ^
+
+> Task :web:compileJava
+
+> Task :core:testFixturesJar
+/home/runner/work/yukta/yukta/mcp/src/main/java/com/infenia/yukta/mcp/McpErrorFilter.java:153: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+
+> Task :mcp:compileJava
+      return root.isArray() || root.isObject() && "2.0".equals(root.path("jsonrpc").asString(""));
+                                               ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean 'return root.isArray() || (root.isObject() && "2.0".equals(root.path("jsonrpc").asString("")));'?
+
+> Task :core:spotbugsMain
+/home/runner/work/yukta/yukta/mcp/src/main/java/com/infenia/yukta/mcp/McpEndpointFilter.java:265: warning: [LongDoubleConversion] Conversion from long to double may lose precision; use an explicit cast to double if this was intentional
+
+> Task :mcp:compileJava
+          .record(bytes);
+                  ^
+
+    (see https://errorprone.info/bugpattern/LongDoubleConversion)
+> Task :mcp:classes
+  Did you mean '.record((double) bytes);'?
+2 warnings
+/home/runner/work/yukta/yukta/web/src/main/java/com/infenia/yukta/controller/WebhookController.java:166: warning: [StringSplitter] String.split(String) has surprising behavior
+      for (final String name : names.split(",")) {
+                                          ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'for (final String name : Splitter.on(',').split(names)) {'?
+
+> Task :web:compileJava
+
+> Task :mcp:jar
+> Task :mcp:assemble
+
+> Task :core:pmdTestFixtures
+Removed misconfigured rule: LoosePackageCoupling cause: No packages or classes specified
+
+> Task :core:checkstyleTestFixtures
+> Task :core:spotbugsTestFixtures
+> Task :core:compileTestJava
+^[[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+
+> Task :ui:pnpmBuild
+  - `__dirname` (vite.config.ts:16:29). Use `import.meta.dirname` instead
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.^[[39m
+^[[36mvite v8.3.8 ^[[32mbuilding client environment for production...^[[36m^[[39m
+transforming...
+✓ 1742 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                     2.27 kB │ gzip:   0.81 kB
+dist/assets/jetbrains-mono-vietnamese-wght-normal-Bt-aOZkq.woff2    7.50 kB
+dist/assets/jetbrains-mono-greek-wght-normal-Bw9x6K1M.woff2         9.00 kB
+dist/assets/inter-vietnamese-wght-normal-CBcvBZtf.woff2            10.25 kB
+dist/assets/inter-greek-ext-wght-normal-DlzME5K_.woff2             11.23 kB
+dist/assets/jetbrains-mono-cyrillic-wght-normal-D73BlboJ.woff2     12.10 kB
+dist/assets/jetbrains-mono-latin-ext-wght-normal-DBQx-q_a.woff2    15.19 kB
+dist/assets/inter-cyrillic-wght-normal-DqGufNeO.woff2              18.74 kB
+dist/assets/inter-greek-wght-normal-CkhJZR-_.woff2                 18.99 kB
+dist/assets/inter-cyrillic-ext-wght-normal-BOeWTOD4.woff2          25.96 kB
+dist/assets/material-symbols-subset-CovpBKbm.woff2                 29.55 kB
+dist/assets/jetbrains-mono-latin-wght-normal-B9CIFXIH.woff2        40.40 kB
+dist/assets/inter-latin-wght-normal-Dx4kXJAl.woff2                 48.25 kB
+dist/assets/inter-latin-ext-wght-normal-DO1Apj_S.woff2             85.06 kB
+dist/assistant-docs.json                                          847.44 kB │ gzip: 243.29 kB
+dist/assets/xterm-BrP-ENHg.css                                      3.93 kB │ gzip:   1.01 kB
+dist/assets/ownership-DLioOiRN.css                                 15.41 kB │ gzip:   2.56 kB
+dist/assets/index-B-Noaies.css                                    119.97 kB │ gzip:  22.70 kB
+dist/assets/supervisorProblems-EoJfXf7N.js                          0.19 kB │ gzip:   0.17 kB
+dist/assets/useSessionWorkflows-CCCHM8Zk.js                         0.20 kB │ gzip:   0.18 kB
+dist/assets/useSessionDetails-BM4NEDad.js                           0.24 kB │ gzip:   0.19 kB
+dist/assets/useNow-B5aVpBs-.js                                      0.28 kB │ gzip:   0.21 kB
+dist/assets/usePlugins-DVGhWPpK.js                                  0.31 kB │ gzip:   0.20 kB
+dist/assets/apiKey-C8HzYZnb.js                                      0.35 kB │ gzip:   0.23 kB
+dist/assets/RequireControl-BFT5vGZU.js                              0.57 kB │ gzip:   0.39 kB
+dist/assets/api-BWLKh7Pt.js                                         0.62 kB │ gzip:   0.26 kB
+dist/assets/useCopyCommand-BatREwem.js                              0.65 kB │ gzip:   0.39 kB
+dist/assets/rolldown-runtime-XKyaHtl9.js                            0.72 kB │ gzip:   0.42 kB
+dist/assets/chart-B5QovoXb.js                                       0.81 kB │ gzip:   0.50 kB
+dist/assets/pluginIcons-x0j8EXFg.js                                 0.85 kB │ gzip:   0.57 kB
+dist/assets/tooltip-B4GLm0r1.js                                     0.87 kB │ gzip:   0.51 kB
+dist/assets/tabs-DkcbKNdl.js                                        1.02 kB │ gzip:   0.64 kB
+dist/assets/Callout-zygKrgAF.js                                     1.03 kB │ gzip:   0.57 kB
+dist/assets/executionControl-BNOr7_eR.js                            1.26 kB │ gzip:   0.54 kB
+dist/assets/RunsChart-Cv8MYAmM.js                                   1.30 kB │ gzip:   0.76 kB
+dist/assets/OverheadChart-DIggTC0t.js                               1.32 kB │ gzip:   0.72 kB
+dist/assets/sheet-C5DbsMAI.js                                       1.34 kB │ gzip:   0.59 kB
+dist/assets/apiClient-CsAbrSal.js                                   1.51 kB │ gzip:   0.88 kB
+dist/assets/KpiTile-DMj3baw2.js                                     1.60 kB │ gzip:   0.82 kB
+dist/assets/RecoverButton-DkO-AN56.js                               1.61 kB │ gzip:   0.82 kB
+dist/assets/DashboardShowcase-DMw7ZJrv.js                           2.20 kB │ gzip:   1.01 kB
+dist/assets/AgentTerminal-CaoFZE_6.js                               2.59 kB │ gzip:   1.39 kB
+dist/assets/ControlEvents-lRrQ_Te_.js                               2.96 kB │ gzip:   1.28 kB
+dist/assets/button-DbyG966E.js                                      3.05 kB │ gzip:   1.20 kB
+dist/assets/SupervisorPicker-Dn7brv0V.js                            3.59 kB │ gzip:   1.37 kB
+dist/assets/select-Bgx_7q5V.js                                      4.51 kB │ gzip:   1.72 kB
+dist/assets/SupervisorEditPage-GhcSyv2K.js                          5.34 kB │ gzip:   2.08 kB
+dist/assets/SessionImportPage-CezZx18b.js                           7.00 kB │ gzip:   2.79 kB
+dist/assets/RunsPage-dYZIv4Zt.js                                    8.35 kB │ gzip:   3.01 kB
+dist/assets/InputRow-DdKF5e57.js                                    8.69 kB │ gzip:   3.47 kB
+dist/assets/useExecutionResults-BPysolbg.js                         9.27 kB │ gzip:   3.56 kB
+dist/assets/Strips-DbQc9Zni.js                                      9.93 kB │ gzip:   3.76 kB
+dist/assets/PluginsPage-CQOTkdLn.js                                10.50 kB │ gzip:   3.84 kB
+dist/assets/InboxPage-CegOTnZe.js                                  10.58 kB │ gzip:   3.83 kB
+dist/assets/CopyAsMenu-1xzm-gEM.js                                 10.92 kB │ gzip:   4.26 kB
+dist/assets/SessionDetailsPage-i56Kxn7s.js                         13.08 kB │ gzip:   3.94 kB
+dist/assets/WorkflowNodeCard-LqKu2jc6.js                           14.93 kB │ gzip:   5.51 kB
+dist/assets/SessionFormPage-qt60rhkg.js                            19.71 kB │ gzip:   7.01 kB
+dist/assets/utils-uMX3jBCo.js                                      28.73 kB │ gzip:   9.15 kB
+dist/assets/AssistantPanel-BAqkcLWn.js                             34.18 kB │ gzip:  11.71 kB
+dist/assets/ConfigPage-BZU4wsaI.js                                 40.10 kB │ gzip:  13.33 kB
+dist/assets/WorkflowEditorPage-Bxvolo_g.js                         43.34 kB │ gzip:  12.92 kB
+dist/assets/ControlPage-BAdQkU24.js                                44.02 kB │ gzip:  12.71 kB
+dist/assets/dagre.esm-DNPP2aC2.js                                  46.73 kB │ gzip:  15.92 kB
+dist/assets/SupervisorsPage-CXPB2JJk.js                            55.40 kB │ gzip:  15.69 kB
+dist/assets/index-B7UrcD-2.js                                      93.86 kB │ gzip:  28.47 kB
+dist/assets/router-B9rKWclp.js                                     95.95 kB │ gzip:  31.33 kB
+dist/assets/WorkflowDetailsPage-BpZ6IhzR.js                       118.93 kB │ gzip:  32.15 kB
+dist/assets/ownership-BsO5WIa_.js                                 126.68 kB │ gzip:  40.57 kB
+dist/assets/tanstack-L0yCh_A9.js                                  185.73 kB │ gzip:  50.42 kB
+dist/assets/react-iRJfyluG.js                                     218.75 kB │ gzip:  68.26 kB
+dist/assets/ui-kit-Bg4N1vkp.js                                    231.54 kB │ gzip:  74.66 kB
+dist/assets/xterm-BHsKrDzh.js                                     332.12 kB │ gzip:  83.33 kB
+dist/assets/charts-BYaX_9B8.js                                    406.92 kB │ gzip: 118.02 kB
+
+^[[32m✓ built in 5.61s^[[39m
+Bundle size budget OK
+/home/runner/work/yukta/yukta/web/src/main/java/com/infenia/yukta/controller/EventsController.java:146: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+
+> Task :web:compileJava
+                    || tree && tracker.isWithin(event.executionId(), executionId))
+                            ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '|| (tree && tracker.isWithin(event.executionId(), executionId)))'?
+/home/runner/work/yukta/yukta/web/src/main/java/com/infenia/yukta/controller/WorkflowValidationController.java:141: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+        || NodePolicy.ALL_PORTS.equals(edge.sourcePort()) && !NodePolicy.ERROR_PORT.equals(port);
+                                                          ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '|| (NodePolicy.ALL_PORTS.equals(edge.sourcePort()) && !NodePolicy.ERROR_PORT.equals(port));'?
+
+> Task :ui:processResources
+> Task :ui:classes
+> Task :ui:jar
+4 warnings
+
+> Task :web:compileJava
+
+> Task :web:classes
+> Task :web:jar
+> Task :web:assemble
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/worker/RemoteNodesTest.java:87: warning: [removal] shutdown(Map<String,Object>) in Plugin has been deprecated and marked for removal
+
+    when(local.shutdown(any())).thenReturn(Mono.empty());
+> Task :core:compileTestJava
+              ^
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/worker/RemoteNodesTest.java:89: warning: [removal] isComputationallyHeavy(Map<String,Object>) in Plugin has been deprecated and marked for removal
+    when(local.isComputationallyHeavy(any())).thenReturn(true);
+              ^
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/worker/RemoteNodesTest.java:90: warning: [removal] suppressOptimizationHint(Map<String,Object>) in Plugin has been deprecated and marked for removal
+    when(local.suppressOptimizationHint(any())).thenReturn(true);
+              ^
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/worker/RemoteNodesTest.java:102: warning: [removal] isComputationallyHeavy(Map<String,Object>) in Plugin has been deprecated and marked for removal
+    assertThat(placed.isComputationallyHeavy(Map.of())).isTrue();
+                     ^
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/worker/RemoteNodesTest.java:103: warning: [removal] suppressOptimizationHint(Map<String,Object>) in Plugin has been deprecated and marked for removal
+    assertThat(placed.suppressOptimizationHint(Map.of())).isTrue();
+                     ^
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/worker/RemoteNodesTest.java:109: warning: [removal] shutdown(Map<String,Object>) in Plugin has been deprecated and marked for removal
+                .then(placed.shutdown(Map.of()))
+                            ^
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/orchestrator/preparator/WorkflowPreparatorTest.java:244: warning: [removal] shutdown(Map<String,Object>) in Plugin has been deprecated and marked for removal
+    verify(plugin, never()).shutdown(any());
+                           ^
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/orchestrator/preparator/WorkflowPreparatorTest.java:305: warning: [removal] shutdown(Map<String,Object>) in Plugin has been deprecated and marked for removal
+    verify(plugin, never()).shutdown(any());
+                           ^
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/orchestrator/preparator/WorkflowPreparatorTest.java:351: warning: [removal] shutdown(Map<String,Object>) in Plugin has been deprecated and marked for removal
+    verify(plugin, never()).shutdown(any());
+                           ^
+
+> Task :mcp:compileTestJava
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by lombok.permit.Permit
+WARNING: Please consider reporting this to the maintainers of class lombok.permit.Permit
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+
+> Task :mcp:spotbugsMain
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by lombok.permit.Permit
+WARNING: Please consider reporting this to the maintainers of class lombok.permit.Permit
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+/home/runner/work/yukta/yukta/web/src/test/java/com/infenia/yukta/controller/ExecutionControlControllerTest.java:294: warning: [removal] <T>value(Matcher<? super T>) in JsonPathAssertions has been deprecated and marked for removal
+
+        .value(org.hamcrest.Matchers.containsString("maintenance window"));
+> Task :web:compileTestJava
+        ^
+  where T is a type-variable:
+    T extends Object declared in method <T>value(Matcher<? super T>)
+/home/runner/work/yukta/yukta/architecture/src/test/java/com/infenia/yukta/architecture/fixture/BadDeprecated.java:13: warning: [DateChecker] This Date usage looks suspect for the following reason(s): The 1900-based year value (2020) is out of bounds [1..300].  Use Calendar.FEBRUARY instead of 1 to represent the month.
+
+> Task :boot:compileJava
+    return new java.util.Date(2020, 1, 1);
+           ^
+
+    (see https://errorprone.info/bugpattern/DateChecker)
+> Task :architecture:compileTestJava
+/home/runner/work/yukta/yukta/architecture/src/test/java/com/infenia/yukta/architecture/fixture/BadDeprecated.java:13: warning: [JavaUtilDate] Date has a bad API that leads to bugs; prefer java.time.Instant or LocalDate.
+    return new java.util.Date(2020, 1, 1);
+           ^
+    (see https://errorprone.info/bugpattern/JavaUtilDate)
+/home/runner/work/yukta/yukta/architecture/src/test/java/com/infenia/yukta/architecture/Modules.java:21: warning: [StringSplitter] String.split(String) has surprising behavior
+    return c.getSource().map(s -> s.getUri().toString().split("!")[0]);
+                                                             ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'return c.getSource().map(s -> Iterables.get(Splitter.on('!').split(s.getUri().toString()), 0));'?
+
+> Task :web:spotbugsMain
+
+3 warnings
+> Task :architecture:compileTestJava
+
+> Task :architecture:testClasses
+Note: Some input files use unchecked or unsafe operations.
+
+Note: Recompile with -Xlint:unchecked for details.
+> Task :mcp:compileTestJava
+
+> Task :mcp:testClasses
+Note: Some input files use or override a deprecated API.
+
+> Task :boot:compileJava
+Note: Recompile with -Xlint:deprecation for details.
+
+> Task :boot:classes
+> Task :boot:resolveMainClassName
+
+> Task :boot:processAot
+2026-11-22T11:45:07.982Z INFO  com.infenia.yukta.YuktaApplication : [] [/] Starting YuktaApplication using Java 25.0.5 with PID 3825 (/home/runner/work/yukta/yukta/boot/build/classes/java/main started by runner in /home/runner/work/yukta/yukta/boot) 
+2026-11-22T11:45:08.024Z INFO  com.infenia.yukta.YuktaApplication : [] [/] No active profile set, falling back to 1 default profile: "prod" 
+
+> Task :architecture:spotbugsTest
+> Task :boot:jar
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/workflow/store/SaveAndPrepareTest.java:103: warning: [NotJavadoc] Avoid using `/**` for comments which aren't actually Javadoc.
+
+          /** Saves made so far: the third one (the restore) fails. */
+> Task :core:compileTestJava
+          ^
+    (see https://errorprone.info/bugpattern/NotJavadoc)
+  Did you mean '/* Saves made so far: the third one (the restore) fails. */'?
+
+> Task :architecture:test
+> Task :mcp:test
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/supervisor/hierarchy/ParentConsultingTest.java:25: warning: [UnnecessaryLambda] Returning a lambda from a helper method or saving it in a constant is unnecessary; prefer to implement the functional interface method directly and use a method reference instead.
+
+> Task :core:compileTestJava
+  private static Function<String, Mono<Map<String, Object>>> answers() {
+                                                             ^
+    (see https://errorprone.info/bugpattern/UnnecessaryLambda)
+  Did you mean 'private static  Mono<Map<String, Object>> answers(String parent){return switch (parent) {'?
+Note: Some input files use unchecked or unsafe operations.
+
+Note: Recompile with -Xlint:unchecked for details.
+> Task :web:compileTestJava
+1 warning
+/home/runner/work/yukta/yukta/boot/src/test/java/com/infenia/yukta/plugins/PluginConformanceAcceptanceTest.java:121: warning: [removal] shutdown(Map<String,Object>) in Plugin has been deprecated and marked for removal
+
+    final String shutdown = outcome(() -> plugin.shutdown(Map.of()));
+> Task :boot:processAotResources
+                                                ^
+
+/home/runner/work/yukta/yukta/boot/src/test/java/com/infenia/yukta/plugins/PluginRuntimeAcceptanceTest.java:201: warning: [removal] shutdown(Map<String,Object>) in Plugin has been deprecated and marked for removal
+> Task :boot:compileTestJava
+          plugin.shutdown(fixture.getValue()).block(WAIT);
+                ^
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+  reason: class file for io.swagger.v3.oas.annotations.media.Schema$RequiredMode not found
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+warning: unknown enum constant Schema$RequiredMode.NOT_REQUIRED
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/supervisor/OwnershipMapTest.java:88: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+
+              "partly".equals(workflow) && "b".equals(node)
+> Task :boot:checkstyleMain
+                                        ^
+
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '("partly".equals(workflow) && "b".equals(node))'?
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/supervisor/OwnershipMapTest.java:89: warning: [OperatorPrecedence] Use grouping parenthesis to make the operator precedence explicit
+> Task :core:compileTestJava
+                  || "run".equals(workflow) && node == null;
+                                            ^
+    (see https://errorprone.info/bugpattern/OperatorPrecedence)
+  Did you mean '|| ("run".equals(workflow) && node == null);'?
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/supervisor/SupervisorSettingsValidatorTest.java:31: warning: [BadImport] Importing nested classes/static methods/static fields with commonly-used names can make code harder to read, because it may not be clear from the context exactly which type is being referred to. Qualifying the name with that of the containing class can make the code clearer. Here we recommend using qualified class: ConfigField.
+          ConfigField.required(URL, Type.STRING, "where"),
+                                    ^
+    (see https://errorprone.info/bugpattern/BadImport)
+  Did you mean 'ConfigField.required(URL, ConfigField.Type.STRING, "where"),'?
+
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by io.netty.util.internal.NativeLibraryUtil in an unnamed module (file:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-common/4.2.20.Final/e87b2bbdc7b7ebcb59ab5c29576e40a423e0661b/netty-common-4.2.20.Final.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+/home/runner/work/yukta/yukta/boot/src/test/java/com/infenia/yukta/YuktaApplicationTest.java:115: warning: [InputStreamSlowMultibyteRead] Please also override int read(byte[], int, int), otherwise multi-byte reads from this input stream are likely to be slow.
+
+          public int read() throws java.io.IOException {
+> Task :boot:compileTestJava
+                     ^
+    (see https://errorprone.info/bugpattern/InputStreamSlowMultibyteRead)
+/home/runner/work/yukta/yukta/boot/src/test/java/com/infenia/yukta/WorkflowAcceptanceTest.java:85: warning: [StringSplitter] String.split(String) has surprising behavior
+    final String[] parts = key.split("/");
+                                    ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'final List<String> parts = Splitter.on('/').splitToList(key);'?
+/home/runner/work/yukta/yukta/boot/src/test/java/com/infenia/yukta/WorkflowAcceptanceTest.java:132: warning: [StringSplitter] String.split(String) has surprising behavior
+    final String[] parts = key.split("/");
+                                    ^
+    (see https://errorprone.info/bugpattern/StringSplitter)
+  Did you mean 'final List<String> parts = Splitter.on('/').splitToList(key);'?
+Note: Some input files use unchecked or unsafe operations.
+
+Note: Recompile with -Xlint:unchecked for details.
+> Task :boot:compileAotJava
+
+> Task :boot:aotClasses
+Note: /home/runner/work/yukta/yukta/boot/src/test/java/com/infenia/yukta/console/ConsoleViewTest.java uses or overrides a deprecated API.
+
+Note: Recompile with -Xlint:deprecation for details.
+> Task :boot:compileTestJava
+Note: /home/runner/work/yukta/yukta/boot/src/test/java/com/infenia/yukta/OpenApiSnapshotTest.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+23 warnings
+
+> Task :boot:pmdMain
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+
+> Task :boot:bootJar
+> Task :boot:assemble
+> Task :boot:checkstyleAot SKIPPED
+> Task :boot:pmdAot SKIPPED
+> Task :boot:spotbugsAot SKIPPED
+> Task :web:testClasses
+> Task :boot:testClasses
+
+> Task :boot:pmdMain
+Removed misconfigured rule: LoosePackageCoupling cause: No packages or classes specified
+
+> Task :boot:processTestAot
+11:45:58.601 [main] INFO org.springframework.test.context.aot.TestClassScanner -- Scanning for Spring test classes in all packages in classpath roots [/home/runner/work/yukta/yukta/boot/build/classes/java/test, /home/runner/work/yukta/yukta/boot/build/resources/test]
+11:46:02.379 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.BeanInventoryTest]: BeanInventoryTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:02.934 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.BeanInventoryTest
+11:46:03.241 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.BeanInventoryTest]: BeanInventoryTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.251 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.BeanInventoryTest
+11:46:03.278 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.DagPropertyAcceptanceTest]: DagPropertyAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.292 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.DagPropertyAcceptanceTest
+11:46:03.300 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.DagPropertyAcceptanceTest]: DagPropertyAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.304 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.DagPropertyAcceptanceTest
+11:46:03.316 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.EngineLimitsAcceptanceTest]: EngineLimitsAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.325 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.EngineLimitsAcceptanceTest
+11:46:03.338 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.EngineLimitsAcceptanceTest]: EngineLimitsAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.339 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.EngineLimitsAcceptanceTest
+11:46:03.350 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.FileStoreAcceptanceTest]: FileStoreAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.358 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.FileStoreAcceptanceTest
+11:46:03.359 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.FileStoreAcceptanceTest]: FileStoreAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.364 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.FileStoreAcceptanceTest
+11:46:03.375 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.InputSupervisorAcceptanceTest]: InputSupervisorAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.394 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.InputSupervisorAcceptanceTest
+11:46:03.399 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.InputSupervisorAcceptanceTest]: InputSupervisorAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.402 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.InputSupervisorAcceptanceTest
+11:46:03.411 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.JoinRulesAcceptanceTest]: JoinRulesAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.418 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.JoinRulesAcceptanceTest
+11:46:03.419 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.JoinRulesAcceptanceTest]: JoinRulesAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.425 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.JoinRulesAcceptanceTest
+11:46:03.434 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.OpenApiSnapshotTest]: OpenApiSnapshotTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.444 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.OpenApiSnapshotTest
+11:46:03.451 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.OpenApiSnapshotTest]: OpenApiSnapshotTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.452 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.OpenApiSnapshotTest
+11:46:03.461 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.PostgresPersistenceAcceptanceTest]: PostgresPersistenceAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.483 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.PostgresPersistenceAcceptanceTest
+11:46:03.489 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.PostgresPersistenceAcceptanceTest]: PostgresPersistenceAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.493 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.PostgresPersistenceAcceptanceTest
+11:46:03.502 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.RestartRuleAcceptanceTest]: RestartRuleAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.503 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.RestartRuleAcceptanceTest
+11:46:03.504 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.RestartRuleAcceptanceTest]: RestartRuleAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.511 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.RestartRuleAcceptanceTest
+11:46:03.520 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.SkippedBranchAcceptanceTest]: SkippedBranchAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.521 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.SkippedBranchAcceptanceTest
+11:46:03.529 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.SkippedBranchAcceptanceTest]: SkippedBranchAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.529 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.SkippedBranchAcceptanceTest
+11:46:03.539 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.SubWorkflowAcceptanceTest]: SubWorkflowAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.546 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.SubWorkflowAcceptanceTest
+11:46:03.553 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.SubWorkflowAcceptanceTest]: SubWorkflowAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.554 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.SubWorkflowAcceptanceTest
+11:46:03.563 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.SupervisorAcceptanceTest]: SupervisorAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.569 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.SupervisorAcceptanceTest
+11:46:03.577 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.SupervisorAcceptanceTest]: SupervisorAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.577 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.SupervisorAcceptanceTest
+11:46:03.586 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.WorkersControlPlaneAcceptanceTest]: WorkersControlPlaneAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.587 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.WorkersControlPlaneAcceptanceTest
+11:46:03.591 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.WorkersControlPlaneAcceptanceTest]: WorkersControlPlaneAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.595 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.WorkersControlPlaneAcceptanceTest
+11:46:03.602 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.WorkersModuleAcceptanceTest]: WorkersModuleAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.615 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.WorkersModuleAcceptanceTest
+11:46:03.616 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.WorkersModuleAcceptanceTest]: WorkersModuleAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.617 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.WorkersModuleAcceptanceTest
+11:46:03.629 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.WorkflowAcceptanceTest]: WorkflowAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.640 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.WorkflowAcceptanceTest
+11:46:03.649 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.WorkflowAcceptanceTest]: WorkflowAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.649 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.WorkflowAcceptanceTest
+11:46:03.663 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.WorkflowSupervisorAcceptanceTest]: WorkflowSupervisorAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.676 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.WorkflowSupervisorAcceptanceTest
+11:46:03.678 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.WorkflowSupervisorAcceptanceTest]: WorkflowSupervisorAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.686 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.WorkflowSupervisorAcceptanceTest
+11:46:03.697 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.WorkflowTestRunnerAcceptanceTest]: WorkflowTestRunnerAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.705 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.WorkflowTestRunnerAcceptanceTest
+11:46:03.706 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.WorkflowTestRunnerAcceptanceTest]: WorkflowTestRunnerAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.716 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.WorkflowTestRunnerAcceptanceTest
+11:46:03.727 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.AiBackendsAcceptanceTest]: AiBackendsAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.878 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.AiBackendsAcceptanceTest
+11:46:03.883 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.AiBackendsAcceptanceTest]: AiBackendsAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.890 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.AiBackendsAcceptanceTest
+11:46:03.904 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.AiPluginsAcceptanceTest]: AiPluginsAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.912 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.AiPluginsAcceptanceTest
+11:46:03.920 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.AiPluginsAcceptanceTest]: AiPluginsAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.925 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.AiPluginsAcceptanceTest
+11:46:03.938 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.CorePluginsAcceptanceTest]: CorePluginsAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.939 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.CorePluginsAcceptanceTest
+11:46:03.940 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.CorePluginsAcceptanceTest]: CorePluginsAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.950 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.CorePluginsAcceptanceTest
+11:46:03.959 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.IoPluginsAcceptanceTest]: IoPluginsAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.960 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.IoPluginsAcceptanceTest
+11:46:03.961 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.IoPluginsAcceptanceTest]: IoPluginsAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.968 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.IoPluginsAcceptanceTest
+11:46:03.985 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.PluginConformanceAcceptanceTest]: PluginConformanceAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.986 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.PluginConformanceAcceptanceTest
+11:46:03.986 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.PluginConformanceAcceptanceTest]: PluginConformanceAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:03.987 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.PluginConformanceAcceptanceTest
+11:46:04.000 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.PluginConformanceSweepTest]: PluginConformanceSweepTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:04.016 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.PluginConformanceSweepTest
+11:46:04.017 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.PluginConformanceSweepTest]: PluginConformanceSweepTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:04.021 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.PluginConformanceSweepTest
+11:46:04.031 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.PluginCoverageAcceptanceTest]: PluginCoverageAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:04.033 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.PluginCoverageAcceptanceTest
+11:46:04.041 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.PluginCoverageAcceptanceTest]: PluginCoverageAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:04.042 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.PluginCoverageAcceptanceTest
+11:46:04.051 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.PluginRuntimeAcceptanceTest]: PluginRuntimeAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:04.052 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.PluginRuntimeAcceptanceTest
+11:46:04.055 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.PluginRuntimeAcceptanceTest]: PluginRuntimeAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:04.065 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.PluginRuntimeAcceptanceTest
+11:46:04.077 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.PluginTierAcceptanceTest]: PluginTierAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:04.078 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.PluginTierAcceptanceTest
+11:46:04.079 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.PluginTierAcceptanceTest]: PluginTierAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:04.079 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.PluginTierAcceptanceTest
+11:46:04.095 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.TriggerTerminalAcceptanceTest]: TriggerTerminalAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:04.100 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.TriggerTerminalAcceptanceTest
+11:46:04.104 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.infenia.yukta.plugins.TriggerTerminalAcceptanceTest]: TriggerTerminalAcceptanceTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
+11:46:04.113 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.infenia.yukta.YuktaApplication for test class com.infenia.yukta.plugins.TriggerTerminalAcceptanceTest
+11:46:04.126 [main] INFO org.springframework.test.context.aot.TestContextAotGenerator -- Skipping AOT processing due to the presence of @DisabledInAotMode for test classes [com.infenia.yukta.BeanInventoryTest]
+2026-11-22T11:46:05.910Z INFO  c.i.yukta.DagPropertyAcceptanceTest : [] [/] Starting DagPropertyAcceptanceTest using Java 25.0.5 with PID 4134 (/home/runner/work/yukta/yukta/boot/build/classes/java/test started by runner in /home/runner/work/yukta/yukta/boot) 
+2026-11-22T11:46:05.917Z INFO  c.i.yukta.DagPropertyAcceptanceTest : [] [/] No active profile set, falling back to 1 default profile: "prod" 
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/control/directive/ParkedCommandsTest.java:318: warning: [BooleanLiteral] This expression can be written more clearly with a boolean literal.
+
+> Task :boot:spotbugsMain
+
+> Task :core:compileTestJava
+    for (final Object forged : new Object[] {"approved", Boolean.TRUE, new Object()}) {
+                                                                ^
+    (see https://errorprone.info/bugpattern/BooleanLiteral)
+  Did you mean 'for (final Object forged : new Object[] {"approved", true, new Object()}) {'?
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/control/directive/DirectiveDispatcherSupervisorTest.java:153: warning: [ReferenceEquality] Comparison using reference equality instead of value equality
+                request -> "rules".equals(request.actor()) && request.command() == PAUSE));
+                                                                                ^
+    (see https://errorprone.info/bugpattern/ReferenceEquality)
+  Did you mean 'request -> "rules".equals(request.actor()) && Objects.equals(request.command(), PAUSE)));' or 'request -> "rules".equals(request.actor()) && request.command().equals(PAUSE)));'?
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/orchestrator/stream/NodeInputsTest.java:109: warning: [DoNotCallSuggester] Methods that always throw an exception should be annotated with @DoNotCall to prevent calls at compilation time vs. at runtime (note that adding @DoNotCall will break any existing callers of this API).
+
+    public String getValue() {
+> Task :core:compileTestJava
+                  ^
+    (see https://errorprone.info/bugpattern/DoNotCallSuggester)
+  Did you mean '@DoNotCall("Always throws java.lang.IllegalStateException") public String getValue() {'?
+
+> Task :mcp:spotbugsTest
+> Task :boot:checkstyleTest
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/orchestrator/tracker/DefaultTaskTrackerServiceTest.java:3033: warning: [TypeParameterUnusedInFormals] Declaring a type parameter that is only used in the return type is a misuse of generics: operations on the type parameter are unchecked, it hides unsafe casts at invocations of the method, and it interacts badly with method overload resolution.
+
+  private static <T> T field(final Object target, final String name) {
+> Task :core:compileTestJava
+                       ^
+    (see https://errorprone.info/bugpattern/TypeParameterUnusedInFormals)
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/orchestrator/compiler/WorkflowCompilerTest.java:56: warning: [MockNotUsedInProduction] This mock is instantiated and configured, but is never passed to production code. It should be either removed or used.
+  @Mock private TaskTrackerService tracker;
+                                   ^
+    (see https://errorprone.info/bugpattern/MockNotUsedInProduction)
+  Did you mean to remove this line?
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/orchestrator/compiler/WorkflowCompilerTest.java:275: warning: [CanonicalDuration] Duration can be expressed more clearly with different units
+    assertAssemblerTimeout(node, plugin, Duration.ofSeconds(120));
+                                                           ^
+    (see https://errorprone.info/bugpattern/CanonicalDuration)
+  Did you mean 'assertAssemblerTimeout(node, plugin, Duration.ofMinutes(2));'?
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/orchestrator/LogStoreSubscriberTest.java:510: warning: [ThreadPriorityCheck] Relying on the thread scheduler is discouraged.
+            Thread.yield();
+                        ^
+    (see https://errorprone.info/bugpattern/ThreadPriorityCheck)
+
+> Task :web:test
+
+> Task :boot:processTestAot
+2026-11-22T11:46:24.442Z INFO  c.i.yukta.EngineLimitsAcceptanceTest : [] [/] Starting EngineLimitsAcceptanceTest using Java 25.0.5 with PID 4134 (/home/runner/work/yukta/yukta/boot/build/classes/java/test started by runner in /home/runner/work/yukta/yukta/boot) 
+2026-11-22T11:46:24.443Z INFO  c.i.yukta.EngineLimitsAcceptanceTest : [] [/] No active profile set, falling back to 1 default profile: "prod" 
+2026-11-22T11:46:32.040Z INFO  c.i.yukta.FileStoreAcceptanceTest : [] [/] Starting FileStoreAcceptanceTest using Java 25.0.5 with PID 4134 (/home/runner/work/yukta/yukta/boot/build/classes/java/test started by runner in /home/runner/work/yukta/yukta/boot) 
+2026-11-22T11:46:32.040Z INFO  c.i.yukta.FileStoreAcceptanceTest : [] [/] No active profile set, falling back to 1 default profile: "prod" 
+
+> Task :boot:pmdTest
+Removed misconfigured rule: LoosePackageCoupling cause: No packages or classes specified
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/store/FileNodeCheckpointStoreTest.java:43: warning: [DoNotCallSuggester] Methods that always throw an exception should be annotated with @DoNotCall to prevent calls at compilation time vs. at runtime (note that adding @DoNotCall will break any existing callers of this API).
+
+    public String getValue() {
+> Task :architecture:verifyCoverageData
+                  ^
+
+    (see https://errorprone.info/bugpattern/DoNotCallSuggester)
+> Task :core:compileTestJava
+  Did you mean '@DoNotCall("Always throws java.lang.IllegalStateException") public String getValue() {'?
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/review/ExecutionEventFeedTest.java:27: warning: [UnnecessaryLambda] Returning a lambda from a helper method or saving it in a constant is unnecessary; prefer to implement the functional interface method directly and use a method reference instead.
+  private static final Function<String, ExecutionEvent> INPUT =
+                                                        ^
+    (see https://errorprone.info/bugpattern/UnnecessaryLambda)
+  Did you mean 'private static  ExecutionEvent input(String id){return new ExecutionEvent.InputExpired(id, "s", "wf", "r-" + id, Instant.now(), "n");}'?
+
+> Task :architecture:jacocoTestReport
+
+> Task :boot:processTestAot
+2026-11-22T11:46:38.080Z INFO  c.i.yukta.RestartRuleAcceptanceTest : [] [/] Starting RestartRuleAcceptanceTest using Java 25.0.5 with PID 4134 (/home/runner/work/yukta/yukta/boot/build/classes/java/test started by runner in /home/runner/work/yukta/yukta/boot) 
+2026-11-22T11:46:38.081Z INFO  c.i.yukta.RestartRuleAcceptanceTest : [] [/] No active profile set, falling back to 1 default profile: "prod" 
+2026-11-22T11:46:43.610Z INFO  c.i.yukta.SupervisorAcceptanceTest : [] [/] Starting SupervisorAcceptanceTest using Java 25.0.5 with PID 4134 (/home/runner/work/yukta/yukta/boot/build/classes/java/test started by runner in /home/runner/work/yukta/yukta/boot) 
+2026-11-22T11:46:43.610Z INFO  c.i.yukta.SupervisorAcceptanceTest : [] [/] No active profile set, falling back to 1 default profile: "prod" 
+
+> Task :boot:spotbugsTest
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/input/InputRequestFuzzTest.java:208: warning: [EnumOrdinal] You should almost never invoke the Enum.ordinal() method or depend on the enum values by index.
+> Task :architecture:jacocoTestCoverageVerification
+                  InputRisk.values()[random.nextInt(InputRisk.values().length)],
+                                    ^
+> Task :architecture:check
+    (see https://errorprone.info/bugpattern/EnumOrdinal)
+/home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/service/agent/AgentConversationQueriesTest.java:61: warning: [UnnecessaryLambda] Returning a lambda from a helper method or saving it in a constant is unnecessary; prefer to implement the functional interface method directly and use a method reference instead.
+> Task :architecture:build
+  private static final Predicate<String> ALL = session -> true;
+                                         ^
+
+    (see https://errorprone.info/bugpattern/UnnecessaryLambda)
+  Did you mean 'private static  boolean all(String session){return true;}'?
+> Task :core:compileTestJava
+Note: /home/runner/work/yukta/yukta/core/src/test/java/com/infenia/yukta/config/MetadataGuardResolverTest.java uses or overrides a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+25 warnings
+
+> Task :boot:processTestAot
+2026-11-22T11:46:48.257Z INFO  c.i.yukta.WorkflowAcceptanceTest : [] [/] Starting WorkflowAcceptanceTest using Java 25.0.5 with PID 4134 (/home/runner/work/yukta/yukta/boot/build/classes/java/test started by runner in /home/runner/work/yukta/yukta/boot) 
+2026-11-22T11:46:48.257Z INFO  c.i.yukta.WorkflowAcceptanceTest : [] [/] No active profile set, falling back to 1 default profile: "prod" 
+
+> Task :boot:processAotTestResources
+> Task :core:testClasses
+> Task :web:spotbugsTest
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+
+> Task :boot:compileAotTestJava
+> Task :core:test
+> Task :core:spotbugsTest
+> Task :web:verifyCoverageData
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+> Task :web:jacocoTestReport
+> Task :web:jacocoTestCoverageVerification
+> Task :web:check
+> Task :web:build
+Note: Some input files use unchecked or unsafe operations.
+
+Note: Recompile with -Xlint:unchecked for details.
+> Task :boot:compileAotTestJava
+
+> Task :boot:aotTestClasses
+> Task :boot:checkstyleAotTest SKIPPED
+> Task :boot:spotbugsAotTest SKIPPED
+> Task :boot:pmdAotTest SKIPPED
+
+> Task :core:test
+
+FailureExtractorsTest > go_findsTestsPackagesAndCompileErrors() FAILED
+    java.lang.NullPointerException at FailureExtractorsTest.java:23
+
+FailureExtractorsTest > gradle_findsTestsCompileErrorsLintAndTasks() FAILED
+    java.lang.NullPointerException at FailureExtractorsTest.java:23
+
+FailureExtractorsTest > js_findsVitestJestTscAndEslint() FAILED
+    java.lang.NullPointerException at FailureExtractorsTest.java:23
+
+FailureExtractorsTest > gradle_keepsCauseThatIsNotTask() FAILED
+    java.lang.NullPointerException at FailureExtractorsTest.java:23
+WARNING: A restricted method in java.lang.System has been called
+
+WARNING: java.lang.System::loadLibrary has been called by io.netty.util.internal.NativeLibraryUtil in an unnamed module (file:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-common/4.2.20.Final/e87b2bbdc7b7ebcb59ab5c29576e40a423e0661b/netty-common-4.2.20.Final.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by io.netty.util.internal.NativeLibraryUtil in an unnamed module (file:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-common/4.2.20.Final/e87b2bbdc7b7ebcb59ab5c29576e40a423e0661b/netty-common-4.2.20.Final.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+> Task :boot:test
+
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::loadLibrary has been called by io.netty.util.internal.NativeLibraryUtil in an unnamed module (file:/home/runner/.gradle/caches/modules-2/files-2.1/io.netty/netty-common/4.2.20.Final/e87b2bbdc7b7ebcb59ab5c29576e40a423e0661b/netty-common-4.2.20.Final.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+2026-11-22T11:48:44.445Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:48:44.456Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="83" hitCount="4" missCount="170" evictionCount="0"
+2026-11-22T11:48:46.478Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:48:46.483Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="3" hitCount="0" missCount="6" evictionCount="0"
+2026-11-22T11:48:48.504Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:48:48.506Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="0" hitCount="0" missCount="0" evictionCount="0"
+2026-11-22T11:48:48.514Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:48:48.516Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="0" hitCount="0" missCount="0" evictionCount="0"
+2026-11-22T11:48:48.522Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:48:48.525Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="0" hitCount="0" missCount="0" evictionCount="0"
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by net.bytebuddy.dynamic.loading.ClassInjector$UsingUnsafe$Dispatcher$CreationAction (file:/home/runner/.gradle/caches/modules-2/files-2.1/net.bytebuddy/byte-buddy/1.18.15/ffff83d2b122d612acecd92029df4ed9b0472ffe/byte-buddy-1.18.15.jar)
+WARNING: Please consider reporting this to the maintainers of class net.bytebuddy.dynamic.loading.ClassInjector$UsingUnsafe$Dispatcher$CreationAction
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+2026-11-22T11:49:44.331Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:49:44.340Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="0" hitCount="0" missCount="0" evictionCount="0"
+2026-11-22T11:49:46.364Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:49:46.369Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="2" hitCount="0" missCount="4" evictionCount="0"
+2026-11-22T11:49:48.385Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:49:48.388Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="22" hitCount="0" missCount="44" evictionCount="0"
+2026-11-22T11:49:50.404Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:49:50.406Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="0" hitCount="0" missCount="0" evictionCount="0"
+2026-11-22T11:49:52.417Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:49:52.421Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="1" hitCount="0" missCount="2" evictionCount="0"
+2026-11-22T11:49:54.435Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:49:54.438Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="6" hitCount="0" missCount="12" evictionCount="0"
+2026-11-22T11:49:56.449Z INFO  c.i.y.s.o.LogStoreSubscriber : [] [/] Log store subscriber disposed 
+2026-11-22T11:49:56.452Z INFO  c.i.y.s.w.s.PreparedWorkflowCache : [] [/] Shutting down PreparedWorkflowCache cacheSize="0" hitCount="0" missCount="0" evictionCount="0"
+
+> Task :boot:verifyCoverageData
+> Task :boot:jacocoTestReport
+> Task :boot:jacocoTestCoverageVerification
+> Task :boot:check
+> Task :boot:build
+
+3068 tests completed, 4 failed
+
+> Task :core:test
+
+> Task :core:test FAILED
+> Task :core:verifyCoverageData
+2026-11-22T11:51:23.735Z  INFO 3889 --- [ionShutdownHook] c.i.y.s.orchestrator.LogStoreSubscriber  : Log store subscriber disposed
+2026-11-22T11:51:23.738Z  INFO 3889 --- [ionShutdownHook] c.i.y.s.w.store.PreparedWorkflowCache    : Shutting down PreparedWorkflowCache
+> Task :mcp:verifyCoverageData
+> Task :mcp:jacocoTestReport
+> Task :mcp:jacocoTestCoverageVerification
+> Task :mcp:check
+> Task :mcp:build
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1795347742180.json
+
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:test'.
+> There were failing tests. See the report at: file:///home/runner/work/yukta/yukta/core/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+[Incubating] Problems report is available at: file:///home/runner/work/yukta/yukta/build/reports/problems/problems-report.html
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/9.9.1/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+187 actionable tasks: 110 executed, 77 from cache
+Configuration cache entry stored.
+BUILD FAILED in 9m 6s
