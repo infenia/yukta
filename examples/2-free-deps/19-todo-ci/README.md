@@ -1,6 +1,8 @@
 # 19 — A CI pipeline
 
-**Use case:** the checks you would put in a CI file, as a workflow you can run anywhere Yukta runs: clone the project, check the backend (lint, format, test) and, once that passes, the frontend (install, lint, format, test). The project is [yukta-example-todo](https://github.com/infenia/yukta-example-todo), the one [example 18](../18-todo-run/) runs.
+**Use case:** the checks you would put in a CI file, as a workflow: clone the todo app, check the backend (lint, format, test), then the frontend (install, lint, format, test).
+
+The project is [yukta-example-todo](https://github.com/infenia/yukta-example-todo), the one [example 18](../18-todo-run/) runs.
 
 ```
 API_TRIGGER ─► check-python ─► clone ─► backend-lint ─► backend-format ─► backend-test ─► probe-js ─► BRANCH

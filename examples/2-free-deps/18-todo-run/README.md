@@ -1,6 +1,8 @@
 # 18 — Check out and run an app
 
-**Use case:** a simpler cousin of [how Yukta develops itself](https://github.com/infenia/yukta-dogfood): a workflow that checks a project out and runs it, so a person (or an agent) can open it. The project is [yukta-example-todo](https://github.com/infenia/yukta-example-todo), a todo app with a Python backend and a React frontend.
+**Use case:** check a project out and run it so a person can open it: clone the todo app into a temp folder, then start its Python backend and React frontend.
+
+A simpler cousin of [how Yukta develops itself](https://github.com/infenia/yukta-dogfood). The project is [yukta-example-todo](https://github.com/infenia/yukta-example-todo), a todo app with a Python backend and a React frontend.
 
 ```
                        ┌─ no python ─► NOTIFY_TERMINAL (inbox)
