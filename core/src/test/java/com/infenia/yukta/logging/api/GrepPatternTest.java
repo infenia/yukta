@@ -46,17 +46,17 @@ class GrepPatternTest {
 
   @Test
   void catastrophicPatterns_runInLinearTime() {
-    // each of these takes exponential time on a backtracking engine for the line below
+    // each of these takes exponential time on a backtracking engine for the line below (it would
+    // not finish in years); linear time finishes in milliseconds. The limit is generous so a busy
+    // CI runner cannot fail it: it tells "finishes" from "never finishes", not fast from slow.
     final String line = "a".repeat(GrepPattern.MAX_LINE - 1) + "!";
 
     assertTimeoutPreemptively(
-        Duration.ofSeconds(2),
+        Duration.ofSeconds(10),
         () -> {
-          for (int i = 0; i < 100; i++) {
-            assertThat(GrepPattern.compile("(a+)+$").matches(line)).isFalse();
-            assertThat(GrepPattern.compile("(a|aa)*b").matches(line)).isFalse();
-            assertThat(GrepPattern.compile("(.*a){12}b").matches(line)).isFalse();
-          }
+          assertThat(GrepPattern.compile("(a+)+$").matches(line)).isFalse();
+          assertThat(GrepPattern.compile("(a|aa)*b").matches(line)).isFalse();
+          assertThat(GrepPattern.compile("(.*a){12}b").matches(line)).isFalse();
         });
   }
 

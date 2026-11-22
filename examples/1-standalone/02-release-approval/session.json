@@ -42,6 +42,8 @@
               "test",
               "${start.version}"
             ],
+            "workingDir": "/tmp/yukta-examples/release-approval",
+            "reports": [{ "format": "junit", "glob": "test-results/TEST-*.xml" }],
             "timeout": 60,
             "failureMode": "CONTINUE",
             "routeByExitCode": true

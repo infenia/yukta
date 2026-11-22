@@ -42,8 +42,12 @@ public class GradleFailureExtractor implements FailureExtractor {
           "^\\[ant:checkstyle\\] \\[(?:ERROR|WARN)\\] (\\S.*?):(\\d+)(?::\\d+)?: (.+?)"
               + "(?: \\[(\\w+)\\])?$");
 
+  /**
+   * A PMD violation; its rule is CamelCase, so a javac {@code warning:} or {@code note:} is not
+   * one.
+   */
   private static final Pattern PMD =
-      Pattern.compile("^(\\S.*?\\.java):(\\d+):\\s+(\\w+):\\s+(.+)$");
+      Pattern.compile("^(\\S.*?\\.java):(\\d+):\\s+(\\p{Lu}\\w+):\\s+(.+)$");
 
   private static final Pattern TASK = Pattern.compile("^> Task (:\\S+) FAILED\\s*$");
 

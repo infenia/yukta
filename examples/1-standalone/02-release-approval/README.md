@@ -28,6 +28,7 @@ trigger ─► build ─► test ─► staging ─► approve (WAIT_FOR_SIGNAL)
 |---|---|---|
 | `trigger` | `API_TRIGGER` | Start payload `{"version": "..."}` |
 | `build`, `test`, `staging` | `PROCESS_EXECUTOR` | Run `release.sh build/test/staging VERSION`; exit code picks `success` or `failure` |
+| `test` (reports) | | On failure it also writes a JUnit XML report; `reports` reads it into `failures[]` and writes one `TestFailure:` log line per failed test, so `get_failure_digest` names `com.example.ReleaseTest#migratesSchema` and its line without reading the log |
 | `blocked` | `MAPPER` | Failed before approval: builds the notice from the command output |
 | `approve` | `WAIT_FOR_SIGNAL` | Waits 15 minutes for signal `approve-release`; on timeout it continues as `timeout` |
 | `after-approval` | `BRANCH` | `timeout` goes to `expired`, any other decision goes to `deploy` |

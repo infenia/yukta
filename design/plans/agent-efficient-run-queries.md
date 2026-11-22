@@ -1,5 +1,39 @@
 # Token-efficient run queries for AI agents (search, digest, bounded defaults)
 
+Status (2026-11-22): **implemented** in infenia/yukta#2614 (all seven phases) and infenia/yukta-dogfood#24 (fixers read the
+digest first). The phases below are the plan as approved; "Built differently" lists where the code departs from it.
+
+## Built differently
+
+| Plan | Built | Why |
+|---|---|---|
+| Search in `core/.../logging/query/` | `core/.../service/diagnosis/` (`RunLogSearcher`, `LogSearchPass`) | The core package diagram does not let `logging` use `service` (the tracker, for sub-runs). |
+| Guarded `java.util.regex` with a 50 ms per-line budget (`GrepPattern`) | `GrepPattern` wraps RE2/J (`com.google.re2j`, BSD-3-Clause), a linear-time engine | The per-line budget still let one call run for minutes over 10,000 lines, and CodeQL flagged `java.util.regex` on caller input. RE2 has no back-references or lookaround. |
+| Sub-runs searched as found in the tree | Only sub-runs of the run's own session (search and digest) | A sub-run of another session must not be readable through a parent the caller owns. |
+| Findings carry a log sequence | Findings carry the line number in the node's output | `next` reads point at `get_node_output` offsets, which count node lines. |
+| `TestFailure:` lines only | `TestFailure:` and `LintFailure:` lines | `reports` already read Checkstyle and SARIF; their findings become LINT findings. |
+| Parsing of stream/level/nodes in each client | `SearchArguments` in core | REST, MCP and the log filter read the arguments the same way. |
+| `get_workflow_status` `nodes=failed\|all` | `hideSucceeded` (boolean) | Simpler; the default stays every node. |
+| Not planned | `get_node_output`: a page without `limit` is cut to `yukta.mcp.log-default-chars` | `ToolResponseBoundTest` found a default page could reach 100 KB. |
+| Not planned | `yk` fixers: `MCP_READ` starts with the digest and the search (dogfood #24) | The planned follow-up. |
+| Phase 6: "update the dogfood-facing example" | `examples/1-standalone/02-release-approval`: the `test` step writes a JUnit report and reads it with `reports` | The dogfood workflows live in yukta-dogfood; this example is the one in this repository that runs tests. |
+
+## Measured
+
+- `ToolResponseBoundTest` (15 MB run): every read with default arguments under 20 KB, the digest under 6 KB.
+- `McpRunDiagnosisE2eTest` (real server, small run): the digest names the failing test and its `file:line` and is over 3x smaller than
+  the whole log.
+- `RealGradleFailureMeasureTest`: the Gradle step of a real CI run of this repository that failed four tests (1,330 lines, 117 KB),
+  replayed as one node's log. The digest is 1,781 bytes and names the four tests and the failed task; the whole log through
+  `get_execution_logs` is 203,797 bytes (**114x**), and the default `get_execution_logs` (last 100 lines) is 14,948 bytes and does not
+  reach the failures. The test fails below 10x. It also caught javac `warning:` lines being taken for PMD findings.
+
+## Not done on purpose
+
+- `yukta.mcp.response.bytes` covers keyed callers only (the open loopback endpoint does not read the request body).
+- `get_execution_result` with `include=stdout` holds back events past the budget, but one payload larger than it is returned whole.
+- No UI panel for the digest.
+
 ## Context
 Agents connected to Yukta (MCP, REST, CLI) spend many tokens because the default way to read a run is
 expensive and the cheap tools are not the obvious first choice:

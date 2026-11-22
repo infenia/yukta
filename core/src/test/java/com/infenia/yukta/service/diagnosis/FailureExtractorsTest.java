@@ -155,6 +155,17 @@ class FailureExtractorsTest {
   }
 
   @Test
+  void gradle_javacWarningsAreNotFailures() {
+    assertThat(
+            new GradleFailureExtractor()
+                .extract(
+                    lines(
+                        "/r/core/src/main/java/A.java:38: warning: [InvalidParam] Parameter name x",
+                        "/r/core/src/main/java/B.java:12: note: Some input files use unchecked")))
+        .isEmpty();
+  }
+
+  @Test
   void gradle_testWithoutReasonAndLongCause() {
     final List<Finding> found =
         new GradleFailureExtractor()
