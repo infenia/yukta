@@ -120,7 +120,7 @@ test('notification preferences are saved by the server and read back', async ({
       page
         .getByRole('dialog', { name: 'Notification preferences' })
         .getByRole('combobox', { name: 'run.finished' })
-    ).toHaveValue(next);
+    ).toHaveAttribute('data-value', next);
   } finally {
     const stored = (await (
       await request.get('/api/notifications/preferences')
