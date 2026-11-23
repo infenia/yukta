@@ -84,12 +84,28 @@ jobs:
 
       - name: Install (install.sh)
         if: runner.os != 'Windows'
-        run: curl -fsSL "https://github.com/$REPO/releases/download/$TAG/install.sh" | sh
+        run: |
+          # Download, check against the release's SHA256SUMS, then run (not `curl | sh`).
+          base="https://github.com/$REPO/releases/download/$TAG"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "$base/install.sh" -O "$base/SHA256SUMS"
+          want=$(awk '$2 == "install.sh" {print $1}' SHA256SUMS)
+          have=$(shasum -a 256 install.sh | awk '{print $1}')   # on every runner OS here
+          [ -n "$want" ] && [ "$want" = "$have" ] || { echo "::error::install.sh does not match SHA256SUMS"; exit 1; }
+          sh install.sh
 
       - name: Install (install.ps1)
         if: runner.os == 'Windows'
         shell: powershell   # Windows PowerShell 5.1, what `irm | iex` runs in for most users
-        run: irm "https://github.com/$env:REPO/releases/download/$env:TAG/install.ps1" | iex
+        run: |
+          # Download, check against the release's SHA256SUMS, then run (not `irm | iex`).
+          $base = "https://github.com/$env:REPO/releases/download/$env:TAG"
+          Set-Location $env:RUNNER_TEMP
+          Invoke-WebRequest "$base/install.ps1" -OutFile install.ps1
+          Invoke-WebRequest "$base/SHA256SUMS" -OutFile SHA256SUMS
+          $want = (Get-Content SHA256SUMS | Where-Object { $_ -match '\sinstall\.ps1$' }) -split '\s+' | Select-Object -First 1
+          if ((Get-FileHash install.ps1 -Algorithm SHA256).Hash -ne $want.ToUpper()) { throw "install.ps1 does not match SHA256SUMS" }
+          .\install.ps1
 
       - name: Version and Quickstart
         run: |
