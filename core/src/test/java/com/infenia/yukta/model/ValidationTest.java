@@ -14,9 +14,12 @@ import jakarta.validation.ValidatorFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests for model validation. */
 @NoArgsConstructor
@@ -77,6 +80,44 @@ class ValidationTest {
     assertThat(violations)
         .isNotEmpty()
         .anySatisfy(v -> assertThat(v.getMessage()).contains("Invalid session ID format"));
+  }
+
+  /** Ids with a control character or a lone surrogate, built from code units. */
+  /* default */ static Stream<String> badIds() {
+    final char high = (char) 0xD800;
+    final char nul = (char) 0;
+    return Stream.of(
+        String.valueOf(new char[] {high, nul, (char) 0xD83D}),
+        "a" + nul + "b",
+        "a\nb",
+        "lone" + high);
+  }
+
+  @ParameterizedTest
+  @MethodSource("badIds")
+  void testIdsRejectControlCharactersAndLoneSurrogates(final String id) {
+    final WorkflowDefinition def = Fixtures.workflow("test-workflow", "desc", List.of(), List.of());
+    final SessionConfigData data =
+        new SessionConfigData(id, "n", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
+    assertThat(validator.validate(data))
+        .anySatisfy(v -> assertThat(v.getMessage()).contains("Invalid session ID format"));
+  }
+
+  @Test
+  void testSessionIdAcceptsUnicodeAndSurrogatePairs() {
+    final WorkflowDefinition def =
+        Fixtures.workflow(
+            "test-workflow", "desc", List.of(Fixtures.node("n1", "gradle", Map.of())), List.of());
+    final SessionConfigData data =
+        new SessionConfigData(
+            "sess-é-" + new String(Character.toChars(0x1F600)),
+            "n",
+            "desc",
+            "initiator-1",
+            Map.of(),
+            "/path",
+            Map.of("w1", def));
+    assertThat(validator.validate(data)).isEmpty();
   }
 
   @Test
