@@ -64,7 +64,8 @@ smoke_test() {
       # The e2e suite (the Java tests of the e2e module) against the image, where the caller has a JDK (the release
       # workflow sets E2E_SUITE): the same checks as on a JVM, on what ships.
       if [[ "$platform" == "amd64" && -n "${E2E_SUITE:-}" ]]; then
-        (cd "$REPO_ROOT" && ./gradlew :e2e:test "-Pyukta.e2e.url=http://127.0.0.1:$port" -Pyukta.e2e.key=smoke-test-key) ||
+        (cd "$REPO_ROOT" && ./gradlew :e2e:test "-Pyukta.e2e.url=http://127.0.0.1:$port" -Pyukta.e2e.key=smoke-test-key \
+          -Pyukta.e2e.self-url=http://127.0.0.1:9858) ||
           { docker logs "$name" >&2 || true; docker rm -f "$name" >/dev/null 2>&1 || true; die "e2e suite failed for $platform"; }
       fi
       # /actuator/info needs the key and must report the version this image was built for.
