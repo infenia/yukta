@@ -1,0 +1,108 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Release gate
+
+# `release-ready` is a required status on main. It is a commit status this workflow sets itself:
+#  - any PR that is not the release PR (release-please--*): success at once, nothing else runs;
+#  - the release PR: pending on every push (release-please pushes after each merge to main, and the
+#    `release:ready` label is dropped), so it cannot merge. Adding the label `release:ready` runs the full
+#    rehearsal (all platforms) on that exact commit and sets success or failure.
+# Other label events change nothing: a status belongs to its commit, and only this workflow writes it.
+on:
+  pull_request:
+    branches: [ main ]
+    types: [opened, reopened, synchronize, labeled]
+  merge_group:  # merge queue: the queued commit needs the status too (the PR already passed it to be queued)
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+concurrency:
+  # a new push cancels the old rehearsal; an unrelated label event never does
+  group: release-gate-${{ github.event.pull_request.number || github.sha }}-${{ github.event.action }}-${{ github.event.label.name }}
+  cancel-in-progress: true
+
+jobs:
+  status:
+    name: Set release-ready
+    if: github.event_name == 'pull_request' && github.event.action != 'labeled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      statuses: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+      PR: ${{ github.event.pull_request.number }}
+      IS_RELEASE_PR: ${{ startsWith(github.head_ref, 'release-please--') }}
+    steps:
+      - run: |
+          if [ "$IS_RELEASE_PR" = true ]; then
+            gh pr edit "$PR" --repo "$GITHUB_REPOSITORY" --remove-label release:ready || true
+            state=pending; desc="Add the release:ready label to run the release rehearsal"
+          else
+            state=success; desc="Not the release PR"
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state="$state" -f context=release-ready -f description="$desc"
+
+  queued:
+    name: Set release-ready on the queued commit
+    if: github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      statuses: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api "repos/$GITHUB_REPOSITORY/statuses/${{ github.sha }}" -f state=success -f context=release-ready -f description="Passed on the pull request"
+
+  start:
+    name: Rehearsal started
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'release:ready' && startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      statuses: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh api "repos/$GITHUB_REPOSITORY/statuses/${{ github.event.pull_request.head.sha }}"
+          -f state=pending -f context=release-ready
+          -f description="Release rehearsal running" -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+  release:
+    name: Release rehearsal
+    needs: start
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+  native-smoke:
+    name: Native smoke
+    needs: start
+    uses: ./.github/workflows/native-smoke.yml
+
+  result:
+    name: Set release-ready from the rehearsal
+    needs: [ start, release, native-smoke ]
+    if: always() && needs.start.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      statuses: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          OK: ${{ needs.release.result == 'success' && needs.native-smoke.result == 'success' }}
+        run: |
+          if [ "$OK" = true ]; then state=success; desc="Release rehearsal passed"; else state=failure; desc="Release rehearsal failed"; fi
+          gh api "repos/$GITHUB_REPOSITORY/statuses/${{ github.event.pull_request.head.sha }}" \
+            -f state="$state" -f context=release-ready -f description="$desc" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

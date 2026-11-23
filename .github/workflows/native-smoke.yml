@@ -11,6 +11,7 @@ name: Native smoke
 on:
   schedule:
     - cron: '43 2 * * *' # daily, 8:13 AM IST (02:43 UTC)
+  workflow_call:       # release-gate.yml: rehearsal on the release PR
   workflow_dispatch:
 
 concurrency:

@@ -68,11 +68,15 @@ rehearsals; `release.sh --publish` refuses it.
 
 One pull request to approve, one button to press.
 
-1. **Rehearse first.** The **Release** workflow rehearses itself on `main` every week (Sunday morning
-   IST); if `main` has changed since, run it by hand (Actions → Release → Run workflow, or
-   `gh workflow run release.yml --ref main`). It builds everything and publishes nothing. Merge the release
-   PR only when it is green. *Why:* the tag cannot be deleted, so a release that fails after tagging costs a
-   version number (`alpha.3` stalled in the native build and the next release became `alpha.4`).
+1. **Rehearse on the release PR.** Every merge to `main` updates the release PR, drops its `release:ready`
+   label and sets the required status `release-ready` to pending, so it cannot merge and nothing heavy runs.
+   When you want to release, add the label `release:ready` to the release PR: the **Release gate** workflow
+   (`release-gate.yml`) runs the full rehearsal of the **Release** workflow (CLI and servers for every
+   platform, Quickstart) and the native smoke test on that exact commit, and sets `release-ready` to success
+   or failure (about an hour). Merge only when it is green; a new push to the PR means adding the label
+   again. The same rehearsal also runs weekly on `main` and by hand (`gh workflow run release.yml --ref main`).
+   *Why:* the tag cannot be deleted, so a release that fails after tagging costs a version number
+   (`alpha.3` stalled in the native build and the next release became `alpha.4`).
 2. **Merge the release PR.** release-please keeps a PR titled `chore(main): release X.Y.Z` up to date
    from the Conventional Commits on `main`. It sets the version in `gradle.properties` and
    `ui/package.json` and writes `CHANGELOG.md`. Approve and merge it when you want to release.
