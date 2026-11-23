@@ -104,26 +104,26 @@ class ExecutionControlCommandTest {
 
     final String kind =
         switch (command) {
-          case ExecutionControlCommand.PauseWorkflowCommand c -> "pause-workflow";
-          case ExecutionControlCommand.ResumeWorkflowCommand c -> "resume-workflow";
-          case ExecutionControlCommand.PauseNodeCommand c -> "pause-node";
-          case ExecutionControlCommand.ResumeNodeCommand c -> "resume-node";
-          case ExecutionControlCommand.StopNodeCommand c -> "stop-node";
-          case ExecutionControlCommand.SkipNodeCommand c -> "skip-node";
-          case ExecutionControlCommand.EnableStepModeCommand c -> "enable-step";
-          case ExecutionControlCommand.DisableStepModeCommand c -> "disable-step";
-          case ExecutionControlCommand.StepNodeCommand c -> "step";
-          case StopWorkflowCommand c -> "stop-workflow";
-          case ExecutionControlCommand.RestartCommand c -> "restart";
-          case ExecutionControlCommand.RestartFromNodeCommand c -> "restart-from-node";
-          case ExecutionControlCommand.SetBreakpointCommand c -> "set-breakpoint";
+          case ExecutionControlCommand.PauseWorkflowCommand _ -> "pause-workflow";
+          case ExecutionControlCommand.ResumeWorkflowCommand _ -> "resume-workflow";
+          case ExecutionControlCommand.PauseNodeCommand _ -> "pause-node";
+          case ExecutionControlCommand.ResumeNodeCommand _ -> "resume-node";
+          case ExecutionControlCommand.StopNodeCommand _ -> "stop-node";
+          case ExecutionControlCommand.SkipNodeCommand _ -> "skip-node";
+          case ExecutionControlCommand.EnableStepModeCommand _ -> "enable-step";
+          case ExecutionControlCommand.DisableStepModeCommand _ -> "disable-step";
+          case ExecutionControlCommand.StepNodeCommand _ -> "step";
+          case StopWorkflowCommand _ -> "stop-workflow";
+          case ExecutionControlCommand.RestartCommand _ -> "restart";
+          case ExecutionControlCommand.RestartFromNodeCommand _ -> "restart-from-node";
+          case ExecutionControlCommand.SetBreakpointCommand _ -> "set-breakpoint";
           case ExecutionControlCommand.SetLimitsCommand c -> "limits-" + c.maxConcurrent();
           case ExecutionControlCommand.SetPriorityCommand c -> "priority-" + c.priority();
           case ExecutionControlCommand.AnswerInputCommand c -> "answer-" + c.requestId();
           case ExecutionControlCommand.EscalateInputCommand c -> "escalate-" + c.requestId();
           case ExecutionControlCommand.AgentMessageCommand c -> "agent-message-" + c.text();
-          case ExecutionControlCommand.AgentInterruptCommand c -> "agent-interrupt";
-          case ExecutionControlCommand.AgentEndCommand c -> "agent-end";
+          case ExecutionControlCommand.AgentInterruptCommand _ -> "agent-interrupt";
+          case ExecutionControlCommand.AgentEndCommand _ -> "agent-end";
           case ExecutionControlCommand.StartWorkflowCommand c -> "start-" + c.workflowId();
           case ExecutionControlCommand.RecoverCommand c -> "recover-" + c.executionId();
           case ExecutionControlCommand.DrainCommand c -> "drain-" + c.draining();

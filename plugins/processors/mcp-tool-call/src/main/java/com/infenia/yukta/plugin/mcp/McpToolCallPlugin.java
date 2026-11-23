@@ -292,7 +292,7 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
     final Optional<Long> parsed;
     if (value instanceof final Number number) {
       parsed = Optional.of(number.longValue());
-    } else if (value instanceof final String text && text.trim().matches("\\d+")) {
+    } else if (value instanceof final String text && text.trim().matches("\\d{1,18}")) {
       parsed = Optional.of(Long.parseLong(text.trim()));
     } else {
       parsed = Optional.empty();

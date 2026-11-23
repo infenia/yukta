@@ -335,8 +335,11 @@ public class NotificationsController {
     if (id == null) {
       return true;
     }
-    final long seq = Long.parseLong(id.substring(id.lastIndexOf('-') + 1));
-    return seq > sent.get();
+    try {
+      return Long.parseLong(id.substring(id.lastIndexOf('-') + 1)) > sent.get();
+    } catch (NumberFormatException e) {
+      return true; // an id we did not make: let the event through
+    }
   }
 
   private Flux<ServerSentEvent<NotificationEvent>> replay(

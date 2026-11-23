@@ -58,6 +58,12 @@ class DaemonTest {
   }
 
   @Test
+  void damagedPidFileCountsAsStopped() throws Exception {
+    Files.writeString(home.resolve(PID), "not-a-pid");
+    assertThat(daemon().run("status")).isEqualTo(3);
+  }
+
+  @Test
   void stopTerminatesTheRecordedProcess() throws Exception {
     final Process p = new ProcessBuilder("sleep", "60").start();
     final long started = p.toHandle().info().startInstant().orElseThrow().toEpochMilli();
