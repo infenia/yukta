@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
 # Not product code: opengrep rule-test fixtures and Mintlify snippets (they
 # only see the exported component, so helpers cannot be moved out).
 paths-ignore:
