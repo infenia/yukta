@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor;
 
-import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -36,7 +35,7 @@ import reactor.util.context.Context;
 
 /** Production review: the owner only, and only for what people send. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class ControlReviewerOwnerTest {
 
   private static final String PAUSE = "PauseWorkflowCommand";
@@ -55,8 +54,7 @@ class ControlReviewerOwnerTest {
   private final AttachedSupervisors attached = new AttachedSupervisors();
 
   private ControlReviewer reviewer(final boolean defaultEnabled) {
-    final ControlReviewer reviewer =
-        new ControlReviewer(providerOf(), java.time.Duration.ofSeconds(2));
+    final ControlReviewer reviewer = new ControlReviewer(java.time.Duration.ofSeconds(2));
     reviewer.setAttachedSupervisors(attached);
     reviewer.setDryRun(
         new StaticListableBeanFactory().getBeanProvider(DryRunRecorder.class),
@@ -185,17 +183,14 @@ class ControlReviewerOwnerTest {
   }
 
   @Test
-  void globalScopeAndBeanSupervisorsOwnNothing() {
+  void globalScopeOwnsNothing() {
     own("g", new SupervisorScope.Global(), answering(Decision.deny("no")), PAUSE);
-    final ExecutionSupervisor bean = answering(Decision.deny("no"));
-    final ControlReviewer reviewer =
-        new ControlReviewer(providerOf(bean), java.time.Duration.ofSeconds(2));
+    final ControlReviewer reviewer = new ControlReviewer(java.time.Duration.ofSeconds(2));
     reviewer.setAttachedSupervisors(attached);
 
     StepVerifier.create(verdict(reviewer, RUN_COMMAND, ControlActor.Channel.OPERATOR))
         .expectNext(ReviewVerdict.ALLOWED)
         .verifyComplete();
-    verify(bean, never()).review(org.mockito.ArgumentMatchers.any());
   }
 
   @Test
@@ -333,8 +328,7 @@ class ControlReviewerOwnerTest {
 
   @Test
   void reviewerReadsItsTimeoutFromTheSettings() {
-    final ControlReviewer fromSettings =
-        new ControlReviewer(providerOf(), YuktaSettings.bind(Map.of()));
+    final ControlReviewer fromSettings = new ControlReviewer(YuktaSettings.bind(Map.of()));
     StepVerifier.create(fromSettings.review(RUN_COMMAND)).verifyComplete();
   }
 

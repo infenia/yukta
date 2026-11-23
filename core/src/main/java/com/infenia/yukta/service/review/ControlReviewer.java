@@ -79,26 +79,20 @@ public class ControlReviewer {
   /**
    * Create the reviewer.
    *
-   * @param supervisors bean supervisors; they own nothing, so they are no longer asked (kept so
-   *     callers need no change)
    * @param properties the settings; {@code yukta.supervisor.review-timeout} is the longest a
    *     supervisor may take to answer
    */
   @Autowired
-  public ControlReviewer(
-      final ObjectProvider<ExecutionSupervisor> supervisors, final YuktaProperties properties) {
-    this(supervisors, properties.supervisor().reviewTimeout());
+  public ControlReviewer(final YuktaProperties properties) {
+    this(properties.supervisor().reviewTimeout());
   }
 
   /**
    * Create the reviewer.
    *
-   * @param supervisors bean supervisors; they own nothing, so they are no longer asked (kept so
-   *     callers need no change)
    * @param timeout longest a supervisor may take to answer
    */
-  public ControlReviewer(
-      final ObjectProvider<ExecutionSupervisor> supervisors, final Duration timeout) {
+  public ControlReviewer(final Duration timeout) {
     this.timeout = timeout;
   }
 

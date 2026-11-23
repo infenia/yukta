@@ -28,7 +28,7 @@ public final class PipelineReviewer extends ControlReviewer {
    * @param timeout longest a supervisor may take to answer
    */
   public PipelineReviewer(final ObjectProvider<ExecutionSupervisor> beans, final Duration timeout) {
-    super(beans, timeout);
+    super(timeout);
     this.beans = beans;
   }
 
