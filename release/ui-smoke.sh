@@ -10,7 +10,7 @@
 # Usage: release/ui-smoke.sh <base-url>        e.g. release/ui-smoke.sh http://127.0.0.1:9858
 # Needs: the UI's dependencies (cd ui && pnpm install) and a Chromium for Playwright
 #        (cd ui && node_modules/.bin/playwright install chromium), and a server started as the examples need it:
-#        YUKTA_PLUGINS_ENABLED=all YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 (examples/README.md)
+#        YUKTA_PLUGINS_ENABLED=all YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3 (examples/README.md)
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 

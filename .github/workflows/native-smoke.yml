@@ -67,7 +67,7 @@ jobs:
       - name: Smoke test, e2e suite, examples and UI
         env:
           YUKTA_PLUGINS_ENABLED: all
-          YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,python3
+          YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,shuf,python3
           YUKTA_API_KEYS_0_NAME: e2e
           YUKTA_API_KEYS_0_KEY: native-smoke-key
           YUKTA_API_KEYS_0_ROLE: ADMIN

@@ -29,7 +29,7 @@ import { formatRelative } from '@/features/workflow/lib/timeFormat';
 import { api } from '@/lib/apiClient';
 import { NotificationLink } from './NotificationLink';
 import { useNotifications } from './NotificationsContext';
-import { workflowHref } from './notificationLink';
+import { workflowHref } from './notificationHref';
 import { plain, SEVERITY_DOT, SEVERITY_LABEL } from './severity';
 
 type Tab = 'needs-action' | 'all' | 'resolved';

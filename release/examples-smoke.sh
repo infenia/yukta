@@ -22,7 +22,7 @@
 #   EXAMPLES_SKIP     examples not run at all (see examples/run-all.sh)
 #
 # The server under test needs YUKTA_PLUGINS_ENABLED=all (the examples use plugins that are off by default)
-# and YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 for examples 02, 11 and 12.
+# and YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3 for examples 02, 11, 12 and 17.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -57,7 +57,7 @@ while read -r state name _; do
   case "$state" in
     FAIL)
       echo "examples smoke: $name failed; its output:" >&2
-      awk -v h="=================== $name" '/^=================== /{p=($0==h)} p' <<< "$output" | tail -40 >&2
+      awk -v h="=================== $name" '/^=================== /{p=(index($0,h)==1)} p' <<< "$output" | tail -40 >&2
       failed=1 ;;
     SKIP)
       if [[ "$allow_skip" != *" $name "* && " ${EXAMPLES_SKIP:-} " != *" $name "* ]]; then
