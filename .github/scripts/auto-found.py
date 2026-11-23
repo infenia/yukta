@@ -17,7 +17,6 @@ import argparse
 import json
 import pathlib
 import re
-import sys
 
 CRITICAL_METRICS = {"stuck_runs", "tracker_events_lost"}
 REGRESSION_STEP = re.compile(r"compare|memory|leak|p95", re.I)
@@ -77,4 +76,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

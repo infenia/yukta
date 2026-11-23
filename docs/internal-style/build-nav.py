@@ -6,7 +6,10 @@
 
 """Regenerates the navigation and redirects of docs.json from the page map. Run from docs/: python3 internal-style/build-nav.py"""
 import json, glob, os
-d = json.load(open('docs.json'))
+def read(p):
+    with open(p) as f:
+        return f.read()
+d = json.loads(read('docs.json'))
 def exists(r): return os.path.exists(r + '.mdx')
 def grp(name, pages, **kw):
     pages = [p for p in pages if exists(p)]
@@ -46,7 +49,7 @@ tabs = [
 d['navigation'] = dict(tabs=tabs)
 red = []
 for f in sorted(glob.glob('internal-style/redirects/*.tsv')):
-    for line in open(f):
+    for line in read(f).splitlines(True):
         line=line.rstrip('\n')
         if '\t' in line:
             a,b = line.split('\t')[:2]
@@ -68,7 +71,9 @@ uniq = {}
 for a,b in red: uniq.setdefault(a,b)
 red = list(uniq.items())
 d['redirects'] = [dict(source='/'+a, destination='/'+b) for a,b in red]
-json.dump(d, open('docs.json','w'), indent=2); open('docs.json','a').write('\n')
+with open('docs.json','w') as out:
+    json.dump(d, out, indent=2)
+    out.write('\n')
 used = {p for t in tabs for g in t['groups'] for p in g.get('pages',[])}
 allp = {p[:-4] for p in glob.glob('**/*.mdx', recursive=True) if not p.startswith(('contributing/','internal-style/'))}
 print('orphans (page exists, not in nav):', sorted(allp-used-{p for p in allp if p.startswith('api/')} ))

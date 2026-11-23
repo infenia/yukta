@@ -126,3 +126,4 @@ try:
 except subprocess.TimeoutExpired:
     p.kill()
 print("exit", p.returncode)
+log.close()

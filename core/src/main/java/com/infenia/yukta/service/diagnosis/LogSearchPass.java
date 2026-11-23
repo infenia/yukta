@@ -87,7 +87,8 @@ final class LogSearchPass {
     }
     boolean beforeCursor = cursor != null;
     for (final Run run : runs) {
-      beforeCursor = beforeCursor && !run.executionId().equals(cursor.executionId());
+      beforeCursor =
+          cursor != null && beforeCursor && !run.executionId().equals(cursor.executionId());
       scanned += run.logs().size();
       final List<Pick> picks = searchRun(run);
       if (!beforeCursor && query.mode() == LogSearchMode.LINES) {

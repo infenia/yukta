@@ -26,7 +26,7 @@ class ClassifyPluginTest {
     final Map<String, Object> config = new HashMap<>();
     config.put("model", "nimble");
     config.put("labels", Map.of("bug", "software errors", "billing", "payments"));
-    for (int i = 0; i < extra.length; i += 2) {
+    for (int i = 0; i + 1 < extra.length; i += 2) {
       config.put((String) extra[i], extra[i + 1]);
     }
     return config;

@@ -18,7 +18,7 @@ Design rules (the existing diagrams follow them):
 """
 
 import generate as g
-from generate import ICONS, MONO, SANS, THEMES, esc, mix
+ICONS, MONO, SANS, THEMES, esc, mix = g.ICONS, g.MONO, g.SANS, g.THEMES, g.esc, g.mix
 
 W, H = 480, 270  # default canvas, 16:9
 

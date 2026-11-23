@@ -118,7 +118,7 @@ class EngineLimitsAcceptanceTest {
       await().pollDelay(Duration.ofMillis(20)).until(() -> true);
     } while (unfinished(progress) && System.nanoTime() < deadline);
 
-    assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(java.util.Objects.requireNonNull(progress).status()).isEqualTo(TaskStatus.SUCCESS);
     assertThat(mostRunning).isEqualTo(2);
     assertThat(sawQueued).isTrue();
   }
