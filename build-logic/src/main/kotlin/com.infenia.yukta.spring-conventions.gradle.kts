@@ -21,6 +21,10 @@ if (providers.gradleProperty("mutation").isPresent) {
 // Netty follows the catalog (boot/verifyNettyVersion checks it), ahead of the Boot BOM.
 extra["netty.version"] = libs.findVersion("netty").get().requiredVersion
 
+// Boot 4.1.2 manages OpenTelemetry 1.62.0; 1.67.0 fixes the quadratic tracestate parsing (Dependabot #220).
+// Delete once Boot ships >= 1.67.0.
+extra["opentelemetry.version"] = "1.67.0"
+
 dependencyManagement {
     imports {
         mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.findVersion("springBoot").get().requiredVersion}")
