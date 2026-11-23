@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor;
 
-import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -58,7 +57,7 @@ class ControlReviewerParentsTest {
 
   private final SupervisorResolver resolver = new SupervisorResolver();
 
-  private final ControlReviewer reviewer = new ControlReviewer(providerOf(), Duration.ofSeconds(2));
+  private final ControlReviewer reviewer = new ControlReviewer(Duration.ofSeconds(2));
 
   {
     reviewer.setAttachedSupervisors(attached);
