@@ -111,6 +111,8 @@ dependencies {
     constraints {
         // Resolve CVE-2025-67030: Plexus-utils directory traversal vulnerability
         add("checkstyle", "org.codehaus.plexus:plexus-utils:4.1.0")
+        // Checkstyle pulls Guava 33.5.0; 33.7.2+ fixes the CompactHashMap deserialization DoS (Dependabot #207)
+        add("checkstyle", "com.google.guava:guava:33.8.0-jre")
         // Keep spotbugs-annotations on the version SpotBugs itself uses
         add("implementation", "com.github.spotbugs:spotbugs-annotations:${libs.findVersion("spotbugsAnnotations").get().requiredVersion}")
     }
