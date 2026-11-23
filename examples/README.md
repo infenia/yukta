@@ -50,7 +50,7 @@ export YUKTA_AI_PRESETS_DIR=$PWD/examples/3-paid-tools/16-agent-console/agent-ha
 yukta                      # the installed server; from a source checkout: ./gradlew bootRun
 ```
 
-Then run the examples from the folder that holds `examples/` (no clone needed: `curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/heads/main | tar -xz --strip-components=1 --wildcards '*/examples'` downloads just that folder; on macOS leave out `--wildcards`), with `YUKTA_API_KEY` set if you gave the server a key
+Then run the examples from the folder that holds `examples/` (`install.sh` puts this folder in `~/.local/share/yukta/examples`, or `/usr/local/share/yukta/examples` as root; the Windows zip has it next to `yukta.exe`; without either, `curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/heads/main | tar -xz --strip-components=1 --wildcards '*/examples'` downloads just that folder; on macOS leave out `--wildcards`), with `YUKTA_API_KEY` set if you gave the server a key
 (`YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE=ADMIN`):
 
 ```bash

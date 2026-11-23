@@ -31,6 +31,9 @@ cp "$cli" "$stage/$name/yukta-cli${cli##*-$platform}"   # keeps the .exe on Wind
 cp "$REPO_ROOT/LICENSE" "$REPO_ROOT/NOTICE" "$RELEASE_DIR/yukta.env" "$stage/$name/"
 if [[ "$platform" == windows-* ]]; then
   need zip
+  # Windows is installed by unzipping by hand (install.ps1 is not attached yet), so the zip carries the
+  # examples next to yukta.exe. install.sh gets them from yukta-examples-<version>.tar.gz instead.
+  git -C "$REPO_ROOT" archive --format=tar HEAD -- examples | tar -x -C "$stage/$name"
   # install.ps1 expects yukta-<version>-windows-amd64.zip holding yukta-<version>-windows-amd64/
   find "$stage/$name" -exec touch -d '2026-01-01 00:00:00 UTC' {} +
   (cd "$stage" && find "$name" | LC_ALL=C sort | zip -qX "$out/$name.zip" -@)

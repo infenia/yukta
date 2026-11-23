@@ -1,9 +1,8 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme-hero.dark.svg">
-  <img alt="Yukta: workflows you can trust and control. Write a job down once as a flowchart; Yukta runs every step as written, whether it is a script, a rule or an AI model." src="docs/images/readme-hero.light.svg">
-</picture>
-
 <h1 align="center"><img src="docs/images/logo.svg" alt="" height="44" align="absmiddle"> Yukta</h1>
+
+<p align="center"><b>Workflows you can trust and control.</b></p>
+
+<p align="center">Write a job down once as a flowchart. Yukta runs every step as written, whether it's a script, a rule or an AI model, and lets you pause it, steer it or put someone in charge while it runs.</p>
 
 <p align="center">
   <a href="https://yukta.infenia.com/"><b>Docs</b></a> ·
@@ -25,47 +24,40 @@
 </p>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/workflow-canvas.dark.png">
-  <img alt="The Yukta web UI showing a release workflow mid-run: a validate step, a branch, an AI step that drafts release notes, and an approval that is waiting for a person." src="docs/images/ui/workflow-canvas.light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme-run.dark.webp">
+  <img alt="A release run playing in the Yukta web UI: a tag starts it, a rule validates it, a branch sends it to an approval while an AI step drafts the release notes, a person approves, and it deploys and notifies the team. Each step lights up while it runs and turns green when it is done." src="docs/images/readme-run.light.webp">
 </picture>
 
-<p align="center"><i>A release workflow mid-run. The AI step is one box among rule-based steps, and the run waits at an approval until someone answers.</i></p>
+<p align="center"><i>A release run from start to finish. Rules check it, the AI drafts the notes, a person approves, and only then does it ship.</i></p>
 
 ## Why it exists
 
-You know how the work should go: build, test, review, approve, deploy. Written down in a wiki, a prompt or a script, the process quietly stops being followed. A check gets skipped, an agent decides a step is not needed this time, and nobody can say what state the work is in.
+Every team has a right way to get things done: check the order, get a sign-off, then ship. That way usually lives in a wiki page, a checklist or someone's head, and over time steps get skipped. Someone is in a hurry, a script fails without saying so, or an AI assistant decides a step isn't needed today. Nobody notices until something breaks, and then nobody can say what actually happened.
 
-**Yukta keeps the process in a server, as a graph, and enforces it.**
+**Yukta turns the way you work into a flowchart that actually runs.** Each step happens in order, every time. You can see where any job stands, and who or what did each part. When AI does part of the work, it does only that part, and your rules still decide the rest.
+
+That was the starting point. Today Yukta also lets you put someone in charge of a running job, whether a set of rules, an AI agent or a person, who can pause it, step in or approve the risky part. You can also describe a workflow in plain words and have an AI assistant build it, run it and watch it for you.
 
 ## What makes it different
 
-| | |
-|---|---|
-| 🔀 **Workflows are flowcharts (DAGs)** | Steps, arrows and named outcomes, with branches, joins, retries and sub-workflows. No cycles, so no accidental loops. [How it works →](https://yukta.infenia.com/concepts/how-it-works) |
-| 🤖 **AI and deterministic work in one graph** | Scripts, HTTP, SQL and rules sit beside model calls and agent loops. Use AI where judgement helps; use rules where the answer must always be the same. [Why →](https://yukta.infenia.com/concepts/ai-and-deterministic-work) |
-| 🛡️ **Supervisors** | Every part of a run can have an owner (rules, an AI agent, another workflow or a program) that watches, steps in, and decides who may steer. [Supervisors →](https://yukta.infenia.com/concepts/supervisors) |
-| 💬 **AI-assisted setup over MCP** | An assistant such as Claude Code can write the workflow, start it, watch it and steer it, within the role you give it. [AI-assisted configuration →](https://yukta.infenia.com/concepts/ai-assisted-configuration) |
+- **Steps run as written.** A workflow is a flowchart: boxes for steps, arrows between them. It can branch, wait, retry or hand off to another workflow, but it can never loop forever. [How it works →](https://yukta.infenia.com/concepts/how-it-works)
+- **AI and rules side by side.** A step can be a script, a web call, a database query, a fixed rule or an AI model. Use AI where judgement helps, and rules where the answer must always be the same. [Why →](https://yukta.infenia.com/concepts/ai-and-deterministic-work)
+- **Someone is always in charge.** Give any run an owner, whether a set of rules, an AI agent, another workflow or a program. The owner watches the run and can step in. [Supervisors →](https://yukta.infenia.com/concepts/supervisors)
+- **Set it up by asking.** Tell an assistant such as Claude Code what you want, and it builds the workflow, runs it and watches it, with only the permissions you give it. [AI-assisted configuration →](https://yukta.infenia.com/concepts/ai-assisted-configuration)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme-flow.dark.svg">
   <img width="100%" alt="A workflow: a trigger starts the run, a rule validates it, an AI model classifies it, a person or supervisor approves it, and a script deploys it. Invalid or rejected runs end at Reject." src="docs/images/readme-flow.light.svg">
 </picture>
 
-<p align="center"><i>One workflow, two kinds of step. The AI step (blue) proposes; a rule gates it; a person or supervisor (orange) decides the risky part.</i></p>
+<p align="center"><i>One workflow, two kinds of step. The AI step (blue) suggests, a rule checks it, and a person or supervisor (orange) makes the risky call.</i></p>
 
 ## Install
 
 > [!NOTE]
-> **Alpha.** Expect breaking changes to the workflow JSON and the APIs before 1.0. Sessions live in memory by default. See [Releases](https://yukta.infenia.com/reference/releases).
+> **Alpha.** The workflow format and the APIs may change before 1.0. By default, Yukta keeps its data in memory, so it is lost when the server stops. See [Releases](https://yukta.infenia.com/reference/releases).
 
-From `0.1.0-alpha.4` on (earlier releases: see the note below the commands), the server is one native binary with no JVM to install, on the platforms below, plus a multi-architecture Docker image. The commands point at the latest release.
-
-| | `amd64` | `arm64` |
-|---|:---:|:---:|
-| 🐧 **Linux** | ✅ native | ✅ native |
-| 🍎 **macOS** | ✅ native (Intel; runs on Apple silicon through Rosetta 2) | client only |
-| 🪟 **Windows** | ✅ native | not yet |
-| 🐳 **Docker image** | ✅ | ✅ |
+Yukta installs as a single program. Pick your system:
 
 **Linux and macOS**
 
@@ -86,9 +78,25 @@ docker pull ghcr.io/infenia/yukta:0.1.0-alpha.4
 ```
 
 > [!IMPORTANT]
-> Installing does not start the server. Start it in [Quickstart, step 2](#quickstart): that command (native, Windows and Docker) carries the settings the examples need. A server started with a bare `yukta` or a bare `docker run` refuses the commands most examples run, and they fail or report `SKIP`.
+> Installing does not start the server. Start it with the command in [Quickstart, step 1](#quickstart): a bare `yukta` or `docker run` leaves out the settings the examples need.
 
-**AI agents.** The install script can also connect the agents on your machine (Claude Code, Codex, Antigravity, Cursor, VS Code, Windsurf, OpenCode) to Yukta: it asks at the end on a terminal, or pass `--agents auto` (`$env:YUKTA_AGENTS = 'auto'` on Windows). Later: `yukta-cli agents install`.
+**AI agents.** At the end, the install script offers to connect the agents on your machine (Claude Code, Codex, Cursor, VS Code and others). To do it later, run `yukta-cli agents install`.
+
+<details>
+<summary><b>More options</b>: supported platforms, uninstall, checksums and other packages</summary>
+
+<br>
+
+**Supported platforms.** The server is one native binary on the platforms below, plus a multi-architecture Docker image. The commands above point at the latest release.
+
+| | `amd64` | `arm64` |
+|---|:---:|:---:|
+| 🐧 **Linux** | ✅ native | ✅ native |
+| 🍎 **macOS** | ✅ native (Intel; runs on Apple silicon through Rosetta 2) | client only |
+| 🪟 **Windows** | ✅ native | not yet |
+| 🐳 **Docker image** | ✅ | ✅ |
+
+**AI agents without prompts.** Pass `--agents auto` to the install script (`$env:YUKTA_AGENTS = 'auto'` on Windows) to connect every supported agent it finds: Claude Code, Codex, Antigravity, Cursor, VS Code, Windsurf and OpenCode.
 
 **Uninstall** (Linux and macOS; stop the server first). Windows: delete the unzipped folder. Docker: `docker rmi` the image. It also disconnects the AI agents set up by `yukta-cli agents install`.
 
@@ -96,57 +104,52 @@ docker pull ghcr.io/infenia/yukta:0.1.0-alpha.4
 curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh -s -- --uninstall
 ```
 
-Releases `0.1.0-alpha.3` and earlier ship a native server for Linux `amd64` only; on any other system use Docker for the server (the `yukta-cli` client is native everywhere).
+**Checksums, signing and other packages.** The macOS and Windows builds are not signed or notarized, so Gatekeeper and SmartScreen warn on a browser download; the install script avoids the macOS warning. Every release file is checksummed and signed. Debian, RPM, source: [Install](https://yukta.infenia.com/get-started/install) and [Deploy](https://yukta.infenia.com/guides/operate/deploy).
 
-<details>
-<summary><b>Checksums, signing, Debian, RPM, source</b></summary>
-
-<br>
-
-The macOS and Windows builds are not signed or notarized, so Gatekeeper and SmartScreen warn on a browser download; the install script avoids the macOS warning. Every release file is checksummed and signed. Debian, RPM, source: [Install](https://yukta.infenia.com/get-started/install) and [Deploy](https://yukta.infenia.com/guides/operate/deploy).
+**Problems.** If a platform fails, [open an issue](https://github.com/infenia/yukta/issues/new/choose) with your OS and architecture.
 
 </details>
 
-If a platform fails, [open an issue](https://github.com/infenia/yukta/issues/new/choose) with your OS and architecture.
-
 ## Quickstart
 
-**1. Get the examples.** No clone and no `git`: this downloads the repository as one archive and keeps only the `examples/` folder (about 10 MB transferred, 600 KB kept). It needs `curl` and `tar`; the example scripts also need `jq`.
+Three steps, a few minutes. The install put ready-made examples in `~/.local/share/yukta/examples` (`/usr/local/share/yukta/examples` when installed as root); their scripts need `curl` and `jq`.
 
-```bash
-curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/heads/main | tar -xz --strip-components=1 --wildcards '*/examples'
-```
-
-On macOS leave out `--wildcards` (its `tar` takes the pattern without it). On Windows run it in Git Bash. Use a tag instead of `refs/heads/main` (for example `refs/tags/v0.1.0-alpha.4`) to get the examples of that release.
-
-> [!NOTE]
-> The examples on `main` go with a server built from `main`. `0.1.0-alpha.4` predates them: its examples have a different layout and its server rejects the node colors they use, so with that release use the examples from its own tag, as above.
-
-**2. Start the server with everything the examples need.** Yukta refuses to run commands, read the temp folder or load plugins that touch the outside unless you allow them, so the examples need these settings. They are the sum of what all of them use; a server that allows less still runs the rest and the others report `SKIP` and name what is missing. Run it from the folder where you ran step 1. Start the server with these settings, not with a bare `yukta` or `docker run`: without them most examples fail or report `SKIP`.
-
-Linux and macOS (the native server):
+**1. Start the server.** Out of the box, Yukta won't run commands on your machine or load plugins that reach the outside world. These settings allow what the examples need:
 
 ```bash
 export YUKTA_PLUGINS_ENABLED=all
 export YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3,git,uv,bun,node,npm
 export YUKTA_VARIABLES_ALLOWED=java.io.tmpdir
-export YUKTA_AI_PRESETS_DIR=$PWD/examples/3-paid-tools/16-agent-console/agent-harnesses
+export YUKTA_AI_PRESETS_DIR=$HOME/.local/share/yukta/examples/3-paid-tools/16-agent-console/agent-harnesses
 yukta
 ```
 
-Windows (PowerShell, from the folder where you ran step 1; run the example scripts from Git Bash):
+<details>
+<summary><b>Windows</b> (PowerShell)</summary>
+
+<br>
+
+The examples are in the unzipped folder, next to `yukta.exe`. Run this from the folder you unzipped into, and run the example scripts from Git Bash:
 
 ```powershell
 $env:YUKTA_PLUGINS_ENABLED = 'all'
 $env:YUKTA_PROCESS_ALLOWED_COMMANDS = 'sh,echo,shuf,python3,git,uv,bun,node,npm,npm.cmd'
 $env:YUKTA_VARIABLES_ALLOWED = 'java.io.tmpdir'
-$env:YUKTA_AI_PRESETS_DIR = "$PWD\examples\3-paid-tools\16-agent-console\agent-harnesses"
+$env:YUKTA_AI_PRESETS_DIR = "$PWD\yukta-<version>-windows-amd64\examples\3-paid-tools\16-agent-console\agent-harnesses"
 .\yukta-<version>-windows-amd64\yukta.exe
 ```
 
-Docker (any OS). The image carries only `sh` and `echo`, so run the examples that need nothing else here; the ones that need `git`, `python3`, `shuf`, `uv`, `bun` or `node` (11, 12, 14, 17, 18 and 19) need the native server above. The examples keep their files in `/tmp/yukta-examples`, so the container shares that folder with your machine and runs as you:
+</details>
+
+<details>
+<summary><b>Docker</b> (any OS)</summary>
+
+<br>
+
+The image carries only `sh` and `echo`, so run the examples that need nothing else here; the ones that need `git`, `python3`, `shuf`, `uv`, `bun` or `node` (11, 12, 14, 17, 18 and 19) need the native server above. The examples keep their files in `/tmp/yukta-examples`, so the container shares that folder with your machine and runs as you. Without the installer, get the example scripts first (on macOS leave out `--wildcards`):
 
 ```bash
+curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/tags/v0.1.0-alpha.4 | tar -xz --strip-components=1 --wildcards '*/examples'
 mkdir -p /tmp/yukta-examples
 docker run --rm -p 127.0.0.1:9858:9858 --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp \
   -v /tmp/yukta-examples:/tmp/yukta-examples \
@@ -158,23 +161,29 @@ docker run --rm -p 127.0.0.1:9858:9858 --user "$(id -u):$(id -g)" --workdir /tmp
 export YUKTA_API_KEY=change-me-to-a-long-random-secret   # the scripts send it to the server
 ```
 
-Check that it is up:
+Then use `./examples` wherever the steps below say `~/.local/share/yukta/examples`.
+
+</details>
+
+Check that it's up:
 
 ```bash
 curl http://localhost:9858/actuator/health
 # {"groups":["liveness","readiness"],"status":"UP"}
 ```
 
-**3. Run your first workflow.** It saves a small flowchart (input, default, text to digit, even or odd branch, greeting), starts it three times and checks each result:
+**2. Run your first workflow.** Open <http://localhost:9858>, choose **New session** and pick the **Hello world** template: a small flowchart that greets you and says whether a digit is odd or even. Most examples are there as templates.
+
+Or from a second terminal, where the script saves the same workflow, runs it three times and checks each result:
 
 ```bash
-./examples/1-standalone/01-hello-world/run.sh
+~/.local/share/yukta/examples/1-standalone/01-hello-world/run.sh
 # expected: three runs with status SUCCESS, e.g. "Hello, Yukta! Digit 5 is odd."
 ```
 
-Then try the rest: `./examples/run-all.sh` runs every example and prints a summary, or pick one from [`examples/`](examples/README.md) (which says what each needs). The web console at <http://localhost:9858> lists them as templates you can start a session from.
+`~/.local/share/yukta/examples/run-all.sh` runs them all and prints a summary; [`examples/`](examples/README.md) says what each one needs.
 
-**4. Connect an AI assistant** in one line:
+**3. Connect an AI assistant:**
 
 ```bash
 claude mcp add --transport http yukta http://localhost:9858/mcp
@@ -207,17 +216,17 @@ Key names differ between clients (`url`, `httpUrl`, `type`); use the one yours d
 
 </details>
 
-**Next:** [Your first workflow](https://yukta.infenia.com/learn/your-first-workflow) builds one by hand, step by step. [Let an assistant build a workflow](https://yukta.infenia.com/learn/let-an-assistant-build-a-workflow) does the same by asking. The web UI is at <http://localhost:9858>.
+**Next:** [Your first workflow](https://yukta.infenia.com/learn/your-first-workflow) builds one by hand, step by step. [Let an assistant build a workflow](https://yukta.infenia.com/learn/let-an-assistant-build-a-workflow) does the same by asking.
 
-## Configure it by asking
+## Set it up by asking
 
-Connect an assistant once, then describe what you want in plain words:
+Once an AI assistant is connected ([Quickstart, step 3](#quickstart)), tell it what you want in plain words:
 
-> Build a workflow that validates a release ticket, asks a model to draft the notes, and waits for my approval before deploying.
+> Build a workflow that checks a release ticket, asks a model to draft the release notes, and waits for my approval before deploying.
 >
-> Add a supervisor that pauses the release when three deploys fail in a row. Start it in dry run.
+> Pause the release if three deploys fail in a row. Try it first without letting it act.
 >
-> Replay that supervisor on yesterday's failed run and show me what it would have done.
+> Show me what that rule would have done on yesterday's failed run.
 
 <p align="center">
 <picture>
@@ -226,7 +235,7 @@ Connect an assistant once, then describe what you want in plain words:
 </picture>
 </p>
 
-The assistant writes the workflow and the supervisor over MCP, assigns it and checks the result. You review each change before it applies, and a role on your API key limits what it may do. See [Configure Yukta by asking](https://yukta.infenia.com/guides/ai/configure-with-an-assistant).
+The assistant drafts each change, shows it to you, and applies it only when you say yes. You also decide how far it can go: with a read-only key it can look but not change anything. [Configure Yukta by asking →](https://yukta.infenia.com/guides/ai/configure-with-an-assistant)
 
 ## How it works
 
@@ -235,43 +244,43 @@ The assistant writes the workflow and the supervisor over MCP, assigns it and ch
   <img alt="Architecture: clients (REST, web UI, MCP, CLI) enter through admission (limits, queue, idempotency). A definition is validated and prepared, then the stream engine runs it with a stream per edge, calling plugins on local or remote workers. The engine feeds observation (progress, logs, metrics) and durability (execution log, checkpoints). Supervisors read the event feed and send ordered, audited commands back through the control plane." src="docs/images/diagrams/architecture.light.svg">
 </picture>
 
-Every client goes through the same door, so a run started by a script and one started by an assistant obey the same limits. Supervisors never touch the engine directly: they read events and send commands through the control plane, where each command is ordered and audited. More in [How it works](https://yukta.infenia.com/concepts/how-it-works).
+However a run starts, from a script, the web UI, the command line or an AI assistant, it comes in through the same front door and follows the same limits. Whoever is in charge of a run never changes it behind your back: they send requests, and each request is put in order and recorded, so you can always see who did what. More in [How it works](https://yukta.infenia.com/concepts/how-it-works).
 
 ## See it
 
 | | |
 |:---:|:---:|
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/sessions-list.dark.png"><img alt="The Sessions page: five sessions with tags, creator, working directory and the status of the last run." src="docs/images/ui/sessions-list.light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/supervisors-page.dark.png"><img alt="The Supervisors page: the release-guard supervisor with its decision counts and the workflow it owns." src="docs/images/ui/supervisors-page.light.png"></picture> |
-| **Sessions.** Every workflow group and how its last run went. | **Supervisors.** Who watches a run, what they decided, who they answer to. |
+| **Sessions.** Your workflows, grouped, and how each one last ran. | **Supervisors.** Who is in charge of each run, and what they decided. |
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/control-overview.dark.png"><img alt="The Control bus: supervisors, applied and refused decisions, runs per minute, success rate and approvals waiting." src="docs/images/ui/control-overview.light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/plugin-catalogue.dark.png"><img alt="The Plugins page: triggers, processors and terminals, with the Classify plugin open and its output ports drawn." src="docs/images/ui/plugin-catalogue.light.png"></picture> |
-| **Control bus.** Run health, capacity and every steering command. | **Plugins.** The building blocks you place on a canvas. |
+| **Control bus.** How runs are doing right now, and every request to pause, stop or change one. | **Plugins.** The building blocks you put on the canvas: scripts, web calls, AI models and more. |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/inputs-panel.dark.png">
   <img alt="An approval waiting for an answer: a high-risk release, the supervisors that were asked first, their advice, and Approve, Reject and Escalate buttons." src="docs/images/ui/inputs-panel.light.png">
 </picture>
 
-<p align="center"><i>An approval that reached a person. The supervisors were asked first; their advice comes with the question.</i></p>
+<p align="center"><i>An approval waiting for a person. Those in charge were asked first, and their advice comes with the question.</i></p>
 
 ## Find your way
 
 | I want to... | Go to |
 |---|---|
-| **Learn** by doing | [Tutorials](https://yukta.infenia.com/learn/your-first-workflow): first workflow, rules plus AI, an assistant as author, a supervisor, an approval |
-| **Do** a task | [Guides](https://yukta.infenia.com/guides/build/define-a-workflow): build, work with AI, supervise, deploy and operate |
-| **Look up** a fact | [Reference](https://yukta.infenia.com/reference/workflow-json) and the [API](https://yukta.infenia.com/api/overview): plugins, JSON, MCP tools, CLI, configuration |
-| **Understand** why | [Concepts](https://yukta.infenia.com/concepts/how-it-works): the mental model, supervisors, who decides |
+| **Learn** by doing | [Tutorials](https://yukta.infenia.com/learn/your-first-workflow): build a first workflow, mix rules and AI, let an assistant build one, put someone in charge, ask for an approval |
+| **Get a task done** | [Guides](https://yukta.infenia.com/guides/build/define-a-workflow): build, work with AI, supervise, deploy and run in production |
+| **Look something up** | [Reference](https://yukta.infenia.com/reference/workflow-json) and the [API](https://yukta.infenia.com/api/overview): plugins, the workflow format, MCP tools, CLI, settings |
+| **Understand** the ideas | [Concepts](https://yukta.infenia.com/concepts/how-it-works): how it works, who is in charge, who decides |
 | Start from something **ready-made** | [`examples/`](examples/README.md): 19 examples, from hello world to a CI pipeline |
 
 ## Honest limits
 
-- Alpha: APIs and the workflow JSON can change before 1.0. Native macOS and Windows servers are new and unsigned.
-- One server by default. High availability, durable stores and remote workers are in the [Plus build](LICENSING.md).
-- Workflows can run processes, scripts and SQL. Treat authorship as a trusted operation; the server binds to loopback and refuses to listen elsewhere without an API key. See [Secure the server](https://yukta.infenia.com/guides/operate/secure-the-server) and [`SECURITY.md`](SECURITY.md).
+- **It's alpha.** The workflow format and the APIs can still change before 1.0. The macOS and Windows builds are new and not signed yet, so downloading them in a browser triggers a warning.
+- **Nothing is saved by default.** One server keeps everything in memory, so stopping it loses your sessions and run history. Saving to disk or PostgreSQL, running several servers together, and remote workers are in the [Plus build](LICENSING.md).
+- **Workflows can run real commands.** A workflow can start programs and scripts and query databases, so only let people you trust write them. Out of the box the server listens only on your own machine and refuses outside connections without an API key. See [Secure the server](https://yukta.infenia.com/guides/operate/secure-the-server) and [`SECURITY.md`](SECURITY.md).
 
 ## Develop
 
-Built with Java 25, Spring Boot 4.1 (WebFlux), Gradle 9.8, Project Reactor, Spring AI MCP, GraalVM, React 19 and Go. You need a JDK 25.
+Built with Java 25, Spring Boot 4.1 (WebFlux), Project Reactor, Spring AI MCP, GraalVM, React 19 and Go. You need a JDK 25; the Gradle wrapper comes with the repository.
 
 ```bash
 ./gradlew bootRun          # run the server
@@ -287,15 +296,16 @@ Built with Java 25, Spring Boot 4.1 (WebFlux), Gradle 9.8, Project Reactor, Spri
 
 | Module | Purpose |
 |--------|---------|
-| `core` | DAG orchestration engine, plugin registry |
-| `plugin-api` | Plugin interfaces and store abstractions |
-| `plugins` | Built-in triggers, processors, terminals and supervisor engines |
-| `web` / `mcp` | REST controllers / MCP server |
-| `ui` / `cli` | React frontend / Go command-line client |
-| `boot` | Spring Boot entry point, native image config |
-| `plus/persistence-postgres` | Optional (AGPL) PostgreSQL stores |
-| `claude-mods` | Claude Code plugin |
-| `messaging`, `build-logic`, `examples` | Shared messaging, Gradle conventions, runnable workflows |
+| `core` | The engine that runs workflows, and the plugin registry |
+| `plugin-api` | What a plugin implements, and the store interfaces |
+| `plugins` | The built-in triggers, steps, endings and supervisor engines |
+| `web` / `mcp` | The REST API / the MCP server for AI assistants |
+| `ui` / `cli` | The React web UI / the Go command-line client |
+| `boot` | The Spring Boot entry point and the native-image setup |
+| `architecture`, `e2e`, `test-support` | Architecture rules (ArchUnit), tests against a running server, shared test helpers |
+| `plus/` | Optional (AGPL): PostgreSQL storage, high availability, remote workers |
+| `claude-mods` | The Claude Code plugin |
+| `messaging`, `build-logic`, `examples` | Shared messaging, Gradle conventions, the runnable examples |
 
 Each module has its own `CLAUDE.md` with build commands and architecture notes.
 
@@ -324,7 +334,7 @@ Contributors (and Claude Code, held to it by hooks) run builds, tests and checks
 Contributions are welcome: bug reports, plugins, docs and tests. New here? Start with a [good first issue](https://github.com/infenia/yukta/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
 
 1. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
-2. Branch from `main`, format with `spotlessApply`, and make sure `check` passes.
+2. Branch from `main`, format with `./gradlew spotlessApply`, and make sure `./gradlew check` passes.
 3. Use [Conventional Commits](https://www.conventionalcommits.org/) and open a pull request.
 
 Ask questions in [Discussions](https://github.com/infenia/yukta/discussions); report bugs and request features as [issues](https://github.com/infenia/yukta/issues/new/choose); report vulnerabilities [privately](SECURITY.md). Project rules are in [`GOVERNANCE.md`](GOVERNANCE.md).

@@ -758,6 +758,8 @@ export const LIVE_RUNS: LiveRun[] = [
     nodesDone: 6,
     nodesSeen: 9,
     p95Ms: 94_000,
+    paused: false,
+    currentNodes: ['approve'],
   },
 ];
 

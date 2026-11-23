@@ -109,7 +109,21 @@ export const base: Stub = async (page) => {
   await empty(/\/api\/control\/(heartbeats|audit)/);
   await empty(/\/api\/sessions\/[^/]+\/inputs(\?|$)/);
   await empty(/\/api\/sessions\/[^/]+\/workflows\/[^/]+\/versions/);
-  await empty(/\/api\/metrics\/(heatmap|modules|annotations|runs\/live)(\?|$)/);
+  await empty(
+    /\/api\/metrics\/(heatmap|modules|nodes|annotations|runs\/live)(\?|$)/
+  );
+  // The inbox in the header: no notifications, default preferences.
+  await empty(/\/api\/notifications(\?|$)/);
+  await empty(/\/api\/notifications\/preferences$/, {
+    levels: {},
+    mutedSessions: [],
+  });
+  // The editor validates its draft on load; the docs draft is valid.
+  await page.route(/\/api\/sessions\/validate$/, (route) =>
+    route.request().method() === 'POST'
+      ? route.fulfill(ok({ valid: true, message: null, outputPorts: {} }))
+      : route.fallback()
+  );
   await empty(/\/api\/metrics\/snapshot(\?|$)/, {
     time: NOW.getTime(),
     values: {},
@@ -129,7 +143,12 @@ export const base: Stub = async (page) => {
     idle: true,
   });
   await empty(/\/api\/scheduler\/limits/, { ...LIMITS, running: 0, queued: 0 });
-  for (const stream of [/\/api\/metrics\/stream/, /\/api\/events\/stream/]) {
+  for (const stream of [
+    /\/api\/metrics\/stream/,
+    /\/api\/events\/stream/,
+    /\/api\/notifications\/stream/,
+    /\/api\/executions\/[^/]+\/conversations\/stream/,
+  ]) {
     await page.route(stream, (route) =>
       route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' })
     );

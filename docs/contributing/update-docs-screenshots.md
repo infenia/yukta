@@ -30,9 +30,21 @@ yk tool -C ui pnpm docs:screenshots:check -- --strict      # same, exit non-zero
 yk tool -C ui pnpm docs:screenshots:types                  # typecheck the stubs against the UI types
 ```
 
+The Vite dev server runs on port 5173, and a server already listening there is reused. If another app holds that port, every shot captures that app (a "Not found" page), so pick a free port: `DOCS_SHOT_PORT=5174 yk tool -C ui pnpm docs:screenshots`. A shot also fails when the page throws, so an error page is never saved.
+
 `--check` compares a fresh render with the committed image and calls a shot stale when more than 0.2 percent of pixels differ (`DOCS_SHOT_TOLERANCE=0.01` changes that). Look at the result with `git diff --stat docs/images/ui` and open the changed images before committing. Fonts and anti-aliasing differ a little between machines, so regenerate on the machine you normally use and expect small byte differences in unchanged shots; commit only the shots whose content changed.
 
 A failure names the shot (`Shot "supervisor-chain" (dark) failed: ...`) and says what it waited for. `--only <name>` reruns just that one.
+
+## The README animation
+
+The animation at the top of the README (`docs/images/readme-run.light.webp` and `.dark.webp`) is the same stubbed release run, played from the tag to the notification. Record it with:
+
+```bash
+yk tool -C ui pnpm docs:screenshots -- --hero
+```
+
+It needs `ffmpeg` with the `libwebp_anim` encoder. `ui/e2e/docs-screenshots/hero.spec.ts` holds the steps (which node runs when, and for how long). The status stream stub answers with `retry: 250`, so the page's EventSource picks up each step by itself. Chromium's screencast records the canvas at its real speed, and `ffmpeg` turns the frames into a 10 fps animated WebP, about 200 KB per theme. GitHub does not play video files from the repository in a README, so the animation is an image.
 
 ## When the UI changes
 

@@ -14,8 +14,11 @@
 #   --version <X.Y.Z>     install this version                       [YUKTA_VERSION]
 #   --install-dir <dir>   where to put the programs                  [YUKTA_INSTALL_DIR]
 #                         default: /usr/local/bin as root, else ~/.local/bin
-#   --cli-only            install only yukta-cli
+#   --cli-only            install only yukta-cli (and no examples)
 #   --server-only         install only the server
+#   --examples-dir <dir>  where to put the examples                  [YUKTA_EXAMPLES_DIR]
+#                         default: <install-dir>/../share/yukta/examples (~/.local/share/yukta/examples)
+#   --no-examples         do not install the examples
 #   --check               say whether a newer release exists; install nothing (exit 1 if behind)
 #   --force               reinstall even when this version is already installed
 #   --agents <how>        connect AI agents (Claude Code, Codex, Antigravity, Cursor, VS Code,
@@ -37,9 +40,10 @@
 #
 # What it does: downloads SHA256SUMS and the files for your system from the GitHub release,
 # refuses to continue if a checksum does not match (and, when cosign is installed, if the Sigstore
-# signature of SHA256SUMS does not verify), and copies the programs into place. Running it again
-# upgrades: the previous programs are kept as yukta.prev and yukta-cli.prev, and to roll back you
-# can move them back or pass --version <old>. It does not use sudo, change your shell profile or
+# signature of SHA256SUMS does not verify), and copies the programs into place, and the examples of
+# that release into the examples folder. Running it again upgrades: the previous programs are kept as
+# yukta.prev and yukta-cli.prev (the examples are replaced), and to roll back you can move them back
+# or pass --version <old>. It does not use sudo, change your shell profile or
 # send anything anywhere but GitHub.
 #
 # Native server downloads exist for Linux. On macOS the script installs the client and tells you how to
@@ -78,8 +82,11 @@ case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
 esac
 
 # The steps are listed up front and each line is redrawn in place as the install moves along.
-NSTEPS=6
+NSTEPS=7
 cur=0; curtext=""; step_t0=0; job=""; tmp=""
+# Written into the examples folder, so an upgrade or --uninstall only ever replaces or removes a folder
+# this script made (the path can come from --examples-dir).
+EX_MARK=".yukta-examples"
 
 # Redraw tracker line <step> with <glyph> and <text>; the cursor rests on the line below the list.
 mark() {
@@ -90,7 +97,7 @@ mark() {
 plan() {
   [ "$fun" = "1" ] || return 0
   printf '\033[?25l'
-  for l in "Detect system" "Fetch checksums" "Download" "Verify" "Install" "Check PATH"; do
+  for l in "Detect system" "Fetch checksums" "Download" "Verify" "Install" "Examples" "Check PATH"; do
     printf '  %s%s %s%s\n' "$D" "$TODO" "$l" "$Z"
   done
 }
@@ -119,8 +126,10 @@ spin() {
 }
 # Tenths of a megabyte as "12.3".
 mb() { t=$(($1 * 10 / 1048576)); printf '%s.%s' "$((t / 10))" "$((t % 10))"; }
-# Download <url> to <dest>, drawing a progress bar on tracker line 3 from the size of the file so far.
+# Download <url> to <dest> with <label>, drawing a progress bar on tracker line <step> (default 3) from
+# the size of the file so far.
 download() {
+  line="${4:-3}"
   total="$(content_len "$1")"; total="${total:-0}"
   if [ "$fun" = "0" ]; then fetch "$1" "$2"; return; fi
   fetch "$1" "$2" & job=$!
@@ -144,7 +153,7 @@ download() {
       bps=$((got / secs)); text="$text  $(mb "$bps") MB/s"
       [ "$total" -le 0 ] || [ "$bps" -le 0 ] || text="$text  ETA $(((total - got) / bps))s"
     fi
-    frame "$i"; mark 3 "$U$frame_c$Z" "$text"; i=$((i + 1)); sleep 0.1
+    frame "$i"; mark "$line" "$U$frame_c$Z" "$text"; i=$((i + 1)); sleep 0.1
   done
   wait "$job"
 }
@@ -167,8 +176,11 @@ Options (environment variable in brackets):
   --version <X.Y.Z>     install this version                   [YUKTA_VERSION]
   --install-dir <dir>   where to put the programs              [YUKTA_INSTALL_DIR]
                         default: /usr/local/bin as root, else ~/.local/bin
-  --cli-only            install only yukta-cli
+  --cli-only            install only yukta-cli (and no examples)
   --server-only         install only the server
+  --examples-dir <dir>  where to put the examples              [YUKTA_EXAMPLES_DIR]
+                        default: <install-dir>/../share/yukta/examples
+  --no-examples         do not install the examples
   --check               say whether a newer release exists; install nothing (exit 1 if behind)
   --force               reinstall even when this version is already installed
   --agents <how>        connect AI agents to Yukta (MCP server + skills): ask (default, on a
@@ -210,6 +222,43 @@ get_verified() {
   [ -n "$want" ] || err "$1 is not listed in SHA256SUMS"
   [ "$(sha256_of "$tmp/$1")" = "$want" ] || err "checksum mismatch for $1; not installing"
   step_done 4 "Verify checksum" "sha256 of $1 matches"
+}
+
+# Download, verify and unpack the examples of this release (tracker step 6) into $edir, replacing the
+# copy an earlier run put there. A release without them (before 0.1.0-alpha.5) installs without them.
+install_examples() {
+  installed_examples=0
+  step_start 6 "Examples"
+  [ "$do_examples" = "1" ] || { step_done 6 "Examples" "skipped"; return 0; }
+  f="yukta-examples-$version.tar.gz"
+  listed "$f" || { step_done 6 "Examples" "none in this release"; return 0; }
+  if [ -e "$edir" ] && [ ! -f "$edir/$EX_MARK" ]; then
+    step_done 6 "Examples" "skipped: $edir exists and was not made by this installer"; return 0
+  fi
+  # The examples are optional: a failure here skips them and the install goes on.
+  skip() { step_done 6 "Examples" "skipped: $1"; printf 'warning: examples not installed: %s\n' "$1" >&2; }
+  download "$BASE_URL/v$version/$f" "$tmp/$f" "Examples" 6 || { skip "download failed"; return 0; }
+  want="$(awk -v f="$f" '$2 == f || $2 == "*" f { print $1; exit }' "$tmp/SHA256SUMS")"
+  [ "$(sha256_of "$tmp/$f")" = "$want" ] || { skip "checksum mismatch for $f"; return 0; }
+  mkdir "$tmp/ex"
+  tar -xzf "$tmp/$f" -C "$tmp/ex" || { skip "$f cannot be unpacked"; return 0; }
+  # One examples/ folder of regular files and folders: no link, nothing beside it.
+  { [ "$(ls -A "$tmp/ex")" = "examples" ] && [ -d "$tmp/ex/examples" ] && [ ! -L "$tmp/ex/examples" ]; } ||
+    { skip "$f does not hold a single examples folder"; return 0; }
+  [ -z "$(find "$tmp/ex" -type l)" ] || { skip "$f contains a link"; return 0; }
+  printf '%s\n' "$version" > "$tmp/ex/examples/$EX_MARK"
+  parent="$(dirname "$edir")"
+  mkdir -p "$parent" 2>/dev/null || true
+  { [ -d "$parent" ] && [ -w "$parent" ]; } ||
+    { skip "cannot write to $parent (--examples-dir chooses another, --no-examples skips)"; return 0; }
+  # Copy beside the old folder first (a private temp dir, never a path of the user's), so a failed copy leaves the old examples in place.
+  new="$(mktemp -d "$parent/.yukta-examples.XXXXXX")" || { skip "cannot write to $parent"; return 0; }
+  if ! cp -R "$tmp/ex/examples/." "$new"; then rm -rf "$new"; skip "copy failed"; return 0; fi
+  rm -rf "$edir"
+  mv "$new" "$edir"
+  chmod 0755 "$edir"
+  installed_examples=1
+  step_done 6 "Examples" "$edir"
 }
 
 # Verify the Sigstore signature of SHA256SUMS when cosign is installed; say what was checked.
@@ -304,6 +353,7 @@ main() {
   dir="${YUKTA_INSTALL_DIR:-}"
   do_cli=1; do_server=1; uninstall=0; check=0; force=0; quiet=0
   agents="${YUKTA_AGENTS:-ask}"
+  edir="${YUKTA_EXAMPLES_DIR:-}"; do_examples=1; installed_examples=0
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -311,6 +361,8 @@ main() {
       --install-dir) [ $# -ge 2 ] || err "--install-dir needs a value"; dir="$2"; shift ;;
       --cli-only) do_server=0 ;;
       --server-only) do_cli=0 ;;
+      --examples-dir) [ $# -ge 2 ] || err "--examples-dir needs a value"; edir="$2"; shift ;;
+      --no-examples) do_examples=0 ;;
       --check) check=1 ;;
       --force) force=1 ;;
       --agents) [ $# -ge 2 ] || err "--agents needs a value"; agents="$2"; shift ;;
@@ -332,6 +384,10 @@ main() {
   if [ -z "$dir" ]; then
     if [ "$(id -u)" = "0" ]; then dir=/usr/local/bin; else dir="${HOME:?HOME is not set}/.local/bin"; fi
   fi
+  # Beside the programs, the usual way: ~/.local/bin -> ~/.local/share/yukta/examples,
+  # /usr/local/bin -> /usr/local/share/yukta/examples. A client alone (--cli-only) gets none.
+  [ -n "$edir" ] || edir="$(dirname "$dir")/share/yukta/examples"
+  [ "$do_server" = "1" ] || do_examples=0
 
   if [ "$uninstall" = "1" ]; then
     # Disconnect the agents first: the client that knows how is about to go.
@@ -341,6 +397,8 @@ main() {
     for f in yukta yukta-cli yukta.prev yukta-cli.prev; do
       if [ -f "$dir/$f" ]; then rm -f "$dir/$f" && say "removed $dir/$f"; fi
     done
+    # Only a folder this script made (it holds the marker); never one that only has the same path.
+    if [ -f "$edir/$EX_MARK" ]; then rm -rf "$edir" && say "removed $edir"; fi
     exit 0
   fi
 
@@ -452,10 +510,12 @@ main() {
   fi
   step_done 5 "Install" "$dir"
 
-  step_start 6 "Check PATH"
+  install_examples
+
+  step_start 7 "Check PATH"
   case ":$PATH:" in
-    *":$dir:"*) on_path=1; step_done 6 "Check PATH" "$dir is on your PATH" ;;
-    *) on_path=0; step_done 6 "Check PATH" "$dir is not on your PATH" ;;
+    *":$dir:"*) on_path=1; step_done 7 "Check PATH" "$dir is on your PATH" ;;
+    *) on_path=0; step_done 7 "Check PATH" "$dir is not on your PATH" ;;
   esac
 
   say ""
@@ -465,6 +525,7 @@ main() {
   say "  verified:   $verified${sig_note:+  [$sig_note]}"
   [ "$installed_server" = "0" ] || say "Installed: $dir/yukta (server) $version"
   [ "$do_cli" = "0" ] || say "Installed: $dir/yukta-cli (client) $version"
+  [ "$installed_examples" = "0" ] || say "Installed: $edir (examples) $version"
   if [ "$prev_kept" = "1" ]; then
     say "Previous version kept as *.prev; to roll back move them back, or run again with --version <old>."
   fi
@@ -515,6 +576,7 @@ main() {
     nx "1  yukta" "start the server"
     nx "2  http://localhost:9858" "open the web UI: sessions, live runs, logs"
     nx "3  yukta.infenia.com/learn/your-first-workflow" "build and run one in 5 minutes"
+    [ "$installed_examples" = "0" ] || nx "4  $edir" "ready-made examples; its README says how to run them"
     say ""
     say "${U}${B}Let your AI assistant drive it${Z}"
     [ "$do_cli" = "0" ] || say "  yukta-cli agents install        ${D}# connects Claude Code, Codex, Cursor, ... in one step${Z}"

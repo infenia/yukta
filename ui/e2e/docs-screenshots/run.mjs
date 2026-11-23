@@ -6,6 +6,7 @@
  *   --only <name[,name]>  capture only these shots
  *   --check               write nothing; list shots whose committed image is stale
  *   --strict              with --check, exit non-zero when any shot is stale
+ *   --hero                record the README's animated run instead (hero.spec.ts; needs ffmpeg)
  * Stale shots are collected from the spec's stdout (lines starting with STALE).
  */
 import { spawnSync } from 'node:child_process';
@@ -23,6 +24,7 @@ const strict = flag('--strict');
 const env = {
   ...process.env,
   DOCS_SHOT_CHECK: check ? '1' : '0',
+  DOCS_HERO: flag('--hero') ? '1' : '0',
   ...(only ? { DOCS_SHOT_ONLY: only } : {}),
 };
 const result = spawnSync(
