@@ -41,7 +41,7 @@ class McpRunDiagnosisE2eTest {
         .isEqualTo("FAILURE");
     final Map<String, Object> run = Map.of("sessionId", session, "executionId", execution);
 
-    try (Mcp mcp = Mcp.connect(ApiRole.VIEWER)) {
+    try (Mcp mcp = Mcp.connect(ApiRole.ADMIN)) {
       final McpSchema.CallToolResult digestResult = mcp.call("get_failure_digest", run);
       final JsonNode digest = Mcp.json(digestResult).path("digest");
       assertThat(digest.path("status").asString()).isEqualTo("FAILURE");
