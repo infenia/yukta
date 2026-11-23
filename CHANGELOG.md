@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.0-alpha.6](https://github.com/infenia/yukta/compare/v0.1.0-alpha.5...v0.1.0-alpha.6) (2026-11-23)
+
+
+### Bug fixes
+
+* **ci:** restart the server before the examples smoke; adapt real-server UI specs to the Runs filters ([#2649](https://github.com/infenia/yukta/issues/2649)) ([34a5b8c](https://github.com/infenia/yukta/commit/34a5b8cd091a31a4af69b3f76047664d780630b5))
+* **cli:** stop the agent log and attach test racing, run cover with -race ([#2651](https://github.com/infenia/yukta/issues/2651)) ([754cae2](https://github.com/infenia/yukta/commit/754cae24f61f6340c25dfeb5fe4c4dca1f590fd9))
+* **core:** reject control characters and unpaired surrogates in session IDs ([#2654](https://github.com/infenia/yukta/issues/2654)) ([809a494](https://github.com/infenia/yukta/commit/809a4943f0388bc5b65edc15ed56420c07a5c87d))
+* **e2e:** connect the run-diagnosis MCP test with the ADMIN key ([#2643](https://github.com/infenia/yukta/issues/2643)) ([523e28d](https://github.com/infenia/yukta/commit/523e28dfcc7502a440e9a11a453c9ff885ecf321))
+* **quality:** close files, drop unused imports, bound loops and null checks (CodeQL quality) ([#2634](https://github.com/infenia/yukta/issues/2634)) ([639f905](https://github.com/infenia/yukta/commit/639f905b5e5c914d46c9bf21be83a5dec775e9f8))
+* **quality:** NumberFormatException guards and unused bindings ([#2635](https://github.com/infenia/yukta/issues/2635)) ([54dd7fc](https://github.com/infenia/yukta/commit/54dd7fcf8a909c551b7dc5e0e6bb76c9bb17c2be))
+* **release:** unbreak the v0.1.0-alpha.5 release builds (case collision, shuf) ([#2633](https://github.com/infenia/yukta/issues/2633)) ([601877a](https://github.com/infenia/yukta/commit/601877aead0bee2a30a08e5f9fc8bef7f3d9cc07))
+* **security:** pin builder image by digest; patch OpenTelemetry and Checkstyle's Guava ([#2631](https://github.com/infenia/yukta/issues/2631)) ([cb8d335](https://github.com/infenia/yukta/commit/cb8d335103cf0a19e7278f75d1c0400b06b17d98))
+
+
+### Documentation
+
+* align the social preview with the README tagline ([#2642](https://github.com/infenia/yukta/issues/2642)) ([be4ea6b](https://github.com/infenia/yukta/commit/be4ea6b281e2953b805df057329ba74b270b00ca))
+* **core:** drop stale [@param](https://github.com/param) controlBus from YuktaProperties ([#2653](https://github.com/infenia/yukta/issues/2653)) ([71032c7](https://github.com/infenia/yukta/commit/71032c7b0913dd5568606b3db2186028806abc39))
+* **readme:** rework sections, install the examples with the server ([#2641](https://github.com/infenia/yukta/issues/2641)) ([6b81c27](https://github.com/infenia/yukta/commit/6b81c27def03653a7bda287d1daeb025f88c14c5))
+
 ## [0.1.0-alpha.5](https://github.com/infenia/yukta/compare/v0.1.0-alpha.4...v0.1.0-alpha.5) (2026-11-23)
 
 
