@@ -62,5 +62,7 @@ test('the filter finds a supervisor and Direct control lists a workflow nobody o
   await expect(
     page.getByRole('article').getByRole('heading', { name: 'Direct control' })
   ).toBeVisible();
-  await expect(page.getByRole('link', { name: `${free} / w` })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: `${free} / w`, exact: true })
+  ).toBeVisible();
 });

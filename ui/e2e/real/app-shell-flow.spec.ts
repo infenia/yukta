@@ -11,9 +11,8 @@ test('the real server serves the single page app on a deep link and on an unknow
   await expect(
     page.getByRole('heading', { level: 1, name: 'Runs' })
   ).toBeVisible();
-  await expect(page.getByLabel('Status')).toHaveAttribute(
-    'data-value',
-    'SUCCESS'
+  await expect(page.getByLabel('Status', { exact: true })).toContainText(
+    'Succeeded'
   );
 
   await page.goto('/no/such/page');
