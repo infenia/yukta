@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router';
 import { getPreferences } from './api';
 import { readDevicePrefs } from './devicePrefs';
 import { useNotifications } from './NotificationsContext';
-import { notificationHref } from './notificationLink';
+import { notificationHref } from './notificationHref';
 import { plain } from './severity';
 
 export const GENERIC_TITLE = 'Yukta needs your input';

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, expect, it } from 'vitest';
-import { notificationHref, workflowHref } from '../notificationLink';
+import { notificationHref, workflowHref } from '../notificationHref';
 
 const base = {
   id: 'n 1',

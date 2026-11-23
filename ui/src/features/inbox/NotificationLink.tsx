@@ -5,7 +5,7 @@ import type { ComponentProps } from 'react';
 import { Link } from 'react-router';
 import type { AppNotification } from './api';
 import { useNotifications } from './NotificationsContext';
-import { notificationHref } from './notificationLink';
+import { notificationHref } from './notificationHref';
 
 /** A link to where a notification belongs; following it marks the notification read. */
 export function NotificationLink({
