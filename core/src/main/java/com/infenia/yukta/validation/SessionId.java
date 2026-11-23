@@ -16,7 +16,7 @@ import java.lang.annotation.Target;
 /** Annotation for session ID validation. */
 @NotBlank(message = "Session ID is required")
 @Size(max = 256, message = "Session ID must be at most 256 characters")
-@Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\]*$", message = "Invalid session ID format")
+@Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\\\p{Cc}\\p{Cs}]*$", message = "Invalid session ID format")
 @Target({
   ElementType.FIELD,
   ElementType.PARAMETER,

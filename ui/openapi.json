@@ -4152,7 +4152,7 @@
             "example" : "session-123",
             "maxLength" : 256,
             "minLength" : 0,
-            "pattern" : "^(?!.*\\.\\.)[^/\\\\]*$",
+            "pattern" : "^(?!.*\\.\\.)[^/\\\\\\p{Cc}\\p{Cs}]*$",
             "type" : "string"
           },
           "tags" : {
@@ -8342,7 +8342,7 @@
             "example" : "session-123",
             "maxLength" : 256,
             "minLength" : 0,
-            "pattern" : "^(?!.*\\.\\.)[^/\\\\]*$",
+            "pattern" : "^(?!.*\\.\\.)[^/\\\\\\p{Cc}\\p{Cs}]*$",
             "type" : "string"
           },
           "workflowId" : {
@@ -12301,7 +12301,7 @@
           "schema" : {
             "maxLength" : 256,
             "minLength" : 0,
-            "pattern" : "^(?!.*\\.\\.)[^/\\\\]*$",
+            "pattern" : "^(?!.*\\.\\.)[^/\\\\\\p{Cc}\\p{Cs}]*$",
             "type" : "string"
           }
         } ],

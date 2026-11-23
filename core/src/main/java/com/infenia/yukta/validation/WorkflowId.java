@@ -16,7 +16,7 @@ import java.lang.annotation.Target;
 /** Annotation for workflow ID validation. */
 @NotBlank(message = "Workflow ID is required")
 @Size(max = 256, message = "Workflow ID must be at most 256 characters")
-@Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\]*$", message = "Invalid workflow ID format")
+@Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\\\p{Cc}\\p{Cs}]*$", message = "Invalid workflow ID format")
 @Target({
   ElementType.FIELD,
   ElementType.PARAMETER,

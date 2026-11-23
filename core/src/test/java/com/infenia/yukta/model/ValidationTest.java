@@ -17,6 +17,8 @@ import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for model validation. */
 @NoArgsConstructor
@@ -77,6 +79,33 @@ class ValidationTest {
     assertThat(violations)
         .isNotEmpty()
         .anySatisfy(v -> assertThat(v.getMessage()).contains("Invalid session ID format"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"\ud800\u0000\ud83d", "a\u0000b", "a\nb", "lone\ud800"})
+  void testIdsRejectControlCharactersAndLoneSurrogates(final String id) {
+    final WorkflowDefinition def = Fixtures.workflow("test-workflow", "desc", List.of(), List.of());
+    final SessionConfigData data =
+        new SessionConfigData(id, "n", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
+    assertThat(validator.validate(data))
+        .anySatisfy(v -> assertThat(v.getMessage()).contains("Invalid session ID format"));
+  }
+
+  @Test
+  void testSessionIdAcceptsUnicodeAndSurrogatePairs() {
+    final WorkflowDefinition def =
+        Fixtures.workflow(
+            "test-workflow", "desc", List.of(Fixtures.node("n1", "gradle", Map.of())), List.of());
+    final SessionConfigData data =
+        new SessionConfigData(
+            "sess-é-\ud83d\ude00",
+            "n",
+            "desc",
+            "initiator-1",
+            Map.of(),
+            "/path",
+            Map.of("w1", def));
+    assertThat(validator.validate(data)).isEmpty();
   }
 
   @Test
