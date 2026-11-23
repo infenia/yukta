@@ -178,4 +178,6 @@ jobs:
           path: |
             e2e/build/reports/jacoco/e2e
             build/e2e-server/server.log
+            ui/playwright-report
+            ui/test-results
           retention-days: 14
