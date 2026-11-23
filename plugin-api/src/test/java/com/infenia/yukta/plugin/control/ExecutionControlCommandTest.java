@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
   "PMD.AvoidDuplicateLiterals",
   "PMD.UnnecessaryFullyQualifiedName",
   "PMD.TooManyMethods",
-  "PMD.UnusedLocalVariable",
   "PMD.UseConcurrentHashMap"
 })
 class ExecutionControlCommandTest {
