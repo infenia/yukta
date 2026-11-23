@@ -89,7 +89,9 @@ test('a supervisor is changed and the server keeps the change; a cycle is refuse
 
   // b reporting to a would close a cycle
   await page.goto(`/supervisors/${b}/edit`);
-  await page.getByLabel('Reports to').fill(a);
+  await page.getByLabel('Reports to').click();
+  await page.getByRole('option', { name: a, exact: true }).click();
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Save' }).click();
   await expect(page.getByRole('alert')).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/supervisors/${b}/edit$`));

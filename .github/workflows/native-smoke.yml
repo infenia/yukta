@@ -11,6 +11,7 @@ name: Native smoke
 on:
   schedule:
     - cron: '43 2 * * *' # daily, 8:13 AM IST (02:43 UTC)
+  workflow_call:       # release-gate.yml: rehearsal on the release PR
   workflow_dispatch:
 
 concurrency:
@@ -80,6 +81,13 @@ jobs:
           trap 'kill "$pid" || true' EXIT
           release/smoke-test.sh http://127.0.0.1:9858 native-smoke-key
           ./gradlew :e2e:test -Pyukta.e2e.url=http://127.0.0.1:9858 -Pyukta.e2e.key=native-smoke-key
+          # Restart: the e2e fuzz tests leave lone-surrogate strings (\ud800..) in the run list, which
+          # jq in the example scripts rejects ("Invalid \uXXXX\uXXXX surrogate pair escape"); the
+          # examples need a clean server, as in release.yml.
+          kill "$pid"; wait "$pid" || true
+          dist/linux-amd64/yukta -Dyukta.rate-limit-per-minute=100000 &
+          pid=$!
+          until curl -fs http://127.0.0.1:9858/actuator/health | grep -q '"status":"UP"'; do sleep 1; done
           release/examples-smoke.sh http://127.0.0.1:9858 native-smoke-key
           YUKTA_API_KEY=native-smoke-key release/ui-smoke.sh http://127.0.0.1:9858
 

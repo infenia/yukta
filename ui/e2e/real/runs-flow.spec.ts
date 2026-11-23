@@ -3,7 +3,7 @@
 
 import { sessionJson, shell, unique } from './api';
 import { expect, test } from './fixtures';
-import { choose } from '../utils';
+import { toggleOptions } from '../utils';
 
 test('the runs page lists real runs, filters them and opens one', async ({
   page,
@@ -36,7 +36,7 @@ test('the runs page lists real runs, filters them and opens one', async ({
   await expect(rows).toHaveCount(1);
   await expect(rows.first().getByLabel('Failed')).toBeVisible();
   await expect(rows.first()).toContainText('failed at p');
-  await choose(page.getByLabel('Status'), 'SUCCESS');
+  await toggleOptions(page.getByLabel('Status', { exact: true }), ['SUCCESS']);
   await expect(page.getByText('No runs found.')).toBeVisible();
 
   // the failed chip counts the failure of the last 24 hours and filters to it
