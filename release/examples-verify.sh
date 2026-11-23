@@ -52,7 +52,7 @@ case "$mode" in
     [[ -n "$jar" ]] || die "no boot jar: run 'yk gradle :boot:bootJar'"
     need java
     log "jar: $jar"
-    env "${server_env[@]}" SERVER_PORT="$port" YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 \
+    env "${server_env[@]}" SERVER_PORT="$port" YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3 \
       JAVA_TOOL_OPTIONS="$rate" java -jar "$jar" >"$work/server.log" 2>&1 &
     pid=$!
     ;;
@@ -60,7 +60,7 @@ case "$mode" in
     bin="$DIST/linux-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')/yukta"
     [[ -x "$bin" ]] || die "no native binary at $bin: run release/build-server.sh"
     log "native: $bin"
-    env "${server_env[@]}" SERVER_PORT="$port" YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 \
+    env "${server_env[@]}" SERVER_PORT="$port" YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3 \
       "$bin" "$rate" >"$work/server.log" 2>&1 &
     pid=$!
     ;;
