@@ -121,8 +121,12 @@ export YUKTA_PLUGINS_ENABLED=all
 export YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3,git,uv,bun,node,npm
 export YUKTA_VARIABLES_ALLOWED=java.io.tmpdir
 export YUKTA_AI_PRESETS_DIR=$HOME/.local/share/yukta/examples/3-paid-tools/16-agent-console/agent-harnesses
-yukta
+yukta start     # runs the server in the background (daemon mode)
+yukta status    # is it running?
+yukta stop      # stop it when you are done
 ```
+
+Start it with `yukta start`, not a bare `yukta`: the foreground console mode still has bugs.
 
 <details>
 <summary><b>Windows</b> (PowerShell)</summary>
@@ -136,7 +140,9 @@ $env:YUKTA_PLUGINS_ENABLED = 'all'
 $env:YUKTA_PROCESS_ALLOWED_COMMANDS = 'sh,echo,shuf,python3,git,uv,bun,node,npm,npm.cmd'
 $env:YUKTA_VARIABLES_ALLOWED = 'java.io.tmpdir'
 $env:YUKTA_AI_PRESETS_DIR = "$PWD\yukta-<version>-windows-amd64\examples\3-paid-tools\16-agent-console\agent-harnesses"
-.\yukta-<version>-windows-amd64\yukta.exe
+.\yukta-<version>-windows-amd64\yukta.exe start    # daemon mode
+.\yukta-<version>-windows-amd64\yukta.exe status   # is it running?
+.\yukta-<version>-windows-amd64\yukta.exe stop     # stop it
 ```
 
 </details>
