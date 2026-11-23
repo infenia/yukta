@@ -9,8 +9,11 @@ import { expect, test } from './fixtures';
 const palette = (page: Page) =>
   page.getByRole('dialog', { name: 'Command palette' });
 const openPalette = async (page: Page) => {
-  await page.getByRole('button', { name: /Search and jump to/ }).click();
-  await expect(palette(page)).toBeVisible();
+  // the click can land before the page is interactive (slow, instrumented server): retry it
+  await expect(async () => {
+    await page.getByRole('button', { name: /Search and jump to/ }).click();
+    await expect(palette(page)).toBeVisible({ timeout: 3000 });
+  }).toPass();
 };
 
 test('the palette finds a real session, its workflow and a run of it', async ({
