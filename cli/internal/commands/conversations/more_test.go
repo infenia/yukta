@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -177,7 +178,10 @@ func TestAttachFollowsTheAgentNamedByTheFlagAndKeepsEventsOfUnknownConversations
 }
 
 func TestAttachReadsTheTypedLinesOfAPersonAndLeavesOnQuit(t *testing.T) {
-	var posted []string
+	var (
+		postedMu sync.Mutex
+		posted   []string
+	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/conversations/stream"):
@@ -187,7 +191,9 @@ func TestAttachReadsTheTypedLinesOfAPersonAndLeavesOnQuit(t *testing.T) {
 			<-r.Context().Done() // the run goes on until the person leaves
 		case r.Method == "POST":
 			body, _ := io.ReadAll(r.Body)
+			postedMu.Lock()
 			posted = append(posted, r.URL.Path+" "+string(body))
+			postedMu.Unlock()
 			_, _ = io.WriteString(w, `{"data":{"queued":false}}`)
 		default:
 			_, _ = io.WriteString(w, `{"data":{"status":"RUNNING"}}`)
@@ -213,6 +219,8 @@ func TestAttachReadsTheTypedLinesOfAPersonAndLeavesOnQuit(t *testing.T) {
 		t.Fatal("attach did not leave on /quit")
 	}
 
+	postedMu.Lock()
+	defer postedMu.Unlock()
 	if len(posted) != 1 || posted[0] != `/api/conversations/c1/messages {"text":"hello there"}` {
 		t.Errorf("posted %q", posted)
 	}
@@ -288,25 +296,18 @@ func TestJSONLinesCarryTheKindOfWhatTheyHold(t *testing.T) {
 
 // safeBuffer is a buffer the test reads while attach writes to it.
 type safeBuffer struct {
-	mu  chan struct{}
+	mu  sync.Mutex
 	buf bytes.Buffer
 }
 
-func (b *safeBuffer) lock() {
-	if b.mu == nil {
-		b.mu = make(chan struct{}, 1)
-	}
-	b.mu <- struct{}{}
-}
-
 func (b *safeBuffer) Write(p []byte) (int, error) {
-	b.lock()
-	defer func() { <-b.mu }()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.buf.Write(p)
 }
 
 func (b *safeBuffer) String() string {
-	b.lock()
-	defer func() { <-b.mu }()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	return b.buf.String()
 }
