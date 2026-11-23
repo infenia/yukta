@@ -18,6 +18,7 @@ import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -84,6 +85,7 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
   private static final String PORT_SUCCESS = "success";
   private static final String PORT_FAILURE = "failure";
 
+  private static final int NOT_STARTED_EXIT_CODE = 127;
   private static final String EXIT_CODE_KEY = "exitCode";
   private static final String OUTPUT_KEY = "output";
 
@@ -364,8 +366,20 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
                   .map(sink -> gateway.executeForResult(spec, sink))
                   .orElseGet(() -> gateway.executeForResult(spec));
             })
+        .onErrorResume(
+            IOException.class,
+            e ->
+                config.failureMode() == FailureMode.CONTINUE
+                    ? Mono.just(notStarted(e))
+                    : Mono.error(e))
         .flatMapMany(result -> mapResult(message, config, result))
         .onErrorMap(error -> handleExecutionError(config, error));
+  }
+
+  /** A command that cannot start (not installed) is a failed process like any other: exit 127. */
+  private static ProcessExecutionResult notStarted(final IOException error) {
+    return ProcessExecutionResult.of(
+        NOT_STARTED_EXIT_CODE, List.of(), List.of(error.getMessage()), 0, false, false);
   }
 
   private Flux<Message<?>> mapResult(

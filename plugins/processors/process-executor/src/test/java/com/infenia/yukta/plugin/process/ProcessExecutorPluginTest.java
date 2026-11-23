@@ -1219,6 +1219,31 @@ class ProcessExecutorPluginTest {
   }
 
   @Test
+  void process_routeByExitCodeCommandNotInstalled_stampsFailurePort() {
+    final Map<String, Object> config =
+        Map.of("command", List.of("uv"), "failureMode", "CONTINUE", "routeByExitCode", true);
+    when(gateway.executeForResult(any()))
+        .thenReturn(Mono.error(new IOException("Cannot run program \"uv\"")));
+
+    StepVerifier.create(plugin.process(Flux.just(message("input")), config))
+        .assertNext(msg -> {
+          assertThat(msg.sourcePort()).isEqualTo("failure");
+          assertThat(msg.metadata().get("exitCode")).isEqualTo(127);
+        })
+        .verifyComplete();
+  }
+
+  @Test
+  void process_commandNotInstalled_errorsWhenFailureModeIsError() {
+    when(gateway.executeForResult(any())).thenReturn(Mono.error(new IOException("no such")));
+
+    StepVerifier.create(
+            plugin.process(Flux.just(message("input")), Map.of("command", List.of("uv"))))
+        .expectError(IOException.class)
+        .verify();
+  }
+
+  @Test
   void process_routeByExitCodeTimeout_stampsFailurePort() {
     final Map<String, Object> config =
         Map.of(
