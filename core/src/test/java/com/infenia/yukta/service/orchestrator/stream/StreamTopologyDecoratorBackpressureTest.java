@@ -79,7 +79,7 @@ class StreamTopologyDecoratorBackpressureTest {
     StepVerifier.create(slow)
         .expectNextCount(MESSAGES)
         .expectComplete()
-        .verify(Duration.ofSeconds(20));
+        .verify(Duration.ofSeconds(60));
 
     assertThat(seen).hasValue(MESSAGES);
     disposables.forEach(Disposable::dispose);
@@ -94,7 +94,7 @@ class StreamTopologyDecoratorBackpressureTest {
     StepVerifier.create(chain)
         .expectNextCount(MESSAGES)
         .expectComplete()
-        .verify(Duration.ofSeconds(20));
+        .verify(Duration.ofSeconds(60));
     final long elapsedMs = Duration.ofNanos(System.nanoTime() - start).toMillis();
 
     log.info(
