@@ -35,7 +35,6 @@ import org.springframework.validation.annotation.Validated;
  * @param start start idempotency
  * @param results results kept for retrieval
  * @param workers remote worker registry
- * @param controlBus the plugin-level control bus
  * @param cache the prepared workflow cache
  * @param control control commands that wait for approval
  * @param agents conversations with terminal AI agents: limits, retention and the terminal tier
