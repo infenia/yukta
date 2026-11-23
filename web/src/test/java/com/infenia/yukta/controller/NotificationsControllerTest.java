@@ -642,10 +642,7 @@ class NotificationsControllerTest {
     final var sent = new java.util.concurrent.atomic.AtomicLong(5);
     assertThat(
             NotificationsController.after(
-                org.springframework.http.codec.ServerSentEvent.<NotificationEvent>builder()
-                    .id("x-nope")
-                    .build(),
-                sent))
+                ServerSentEvent.<NotificationEvent>builder().id("x-nope").build(), sent))
         .isTrue();
   }
 }
