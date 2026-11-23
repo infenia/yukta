@@ -29,7 +29,7 @@ By default the server keeps sessions, workflows and run history **in memory**, s
 ## Install the server and the client on Linux
 
 ```bash
-curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.5/install.sh | sh
 ```
 
 The script downloads the files for your system, checks their SHA-256 checksums, and stops without installing anything if one does not match. When `cosign` is installed it also checks the Sigstore signature and tells you it did. It never uses `sudo` and does not edit your shell profile. It puts `yukta` (the server) and `yukta-cli` (the client) in `/usr/local/bin` when you run it as root, or in `~/.local/bin` otherwise, and the [examples](/examples) of that release beside them, in `/usr/local/share/yukta/examples` or `~/.local/share/yukta/examples`. `--examples-dir <dir>` puts the examples somewhere else and `--no-examples` leaves them out. An upgrade replaces the examples folder; the script never writes over a folder it did not make.
@@ -58,7 +58,7 @@ At the end of an install on a terminal, the script lists the AI agents it found 
 
 ```bash
 # connect the agents found, without asking
-curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh -s -- --agents auto
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.5/install.sh | sh -s -- --agents auto
 # or name them; "none" skips the step
 curl -fsSL <install.sh url> | sh -s -- --agents claude,codex
 ```
@@ -93,7 +93,7 @@ Use this on a system without a native server, or when you prefer a container. Th
 ```bash
 docker run --rm -p 127.0.0.1:9858:9858 \
   -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=change-me -e YUKTA_API_KEYS_0_ROLE=ADMIN \
-  ghcr.io/infenia/yukta:0.1.0-alpha.4
+  ghcr.io/infenia/yukta:0.1.0-alpha.5
 ```
 
 To run the [examples](/examples) against it, start it with the settings in [Run the server for every example](/examples#run-the-server-for-every-example) instead: this bare command refuses the commands most examples run. The image does not put the example scripts on your machine; [Run one](/examples#run-one) says how to get them.
@@ -105,7 +105,7 @@ A container listens on all its interfaces, so the server refuses to start withou
 If a server already runs somewhere, install the client alone (without the examples):
 
 ```bash
-curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh -s -- --cli-only
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.5/install.sh | sh -s -- --cli-only
 ```
 
 With the `0.1.0-alpha.3` (or earlier) script on macOS, `--cli-only` is what you get anyway. On Windows, download `yukta-cli-windows-amd64.exe` from the release page.
@@ -145,7 +145,7 @@ A new server has no sessions, so the second command prints only the column headi
 On Linux and macOS, run the same script with `--uninstall`. It first disconnects the AI agents Yukta had set up, then removes `yukta` and `yukta-cli` (and the `*.prev` copies kept by an upgrade) from the install folder and the examples folder it installed, and nothing else:
 
 ```bash
-curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh -s -- --uninstall
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.5/install.sh | sh -s -- --uninstall
 ```
 
 Add `--install-dir <dir>` if you installed somewhere other than `/usr/local/bin` (as root) or `~/.local/bin`, and `--examples-dir <dir>` if you moved the examples. Stop a running server first. Sessions kept in a folder with `YUKTA_BOOTSTRAP_DIR` are not touched; delete that folder yourself if you want them gone.

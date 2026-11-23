@@ -62,7 +62,7 @@ import { Diagram } from "/snippets/diagram.jsx";
           -e YUKTA_API_KEYS_0_NAME=admin \
           -e YUKTA_API_KEYS_0_KEY="$YUKTA_KEY" \
           -e YUKTA_API_KEYS_0_ROLE=ADMIN \
-          ghcr.io/infenia/yukta:0.1.0-alpha.4
+          ghcr.io/infenia/yukta:0.1.0-alpha.5
         ```
 
         The image is a minimal Debian-based distroless image. It has a BusyBox shell (`sh`, `echo`, `cat`) but no package manager and no `curl`, and it runs as the unprivileged user 65532. It keeps everything in memory (the release image is the Community edition); mount a folder of session files and set `YUKTA_BOOTSTRAP_DIR` to bring your workflows back after a restart, see [Persist sessions](/guides/operate/persist-sessions).
@@ -83,7 +83,7 @@ import { Diagram } from "/snippets/diagram.jsx";
       </Tab>
       <Tab title="Install script" icon="terminal">
         ```bash
-        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh
+        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.5/install.sh | sh
         ```
 
         This puts `yukta` and `yukta-cli` in `/usr/local/bin` (as root) or `~/.local/bin`, after checking their checksums. It starts nothing. Run the server under a service manager of your choice, with the same three `YUKTA_API_KEYS_0_*` variables:
