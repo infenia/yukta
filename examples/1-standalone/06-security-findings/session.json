@@ -10,26 +10,30 @@
       "workflowId": "batch",
       "description": "Split a batch of scanner findings, triage each one, summarise the outcomes",
       "nodes": [
-        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        { "nodeId": "trigger", "type": "API_TRIGGER", "color": "sky", "config": {} },
         {
           "nodeId": "validate-batch",
           "type": "VALIDATE",
+          "color": "sky",
           "config": { "required": ["scan", "findings"], "types": { "scan": "string", "findings": "array" } }
         },
         {
           "nodeId": "bad-batch",
           "type": "MAPPER",
+          "color": "sky",
           "config": { "mode": "PROJECTION", "mapping": { "path": "'summary.txt'", "content": "'BATCH REFUSED: needs scan and findings'" } }
         },
-        { "nodeId": "split", "type": "SPLITTER", "config": { "itemsPath": "payload.findings" } },
+        { "nodeId": "split", "type": "SPLITTER", "color": "sky", "config": { "itemsPath": "payload.findings" } },
         {
           "nodeId": "triage",
           "type": "SUB_WORKFLOW",
+          "color": "teal",
           "config": { "workflowId": "triage", "timeoutSeconds": 900, "concurrency": 1 }
         },
         {
           "nodeId": "pick",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -39,10 +43,11 @@
             }
           }
         },
-        { "nodeId": "collect", "type": "AGGREGATE", "config": { "size": 100, "timeoutMs": 60000 } },
+        { "nodeId": "collect", "type": "AGGREGATE", "color": "sky", "config": { "size": 100, "timeoutMs": 60000 } },
         {
           "nodeId": "summarise",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -51,8 +56,8 @@
             }
           }
         },
-        { "nodeId": "write-summary", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/security-findings" } },
-        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+        { "nodeId": "write-summary", "type": "FILE_WRITE", "color": "teal", "config": { "baseDir": "/tmp/yukta-examples/security-findings" } },
+        { "nodeId": "end", "type": "CONSOLE_TERMINAL", "color": "stone", "config": {} }
       ],
       "edges": [
         { "source": "trigger", "target": "validate-batch" },
@@ -69,17 +74,22 @@
     },
     "triage": {
       "workflowId": "triage",
+      "groupColors": { "Intake": "sky", "Decision": "magenta", "Outcome": "stone" },
       "description": "One finding: validate, redact secret values, score, engineer decision, outcome",
       "nodes": [
-        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        { "nodeId": "trigger", "type": "API_TRIGGER", "color": "sky", "group": "Intake", "config": {} },
         {
           "nodeId": "validate",
           "type": "VALIDATE",
+          "color": "sky",
+          "group": "Intake",
           "config": { "required": ["id", "severity", "snippet"], "types": { "id": "string", "severity": "string", "snippet": "string", "reachable": "boolean", "exposed": "boolean" } }
         },
         {
           "nodeId": "redact",
           "type": "CONTENT_FILTER",
+          "color": "sky",
+          "group": "Intake",
           "config": {
             "mode": "EXCLUDE",
             "paths": ["matchedSecret", "rawLine", "committedBy", "authorEmail", "blame"]
@@ -88,6 +98,8 @@
         {
           "nodeId": "score",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Intake",
           "config": {
             "mode": "PROJECTION",
             "dropOriginal": false,
@@ -102,6 +114,8 @@
         {
           "nodeId": "band",
           "type": "BRANCH",
+          "color": "violet",
+          "group": "Intake",
           "config": {
             "mode": "EXPRESSION",
             "cases": {
@@ -115,11 +129,15 @@
         {
           "nodeId": "engineer",
           "type": "WAIT_FOR_SIGNAL",
+          "color": "magenta",
+          "group": "Decision",
           "config": { "signal": "decision", "timeoutSeconds": 900, "onTimeout": "CONTINUE", "onReject": "FAIL" }
         },
         {
           "nodeId": "decide",
           "type": "BRANCH",
+          "color": "violet",
+          "group": "Decision",
           "config": {
             "mode": "SELECT_KEY",
             "selector": "metadata['signal.decision']",
@@ -131,11 +149,15 @@
         {
           "nodeId": "auto-suppress",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Outcome",
           "config": { "mode": "PROJECTION", "dropOriginal": false, "mapping": { "reason": "'below the triage threshold, not reachable or exposed enough'" } }
         },
         {
           "nodeId": "stamp-fix",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Outcome",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -148,6 +170,8 @@
         {
           "nodeId": "stamp-accept",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Outcome",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -160,6 +184,8 @@
         {
           "nodeId": "stamp-suppress",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Outcome",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -169,20 +195,24 @@
             }
           }
         },
-        { "nodeId": "write-fix", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/security-findings", "append": true } },
-        { "nodeId": "write-accept", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/security-findings", "append": true } },
-        { "nodeId": "write-suppress", "type": "FILE_WRITE", "config": { "baseDir": "/tmp/yukta-examples/security-findings", "append": true } },
+        { "nodeId": "write-fix", "type": "FILE_WRITE", "color": "teal", "group": "Outcome", "config": { "baseDir": "/tmp/yukta-examples/security-findings", "append": true } },
+        { "nodeId": "write-accept", "type": "FILE_WRITE", "color": "teal", "group": "Outcome", "config": { "baseDir": "/tmp/yukta-examples/security-findings", "append": true } },
+        { "nodeId": "write-suppress", "type": "FILE_WRITE", "color": "teal", "group": "Outcome", "config": { "baseDir": "/tmp/yukta-examples/security-findings", "append": true } },
         {
           "nodeId": "stamp-invalid",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Outcome",
           "config": { "mode": "PROJECTION", "mapping": { "id": "payload['id'] != null ? payload['id'] : 'unknown'", "score": "0", "decision": "'invalid'" } }
         },
         {
           "nodeId": "result",
           "type": "MAPPER",
+          "color": "sky",
+          "group": "Outcome",
           "config": { "mode": "PROJECTION", "mapping": { "id": "payload.id", "decision": "payload.decision", "score": "payload.score" } }
         },
-        { "nodeId": "done", "type": "OUTCOME_TERMINAL", "config": { "outcome": "SUCCESS", "reason": "finding handled" } }
+        { "nodeId": "done", "type": "OUTCOME_TERMINAL", "color": "stone", "group": "Outcome", "config": { "outcome": "SUCCESS", "reason": "finding handled" } }
       ],
       "edges": [
         { "source": "trigger", "target": "validate" },

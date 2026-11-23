@@ -16,8 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,15 +55,45 @@ public class TemplateController {
   /**
    * One template in the list.
    *
-   * @param category the examples folder it sits in, such as {@code 1-standalone}; the number orders
-   *     the categories
+   * @param category the examples folder it sits in, such as {@code 1-standalone}
+   * @param categoryLabel what the category is called, such as {@code Standalone}; the folder name
+   *     when {@code examples/index.json} does not name it
+   * @param categoryDescription what the category means, for a tooltip; empty when not given
    */
   public record TemplateSummary(
-      String id, String title, String summary, String category, List<String> pluginTypes) {
+      String id,
+      String title,
+      String summary,
+      String category,
+      String categoryLabel,
+      String categoryDescription,
+      List<String> pluginTypes) {
 
     /** Copies the list so the record cannot be changed through it. */
     public TemplateSummary {
       pluginTypes = List.copyOf(pluginTypes);
+    }
+  }
+
+  /** What {@code examples/index.json} says about a category. */
+  /* package */ record Category(String label, String description) {}
+
+  /**
+   * The order and the categories of the templates, from {@code examples/index.json}.
+   *
+   * @param order template ids, first to last; a template not named comes after them, by id
+   * @param categories the folder name to its label and description
+   */
+  /* package */ record Index(List<String> order, Map<String, Category> categories) {
+
+    /** Where a template stands; the ones not named share the last place. */
+    /* default */ int rank(final String id) {
+      final int at = order.indexOf(id);
+      return at < 0 ? order.size() : at;
+    }
+
+    /* default */ Category category(final String folder) {
+      return categories.getOrDefault(folder, new Category(folder, ""));
     }
   }
 
@@ -83,23 +115,27 @@ public class TemplateController {
   /**
    * List the templates.
    *
-   * @return the templates, by id
+   * @return the templates, in the order of {@code examples/index.json}, the ones it does not name
+   *     last by id
    */
   @GetMapping
   @Operation(
       summary = "List the session templates",
-      description = "The bundled examples: id, title, a one-line summary and the plugin types used")
+      description =
+          "The bundled examples in display order: id, title, a one-line summary, the category with"
+              + " its label and meaning, and the plugin types used")
   public Mono<ApiResponse<List<TemplateSummary>>> list() {
     return Mono.fromCallable(
             () -> {
+              final Index index = index(new ClassPathResource(ROOT + "index.json"));
               final List<TemplateSummary> out = new ArrayList<>();
               for (final var dir : knownDirs().entrySet()) {
-                out.add(
-                    summary(
-                        detail(dir.getKey()),
-                        dir.getValue().substring(0, dir.getValue().indexOf('/'))));
+                final String folder = dir.getValue().substring(0, dir.getValue().indexOf('/'));
+                out.add(summary(detail(dir.getKey()), folder, index.category(folder)));
               }
-              out.sort(Comparator.comparing(TemplateSummary::id));
+              out.sort(
+                  Comparator.comparingInt((TemplateSummary t) -> index.rank(t.id()))
+                      .thenComparing(TemplateSummary::id));
               return ApiResponse.success(200, "Templates retrieved", out);
             })
         .onErrorMap(IOException.class, UncheckedIOException::new);
@@ -120,9 +156,37 @@ public class TemplateController {
     return Mono.fromCallable(() -> ApiResponse.success(200, "Template retrieved", detail(id)));
   }
 
-  private static TemplateSummary summary(final TemplateDetail detail, final String category) {
+  private static TemplateSummary summary(
+      final TemplateDetail detail, final String folder, final Category category) {
     return new TemplateSummary(
-        detail.id(), detail.title(), detail.summary(), category, detail.pluginTypes());
+        detail.id(),
+        detail.title(),
+        detail.summary(),
+        folder,
+        category.label(),
+        category.description(),
+        detail.pluginTypes());
+  }
+
+  /** Reads {@code templates/index.json}; without it the order is by id and categories bare. */
+  /* package */ static Index index(final Resource file) throws IOException {
+    if (!file.exists()) {
+      return new Index(List.of(), Map.of());
+    }
+    final JsonNode config = JSON.readTree(file.getContentAsByteArray());
+    final List<String> order = new ArrayList<>();
+    config.path("order").forEach(id -> order.add(id.asString("")));
+    final Map<String, Category> categories = new ConcurrentHashMap<>();
+    config
+        .path("categories")
+        .properties()
+        .forEach(entry ->
+            categories.put(
+                entry.getKey(),
+                new Category(
+                    entry.getValue().path("label").asString(entry.getKey()),
+                    entry.getValue().path("description").asString(""))));
+    return new Index(List.copyOf(order), Map.copyOf(categories));
   }
 
   /**

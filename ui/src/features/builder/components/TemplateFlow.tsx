@@ -6,6 +6,10 @@ import { cn } from '@/lib/utils';
 import { Tip } from '@/components/ui/tooltip';
 import { pluginIcon, pluginLabel } from '@/features/workflow/lib/pluginIcons';
 import type { PluginCategory } from '@/features/workflow/types/workflow';
+import {
+  paletteColor,
+  paletteTint,
+} from '@/features/workflow/lib/paletteColor';
 import type { Flow } from '../lib/flowLayout';
 
 const STEP_MS = 520;
@@ -97,6 +101,8 @@ export function TemplateFlow({
         const running = shown >= 0 && n.wave === shown;
         const done = shown >= 0 && n.wave < shown;
         const disabled = off?.has(n.type) ?? false;
+        // a node that declares a palette color wears it at rest; running and done states win
+        const worn = !disabled && !running && !done ? n.color : undefined;
         return (
           <Tip
             key={n.id}
@@ -107,7 +113,15 @@ export function TemplateFlow({
             }
           >
             <span
-              style={{ left: `${n.x}%`, top: `${n.y}%` }}
+              style={{
+                left: `${n.x}%`,
+                top: `${n.y}%`,
+                ...(paletteColor(worn) && {
+                  borderColor: paletteColor(worn),
+                  backgroundColor: paletteTint(worn, 16),
+                  color: paletteColor(worn),
+                }),
+              }}
               className={cn(
                 'transition-standard absolute flex -translate-1/2 items-center justify-center rounded-lg border',
                 labels ? 'size-10' : 'size-7',

@@ -17,12 +17,6 @@ import { TemplateCard } from './TemplateCard';
 
 const GRID = 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
 
-/** `2-free-deps` reads "Free deps"; a template without a folder is "Other". */
-const categoryLabel = (category: string) => {
-  const words = category.replace(/^\d+-/, '').replace(/-/g, ' ');
-  return words ? words.charAt(0).toUpperCase() + words.slice(1) : 'Other';
-};
-
 /** Step 1 of a new session: a blank one, or one of the bundled examples. */
 export function TemplateGallery({
   onPick,
@@ -60,18 +54,6 @@ export function TemplateGallery({
         .sort(),
     [templates.data, off]
   );
-  // the examples folders in number order (10 after 2), a template without one last
-  const groups = useMemo(() => {
-    const by = new Map<string, TemplateSummary[]>();
-    for (const t of templates.data ?? []) {
-      by.set(t.category ?? '', [...(by.get(t.category ?? '') ?? []), t]);
-    }
-    const rank = (c: string) => (c ? 0 : 1);
-    return [...by].sort(
-      ([a], [b]) =>
-        rank(a) - rank(b) || a.localeCompare(b, undefined, { numeric: true })
-    );
-  }, [templates.data]);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<TemplateDetail | null>(null);
 
@@ -106,15 +88,6 @@ export function TemplateGallery({
     />
   );
 
-  const blank = (
-    <TemplateCard
-      template={null}
-      categories={categories}
-      off={off}
-      onUse={() => onPick()}
-    />
-  );
-
   return (
     <div className="flex flex-col gap-6">
       <InlineError message={error} />
@@ -125,25 +98,17 @@ export function TemplateGallery({
         types={needed}
         title={`${needed.length === 1 ? 'A plugin' : 'Some plugins'} the templates use ${needed.length === 1 ? 'is' : 'are'} switched off`}
       />
-      {/* the blank start leads the first group, or the one grid when there are no folders */}
-      {groups.length === 0 || groups[0][0] === '' ? (
-        <ul className={GRID}>
-          {blank}
-          {groups[0]?.[1].map(card)}
-        </ul>
-      ) : (
-        groups.map(([category, list], index) => (
-          <section key={category} aria-label={categoryLabel(category)}>
-            <h2 className="text-overline text-on-surface-variant mb-3">
-              {categoryLabel(category)}
-            </h2>
-            <ul className={GRID}>
-              {index === 0 && blank}
-              {list.map(card)}
-            </ul>
-          </section>
-        ))
-      )}
+      {/* the blank start first, then the templates in the order the server lists them
+          (examples/index.json); each card names its category */}
+      <ul className={GRID}>
+        <TemplateCard
+          template={null}
+          categories={categories}
+          off={off}
+          onUse={() => onPick()}
+        />
+        {(templates.data ?? []).map(card)}
+      </ul>
       {preview && (
         <Modal wide title={preview.title} onClose={() => setPreview(null)}>
           <p className="text-body-sm text-on-surface-variant mb-4">

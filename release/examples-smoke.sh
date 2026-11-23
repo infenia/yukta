@@ -32,7 +32,7 @@ export YUKTA_URL="${1%/}"
 need curl
 need jq
 
-allow_skip=" ${SMOKE_ALLOW_SKIP:-07-input-pull 08-supervisor-profiles 09-supervisor-workflow 15-agent-session} "
+allow_skip=" ${SMOKE_ALLOW_SKIP:-07-input-pull 08-supervisor-profiles 09-supervisor-workflow 15-agent-session 18-todo-run 19-todo-ci} "
 [[ -z "${SMOKE_IN_CONTAINER:-}" ]] || allow_skip+="11-agent-verification 16-agent-console "
 
 # run-all.sh ends with one line per example: "PASS  name", "SKIP  name" or "FAIL  name (exit N)".

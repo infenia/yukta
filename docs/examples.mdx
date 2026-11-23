@@ -14,21 +14,56 @@ Every example is a folder in the repository's [`examples`](https://github.com/in
 | Category | What you need | Examples |
 |---|---|---|
 | **1. Standalone** | Only the Yukta server. Allow the `sh` and `echo` commands. | Release approval, PR risk gate, dependency updates, model promotion, security findings, input pull, supervisor profiles, supervisor workflow, inbox notification, hello world |
-| **2. Free dependencies** | Free tools on the machine (`git`, `python3`, `go`) or a stand-in for an outside service that the example starts itself. | Agent verification, alert triage, an MCP agent, supervisor agents |
+| **2. Free dependencies** | Free tools on the machine (`git`, `python3`, `go`, `uv`, `bun` or `node`) or a stand-in for an outside service that the example starts itself. | Agent verification, alert triage, an MCP agent, supervisor agents, check out and run an app, a CI pipeline |
 | **3. Paid tools** | An AI agent CLI (Claude Code, Codex) or a hosted model. The examples run against a fake agent unless you configure the real tool. | Agent session walkthrough, agent console |
 
 ## Run one
 
-You need a running server, `curl`, `jq` and a copy of the repository.
+You need a running server, `curl`, `jq` and the `examples/` folder. You do not need to clone the repository: this downloads it as one archive and keeps only that folder (on macOS leave out `--wildcards`; on Windows use Git Bash).
 
 ```bash
-git clone https://github.com/infenia/yukta.git && cd yukta
+curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/heads/main | tar -xz --strip-components=1 --wildcards '*/examples'
 ./examples/1-standalone/03-pr-risk-gate/run.sh   # one example
 ./examples/run-all.sh 1                          # one category: 1, 2, 3 or all
 ```
 
+## Run the server for every example
+
+One server can run all of them. [Install the server](/get-started/install) or use the Docker image, then start it with every plugin on, the commands the examples run allowed, and the temp folder readable (examples 18 and 19 clone into it):
+
+```bash
+export YUKTA_PLUGINS_ENABLED=all
+export YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3,git,uv,bun,node,npm   # npm.cmd on Windows
+export YUKTA_VARIABLES_ALLOWED=java.io.tmpdir
+export YUKTA_AI_PRESETS_DIR=$PWD/examples/3-paid-tools/16-agent-console/agent-harnesses   # example 16
+yukta                      # the installed server; from a source checkout: ./gradlew bootRun
+```
+
+Then run the examples from the folder where you extracted `examples/`. Set `YUKTA_API_KEY` if you gave the server a key (`YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE=ADMIN`).
+
+```bash
+./examples/run-all.sh                         # all of them, with a summary
+./examples/2-free-deps/18-todo-run/run.sh     # or one
+```
+
+A server that allows less still runs the rest; an example it cannot run reports `SKIP` (exit 3) and names the missing setting. What each example needs:
+
+| Example | Commands the server may run | Also on the machine |
+|---|---|---|
+| 01, 03, 04, 05, 06, 07, 09 | none | |
+| 02 release approval | `sh` | |
+| 10 inbox notification | `echo` | |
+| 11 agent verification | `sh`, `echo` | `git` |
+| 12 alert triage | `sh` | `python3` (its local pager stand-in) |
+| 13 MCP agent | none | `curl`, `jq` |
+| 14 supervisor agents | none | `python3`, `go` |
+| 15 agent session | the agent CLI, for example `claude` | the agent CLI, logged in (walkthrough, no `run.sh`) |
+| 16 agent console | `sh` | `YUKTA_AI_PRESETS_DIR` (see below) |
+| 17 ask a random question | `echo`, `shuf` | `shuf` (GNU coreutils) |
+| 18 check out and run, 19 CI pipeline | `git`, `uv`, `bun`, `node`, `npm` (`npm.cmd` on Windows) | `git`, `uv`, and `bun` or `node`; free ports 8000 and 5173 for 18 |
+
 <Note>
-  Examples in categories 1 and 2 run operating-system commands, which Yukta refuses by default. Allow only what they need, for example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`; each README names its set. Example 12 also needs `python3`. Set `YUKTA_API_KEY` if your server requires a key. See [Security](/guides/operate/secure-the-server).
+  On Windows, run the scripts from Git Bash (it provides `bash`, `curl`, `sh` and `git`) and start the server there too, so it finds the same tools. `shuf`, `sh` and `go` have to be installed for the examples that use them.
 </Note>
 
 ## Use-case templates
@@ -36,6 +71,8 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 | # | Pain point | What it shows |
 |---|---|---|
 | [11](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/11-agent-verification) | An AI coding agent skips tests and says "done" | Verification gates and a bounded fix loop before "done" exists |
+| [18](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/18-todo-run) | A project you want running on your machine, not just built | Clone, then start a Python backend and a React frontend side by side; stop the run to stop the app |
+| [19](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/19-todo-ci) | CI that stops at the first failing check | Backend lint, format and test, then frontend lint, format and test, as a chain of stages |
 | [02](https://github.com/infenia/yukta/tree/main/examples/1-standalone/02-release-approval) | Production deploy that needs a person, then a check | Approval with a timeout, smoke check, rollback |
 | [03](https://github.com/infenia/yukta/tree/main/examples/1-standalone/03-pr-risk-gate) | Merging risky PRs, or reviewing every routine one | Risk scoring, reviewer gate, secrets stripped from messages |
 | [04](https://github.com/infenia/yukta/tree/main/examples/1-standalone/04-dependency-updates) | Dependency bumps that are either routine or dangerous | Risk routing, maintainer review queue, changelog |

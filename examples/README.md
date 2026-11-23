@@ -10,11 +10,18 @@ The examples are grouped by what they need on the machine that runs them.
 
 | Category | Folder | Needs | Examples |
 |---|---|---|---|
-| 1. Standalone | [`1-standalone/`](1-standalone/) | Only the server. The process allowlist `sh,echo` is enough. | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 17 |
-| 2. Free dependencies | [`2-free-deps/`](2-free-deps/) | Free tools on the machine: `git`, `python3`, `go`. Some examples start a loopback stand-in for an outside service. | 11, 12, 13, 14 |
+| 1. Standalone | [`1-standalone/`](1-standalone/) | Only the server. The process allowlist `sh,echo` is enough (17 also needs `shuf`). | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 17 |
+| 2. Free dependencies | [`2-free-deps/`](2-free-deps/) | Free tools on the machine: `git`, `python3`, `go`, `uv`, `bun` or `node`. Some examples start a loopback stand-in for an outside service. | 11, 12, 13, 14, 18, 19 |
 | 3. Paid tools | [`3-paid-tools/`](3-paid-tools/) | An AI agent CLI (Claude Code, Codex) or a hosted model. The examples here run against a fake harness unless you configure the real tool. | 15, 16 |
 
 Example 15 is a walkthrough for now (it has no `run.sh`). Its README says how to run it with a real agent CLI.
+
+## Order and categories in the UI
+
+The examples are the session templates of the web console (`GET /api/templates`). [`index.json`](index.json) decides how they are
+shown: `order` lists the example ids from first to last (the blank session always leads), and `categories` gives each folder a
+label and the sentence a card shows as a tooltip. To move an example, move its id in `order`; one that is not listed comes after
+the listed ones, by id. The build copies the file into the server, so rebuild (`yk gradle :boot:bootJar`) to see a change.
 
 ## Prerequisites
 
@@ -24,9 +31,52 @@ Example 15 is a walkthrough for now (it has no `run.sh`). Its README says how to
 - Plugins that touch the outside (`PROCESS_EXECUTOR`, `FILE_*`, `HTTP_REQUEST`, `NOTIFY_TERMINAL`, `SESSION_MEMORY`,
   `LLM_CALL`, ...) are off until named. Start the server with `YUKTA_PLUGINS_ENABLED=all` (or list the plugins) or the examples
   that use them exit `3` (SKIP) or fail; `GET /api/plugins` shows what is enabled.
-- Examples 02, 11 and 12 run operating-system commands, which Yukta refuses by default. Allow only what they need, for
-  example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo` (property `yukta.process.allowed-commands`); each README names its set.
-  Example 12 also needs `python3` for its local pager stand-in. Without an allowlist those examples exit `3` (SKIP).
+- Examples that run operating-system commands (02, 10, 11, 12, 16, 17, 18, 19) need them allowed: Yukta refuses every command by
+  default. Allow only what you need (property `yukta.process.allowed-commands`, environment
+  `YUKTA_PROCESS_ALLOWED_COMMANDS`); each README names its set, and the next section has the set for all of them. Without it an
+  example fails with `Command '...' is not in yukta.process.allowed-commands` or exits `3` (SKIP).
+
+### Run the server for every example
+
+One server can run all of them. Install the server ([Install](../docs/get-started/install.mdx) or the Docker image),
+then start it with every plugin on, the commands the examples run allowed, and the temp folder readable (examples 18 and 19
+clone into it):
+
+```bash
+export YUKTA_PLUGINS_ENABLED=all
+export YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3,git,uv,bun,node,npm   # npm.cmd on Windows
+export YUKTA_VARIABLES_ALLOWED=java.io.tmpdir
+export YUKTA_AI_PRESETS_DIR=$PWD/examples/3-paid-tools/16-agent-console/agent-harnesses   # example 16
+yukta                      # the installed server; from a source checkout: ./gradlew bootRun
+```
+
+Then run the examples from the folder that holds `examples/` (no clone needed: `curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/heads/main | tar -xz --strip-components=1 --wildcards '*/examples'` downloads just that folder; on macOS leave out `--wildcards`), with `YUKTA_API_KEY` set if you gave the server a key
+(`YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE=ADMIN`):
+
+```bash
+./examples/run-all.sh          # all of them, with a summary
+./examples/2-free-deps/18-todo-run/run.sh   # or one
+```
+
+The list is the sum of what each example needs; a server that allows less runs the rest and reports the others as `SKIP` (exit
+3) with the setting that is missing. What each one needs:
+
+| Example | Commands the server may run | Also on the machine |
+|---|---|---|
+| 01, 03, 04, 05, 06, 07, 09 | none | |
+| 02 release approval | `sh` | |
+| 10 inbox notification | `echo` | |
+| 11 agent verification | `sh`, `echo` | `git` |
+| 12 alert triage | `sh` | `python3` (its local pager stand-in) |
+| 13 MCP agent | none | `curl`, `jq` |
+| 14 supervisor agents | none | `python3`, `go` |
+| 15 agent session | the agent CLI, for example `claude` | the agent CLI, logged in (walkthrough, no `run.sh`) |
+| 16 agent console | `sh` | `YUKTA_AI_PRESETS_DIR` (see below) |
+| 17 ask a random question | `echo`, `shuf` | `shuf` (GNU coreutils) |
+| 18 check out and run, 19 CI pipeline | `git`, `uv`, `bun`, `node`, `npm` (`npm.cmd` on Windows) | `git`, `uv`, and `bun` or `node`; free ports 8000 and 5173 for 18 |
+
+On Windows run the scripts from Git Bash (it provides `bash`, `curl`, `sh` and `git`), and start the server there too so it finds
+the same tools. The examples that use `shuf`, `sh` or `go` need those tools installed; the others do not.
 
 ### With Docker
 
@@ -79,6 +129,8 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 | # | Category | Domain | Pain point | Key nodes |
 |---|---|---|---|---|
 | [11](2-free-deps/11-agent-verification/) | 2 | AI-assisted development | An agent skips tests or verification and reports "done" | `LOOP_PREDICATE`, `SUB_WORKFLOW`, `BRANCH`, `OUTCOME_TERMINAL` |
+| [18](2-free-deps/18-todo-run/) | 2 | App development | Check a project out and run it, so a person can open it | `PROCESS_EXECUTOR` (git, uv, bun), long-running, in parallel |
+| [19](2-free-deps/19-todo-ci/) | 2 | CI | Lint, format and test a backend and then a frontend, stop at the first failure | `PROCESS_EXECUTOR` stages in a chain |
 | [02](1-standalone/02-release-approval/) | 1 | Release / DevOps | Production deploy with a human approval, a smoke check and a rollback | `WAIT_FOR_SIGNAL`, `PROCESS_EXECUTOR`, `BRANCH`, `NOTIFY_TERMINAL` |
 | [03](1-standalone/03-pr-risk-gate/) | 1 | Code review / app dev | Auto-merge low-risk PRs, block the worst, send borderline ones to a reviewer | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `CONTENT_FILTER` |
 | [04](1-standalone/04-dependency-updates/) | 1 | Supply chain | Auto-merge patch bumps, hold majors and CVE-flagged ones for a maintainer | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `FILE_WRITE` |

@@ -1,0 +1,34 @@
+{
+  "_comment": "The order of the example templates in the UI (first to last) and what each category means. An example not listed comes after these, by id. The blank session always comes first.",
+  "order": [
+    "01-hello-world",
+    "18-todo-run",
+    "19-todo-ci",
+    "10-inbox-notification",
+    "17-ask-random-question",
+    "02-release-approval",
+    "03-pr-risk-gate",
+    "04-dependency-updates",
+    "12-alert-triage",
+    "05-model-promotion",
+    "06-security-findings",
+    "11-agent-verification",
+    "09-supervisor-workflow",
+    "15-agent-session",
+    "16-agent-console"
+  ],
+  "categories": {
+    "1-standalone": {
+      "label": "Standalone",
+      "description": "Needs only the Yukta server. Commands are limited to sh and echo, so it runs anywhere."
+    },
+    "2-free-deps": {
+      "label": "Free tools",
+      "description": "Needs free tools installed where the server runs, such as git, python3, uv, bun or node. Some start a small stand-in service on this machine."
+    },
+    "3-paid-tools": {
+      "label": "Paid tools",
+      "description": "Built for an AI agent such as Claude Code or Codex, or a hosted model. The example runs against a fake agent unless you set up the real tool."
+    }
+  }
+}

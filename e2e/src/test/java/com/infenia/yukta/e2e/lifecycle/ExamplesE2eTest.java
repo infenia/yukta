@@ -44,18 +44,34 @@ class ExamplesE2eTest {
 
   /** Examples with a {@code run.sh} that this test does not run, and why. */
   private static final Map<String, String> SKIPPED =
-      Map.of(
-          "11-agent-verification",
-              "its checks run the scripts patch-guard.sh and patch-guard-test.sh",
-          "02-release-approval",
-              "drives release.sh and a supervisor through several signals in run.sh",
-          "12-alert-triage", "starts a local pager with python3 and needs jq-driven escalations",
-          "13-mcp-agent", "drives /mcp with curl JSON-RPC; run-all.sh covers it in the nightly",
-          "05-model-promotion", "a multi-round review across sub-workflows, driven by run.sh",
-          "06-security-findings", "a batch with a human decision per finding, driven by run.sh",
-          "14-supervisor-agents", "needs the Python and Go agents of the example",
-          "16-agent-console", "needs the fake-agent harness (AGENT_SESSION with a PTY host)",
-          "17-ask-random-question", "needs shuf and echo; run.sh answers its two input requests");
+      Map.ofEntries(
+          Map.entry(
+              "11-agent-verification",
+              "its checks run the scripts patch-guard.sh and patch-guard-test.sh"),
+          Map.entry(
+              "02-release-approval",
+              "drives release.sh and a supervisor through several signals in run.sh"),
+          Map.entry(
+              "18-todo-run", "needs git, uv, bun or node, the network, and ports 8000 and 5173"),
+          Map.entry(
+              "19-todo-ci", "needs git, uv, bun or node and the network; run.sh runs the pipeline"),
+          Map.entry(
+              "12-alert-triage",
+              "starts a local pager with python3 and needs jq-driven escalations"),
+          Map.entry(
+              "13-mcp-agent",
+              "drives /mcp with curl JSON-RPC; run-all.sh covers it in the nightly"),
+          Map.entry(
+              "05-model-promotion", "a multi-round review across sub-workflows, driven by run.sh"),
+          Map.entry(
+              "06-security-findings",
+              "a batch with a human decision per finding, driven by run.sh"),
+          Map.entry("14-supervisor-agents", "needs the Python and Go agents of the example"),
+          Map.entry(
+              "16-agent-console", "needs the fake-agent harness (AGENT_SESSION with a PTY host)"),
+          Map.entry(
+              "17-ask-random-question",
+              "needs shuf and echo; run.sh answers its two input requests"));
 
   private final Api admin = Api.forRole(ApiRole.ADMIN);
 

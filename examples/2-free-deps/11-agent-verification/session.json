@@ -15,11 +15,13 @@
         {
           "nodeId": "trigger",
           "type": "API_TRIGGER",
+          "color": "sky",
           "config": {}
         },
         {
           "nodeId": "attempts",
           "type": "LOOP_PREDICATE",
+          "color": "violet",
           "config": {
             "targetPluginId": "SUB_WORKFLOW",
             "targetConfig": {
@@ -35,6 +37,7 @@
         {
           "nodeId": "decide",
           "type": "BRANCH",
+          "color": "violet",
           "config": {
             "mode": "EXPRESSION",
             "cases": {
@@ -47,6 +50,7 @@
         {
           "nodeId": "record-done",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "echo",
@@ -57,6 +61,7 @@
         {
           "nodeId": "done",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "SUCCESS",
             "reason": "build, tests, patch guard and coverage passed"
@@ -65,6 +70,7 @@
         {
           "nodeId": "record-stop",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "echo",
@@ -75,6 +81,7 @@
         {
           "nodeId": "stopped",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "ESCALATE",
             "reason": "verification still failing after the retry budget"
@@ -117,11 +124,13 @@
         {
           "nodeId": "trigger",
           "type": "API_TRIGGER",
+          "color": "sky",
           "config": {}
         },
         {
           "nodeId": "build",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "sh",
@@ -136,6 +145,7 @@
         {
           "nodeId": "test",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "sh",
@@ -150,6 +160,7 @@
         {
           "nodeId": "patch-guard",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "sh",
@@ -182,6 +193,7 @@
         {
           "nodeId": "coverage",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "sh",
@@ -197,6 +209,7 @@
         {
           "nodeId": "coverage-gate",
           "type": "BRANCH",
+          "color": "violet",
           "config": {
             "mode": "EXPRESSION",
             "cases": {
@@ -209,6 +222,7 @@
         {
           "nodeId": "gate-failed",
           "type": "MAPPER",
+          "color": "sky",
           "config": {
             "mode": "PROJECTION",
             "mapping": {
@@ -219,6 +233,7 @@
         {
           "nodeId": "fix",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "sh",
@@ -232,6 +247,7 @@
         {
           "nodeId": "retry",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "RETRY",
             "reason": "a gate failed; the fixer ran"
@@ -240,6 +256,7 @@
         {
           "nodeId": "verified",
           "type": "PROCESS_EXECUTOR",
+          "color": "teal",
           "config": {
             "command": [
               "echo",
@@ -250,6 +267,7 @@
         {
           "nodeId": "ok",
           "type": "OUTCOME_TERMINAL",
+          "color": "stone",
           "config": {
             "outcome": "SUCCESS"
           }

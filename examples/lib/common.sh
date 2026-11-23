@@ -84,7 +84,43 @@ run_workflow() {
   if [[ "$status" == "$want_status" ]] && grep -qF -- "$want_text" <<<"$logs"; then
     echo "    PASS $wf: status=$status, found '$want_text'"
   else
+    EID=$eid skip_if_refused "$logs"
     echo "    FAIL $wf: status=$status (want $want_status), '$want_text' in logs: $(grep -qF -- "$want_text" <<<"$logs" && echo yes || echo no)"
     return 1
   fi
+}
+
+# require_tools CMD...: exit 3 (SKIP) when a command is missing on this machine.
+require_tools() {
+  local t
+  for t in "$@"; do
+    command -v "$t" >/dev/null || { echo "SKIP: '$t' is not installed"; exit 3; }
+  done
+}
+
+# skip_if_refused LOGS: exit 3 (SKIP) when the server refuses what the run needs: the commands, or reading the
+# temp folder (${sys.java.io.tmpdir}). Looks in the logs and in the task errors of the run in $EID.
+skip_if_refused() {
+  local all
+  all="$1 $(api GET "/api/executions/${EID:-none}" 2>/dev/null | jq -c '[.data.tasks[]?.metadata.error]' 2>/dev/null || true)"
+  if grep -qE "is not in yukta.process.allowed-commands|Process execution is off" <<<"$all"; then
+    echo "SKIP: the server does not allow a command this example runs ($(grep -oE "Command '[^']*' is not in" <<<"$all" | head -1 | sed "s/ is not in//"))."
+    echo "      Start it with YUKTA_PROCESS_ALLOWED_COMMANDS naming it; examples/README.md lists what each example needs."
+    exit 3
+  fi
+  if grep -qF "sys.java.io.tmpdir" <<<"$all"; then
+    echo "SKIP: the server may not read its temp folder (start it with YUKTA_VARIABLES_ALLOWED=java.io.tmpdir)"
+    exit 3
+  fi
+}
+
+# skip_on_notice EXECUTION: exit 3 (SKIP) when a preflight node (notify-*) told the inbox that a tool is
+# missing, and print what it said. The title and text are read from session.json in the example's folder (the script's directory).
+skip_on_notice() {
+  local n
+  n=$(api GET "/api/executions/$1" 2>/dev/null | jq -r '[.data.tasks[]? | select((.nodeId | startswith("notify-")) and .status == "SUCCESS") | .nodeId][0] // empty' || true)
+  [[ -n "$n" ]] || return 0
+  echo "SKIP: the preflight check '$n' found a missing tool; the run told the inbox:"
+  jq -r --arg n "$n" '[.workflows[].nodes[] | select(.nodeId == $n)][0].config | "      \(.title): \(.text)"' session.json
+  exit 3
 }

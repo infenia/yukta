@@ -41,7 +41,7 @@ trap cleanup EXIT
 server_env=(
   YUKTA_PLUGINS_ENABLED=all
   YUKTA_API_KEYS_0_NAME=verify YUKTA_API_KEYS_0_KEY="$key" YUKTA_API_KEYS_0_ROLE=ADMIN "YUKTA_API_KEYS_0_SESSIONS_0=*"
-  YUKTA_AI_PRESETS_DIR="$REPO_ROOT/examples/21-agent-console/agent-harnesses"
+  YUKTA_AI_PRESETS_DIR="$REPO_ROOT/examples/3-paid-tools/16-agent-console/agent-harnesses"
 )
 # The UI tests send more requests a minute than one key may.
 rate=-Dyukta.rate-limit-per-minute=100000

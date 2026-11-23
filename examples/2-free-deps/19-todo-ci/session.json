@@ -1,0 +1,406 @@
+{
+  "sessionId": "example-19-todo-ci",
+  "name": "CI pipeline for the todo app",
+  "description": "Check the tools, clone the todo app, then check the backend (lint, format, test) and the frontend (install, lint, format, test) with bun, or node when bun is missing. The first failing stage stops the run.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "19-todo-ci"
+  },
+  "workflows": {
+    "ci": {
+      "workflowId": "ci",
+      "groupColors": { "Checks": "sky", "Backend": "teal", "Frontend": "violet" },
+      "description": "check python, clone, backend checks, frontend checks",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "color": "sky",
+          "group": "Checks",
+          "config": {}
+        },
+        {
+          "nodeId": "check-python",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Checks",
+          "config": {
+            "command": [
+              "uv",
+              "python",
+              "find"
+            ],
+            "timeout": 30,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "notify-python",
+          "type": "NOTIFY_TERMINAL",
+          "color": "stone",
+          "group": "Checks",
+          "config": {
+            "target": "inbox",
+            "title": "Python was not found",
+            "severity": "ERROR",
+            "text": "The todo example needs Python. Install it (https://www.python.org) or let uv install one with `uv python install` (https://docs.astral.sh/uv/), then run the example again."
+          }
+        },
+        {
+          "nodeId": "clean",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Checks",
+          "config": {
+            "command": [
+              "uv",
+              "run",
+              "--no-project",
+              "python",
+              "-c",
+              "import shutil,sys;shutil.rmtree(sys.argv[1],ignore_errors=True)",
+              "${sys.java.io.tmpdir}/yukta-todo-ci"
+            ],
+            "timeout": 60
+          }
+        },
+        {
+          "nodeId": "clone",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Checks",
+          "config": {
+            "command": [
+              "git",
+              "clone",
+              "--depth",
+              "1",
+              "https://github.com/infenia/yukta-example-todo.git",
+              "${sys.java.io.tmpdir}/yukta-todo-ci"
+            ],
+            "timeout": 120
+          }
+        },
+        {
+          "nodeId": "backend-lint",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Backend",
+          "config": {
+            "command": [
+              "uv",
+              "run",
+              "ruff",
+              "check",
+              "."
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/backend"
+          }
+        },
+        {
+          "nodeId": "backend-format",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Backend",
+          "config": {
+            "command": [
+              "uv",
+              "run",
+              "ruff",
+              "format",
+              "--check",
+              "."
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/backend"
+          }
+        },
+        {
+          "nodeId": "backend-test",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Backend",
+          "config": {
+            "command": [
+              "uv",
+              "run",
+              "pytest",
+              "-q"
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/backend"
+          }
+        },
+        {
+          "nodeId": "probe-js",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
+          "config": {
+            "command": [
+              "uv",
+              "run",
+              "--no-project",
+              "python",
+              "-c",
+              "import json,shutil,sys;print(json.dumps({'js':'bun' if shutil.which('bun') else 'node' if shutil.which('node') else 'none','npm':'npm.cmd' if sys.platform=='win32' else 'npm'}))"
+            ],
+            "timeout": 60,
+            "outputFormat": "JSON"
+          }
+        },
+        {
+          "nodeId": "js-runtime",
+          "type": "BRANCH",
+          "color": "violet",
+          "group": "Frontend",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.output.js == 'bun'": "bun",
+              "payload.output.js == 'node'": "node"
+            },
+            "defaultPort": "none"
+          }
+        },
+        {
+          "nodeId": "notify-js",
+          "type": "NOTIFY_TERMINAL",
+          "color": "stone",
+          "group": "Frontend",
+          "config": {
+            "target": "inbox",
+            "title": "Neither bun nor node was found",
+            "severity": "ERROR",
+            "text": "The todo frontend needs bun (https://bun.sh) or node (https://nodejs.org). Install one and run the example again."
+          }
+        },
+        {
+          "nodeId": "bun-install",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
+          "config": {
+            "command": [
+              "bun",
+              "install",
+              "--frozen-lockfile"
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
+          }
+        },
+        {
+          "nodeId": "bun-lint",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
+          "config": {
+            "command": [
+              "bun",
+              "--bun",
+              "run",
+              "lint"
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
+          }
+        },
+        {
+          "nodeId": "bun-format",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
+          "config": {
+            "command": [
+              "bun",
+              "--bun",
+              "run",
+              "format:check"
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
+          }
+        },
+        {
+          "nodeId": "bun-test",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
+          "config": {
+            "command": [
+              "bun",
+              "test"
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
+          }
+        },
+        {
+          "nodeId": "node-install",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
+          "config": {
+            "command": [
+              "${payload.output.npm}",
+              "install"
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
+          }
+        },
+        {
+          "nodeId": "node-lint",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
+          "config": {
+            "command": [
+              "node",
+              "node_modules/@biomejs/biome/bin/biome",
+              "lint",
+              "."
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
+          }
+        },
+        {
+          "nodeId": "node-format",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
+          "config": {
+            "command": [
+              "node",
+              "node_modules/@biomejs/biome/bin/biome",
+              "format",
+              "."
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
+          }
+        },
+        {
+          "nodeId": "node-test",
+          "type": "PROCESS_EXECUTOR",
+          "color": "teal",
+          "group": "Frontend",
+          "config": {
+            "command": [
+              "node",
+              "--test"
+            ],
+            "timeout": 300,
+            "workingDir": "${sys.java.io.tmpdir}/yukta-todo-ci/frontend"
+          }
+        },
+        {
+          "nodeId": "passed-bun",
+          "type": "CONSOLE_TERMINAL",
+          "color": "stone",
+          "group": "Frontend",
+          "config": {}
+        },
+        {
+          "nodeId": "passed-node",
+          "type": "CONSOLE_TERMINAL",
+          "color": "stone",
+          "group": "Frontend",
+          "config": {}
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "check-python"
+        },
+        {
+          "source": "check-python",
+          "target": "clean",
+          "sourcePort": "success"
+        },
+        {
+          "source": "check-python",
+          "target": "notify-python",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "clean",
+          "target": "clone"
+        },
+        {
+          "source": "clone",
+          "target": "backend-lint"
+        },
+        {
+          "source": "backend-lint",
+          "target": "backend-format"
+        },
+        {
+          "source": "backend-format",
+          "target": "backend-test"
+        },
+        {
+          "source": "backend-test",
+          "target": "probe-js"
+        },
+        {
+          "source": "probe-js",
+          "target": "js-runtime"
+        },
+        {
+          "source": "js-runtime",
+          "target": "notify-js",
+          "sourcePort": "none"
+        },
+        {
+          "source": "js-runtime",
+          "target": "bun-install",
+          "sourcePort": "bun"
+        },
+        {
+          "source": "js-runtime",
+          "target": "node-install",
+          "sourcePort": "node"
+        },
+        {
+          "source": "bun-install",
+          "target": "bun-lint"
+        },
+        {
+          "source": "bun-lint",
+          "target": "bun-format"
+        },
+        {
+          "source": "bun-format",
+          "target": "bun-test"
+        },
+        {
+          "source": "bun-test",
+          "target": "passed-bun"
+        },
+        {
+          "source": "node-install",
+          "target": "node-lint"
+        },
+        {
+          "source": "node-lint",
+          "target": "node-format"
+        },
+        {
+          "source": "node-format",
+          "target": "node-test"
+        },
+        {
+          "source": "node-test",
+          "target": "passed-node"
+        }
+      ]
+    }
+  }
+}

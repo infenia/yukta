@@ -7584,6 +7584,12 @@
           "category" : {
             "type" : "string"
           },
+          "categoryDescription" : {
+            "type" : "string"
+          },
+          "categoryLabel" : {
+            "type" : "string"
+          },
           "id" : {
             "type" : "string"
           },
@@ -13658,7 +13664,7 @@
     },
     "/api/templates" : {
       "get" : {
-        "description" : "The bundled examples: id, title, a one-line summary and the plugin types used",
+        "description" : "The bundled examples in display order: id, title, a one-line summary, the category with its label and meaning, and the plugin types used",
         "operationId" : "list_2",
         "responses" : {
           "200" : {
