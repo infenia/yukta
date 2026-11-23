@@ -319,7 +319,7 @@ Issues, issue types and the **Yukta Roadmap** project are described in
 ### `native-smoke.yml` — Native smoke
 
 **Purpose**: Show missing reflection or resource entries between releases, not when the release build fails.
-**Triggered on**: daily schedule, manual.
+**Triggered on**: daily schedule, manual, `release-gate.yml`.
 **Behavior**: builds the native server with `-Ob` and runs the Quickstart against it (`release/smoke-test.sh`). Failures open the nightly issue.
 
 ---
@@ -345,6 +345,14 @@ Issues, issue types and the **Yukta Roadmap** project are described in
 **Purpose**: Put a PR on the Yukta Roadmap project as *In review* (*In progress* while a draft), not *Triage*.
 **Triggered on**: `pull_request` opened, ready for review, converted to draft, edited; same-repository PRs only, not Dependabot or release PRs.
 **Behavior**: runs the default branch's `project-lib.sh`; does nothing without the project App ([PROJECT.md](PROJECT.md)).
+
+---
+
+### `release-gate.yml` — Release gate
+
+**Purpose**: Keep the release PR from merging until a full rehearsal has passed on its exact commit, without running it on every update of that PR.
+**Triggered on**: pull requests to `main` (opened, reopened, pushed to, labeled), merge queue.
+**Behavior**: sets the commit status `release-ready` (a required status on `main`). Any PR that is not the release PR (`release-please--*`) gets success at once. A push to the release PR drops its `release:ready` label and sets the status to pending. Adding the label runs `release.yml` (dry run, every platform) and `native-smoke.yml` as reusable workflows, then sets success or failure. In the merge queue the queued commit gets success (the PR passed to be queued).
 
 ---
 
