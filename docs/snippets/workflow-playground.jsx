@@ -814,7 +814,7 @@ export const WorkflowPlayground = () => {
 
     return { NODE_W, NODE_H, GAP_X, GAP_Y, PAD_X, PAD_Y, MAX_NODES, MAX_EDGES, STEP_MS, NODE_TYPES, node, edge, FETCH_CONFIG, PRESET_DEFS, PRESET_ORDER, DEFAULT_PRESET, fmt, formatWorkflow, isErrorEdge, ALT_PORTS, wouldCreateCycle, findCycleNode, validateWorkflowText, computeLayout, buildIndex, joinRuleOf, initRun, stepRun, summarizeRun, CSS, StatusIcon, MiniIcon, LEGEND, truncate };
   }, []);
-  const { NODE_W, NODE_H, GAP_X, GAP_Y, PAD_X, PAD_Y, MAX_NODES, MAX_EDGES, STEP_MS, NODE_TYPES, node, edge, FETCH_CONFIG, PRESET_DEFS, PRESET_ORDER, DEFAULT_PRESET, fmt, formatWorkflow, isErrorEdge, ALT_PORTS, wouldCreateCycle, findCycleNode, validateWorkflowText, computeLayout, buildIndex, joinRuleOf, initRun, stepRun, summarizeRun, CSS, StatusIcon, MiniIcon, LEGEND, truncate } = LIB;
+  const { NODE_W, NODE_H, STEP_MS, NODE_TYPES, node, edge, PRESET_DEFS, PRESET_ORDER, DEFAULT_PRESET, formatWorkflow, isErrorEdge, wouldCreateCycle, validateWorkflowText, computeLayout, initRun, stepRun, summarizeRun, CSS, StatusIcon, MiniIcon, LEGEND, truncate } = LIB;
   const initialText = formatWorkflow(
     PRESET_DEFS[DEFAULT_PRESET].nodes,
     PRESET_DEFS[DEFAULT_PRESET].edges
