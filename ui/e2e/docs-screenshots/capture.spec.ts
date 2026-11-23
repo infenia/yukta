@@ -95,6 +95,10 @@ for (const shot of SHOTS.filter(
           theme
         );
         await page.clock.setFixedTime(NOW);
+        // A component that throws shows React Router's error page, which a loose `ready` locator
+        // can still find; never save that as a screenshot.
+        const thrown: string[] = [];
+        page.on('pageerror', (error) => thrown.push(error.message));
         await base(page);
         for (const install of shot.stubs) await install(page);
         await page.goto(shot.route);
@@ -112,6 +116,9 @@ for (const shot of SHOTS.filter(
         await expect(page.locator('html')).toHaveClass(
           theme === 'dark' ? /dark/ : /^(?!.*dark)/
         );
+        if (thrown.length > 0) {
+          throw new Error(`the page threw: ${thrown[0]}`);
+        }
         const options = { animations: 'disabled', caret: 'hide' } as const;
         const image = shot.region
           ? await shot.region(page).screenshot(options)

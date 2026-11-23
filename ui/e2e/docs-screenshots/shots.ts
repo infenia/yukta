@@ -32,6 +32,36 @@ export interface Shot {
   pages: string[];
 }
 
+/**
+ * Waits until `read` returns the same value twice in a row, 100 ms apart: a panel that resizes the
+ * canvas, or a fit-view zoom, has finished moving.
+ */
+export async function settled(
+  page: Page,
+  read: () => Promise<string>
+): Promise<void> {
+  let last = '';
+  for (let i = 0; i < 50; i++) {
+    const now = await read();
+    if (now === last) return;
+    last = now;
+    await page.waitForTimeout(100);
+  }
+}
+
+/** Fits the run canvas to its graph once the panels around it stopped moving. */
+export async function fitCanvas(page: Page): Promise<void> {
+  // The pan/zoom transform has no role or text; React Flow's viewport element carries it.
+  const viewport = page.locator('.react-flow__viewport');
+  const box = async () =>
+    JSON.stringify(await page.getByTestId('rf__wrapper').boundingBox());
+  await settled(page, box);
+  await page.getByRole('button', { name: 'Fit view' }).click();
+  await settled(page, () =>
+    viewport.evaluate((el) => getComputedStyle(el).transform)
+  );
+}
+
 export const SHOTS: Shot[] = [
   {
     name: 'sessions-list',
@@ -55,7 +85,7 @@ export const SHOTS: Shot[] = [
       await page
         .getByRole('button', { name: 'Collapse execution logs' })
         .click();
-      await page.getByRole('button', { name: 'Fit View' }).click();
+      await fitCanvas(page);
     },
     pages: [
       '/interfaces/web-ui',
@@ -178,9 +208,14 @@ export const SHOTS: Shot[] = [
     ready: (page) => page.getByRole('tab', { name: /^Inputs/ }),
     actions: async (page) => {
       await page.getByRole('tab', { name: /^Inputs/ }).click();
+      // The panel opens at its default height (236 px), which cuts the approval card off; maximized,
+      // it leaves half the picture empty. Eight 24 px keyboard steps fit the card.
+      const handle = page.getByRole('separator', { name: 'Resize the logs' });
+      for (let i = 0; i < 8; i++) await handle.press('ArrowUp');
       await page
         .getByRole('region', { name: 'Inputs' })
-        .getByRole('button', { name: 'Approve' })
+        // exact: the node link "approve" in the same panel also matches otherwise
+        .getByRole('button', { name: 'Approve', exact: true })
         .waitFor();
     },
     region: (page) => page.getByRole('region', { name: 'Inputs' }),
