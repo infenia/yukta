@@ -1,0 +1,5 @@
+# Not product code: opengrep rule-test fixtures and Mintlify snippets (they
+# only see the exported component, so helpers cannot be moved out).
+paths-ignore:
+  - config/opengrep
+  - docs/snippets
