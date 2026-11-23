@@ -636,4 +636,13 @@ class NotificationsControllerTest {
         .expectComplete()
         .verify(WAIT);
   }
+
+  @Test
+  void anEventIdWeDidNotMakeIsLetThrough() {
+    final var sent = new java.util.concurrent.atomic.AtomicLong(5);
+    assertThat(
+            NotificationsController.after(
+                ServerSentEvent.<NotificationEvent>builder().id("x-nope").build(), sent))
+        .isTrue();
+  }
 }

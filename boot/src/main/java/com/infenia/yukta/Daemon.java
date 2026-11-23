@@ -106,16 +106,20 @@ import java.util.Set;
       return Optional.empty();
     }
     final String[] parts = Files.readString(pidFile()).strip().split("\\s+", -1);
-    final Optional<ProcessHandle> handle = ProcessHandle.of(Long.parseLong(parts[0]));
-    // the start time guards against a recycled pid
-    return handle.filter(h ->
-        h.isAlive()
-            && h.info()
-                .startInstant()
-                .map(t ->
-                    parts.length < 2
-                        || Math.abs(t.toEpochMilli() - Long.parseLong(parts[1])) < 2000)
-                .orElse(true));
+    try {
+      final Optional<ProcessHandle> handle = ProcessHandle.of(Long.parseLong(parts[0]));
+      // the start time guards against a recycled pid
+      return handle.filter(h ->
+          h.isAlive()
+              && h.info()
+                  .startInstant()
+                  .map(t ->
+                      parts.length < 2
+                          || Math.abs(t.toEpochMilli() - Long.parseLong(parts[1])) < 2000)
+                  .orElse(true));
+    } catch (NumberFormatException e) {
+      return Optional.empty(); // a damaged pid file names no process
+    }
   }
 
   private int start(final List<String> serverArgs) throws IOException, InterruptedException {
