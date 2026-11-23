@@ -13,10 +13,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Annotation for session ID validation. */
+/**
+ * Annotation for session ID validation: no path separators, no {@code ..}, and no control
+ * characters or unpaired surrogates (an ID the UI cannot put in a URL).
+ */
 @NotBlank(message = "Session ID is required")
 @Size(max = 256, message = "Session ID must be at most 256 characters")
-@Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\]*$", message = "Invalid session ID format")
+@Pattern(regexp = "^(?!.*\\.\\.)[^/\\\\\\p{Cntrl}\\p{Cs}]*$", message = "Invalid session ID format")
 @Target({
   ElementType.FIELD,
   ElementType.PARAMETER,
