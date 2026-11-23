@@ -89,7 +89,7 @@ describe('SupervisorsSummary', () => {
   });
 
   it('collapses the strip to one line when there are no decisions', async () => {
-    server.use(...handlers([], 0, 0));
+    server.use(...handlers([], 0));
     renderWithProviders(<SupervisorsSummary />);
     expect(
       await screen.findByText('No supervisor decisions yet.')

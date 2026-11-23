@@ -114,3 +114,4 @@ try:
     p.wait(timeout=10)
 except subprocess.TimeoutExpired:
     p.kill()
+log.close()

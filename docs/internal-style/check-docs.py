@@ -6,13 +6,16 @@
 
 """Link, banned-word, front-matter and nav checks for the published docs. Run from docs/: python3 internal-style/check-docs.py"""
 import re, glob, os, json, sys
+def read(p):
+    with open(p) as f:
+        return f.read()
 pages = {p[:-4] for p in glob.glob('**/*.mdx', recursive=True) if not p.startswith(('contributing/','internal-style/'))}
-red = {r['source'].strip('/') for r in json.load(open('docs.json')).get('redirects', [])}
-nav = json.dumps(json.load(open('docs.json'))['navigation'])
+red = {r['source'].strip('/') for r in json.loads(read('docs.json')).get('redirects', [])}
+nav = json.dumps(json.loads(read('docs.json'))['navigation'])
 bad, warn = [], []
 BANNED = re.compile(r"\b(simply|(?<!you )just|obviously|trivial(?:ly)?|clearly|of course)\b", re.I)
 for p in sorted(pages):
-    t = open(p + '.mdx').read()
+    t = read(p + '.mdx')
     body = re.sub(r"```.*?```", "", t, flags=re.S)
     for m in re.finditer(r"\]\((/[^)\s#]*)(#[^)]*)?\)|href=\"(/[^\"#]*)", body):
         l = (m.group(1) or m.group(3)).strip('/')

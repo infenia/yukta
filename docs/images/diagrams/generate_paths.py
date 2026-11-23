@@ -14,8 +14,7 @@ Same tokens, node look and motion rules as generate.py; designed to read at abou
 """
 
 from generate import mix
-from scenes import H, W, Scene, chip, icon, panel, text
-import generate as g
+from scenes import H, Scene, chip, icon, panel, text
 
 # ---------------------------------------------------------------------------- Learn
 

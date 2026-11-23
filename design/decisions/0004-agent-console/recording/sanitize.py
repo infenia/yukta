@@ -18,7 +18,9 @@ def clean(o):
     return o
 ids = {"sid": None}
 out = []
-for l in open(src):
+with open(src) as f:
+    lines = f.readlines()
+for l in lines:
     r = json.loads(l)
     if r["dir"] == "err":
         continue

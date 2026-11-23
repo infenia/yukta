@@ -9,7 +9,7 @@ ports and modes the page itself uses. Same kit (scenes.py), tokens and motion as
 """
 
 import generate as g
-from generate import mix
+mix = g.mix
 from scenes import Scene, chip, icon, panel, text
 
 
