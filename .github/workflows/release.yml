@@ -12,6 +12,7 @@ on:
   # PR is merged, not after the tag exists.
   schedule:
     - cron: '17 21 * * 6' # Sunday 2:47 AM IST (Saturday 21:17 UTC)
+  workflow_call:       # release-gate.yml: rehearsal on the release PR
   workflow_dispatch:   # dry run: builds everything, publishes nothing
     inputs:
       platforms:
