@@ -62,7 +62,7 @@ Yukta installs as a single program. Pick your system:
 **Linux and macOS**
 
 ```bash
-curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.5/install.sh | sh
 ```
 
 **Windows** (PowerShell): download `yukta-<version>-windows-amd64.zip` from the [release page](https://github.com/infenia/yukta/releases), then:
@@ -74,7 +74,7 @@ Expand-Archive yukta-<version>-windows-amd64.zip .
 **Docker** (any OS)
 
 ```bash
-docker pull ghcr.io/infenia/yukta:0.1.0-alpha.4
+docker pull ghcr.io/infenia/yukta:0.1.0-alpha.5
 ```
 
 > [!IMPORTANT]
@@ -101,7 +101,7 @@ docker pull ghcr.io/infenia/yukta:0.1.0-alpha.4
 **Uninstall** (Linux and macOS; stop the server first). Windows: delete the unzipped folder. Docker: `docker rmi` the image. It also disconnects the AI agents set up by `yukta-cli agents install`.
 
 ```bash
-curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh -s -- --uninstall
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.5/install.sh | sh -s -- --uninstall
 ```
 
 **Checksums, signing and other packages.** The macOS and Windows builds are not signed or notarized, so Gatekeeper and SmartScreen warn on a browser download; the install script avoids the macOS warning. Every release file is checksummed and signed. Debian, RPM, source: [Install](https://yukta.infenia.com/get-started/install) and [Deploy](https://yukta.infenia.com/guides/operate/deploy).
@@ -149,7 +149,7 @@ $env:YUKTA_AI_PRESETS_DIR = "$PWD\yukta-<version>-windows-amd64\examples\3-paid-
 The image carries only `sh` and `echo`, so run the examples that need nothing else here; the ones that need `git`, `python3`, `shuf`, `uv`, `bun` or `node` (11, 12, 14, 17, 18 and 19) need the native server above. The examples keep their files in `/tmp/yukta-examples`, so the container shares that folder with your machine and runs as you. Without the installer, get the example scripts first (on macOS leave out `--wildcards`):
 
 ```bash
-curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/tags/v0.1.0-alpha.4 | tar -xz --strip-components=1 --wildcards '*/examples'
+curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/tags/v0.1.0-alpha.5 | tar -xz --strip-components=1 --wildcards '*/examples'
 mkdir -p /tmp/yukta-examples
 docker run --rm -p 127.0.0.1:9858:9858 --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp \
   -v /tmp/yukta-examples:/tmp/yukta-examples \
@@ -157,7 +157,7 @@ docker run --rm -p 127.0.0.1:9858:9858 --user "$(id -u):$(id -g)" --workdir /tmp
   -e YUKTA_API_KEYS_0_KEY=change-me-to-a-long-random-secret \
   -e YUKTA_API_KEYS_0_ROLE=ADMIN \
   -e YUKTA_PLUGINS_ENABLED=all -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo \
-  ghcr.io/infenia/yukta:0.1.0-alpha.4
+  ghcr.io/infenia/yukta:0.1.0-alpha.5
 export YUKTA_API_KEY=change-me-to-a-long-random-secret   # the scripts send it to the server
 ```
 
