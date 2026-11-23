@@ -30,6 +30,8 @@ tasks.withType<Test>().configureEach {
     environment("YUKTA_SECRET_E2E_HOOK", "e2e-hook-secret")
     providers.gradleProperty("yukta.e2e.url").orNull?.let { systemProperty("yukta.e2e.url", it) }
     providers.gradleProperty("yukta.e2e.key").orNull?.let { systemProperty("yukta.e2e.key", it) }
+    // the address the server itself reaches its own endpoint at, when that differs (a container publishing a port)
+    providers.gradleProperty("yukta.e2e.self-url").orNull?.let { systemProperty("yukta.e2e.self-url", it) }
     // BoundaryFuzzE2eTest: -PfuzzTries=<cases per entry point>, -PfuzzSeed=<number>|random (nightly)
     providers.gradleProperty("fuzzTries").orNull?.let { systemProperty("yukta.fuzz.tries", it) }
     providers.gradleProperty("fuzzSeed").orNull?.let { systemProperty("yukta.fuzz.seed", it) }

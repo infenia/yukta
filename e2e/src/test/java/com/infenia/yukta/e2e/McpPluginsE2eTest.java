@@ -77,10 +77,13 @@ class McpPluginsE2eTest {
         .body();
   }
 
-  /** The endpoint of this very server; the plugin sends the key it is started with. */
+  /**
+   * The endpoint of this very server, as the server itself reaches it (a container publishes its
+   * port elsewhere: {@code -Pyukta.e2e.self-url}); the plugin sends the key it is started with.
+   */
   private static Map<String, Object> target(final Map<String, Object> extra) {
     final Map<String, Object> config = new ConcurrentHashMap<>(extra);
-    config.put("url", YuktaServer.baseUrl() + "/mcp");
+    config.put("url", System.getProperty("yukta.e2e.self-url", YuktaServer.baseUrl()) + "/mcp");
     // a definition may not hold a literal secret, so the key comes in with the start payload
     config.put("headers", Map.of("X-API-Key", "${payload.key}"));
     return config;
