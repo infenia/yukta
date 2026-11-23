@@ -19,13 +19,21 @@ Every example is a folder in the repository's [`examples`](https://github.com/in
 
 ## Run one
 
-You need a running server, `curl`, `jq` and the `examples/` folder. You do not need to clone the repository: this downloads it as one archive and keeps only that folder (on macOS leave out `--wildcards`; on Windows use Git Bash).
+You need a running server, `curl`, `jq` and the `examples/` folder. The [install script](/get-started/install) puts that folder in `~/.local/share/yukta` (`/usr/local/share/yukta` as root), and the Windows zip has it next to `yukta.exe`. Run the examples from the folder that holds it (on Windows, from Git Bash):
 
 ```bash
-curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/heads/main | tar -xz --strip-components=1 --wildcards '*/examples'
+cd ~/.local/share/yukta                          # where install.sh put examples/
 ./examples/1-standalone/03-pr-risk-gate/run.sh   # one example
 ./examples/run-all.sh 1                          # one category: 1, 2, 3 or all
 ```
+
+Without the install script (Docker, a source checkout), download only that folder, with no clone (on macOS leave out `--wildcards`):
+
+```bash
+curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/heads/main | tar -xz --strip-components=1 --wildcards '*/examples'
+```
+
+The web UI also lists the examples that have a `session.json` as templates: choose **New session** and pick one.
 
 ## Run the server for every example
 
@@ -39,7 +47,7 @@ export YUKTA_AI_PRESETS_DIR=$PWD/examples/3-paid-tools/16-agent-console/agent-ha
 yukta                      # the installed server; from a source checkout: ./gradlew bootRun
 ```
 
-Then run the examples from the folder where you extracted `examples/`. Set `YUKTA_API_KEY` if you gave the server a key (`YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE=ADMIN`).
+Start it from the folder that holds `examples/` (`~/.local/share/yukta` after the install script), so `YUKTA_AI_PRESETS_DIR` finds it, and run the examples from there. Set `YUKTA_API_KEY` if you gave the server a key (`YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE=ADMIN`).
 
 ```bash
 ./examples/run-all.sh                         # all of them, with a summary

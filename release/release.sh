@@ -74,6 +74,9 @@ assets="$DIST/assets"
 rm -rf "$assets"
 mkdir -p "$assets"
 cp "$DIST"/packages/* "$DIST"/cli/yukta-cli-* "$assets/"
+# The examples, which install.sh puts next to the programs: the tracked files of the tagged commit
+# only (no .venv or node_modules left by a local run), under one examples/ folder.
+git archive --format=tar HEAD -- examples | gzip -n > "$assets/yukta-examples-$version.tar.gz"
 for platform in "${PLATFORMS[@]}"; do
   # The bill of materials native-image wrote for this server binary (CycloneDX; the same one is embedded).
   if [[ -s "$DIST/$platform/yukta.sbom.json" ]]; then

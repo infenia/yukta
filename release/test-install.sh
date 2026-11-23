@@ -177,4 +177,41 @@ if sh "$script" --version "$version" --install-dir "$work/t" --agents 'Bad Value
 sh "$script" --version "$version" --install-dir "$work/u2" --server-only --agents auto >/dev/null
 : > "$AGENTS_LOG"
 
+echo "11. examples: skipped without them, beside the programs, replaced on upgrade, never over a folder not made here"
+# Every install above ran against a release without yukta-examples-*.tar.gz (as before 0.1.0-alpha.5).
+[[ ! -e "$work/share/yukta/examples" ]] || fail "examples installed from a release without them"
+hello="$work/exsrc/examples/1-standalone/01-hello-world"
+mkdir -p "$hello"; echo '{}' > "$hello/session.json"; printf '#!/bin/sh\necho hello\n' > "$hello/run.sh"; chmod +x "$hello/run.sh"
+pack_examples() {
+  tar -C "$work/exsrc" -czf "$rel/yukta-examples-$version.tar.gz" examples
+  (cd "$rel" && sha256sum -- $(ls | grep -v '^SHA256SUMS$') > SHA256SUMS)
+}
+pack_examples
+ex="$work/x/share/yukta/examples"
+sh "$script" --version "$version" --install-dir "$work/x/bin" >"$work/ex.out"
+[[ "$("$ex/1-standalone/01-hello-world/run.sh")" == hello && -f "$ex/.yukta-examples" ]] || fail "examples not beside the programs"
+grep -q "Installed: $ex (examples)" "$work/ex.out" || fail "no examples line in the summary"
+touch "$ex/stale"
+sh "$script" --version "$version" --install-dir "$work/x/bin" --force >/dev/null
+[[ ! -e "$ex/stale" && -f "$ex/1-standalone/01-hello-world/session.json" ]] || fail "an upgrade did not replace the examples"
+mkdir -p "$work/mine"; echo keep > "$work/mine/notes"
+out="$(sh "$script" --version "$version" --install-dir "$work/y" --examples-dir "$work/mine")"
+[[ "$(cat "$work/mine/notes")" == keep && ! -e "$work/mine/.yukta-examples" ]] || fail "replaced a folder it did not make"
+grep -q "was not made by this installer" <<<"$out" || fail "no note about the folder it left alone"
+sh "$script" --install-dir "$work/y" --examples-dir "$work/mine" --uninstall >/dev/null
+[[ -f "$work/mine/notes" ]] || fail "uninstall removed a folder it did not make"
+sh "$script" --version "$version" --install-dir "$work/z" --examples-dir "$work/noex" --no-examples >/dev/null
+[[ ! -e "$work/noex" ]] || fail "--no-examples installed them"
+sh "$script" --version "$version" --install-dir "$work/z2" --examples-dir "$work/noex" --cli-only >/dev/null
+[[ ! -e "$work/noex" ]] || fail "--cli-only installed them"
+sh "$script" --install-dir "$work/x/bin" --uninstall >/dev/null
+[[ ! -e "$ex" ]] || fail "uninstall left the examples"
+ln -s /etc/hostname "$work/exsrc/examples/link"; pack_examples
+if sh "$script" --version "$version" --install-dir "$work/w" --examples-dir "$work/wex" 2>"$work/err" >/dev/null; then
+  fail "examples with a link were installed"
+fi
+grep -q "contains a link" "$work/err" || fail "no link message"
+[[ ! -e "$work/wex" ]] || fail "examples with a link were copied"
+rm "$work/exsrc/examples/link"; pack_examples
+
 echo "install.sh: all checks passed"

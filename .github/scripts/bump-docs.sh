@@ -28,6 +28,7 @@ if [ -n "$files" ]; then
   sed -i \
     -e "s#releases/download/v$o/#releases/download/v$new/#g" \
     -e "s#ghcr\.io/infenia/yukta:$o\([^0-9.]\|\$\)#ghcr.io/infenia/yukta:$new\1#g" \
+    -e "s#codeload\.github\.com/infenia/yukta/tar\.gz/refs/tags/v$o\([^0-9.]\|\$\)#codeload.github.com/infenia/yukta/tar.gz/refs/tags/v$new\1#g" \
     -e "s#\"version\" : \"$o\"#\"version\" : \"$new\"#g" \
     -e "s#^\(Current release: \*\*\`\)$o#\1$new#" \
     -e "s#^\(| \`\)$o\(\` | Never | Exactly this release\)#\1$new\2#" \
