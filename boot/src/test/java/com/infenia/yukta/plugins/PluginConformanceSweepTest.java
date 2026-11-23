@@ -50,7 +50,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 @ExpectedErrorLog(
     sometimes = {
       "ERROR com.infenia.yukta.plugin.core.router.BranchProcessor - ",
-      "ERROR com.infenia.yukta.plugin.core.router.SplitterProcessor - "
+      "ERROR com.infenia.yukta.plugin.core.router.SplitterProcessor - ",
+      // an HTTP plugin cancelled by the end of its run while the body is still being read
+      "dropped error: .*client response body has been released already due to cancellation"
     })
 class PluginConformanceSweepTest {
 

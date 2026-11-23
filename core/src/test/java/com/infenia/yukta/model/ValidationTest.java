@@ -121,6 +121,36 @@ class ValidationTest {
   }
 
   @Test
+  void testSessionConfigDataRejectsControlCharactersAndUnpairedSurrogates() {
+    final WorkflowDefinition def = Fixtures.workflow("test-workflow", "desc", List.of(), List.of());
+    final char highSurrogate = (char) 0xD800;
+    final char lowSurrogate = (char) 0xDC00;
+    final List<String> ids =
+        List.of("a\0b", "a\nb", highSurrogate + "\0" + lowSurrogate, "lone" + lowSurrogate);
+    for (final String id : ids) {
+      assertThat(validator.validate(sessionConfigWithId(id, def)))
+          .as("session id %s", id.codePoints().boxed().toList())
+          .anySatisfy(v -> assertThat(v.getMessage()).contains("Invalid session ID format"));
+    }
+  }
+
+  private static SessionConfigData sessionConfigWithId(
+      final String id, final WorkflowDefinition def) {
+    return new SessionConfigData(
+        id, "name", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
+  }
+
+  @Test
+  void testSessionConfigDataAcceptsUnicodeSessionId() {
+    final WorkflowDefinition def = Fixtures.workflow("test-workflow", "desc", List.of(), List.of());
+    final SessionConfigData data =
+        new SessionConfigData(
+            "séssion-😀", "name", "desc", "initiator-1", Map.of(), "/path", Map.of("w1", def));
+    assertThat(validator.validate(data))
+        .noneSatisfy(v -> assertThat(v.getMessage()).contains("Invalid session ID format"));
+  }
+
+  @Test
   void testSessionConfigDataDescriptionTooLong() {
     final WorkflowDefinition def = Fixtures.workflow("test-workflow", "desc", List.of(), List.of());
     final String longDesc = "a".repeat(257);

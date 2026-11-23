@@ -57,6 +57,7 @@ func agentCmd(c *client.Client) *cobra.Command {
 func runAgent(ctx context.Context, c *client.Client, program string, args []string, log io.Writer) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	log = &lockedWriter{w: log}                        // the program's stderr, the reader and the loop all write to it
 	proc := exec.CommandContext(ctx, program, args...) // #nosec G204 -- the user names the program
 	proc.Stderr = log
 	// the pipes fail only when a stream was set already or the process has started: neither is so here
@@ -108,6 +109,18 @@ func runAgent(ctx context.Context, c *client.Client, program string, args []stri
 	}
 	_ = stdin.Close()
 	return nil
+}
+
+// lockedWriter serializes writes: three goroutines log, and a plain writer such as strings.Builder loses lines.
+type lockedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
 }
 
 // dispatch sends one line a program wrote to the right place of the agent API.
