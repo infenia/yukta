@@ -16,6 +16,8 @@ class SpelCases {
     expression.getValue(SimpleEvaluationContext.forReadOnlyDataBinding().build());
     // ok: yukta-spel-standard-evaluation-context
     expression.getValue(SimpleEvaluationContext.forReadOnlyDataBinding().build(), text);
+    // Reference the fixture class below so CodeQL's java/unused-reference-type stays quiet.
+    new Relaxed();
   }
 
   // ruleid: yukta-spel-standard-evaluation-context
