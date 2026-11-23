@@ -19,7 +19,7 @@
 #   --examples-dir <dir>  where to put the examples                  [YUKTA_EXAMPLES_DIR]
 #                         default: <install-dir>/../share/yukta/examples (~/.local/share/yukta/examples)
 #   --no-examples         do not install the examples
-#   --check             say whether a newer release exists; install nothing (exit 1 if behind)
+#   --check               say whether a newer release exists; install nothing (exit 1 if behind)
 #   --force               reinstall even when this version is already installed
 #   --agents <how>        connect AI agents (Claude Code, Codex, Antigravity, Cursor, VS Code,
 #                         Windsurf, OpenCode, ...) to Yukta: the MCP server and the Yukta skills
@@ -181,7 +181,7 @@ Options (environment variable in brackets):
   --examples-dir <dir>  where to put the examples              [YUKTA_EXAMPLES_DIR]
                         default: <install-dir>/../share/yukta/examples
   --no-examples         do not install the examples
-  --check            say whether a newer release exists; install nothing (exit 1 if behind)
+  --check               say whether a newer release exists; install nothing (exit 1 if behind)
   --force               reinstall even when this version is already installed
   --agents <how>        connect AI agents to Yukta (MCP server + skills): ask (default, on a
                         terminal), auto, none, or a list such as claude,codex,cursor [YUKTA_AGENTS]
@@ -235,24 +235,28 @@ install_examples() {
   if [ -e "$edir" ] && [ ! -f "$edir/$EX_MARK" ]; then
     step_done 6 "Examples" "skipped: $edir exists and was not made by this installer"; return 0
   fi
-  download "$BASE_URL/v$version/$f" "$tmp/$f" "Examples" 6 || err "download failed: $BASE_URL/v$version/$f"
+  # The examples are optional: a failure here skips them and the install goes on.
+  skip() { step_done 6 "Examples" "skipped: $1"; printf 'warning: examples not installed: %s\n' "$1" >&2; }
+  download "$BASE_URL/v$version/$f" "$tmp/$f" "Examples" 6 || { skip "download failed"; return 0; }
   want="$(awk -v f="$f" '$2 == f || $2 == "*" f { print $1; exit }' "$tmp/SHA256SUMS")"
-  [ "$(sha256_of "$tmp/$f")" = "$want" ] || err "checksum mismatch for $f; not installing"
+  [ "$(sha256_of "$tmp/$f")" = "$want" ] || { skip "checksum mismatch for $f"; return 0; }
   mkdir "$tmp/ex"
-  tar -xzf "$tmp/$f" -C "$tmp/ex"
+  tar -xzf "$tmp/$f" -C "$tmp/ex" || { skip "$f cannot be unpacked"; return 0; }
   # One examples/ folder of regular files and folders: no link, nothing beside it.
-  [ "$(ls -A "$tmp/ex")" = "examples" ] && [ -d "$tmp/ex/examples" ] && [ ! -L "$tmp/ex/examples" ] ||
-    err "$f does not hold a single examples folder; not installing"
-  [ -z "$(find "$tmp/ex" -type l)" ] || err "$f contains a link; not installing"
+  { [ "$(ls -A "$tmp/ex")" = "examples" ] && [ -d "$tmp/ex/examples" ] && [ ! -L "$tmp/ex/examples" ]; } ||
+    { skip "$f does not hold a single examples folder"; return 0; }
+  [ -z "$(find "$tmp/ex" -type l)" ] || { skip "$f contains a link"; return 0; }
   printf '%s\n' "$version" > "$tmp/ex/examples/$EX_MARK"
   parent="$(dirname "$edir")"
   mkdir -p "$parent" 2>/dev/null || true
-  [ -d "$parent" ] && [ -w "$parent" ] || err "cannot write to $parent; choose another with --examples-dir, or --no-examples"
-  # Copy beside the old folder first, so a failed copy leaves the old examples in place.
-  rm -rf "$edir.new"
-  cp -R "$tmp/ex/examples" "$edir.new"
+  { [ -d "$parent" ] && [ -w "$parent" ]; } ||
+    { skip "cannot write to $parent (--examples-dir chooses another, --no-examples skips)"; return 0; }
+  # Copy beside the old folder first (a private temp dir, never a path of the user's), so a failed copy leaves the old examples in place.
+  new="$(mktemp -d "$parent/.yukta-examples.XXXXXX")" || { skip "cannot write to $parent"; return 0; }
+  if ! cp -R "$tmp/ex/examples/." "$new"; then rm -rf "$new"; skip "copy failed"; return 0; fi
   rm -rf "$edir"
-  mv "$edir.new" "$edir"
+  mv "$new" "$edir"
+  chmod 0755 "$edir"
   installed_examples=1
   step_done 6 "Examples" "$edir"
 }

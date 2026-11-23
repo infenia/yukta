@@ -207,11 +207,12 @@ sh "$script" --version "$version" --install-dir "$work/z2" --examples-dir "$work
 sh "$script" --install-dir "$work/x/bin" --uninstall >/dev/null
 [[ ! -e "$ex" ]] || fail "uninstall left the examples"
 ln -s /etc/hostname "$work/exsrc/examples/link"; pack_examples
-if sh "$script" --version "$version" --install-dir "$work/w" --examples-dir "$work/wex" 2>"$work/err" >/dev/null; then
-  fail "examples with a link were installed"
-fi
+sh "$script" --version "$version" --install-dir "$work/w" --examples-dir "$work/wex" 2>"$work/err" >/dev/null ||
+  fail "a bad examples archive must not fail the install"
 grep -q "contains a link" "$work/err" || fail "no link message"
+[[ -x "$work/w/yukta-cli" ]] || fail "programs not installed after a bad examples archive"
 [[ ! -e "$work/wex" ]] || fail "examples with a link were copied"
+[[ -z "$(ls -A "$work" | grep -F .yukta-examples. || true)" ]] || fail "temp dir left behind"
 rm "$work/exsrc/examples/link"; pack_examples
 
 echo "install.sh: all checks passed"
