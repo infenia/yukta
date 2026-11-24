@@ -200,7 +200,7 @@ describe('ConfigPage', () => {
       ready();
       setup();
       expect(
-        screen.getByRole('row', { name: /yukta\.session\.base-dir/ })
+        screen.getByRole('row', { name: /yukta\.restart\.auto-resume/ })
       ).toHaveTextContent('—');
     });
 

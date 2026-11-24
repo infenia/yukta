@@ -32,9 +32,9 @@ import reactor.core.scheduler.Schedulers;
  *
  * <p>Nodes that ended successfully (the checkpoint store holds a durable end marker) with a
  * complete recorded output are not run again: their output is replayed to the nodes that did not
- * finish. This needs the file log ({@code yukta.execution-log.dir}) and the file checkpoints
- * ({@code yukta.restart.dir}). A run can be resumed once, and only if its workflow definition is
- * unchanged.
+ * finish. This needs the PostgreSQL execution log ({@code yukta.session.store-type=postgres}) and
+ * checkpoints ({@code yukta.restart.store-type=postgres}). A run can be resumed once, and only if
+ * its workflow definition is unchanged.
  */
 @Slf4j
 @Component

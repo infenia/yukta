@@ -70,7 +70,9 @@ class DefaultsAutoConfigurationTest {
   void theStoreSettingsStillSwitchTheDefaultsOff() {
     runner
         .withPropertyValues(
-            "yukta.execution-log.dir=/tmp/l", "yukta.restart.dir=/tmp/r", "yukta.ha.mode=postgres")
+            "yukta.session.store-type=postgres",
+            "yukta.restart.store-type=postgres",
+            "yukta.ha.mode=postgres")
         .run(context -> {
           assertThat(context).doesNotHaveBean(InMemoryExecutionLogStore.class);
           assertThat(context).doesNotHaveBean(InMemoryNodeCheckpointStore.class);

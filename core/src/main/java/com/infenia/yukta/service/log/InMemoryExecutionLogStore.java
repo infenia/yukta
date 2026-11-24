@@ -12,11 +12,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Default execution log: kept in memory, so nothing survives a restart. Set {@code
- * yukta.execution-log.dir} to keep the log on disk.
+ * Default execution log: kept in memory, so nothing survives a restart. The PostgreSQL module
+ * ({@code yukta.session.store-type=postgres}) keeps it durable.
  *
- * <p>Like the file log, it is trimmed to the newest {@code retained-runs} runs after every {@code
- * compact-after} appended events; a run without an end is never dropped.
+ * <p>It is trimmed to the newest {@code retained-runs} runs after every {@code compact-after}
+ * appended events; a run without an end is never dropped.
  */
 public class InMemoryExecutionLogStore implements ExecutionLogStore {
 

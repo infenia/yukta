@@ -67,7 +67,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 | A workflow is refused as too large | More than 500 nodes or 2000 edges | Split it into sub-workflows |
 | Resume answered `409` or `404` | The run is not eligible | [Resume is refused](#resume-is-refused) |
 | Restart answered `404` "no longer restartable" | The run left the archive of the newest 10, or the server restarted | Resume it if it was aborted, or start a new run |
-| Restart from a node answered `400` "incomplete" | The node's output went over the in-memory caps | Use `yukta.restart.dir`, PostgreSQL checkpoints or `yukta.restart.spill-dir` |
+| Restart from a node answered `400` "incomplete" | The node's output went over the in-memory caps | Use PostgreSQL checkpoints (`yukta.restart.store-type=postgres`, no caps) or raise `yukta.restart.messages-per-node` and `yukta.restart.bytes-per-node` |
 | Retry answered `400` "did not fail" | Only `FAILURE` and `TIMED_OUT` nodes can be retried | Pick the failed node |
 | Pending approvals gone after a restart | Open waits live in memory | [Approvals disappear after a restart](#approvals-disappear-after-a-restart) |
 | Runs marked `ABORTED` after a restart | They were in flight when the server stopped | [Resume them](/guides/operate/persist-sessions#resume-runs-after-a-restart) |

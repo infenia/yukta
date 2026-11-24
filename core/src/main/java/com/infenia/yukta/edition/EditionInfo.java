@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
  *
  * @param edition the edition
  * @param license the SPDX licence expression of the build
- * @param features the optional features present, such as {@code file-stores}
+ * @param features the optional features present, such as {@code postgres}
  * @param source where the corresponding source can be obtained, or null
  */
 public record EditionInfo(

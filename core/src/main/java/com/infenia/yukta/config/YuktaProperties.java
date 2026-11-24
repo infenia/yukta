@@ -129,7 +129,6 @@ public record YuktaProperties(
    *
    * @param messagesPerNode messages kept per node and execution
    * @param bytesPerNode payload bytes kept per node and execution
-   * @param spillDir directory for output beyond the caps; empty to refuse such restarts
    * @param autoResume whether interrupted runs are resumed on their own
    * @param retainedExecutions executions whose outputs are kept
    * @param payloadPackages extra class name prefixes whose payloads a resume restores with their
@@ -138,7 +137,6 @@ public record YuktaProperties(
   public record Restart(
       @Min(1) @DefaultValue(DEFAULT_CAP) int messagesPerNode,
       @Min(1) @DefaultValue("4194304") long bytesPerNode,
-      @DefaultValue("") String spillDir,
       @DefaultValue("false") boolean autoResume,
       @Min(1) @DefaultValue("10") int retainedExecutions,
       @NotNull @DefaultValue List<String> payloadPackages) {

@@ -18,7 +18,7 @@ class EditionControllerTest {
   @Test
   void show_returnsTheEditionOfTheBuild() {
     final EditionInfo plus =
-        new EditionInfo(Edition.PLUS, "AGPL-3.0-only", List.of("file-stores"), "https://x");
+        new EditionInfo(Edition.PLUS, "AGPL-3.0-only", List.of("postgres"), "https://x");
 
     final var data = Objects.requireNonNull(new EditionController(plus).show().block()).data();
 

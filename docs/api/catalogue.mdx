@@ -235,7 +235,7 @@ Tells which edition of Yukta this server is, under which licence, and which opti
 |---|---|---|
 | `edition` | string | `COMMUNITY`, `PLUS` or `ENTERPRISE` |
 | `license` | string | The licence of the build, such as `Apache-2.0` or `AGPL-3.0-only` |
-| `features` | array | The optional features present, such as `file-stores`, `postgres`, `high-availability`, `remote-workers` |
+| `features` | array | The optional features present, such as `postgres`, `high-availability`, `remote-workers` |
 | `source` | string or null | Where the corresponding source can be obtained, set by the Plus edition |
 
 ```json
@@ -246,7 +246,7 @@ Tells which edition of Yukta this server is, under which licence, and which opti
   "data": {
     "edition": "PLUS",
     "license": "AGPL-3.0-only",
-    "features": ["file-stores"],
+    "features": ["postgres", "high-availability"],
     "source": "https://github.com/infenia/yukta"
   }
 }

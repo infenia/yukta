@@ -18,7 +18,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
   Yukta is in **alpha**. Release `0.1.0-alpha.4` and later ship a native server and client for Linux (`amd64`, `arm64`), macOS and Windows (`amd64`), plus a multi-architecture Docker image. `0.1.0-alpha.3` and earlier have a native server for Linux `amd64` only: with those, on any other system, use Docker for the server. The macOS and Windows builds are not signed or notarized. Breaking changes to the workflow JSON, the API and the MCP tools are still possible before 1.0. See [Releases](/reference/releases) for what each release contains.
 </Note>
 
-By default the server keeps sessions, workflows and run history **in memory**, so they are gone when it stops. Storing them on disk is part of the Plus edition, see [Licensing and editions](/reference/licensing).
+By default the server keeps sessions, workflows and run history **in memory**, so they are gone when it stops. Storing them in PostgreSQL is part of the Plus edition, see [Licensing and editions](/reference/licensing).
 
 ## Prerequisites
 

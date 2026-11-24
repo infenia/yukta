@@ -21,9 +21,6 @@ class FeatureGateEnvironmentPostProcessorTest {
 
   @ParameterizedTest
   @CsvSource({
-    "yukta.session.store-type, file, yukta.session.store-type=file, -Pyukta.edition=plus",
-    "yukta.execution-log.dir, /tmp/l, yukta.execution-log.dir, -Pyukta.edition=plus",
-    "yukta.restart.dir, /tmp/r, yukta.restart.dir, -Pyukta.edition=plus",
     "yukta.session.store-type, postgres, yukta.session.store-type=postgres,"
         + " -Pyukta.persistence=postgres",
     "yukta.restart.store-type, postgres, yukta.restart.store-type=postgres,"
@@ -55,7 +52,7 @@ class FeatureGateEnvironmentPostProcessorTest {
   }
 
   @Test
-  void noGatedSettings_orTheModuleIsPresent_orPostgresDirectories_areFine() {
+  void noGatedSettings_orTheModuleIsPresent_orBlankSettings_areFine() {
     assertThatCode(
             () -> FeatureGateEnvironmentPostProcessor.check(new MockEnvironment(), name -> false))
         .doesNotThrowAnyException();
@@ -124,20 +121,33 @@ class FeatureGateEnvironmentPostProcessorTest {
         .hasMessageContaining(key + "=postgres needs yukta.session.store-type=postgres");
   }
 
-  @Test
-  void directoryWithPostgresStoreTypeIsGatedByThePostgresRowOnly() {
-    final MockEnvironment env =
-        new MockEnvironment()
-            .withProperty(RESTART_DIR, "/tmp/r")
-            .withProperty(SESSION_TYPE, POSTGRES)
-            .withProperty("yukta.restart.store-type", POSTGRES);
+  @ParameterizedTest
+  @CsvSource({
+    "yukta.session.store-type, file, yukta.session.store-type=file",
+    "yukta.execution-log.dir, /tmp/l, yukta.execution-log.dir",
+    "yukta.restart.dir, /tmp/r, yukta.restart.dir",
+    "yukta.restart.spill-dir, /tmp/p, yukta.restart.spill-dir"
+  })
+  void removedFileSetting_stopsStartupAndPointsToPostgres(
+      final String key, final String value, final String named) {
+    assertThatThrownBy(() ->
+            FeatureGateEnvironmentPostProcessor.check(
+                new MockEnvironment().withProperty(key, value), name -> true))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining(named + " is no longer read")
+        .hasMessageContaining("-Pyukta.persistence=postgres");
+  }
 
-    assertThatCode(
-            () -> FeatureGateEnvironmentPostProcessor.check(env, name -> name.contains(POSTGRES)))
+  @Test
+  void settingsThatDidNothingOnTheirOwn_areIgnored() {
+    // the yukta-dogfood dev server sets the base directory while it keeps state in memory
+    assertThatCode(() ->
+            FeatureGateEnvironmentPostProcessor.check(
+                new MockEnvironment()
+                    .withProperty("yukta.session.base-dir", "/tmp/s")
+                    .withProperty("yukta.execution-log.fsync", "true"),
+                name -> false))
         .doesNotThrowAnyException();
-    assertThatThrownBy(() -> FeatureGateEnvironmentPostProcessor.check(env, name -> false))
-        .hasMessageContaining("-Pyukta.persistence=postgres")
-        .hasMessageNotContaining(RESTART_DIR);
   }
 
   @Test

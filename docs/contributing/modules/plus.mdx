@@ -1,12 +1,12 @@
 ---
 title: "Plus module: AGPL stores and extension layer"
 sidebarTitle: "Plus module"
-description: "The AGPL-3.0-only module: file stores, the PostgreSQL and workers modules nested in it, and the integration layer that extension modules build on."
+description: "The AGPL-3.0-only module: the PostgreSQL and workers modules nested in it, and the integration layer that extension modules build on."
 keywords: ["plus module", "AGPL", "editions"]
 ---
 
 <Info>
-  **In plain terms:** the `plus` directory is where everything beyond the free Community edition lives: saving state to disk, PostgreSQL, high availability and remote workers. It also holds the framework that commercial extension modules plug into.
+  **In plain terms:** the `plus` directory is where everything beyond the free Community edition lives: saving state to PostgreSQL, high availability and remote workers. It also holds the framework that commercial extension modules plug into.
 </Info>
 
 The `plus` directory holds everything that is not in the Community edition. It has four parts:
@@ -17,7 +17,7 @@ The `plus` directory holds everything that is not in the Community edition. It h
 
 | Part | What it is | Switch |
 |---|---|---|
-| `plus` itself | Single-server stores on disk (sessions, workflow definitions, execution log, chat history), `PlusConfiguration` for the checkpoint files, the edition and the `/actuator/info` source offer | `-Pyukta.edition=plus` |
+| `plus` itself | `PlusConfiguration`: the edition and the `/actuator/info` source offer, and the store contract tests (`testFixtures`). The on-disk stores that used to live here were removed | `-Pyukta.edition=plus` |
 | `plus/persistence-postgres` | PostgreSQL stores, Flyway migrations and the leader lease for high availability. See [persistence-postgres](/contributing/modules/persistence-postgres) | `-Pyukta.persistence=postgres` |
 | `plus/workers` | Remote workers over RSocket. See [workers](/contributing/modules/workers) | `-Pyukta.workers=true` |
 | `com.infenia.yukta.plus.ext` | The integration layer: `EnterpriseModule`, `PlusApi`, `LicenseVerifier`, `EnterpriseModuleRegistry` | always in Plus |

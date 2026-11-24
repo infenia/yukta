@@ -101,85 +101,47 @@ class ExecutionRecoveryTest {
     assertThat(scheduler.perWorkflowLimit()).isEqualTo(9);
   }
 
+  private static NodeCheckpointStore sweepingStore() {
+    return mock(
+        NodeCheckpointStore.class,
+        org.mockito.Mockito.withSettings()
+            .extraInterfaces(com.infenia.yukta.service.store.RunOutputSweep.class));
+  }
+
   @Test
-  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
-  void startupRemovesTheDurableOutputOfRunsThatAreNoLongerInTheLog(
-      @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws java.io.IOException {
-    final var files =
-        new com.infenia.yukta.service.store.FileNodeCheckpointStore(
-            dir.toString(), tools.jackson.databind.json.JsonMapper.builder().build());
-    files
-        .save(
-            "gone",
-            "n1",
-            com.infenia.yukta.message.DefaultMessage.create(java.util.UUID.randomUUID(), "x"))
-        .block();
-    files
-        .save(
-            "done",
-            "n1",
-            com.infenia.yukta.message.DefaultMessage.create(java.util.UUID.randomUUID(), "y"))
-        .block();
+  void startupRemovesTheDurableOutputOfRunsThatAreNoLongerInTheLog() {
+    final NodeCheckpointStore outputs = sweepingStore();
     finishedRun("done", "SUCCESS");
-    final ExecutionRecovery startup = new ExecutionRecovery(store, tracker, 100, files);
+    final ExecutionRecovery startup = new ExecutionRecovery(store, tracker, 100, outputs);
 
     startup.afterSingletonsInstantiated();
 
-    org.awaitility.Awaitility.await()
-        .atMost(Duration.ofSeconds(5))
-        .untilAsserted(() -> {
-          try (var left = java.nio.file.Files.list(dir)) {
-            assertThat(left.map(path -> dir.relativize(path).toString()).toList())
-                .containsExactly("e-done");
-          }
-        });
+    verify(
+            (com.infenia.yukta.service.store.RunOutputSweep) outputs,
+            org.mockito.Mockito.timeout(5000))
+        .removeNotIn(java.util.Set.of("done"));
   }
 
   @Test
-  void startupWithAnEmptyLog_doesNotSweep(
-      @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws java.io.IOException {
+  void startupWithAnEmptyLog_doesNotSweep() {
     // a store that could not be read answers empty: that must not wipe every recorded output
-    final var files =
-        new com.infenia.yukta.service.store.FileNodeCheckpointStore(
-            dir.toString(), tools.jackson.databind.json.JsonMapper.builder().build());
-    files
-        .save(
-            "kept",
-            "n1",
-            com.infenia.yukta.message.DefaultMessage.create(java.util.UUID.randomUUID(), "x"))
-        .block();
+    final NodeCheckpointStore outputs = sweepingStore();
 
-    final ExecutionRecovery startup = new ExecutionRecovery(store, tracker, 100, files);
-    startup.afterSingletonsInstantiated();
-    // the startup recovery is asynchronous: run it once more and wait for it, then look
-    startup.recover().block();
+    new ExecutionRecovery(store, tracker, 100, outputs).recover().block();
 
-    try (var left = java.nio.file.Files.list(dir)) {
-      assertThat(left.toList()).hasSize(1);
-    }
+    org.mockito.Mockito.verifyNoInteractions(outputs);
   }
 
   @Test
-  void takeoverRecovery_alsoRemovesTheOutputOfRunsNoLongerInTheLog(
-      @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws java.io.IOException {
-    final var files =
-        new com.infenia.yukta.service.store.FileNodeCheckpointStore(
-            dir.toString(), tools.jackson.databind.json.JsonMapper.builder().build());
-    files
-        .save(
-            "other",
-            "n1",
-            com.infenia.yukta.message.DefaultMessage.create(java.util.UUID.randomUUID(), "x"))
-        .block();
-
+  void takeoverRecovery_alsoRemovesTheOutputOfRunsNoLongerInTheLog() {
+    final NodeCheckpointStore outputs = sweepingStore();
     finishedRun("done", "SUCCESS");
 
     // a standby runs nothing, so on takeover every run without a log entry is gone
-    new ExecutionRecovery(store, tracker, 100, files).recover().block();
+    new ExecutionRecovery(store, tracker, 100, outputs).recover().block();
 
-    try (var left = java.nio.file.Files.list(dir)) {
-      assertThat(left.toList()).isEmpty();
-    }
+    verify((com.infenia.yukta.service.store.RunOutputSweep) outputs)
+        .removeNotIn(java.util.Set.of("done"));
   }
 
   @Test

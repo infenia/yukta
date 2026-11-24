@@ -44,7 +44,7 @@ Durations take a unit (`30s`, `10m`, `1h`); `0` means off where the row says so.
 
 The `prod` profile is the default: a JVM jar started with no flags runs as `prod` (`spring.profiles.default`), and a native binary sets it itself unless a profile is chosen with `--spring.profiles.active=`, `-Dspring.profiles.active=` or the `SPRING_PROFILES_ACTIVE` variable. `bootRun` uses `dev`. Setting `SPRING_PROFILES_ACTIVE=postgres` alone replaces `prod`; name both (`prod,postgres`).
 
-Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`) need the Plus edition; the Community build refuses them at start-up. See [Licensing and editions](/reference/licensing).
+State is durable only in PostgreSQL (`yukta.session.store-type=postgres`), which needs the Plus edition; the Community build refuses it at start-up. The on-disk stores were removed, and their switches (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.restart.spill-dir`) stop start-up; `yukta.session.base-dir` and `yukta.execution-log.fsync` are no longer read. See [Licensing and editions](/reference/licensing).
 
 ## Server and network
 
@@ -117,21 +117,16 @@ Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execu
 
 | Property | Type | Default | Effect |
 |---|---|---|---|
-| `yukta.execution-log.dir` | path | unset (memory) | Keeps the execution log as a file here; needed to recover and resume. Plus. |
 | `yukta.execution-log.retained-runs` | int | `500` | Newest runs kept and restored at start. |
 | `yukta.execution-log.compact-after` | int | `10000` | Log trimmed after this many appended events. |
 | `yukta.execution-log.min-runs-per-session` | int | `10` | Newest runs each session keeps in the log even when a busier session pushes them out of `retained-runs` (at most half of it; 0 turns the floor off). |
-| `yukta.execution-log.fsync` | boolean | `false` | Forces every event to disk (not re-checked). |
-| `yukta.restart.dir` | path | unset (memory) | Keeps node outputs on disk. Plus. |
-| `yukta.restart.spill-dir` | path | `""` (off) | Moves oversize in-memory checkpoints to files here. |
 | `yukta.restart.retained-executions` | int | `10` | Finished runs kept restartable. |
 | `yukta.restart.payload-packages` | list | empty | Extra class name prefixes (for example `com.acme.plugin.`) whose payloads a resume restores with their Java type; other classes come back as JSON. |
 | `yukta.restart.messages-per-node` | int | `200` | In-memory cap: messages per node and run. |
 | `yukta.restart.bytes-per-node` | long | `4194304` | In-memory cap: bytes per node and run. |
 | `yukta.restart.auto-resume` | boolean | `false` | Resumes each interrupted run after recovery or takeover, one after another. |
-| `yukta.restart.store-type` | enum | file if `yukta.restart.dir` is set, else memory | `memory`, `file` or `postgres` (PostgreSQL; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
-| `yukta.session.store-type` | enum | `in-memory` | `in-memory`, `file` or `postgres`; any other value stops start-up. The log line `Stores in use` names the store of each kind of data. |
-| `yukta.session.base-dir` (`YUKTA_SESSION_BASE_DIR`) | path | `<user.home>/.yukta` | Root of the file store. |
+| `yukta.restart.store-type` | enum | `memory` | `memory` or `postgres` (PostgreSQL; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
+| `yukta.session.store-type` | enum | `in-memory` | `in-memory` or `postgres` (sessions, workflow definitions and the execution log in PostgreSQL); any other value stops start-up. The log line `Stores in use` names the store of each kind of data. |
 | `yukta.input.store-type` | enum | `memory` | `memory` or `postgres` (keeps input requests; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
 | `yukta.agents.store-type` | enum | `memory` | `postgres` keeps the conversations with AI agents across a restart (Plus; the `postgres` profile sets it). A conversation a restart left open is ended as `failure`, reason "server restarted"; terminal output is not stored, only the last screen; `memory` or `postgres` (needs `yukta.session.store-type=postgres`), any other value or combination stops start-up. |
 | `yukta.bootstrap.dir`, `.watch`, `.watch-interval` | path, boolean, duration | unset, `false`, `5s` | Session files applied at start-up and optionally watched (not re-checked). |

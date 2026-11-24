@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.service.log.LogRetention;
@@ -64,9 +63,8 @@ class AppConfigurationTest {
 
   @Test
   @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
-  void shouldRegisterSessionConfigProperties() {
-    this.contextRunner.run(
-        context -> assertThat(context).hasSingleBean(SessionConfigProperties.class));
+  void shouldRegisterYuktaProperties() {
+    this.contextRunner.run(context -> assertThat(context).hasSingleBean(YuktaProperties.class));
   }
 
   @Test
@@ -111,7 +109,7 @@ class AppConfigurationTest {
   void applyPayloadPackages_handsTheSettingToTheCheckpointReader() {
     final YuktaProperties properties = mock(YuktaProperties.class);
     final YuktaProperties.Restart restart =
-        new YuktaProperties.Restart(1, 1L, "", false, 1, List.of("java.util.concurrent.atomic."));
+        new YuktaProperties.Restart(1, 1L, false, 1, List.of("java.util.concurrent.atomic."));
     when(properties.restart()).thenReturn(restart);
     try {
       new AppConfiguration().applyPayloadPackages(properties);

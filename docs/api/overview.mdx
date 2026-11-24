@@ -147,7 +147,7 @@ Idempotency-Key: nightly-2026-07-19
 Content-Type: application/json
 ```
 
-The window is `yukta.start.idempotency-ttl` (default `10m`) and the server remembers at most `yukta.start.idempotency-max-keys` keys (default `100000`). Keys survive a restart only when the execution log is kept on disk.
+The window is `yukta.start.idempotency-ttl` (default `10m`) and the server remembers at most `yukta.start.idempotency-max-keys` keys (default `100000`). Keys survive a restart only when the execution log is kept in PostgreSQL.
 
 ## Server-sent event streams
 

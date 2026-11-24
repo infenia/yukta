@@ -18,7 +18,7 @@ describe('EditionSourceLink', () => {
     vi.mocked(getEdition).mockResolvedValue({
       edition: 'PLUS',
       license: 'AGPL-3.0-only',
-      features: ['file-stores'],
+      features: ['postgres'],
       source: 'https://github.com/infenia/yukta',
     });
 

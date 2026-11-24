@@ -73,7 +73,7 @@ dependencies {
         implementation(project(":plus:persistence-postgres"))
     }
 
-    // Single-node durable storage on disk (AGPL-3.0-only, see LICENSING.md): -Pyukta.edition=plus
+    // The Plus edition info and source offer (AGPL-3.0-only, see LICENSING.md): -Pyukta.edition=plus
     if (providers.gradleProperty("yukta.edition").orNull == "plus") {
         implementation(project(":plus"))
     }

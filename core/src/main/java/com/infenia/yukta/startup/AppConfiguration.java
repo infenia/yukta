@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.startup;
 
-import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.log.LogRetention;
 import com.infenia.yukta.service.store.CheckpointJson;
@@ -16,7 +15,7 @@ import reactor.core.scheduler.Schedulers;
 
 /** Configuration for the application. */
 @Configuration
-@EnableConfigurationProperties({SessionConfigProperties.class, YuktaProperties.class})
+@EnableConfigurationProperties(YuktaProperties.class)
 @NoArgsConstructor
 public class AppConfiguration {
 

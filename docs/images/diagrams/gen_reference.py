@@ -70,11 +70,10 @@ def ops_persist_sessions():
     COLS = (("Definitions", 440), ("Run history", 575), ("Resume runs", 705), ("Shared", 815))
     ROWS = (("Memory", "the default, any edition", (0, 0, 0, 0)),
             ("Session files", "yukta.bootstrap.dir, any edition", (1, 0, 0, 0)),
-            ("Disk", "Plus edition", (1, 1, 1, 0)),
             ("PostgreSQL", "Plus edition", (1, 1, 1, 1)))
 
     def under(t):
-        out = [panel(20, 20, 840, 400, t)]
+        out = [panel(20, 20, 840, 328, t)]
         for label, cx in COLS:
             out.append(text(cx, 60, label, t, size=15, weight=600, anchor="middle"))
         out.append(f'<path d="M36 78H844" stroke="{t["border"]}"/>')
@@ -82,7 +81,7 @@ def ops_persist_sessions():
             y = 90 + i * 72
             out.append(text(44, y + 32, name, t, size=18, weight=700))
             out.append(text(44, y + 54, sub, t, size=14, weight=400, fill=t["muted_fg"]))
-            if i < 3:
+            if i < len(ROWS) - 1:
                 out.append(f'<path d="M36 {y + 72}H844" stroke="{t["border"]}" '
                            'stroke-opacity=".7"/>')
             for (label, cx), m in zip(COLS, marks):
@@ -92,15 +91,15 @@ def ops_persist_sessions():
                 else:
                     out.append(f'<path d="M{cx - 8} {cy}h16" stroke="{t["muted_fg"]}" '
                                'stroke-width="2" stroke-linecap="round"/>')
-        out.append(icon("check", 44, 392, t["processor"], scale=1.0))
-        out.append(text(68, 405, "survives a restart; Disk and PostgreSQL need one switch per store",
+        out.append(icon("check", 44, 320, t["processor"], scale=1.0))
+        out.append(text(68, 333, "survives a restart; PostgreSQL needs one switch per store",
                         t, size=14, weight=400, fill=t["muted_fg"]))
         return "".join(out)
 
     return Scene("ops-persist-sessions",
                  "Memory keeps nothing across a restart, session files keep your definitions, "
-                 "disk keeps definitions, run history and resume checkpoints, and PostgreSQL "
-                 "keeps the same and shares it between servers.", under, w=880, h=440)
+                 "and PostgreSQL keeps definitions, run history and resume checkpoints and "
+                 "shares them between servers.", under, w=880, h=368)
 
 
 def ops_secure_the_server():

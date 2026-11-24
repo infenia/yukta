@@ -5,8 +5,8 @@ plugins {
     `java-test-fixtures`
 }
 
-// The Plus edition (AGPL-3.0-only): single-node durable storage on disk. Added to the application
-// with -Pyukta.edition=plus. Nothing outside boot may depend on this module.
+// The Plus edition (AGPL-3.0-only): edition info, the source offer and the Enterprise module API.
+// Added to the application with -Pyukta.edition=plus. Nothing outside boot may depend on it.
 dependencies {
     implementation(project(":core"))
     implementation(project(":plugin-api"))

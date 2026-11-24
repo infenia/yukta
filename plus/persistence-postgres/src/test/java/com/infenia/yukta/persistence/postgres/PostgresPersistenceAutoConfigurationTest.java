@@ -5,7 +5,6 @@ package com.infenia.yukta.persistence.postgres;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
@@ -25,8 +24,7 @@ class PostgresPersistenceAutoConfigurationTest {
       new ApplicationContextRunner()
           .withConfiguration(AutoConfigurations.of(PostgresPersistenceAutoConfiguration.class))
           .withBean(DatabaseClient.class, () -> mock(DatabaseClient.class))
-          .withBean(ObjectMapper.class, ObjectMapper::new)
-          .withBean(SessionConfigProperties.class, SessionConfigProperties::new);
+          .withBean(ObjectMapper.class, ObjectMapper::new);
 
   @Test
   void withStoreTypePostgres_theThreeStoresAreDatabaseBacked() {
@@ -106,7 +104,7 @@ class PostgresPersistenceAutoConfigurationTest {
   @Test
   void withAnyOtherStoreType_nothingIsRegistered() {
     runner
-        .withPropertyValues("yukta.session.store-type=file")
+        .withPropertyValues("yukta.session.store-type=in-memory")
         .run(context -> assertThat(context).doesNotHaveBean(WorkflowDefinitionStore.class));
     runner.run(context -> assertThat(context).doesNotHaveBean(ExecutionLogStore.class));
   }

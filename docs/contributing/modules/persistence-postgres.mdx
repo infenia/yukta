@@ -509,7 +509,7 @@ Set the build flag once, then one property per kind of data.
 |---|---|---|
 | -Pyukta.persistence=postgres (build) | Puts this module on the classpath | Not included |
 | yukta.session.store-type=postgres | Definitions, session config and the execution log | in-memory |
-| yukta.restart.store-type=postgres | Node checkpoints | files if `yukta.restart.dir`, else memory |
+| yukta.restart.store-type=postgres | Node checkpoints | memory |
 | yukta.ha.mode=postgres | The leader lease | single server |
 | spring.r2dbc.url | Run-time connection | none |
 | spring.flyway.url / user / password | Migration connection (JDBC) | none |
@@ -645,7 +645,7 @@ Short rules that follow from the guarantees.
 ## Next steps
 
 <Card title="Persistence" icon="database" horizontal href="/guides/operate/persist-sessions">
-  Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case.
+  Keep sessions, the execution log and node outputs in memory or in PostgreSQL, and what survives a restart in each case.
 </Card>
 
 <Card title="High availability" icon="server" horizontal href="/guides/operate/run-highly-available">
