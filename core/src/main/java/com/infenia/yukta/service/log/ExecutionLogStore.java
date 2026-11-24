@@ -31,12 +31,17 @@ public interface ExecutionLogStore {
   Flux<ExecutionLogEvent> readAll();
 
   /**
-   * Replaces the whole log, used to drop old runs after recovery.
+   * Applies what startup recovery decided, all of it or nothing: removes every event of the runs in
+   * {@code dropped}, keeps only the newest {@code schedulerKept} changes that belong to no run
+   * ({@link ExecutionLogEvent#SCHEDULER}), and appends {@code added} (the ends of the runs a
+   * restart interrupted). Only what changes is written; events appended meanwhile stay.
    *
-   * @param events the events to keep, oldest first
-   * @return completes when the log has been replaced
+   * @param dropped the runs whose events go
+   * @param schedulerKept how many of the newest scheduler changes stay
+   * @param added the events to append, oldest first
+   * @return completes when the log has been changed
    */
-  Mono<Void> replaceAll(List<ExecutionLogEvent> events);
+  Mono<Void> applyRecovery(Set<String> dropped, int schedulerKept, List<ExecutionLogEvent> added);
 
   /**
    * Reads the events of one run, oldest first. The default filters {@link #readAll()}; stores

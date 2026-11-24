@@ -34,7 +34,11 @@ import reactor.core.scheduler.Schedulers;
 @SuppressWarnings("PMD.AvoidCatchingGenericException")
 public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
 
-  /** Longest a statement may take. */
+  /**
+   * Longest a statement may take, waiting for a pooled connection included. ponytail: the lease
+   * shares the application's pool, bounded by its max-acquire-time (5 s in the postgres profile);
+   * give the lease a connection of its own if renewals still time out under load.
+   */
   private static final Duration STATEMENT_TIMEOUT = Duration.ofSeconds(10);
 
   /** Name of the lease row. */

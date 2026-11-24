@@ -54,6 +54,7 @@ class PostgresPersistenceAcceptanceTest {
   @Autowired private ControlBusGateway gateway;
   @Autowired private TaskTrackerService tracker;
   @Autowired private ExecutionLogStore executionLog;
+  @Autowired private io.micrometer.core.instrument.MeterRegistry meters;
 
   @DynamicPropertySource
   /* default */ static void database(final DynamicPropertyRegistry registry) {
@@ -71,6 +72,12 @@ class PostgresPersistenceAcceptanceTest {
     registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
     registry.add("spring.flyway.user", POSTGRES::getUsername);
     registry.add("spring.flyway.password", POSTGRES::getPassword);
+  }
+
+  @Test
+  void connectionsArePooled_withTheSizeOfThePostgresProfile() {
+    // r2dbc-pool reports its bounds as meters; the profile sets max-size 20
+    assertThat(meters.get("r2dbc.pool.max.allocated").gauge().value()).isEqualTo(20.0);
   }
 
   @Test

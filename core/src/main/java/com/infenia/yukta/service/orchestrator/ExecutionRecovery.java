@@ -155,7 +155,10 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
           // the restore and the output sweep touch files, so off the database's thread
           .publishOn(Schedulers.boundedElastic())
           .map(this::plan)
-          .flatMap(plan -> store.replaceAll(plan.kept()).thenReturn(plan))
+          .flatMap(plan ->
+              store
+                  .applyRecovery(plan.droppedRuns(), plan.schedulerKept(), plan.added())
+                  .thenReturn(plan))
           .map(this::finish)
           .doOnNext(aborted -> {
             release.run();
@@ -166,9 +169,14 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     });
   }
 
-  /** What recovery decided: the events to keep, which runs to keep and which it aborted. */
+  /**
+   * What recovery decided: which runs to keep and which to drop, how many scheduler changes stay,
+   * the events to append (the ends of the runs it aborted) and which runs those are.
+   */
   private record Plan(
-      List<ExecutionLogEvent> kept,
+      Set<String> droppedRuns,
+      int schedulerKept,
+      List<ExecutionLogEvent> added,
       Set<String> keep,
       List<String> aborted,
       int restored,
@@ -181,9 +189,9 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
 
     restoreLimits(scheduler);
     // Changes that belong to no run are not runs: they stay, the newest few.
-    final List<ExecutionLogEvent> kept =
-        new ArrayList<>(
-            scheduler.subList(Math.max(0, scheduler.size() - retainedRuns), scheduler.size()));
+    final int schedulerKept = Math.min(retainedRuns, scheduler.size());
+    final Set<String> droppedRuns = new java.util.HashSet<>();
+    final List<ExecutionLogEvent> added = new ArrayList<>();
     final List<List<ExecutionLogEvent>> runs = new ArrayList<>(byRun.values());
     final Set<String> keep =
         LogRetention.keep(
@@ -199,6 +207,7 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     for (final List<ExecutionLogEvent> run : runs) {
       if (!keep.contains(run.getFirst().executionId())) {
         final String gone = run.getFirst().executionId();
+        droppedRuns.add(gone);
         checkpoints
             .clearAsync(gone)
             .subscribe(
@@ -212,18 +221,18 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
         continue;
       }
       final ExecutionLogEvent started = find(run, ExecutionLogEvent.Type.RUN_STARTED);
-      final ExecutionLogEvent ended = end(run);
+      ExecutionLogEvent ended = end(run);
       if (started != null && ended == null) {
         final Map<String, String> finished = new LinkedHashMap<>();
         run.stream()
             .filter(event -> event.type() == ExecutionLogEvent.Type.NODE_FINISHED)
             .forEach(event -> finished.put(event.nodeId(), event.status()));
-        run.add(ExecutionLogEvent.aborted(started, finished));
+        ended = ExecutionLogEvent.aborted(started, finished);
+        added.add(ended);
         abortedIds.add(started.executionId());
       }
-      kept.addAll(run);
       try {
-        restore(started, end(run));
+        restore(started, ended);
       } catch (RuntimeException e) {
         // one run that does not parse (a status from another version) must not stop the others,
         // nor the startup: its events stay in the log
@@ -233,10 +242,10 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
             .log("Could not restore a run into the history; skipping it");
       }
     }
-    return new Plan(kept, keep, abortedIds, runs.size() - skip, skip);
+    return new Plan(droppedRuns, schedulerKept, added, keep, abortedIds, runs.size() - skip, skip);
   }
 
-  /** Runs once the log is replaced: sweeps the outputs of dropped runs, then reports. */
+  /** Runs once the log is changed: sweeps the outputs of dropped runs, then reports. */
   private List<String> finish(final Plan plan) {
     // an empty log may be a failed read (the stores answer empty then): never sweep on it
     if (!plan.keep().isEmpty() && checkpoints instanceof RunOutputSweep sweep) {

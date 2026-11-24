@@ -13,3 +13,23 @@ yukta:
   # Conversations with AI agents survive a restart (those still open are ended as failed).
   agents:
     store-type: postgres
+
+# The connection pool (r2dbc-pool) and the database's own statement timeout. Override any of them
+# through the environment, for example SPRING_R2DBC_POOL_MAX_SIZE=40.
+spring:
+  r2dbc:
+    pool:
+      initial-size: 4
+      # R2DBC does not park a thread per connection, so a few connections carry many runs; each one
+      # costs memory on the database server.
+      max-size: 20
+      # Give up rather than wait forever for a free connection or a new one (the defaults do not).
+      max-acquire-time: 5s
+      max-create-connection-time: 5s
+      max-idle-time: 10m
+      # Renew connections now and then, so a failover or a pooler behind the URL is picked up.
+      max-life-time: 30m
+    properties:
+      # The server stops a statement after this long (an ISO-8601 duration). The stores stop
+      # waiting after 30 s as well; without this the query would keep running on the server.
+      statementTimeout: PT30S
