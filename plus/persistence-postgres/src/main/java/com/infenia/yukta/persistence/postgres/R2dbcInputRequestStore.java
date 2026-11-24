@@ -228,23 +228,31 @@ public class R2dbcInputRequestStore implements InputRequestStore {
     return query("TRUE", sessionId, executionId);
   }
 
+  /**
+   * The requests matching {@code condition} and the filters given. Only the filters that are set
+   * become predicates, so the planner can use the session or run index (a catch-all {@code :x IS
+   * NULL OR col = :x} hides them from a generic plan).
+   */
   private Flux<InputRequest> query(
       final String condition,
       final @Nullable String sessionId,
       final @Nullable String executionId) {
-    return client
-        .sql(
-            "SELECT "
-                + REQUEST_COLUMNS
-                + " FROM input_request WHERE "
-                + condition
-                + " AND (CAST(:session AS text) IS NULL OR session_id = CAST(:session AS text)) AND"
-                + " (CAST(:execution AS text) IS NULL OR execution_id = CAST(:execution AS text))"
-                + " ORDER BY created_at, id")
-        .bind("session", nullable(sessionId, String.class))
-        .bind("execution", nullable(executionId, String.class))
-        .map(this::request)
-        .all();
+    final String sql =
+        "SELECT "
+            + REQUEST_COLUMNS
+            + " FROM input_request WHERE "
+            + condition
+            + (sessionId == null ? "" : " AND session_id = :session")
+            + (executionId == null ? "" : " AND execution_id = :execution")
+            + " ORDER BY created_at, id";
+    DatabaseClient.GenericExecuteSpec spec = client.sql(sql);
+    if (sessionId != null) {
+      spec = spec.bind("session", sessionId);
+    }
+    if (executionId != null) {
+      spec = spec.bind("execution", executionId);
+    }
+    return spec.map(this::request).all();
   }
 
   @Override
@@ -263,21 +271,27 @@ public class R2dbcInputRequestStore implements InputRequestStore {
         .all();
   }
 
+  /** In batches ({@link Batches}); each batch deletes its requests' answers with them. */
   @Override
   public Mono<Long> purgeTerminalOlderThan(final Instant cutoff) {
-    return client
-        .sql(
-            """
-            WITH gone AS (
-              DELETE FROM input_request WHERE NOT (state IN ('OPEN', 'ESCALATED'))
-                AND updated_at < :cutoff RETURNING id),
-            answers AS (
-              DELETE FROM input_response WHERE request_id IN (SELECT id FROM gone))
-            SELECT count(*) AS removed FROM gone
-            """)
-        .bind("cutoff", cutoff)
-        .map(row -> row.get("removed", Long.class))
-        .one();
+    return Batches.repeat(size ->
+        client
+            .sql(
+                """
+                WITH gone AS (
+                  DELETE FROM input_request WHERE id IN (
+                    SELECT id FROM input_request WHERE NOT (state IN ('OPEN', 'ESCALATED'))
+                      AND updated_at < :cutoff
+                    LIMIT :size)
+                  RETURNING id),
+                answers AS (
+                  DELETE FROM input_response WHERE request_id IN (SELECT id FROM gone))
+                SELECT count(*) AS removed FROM gone
+                """)
+            .bind("cutoff", cutoff)
+            .bind("size", size)
+            .map(row -> Objects.requireNonNull(row.get("removed", Long.class)))
+            .one());
   }
 
   private InputRequest request(final Readable row) {

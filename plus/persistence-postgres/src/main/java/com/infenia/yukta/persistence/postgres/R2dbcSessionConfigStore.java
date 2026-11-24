@@ -4,6 +4,7 @@ package com.infenia.yukta.persistence.postgres;
 
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
+import com.infenia.yukta.model.session.SessionSummary;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -28,6 +29,8 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
 
   /** Tags as stored. */
   private static final TypeReference<Map<String, String>> TAGS = new TypeReference<>() {};
+
+  private static final String INITIATOR = "initiator";
 
   /** Runs the statements. */
   private final DatabaseClient client;
@@ -86,12 +89,12 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
 
   @Override
   public Mono<String> getInitiator(final String sessionId) {
-    return column(sessionId, "initiator");
+    return column(sessionId, INITIATOR);
   }
 
   @Override
   public Mono<Void> setInitiator(final String sessionId, final String initiator) {
-    return setIfEmpty(sessionId, "initiator", initiator);
+    return setIfEmpty(sessionId, INITIATOR, initiator);
   }
 
   @Override
@@ -125,7 +128,7 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
             .map(r -> {
               final String name = r.get("name", String.class);
               final String description = r.get("description", String.class);
-              final String initiator = r.get("initiator", String.class);
+              final String initiator = r.get(INITIATOR, String.class);
               final String initiated = r.get("initiated_time", String.class);
               final Map<String, String> tags = mapper.readValue(r.get("tags", String.class), TAGS);
               final String projectPath = r.get("project_path", String.class);
@@ -162,6 +165,41 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
         .fetch()
         .rowsUpdated()
         .then();
+  }
+
+  /**
+   * Every session in one query, ordered by id: the settings row and a count of its workflows, not
+   * the definitions. A session that has workflows but no row (a delete that stopped half way) is
+   * listed with empty values, as {@link #getAllConfigs} does. ponytail: one query for all sessions,
+   * paged in memory by the caller; page in SQL (keyset on session_id) once there are ~100k
+   * sessions.
+   */
+  @Override
+  public Flux<SessionSummary> summaries() {
+    return client
+        .sql(
+            """
+            SELECT i.session_id, s.name, s.description, s.initiator, s.project_path,
+              CAST(s.tags AS text) AS tags,
+              (SELECT count(*) FROM workflow_definition w WHERE w.session_id = i.session_id)
+                AS workflows
+            FROM (SELECT session_id FROM session_config
+                  UNION SELECT session_id FROM workflow_definition) i
+            LEFT JOIN session_config s ON s.session_id = i.session_id
+            ORDER BY i.session_id
+            """)
+        .map(row -> {
+          final String tags = row.get("tags", String.class);
+          return new SessionSummary(
+              row.get("session_id", String.class),
+              java.util.Objects.requireNonNullElse(row.get("name", String.class), ""),
+              java.util.Objects.requireNonNullElse(row.get("description", String.class), ""),
+              java.util.Objects.requireNonNullElse(row.get(INITIATOR, String.class), ""),
+              tags == null ? Map.of() : mapper.readValue(tags, TAGS),
+              java.util.Objects.requireNonNullElse(row.get("project_path", String.class), ""),
+              java.util.Objects.requireNonNull(row.get("workflows", Long.class)).intValue());
+        })
+        .all();
   }
 
   @Override

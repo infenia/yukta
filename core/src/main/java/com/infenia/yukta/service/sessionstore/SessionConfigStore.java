@@ -4,6 +4,7 @@ package com.infenia.yukta.service.sessionstore;
 
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
+import com.infenia.yukta.model.session.SessionSummary;
 import com.infenia.yukta.validation.SessionId;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -92,6 +93,20 @@ public interface SessionConfigStore {
    * @return Flux of session IDs
    */
   Flux<String> getSessionIds();
+
+  /**
+   * Every session as a list shows it, ordered by id, without the workflow definitions. The default
+   * reads each session whole; stores override it with one query. A session that cannot be read is
+   * left out.
+   *
+   * @return the summaries, ordered by session id
+   */
+  default Flux<SessionSummary> summaries() {
+    return getSessionIds()
+        .sort()
+        .concatMap(
+            id -> getAllConfigs(id).map(SessionSummary::from).onErrorResume(_ -> Mono.empty()));
+  }
 
   /**
    * Forgets a session's own settings (its workflows are removed through the workflow store).
