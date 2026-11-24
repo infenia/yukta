@@ -174,7 +174,7 @@ Provides the two connections the module needs: R2DBC for all run-time statements
 
 - **Guarantees.** Every statement has a timeout where it blocks; a timeout is logged and turned into a safe default.
 - **State.** The connection pool belongs to Spring Boot's R2DBC auto-configuration, not to this module.
-- **Ceiling.** Pool size and R2DBC pool metrics are not set or exposed here.
+- **Ceiling.** The `postgres` profile sizes the pool (`spring.r2dbc.pool.*`: 4 to 20 connections, at most 5 s to get or open one, connections renewed after 30 min) and sets the session's `statement_timeout` to 30 s (`spring.r2dbc.properties.statementTimeout`), so the server stops a statement the stores no longer wait for. Boot exposes the pool as `r2dbc.pool.*` meters. The leader lease shares this pool.
 - **On failure.** An unreachable database makes writes fail (logged) and reads return empty or "unfinished"; the application keeps running.
 
 **Settings:** `spring.r2dbc.url`, `spring.flyway.url`, `spring.flyway.user`, `spring.flyway.password`
@@ -223,7 +223,7 @@ Stores the workflow definitions of each session with their newest 20 versions, a
 Records the start and end of runs, node ends, control commands and idempotency keys, so a restart can mark interrupted runs ABORTED and resume them.
 
 - `append` puts an event in a queue (10,000 events) and schedules a drain on the serial write pipeline (one task at a time, no thread parked). The drain inserts up to 100 events per statement; if a batch fails it writes the events one by one and logs the ones that still fail. When the queue is full the event is dropped and an error is logged.
-- Reads (`readAll`, `forExecution`, `header`, `ofType`) return a `Flux`/`Mono` and `applyRecovery` a `Mono<Void>`; they run in the same pipeline, after the pending events, so they see everything appended before they are subscribed. A cancelled read is skipped. After the store stops they answer empty. `readAll` loads every row into memory and skips rows it cannot parse.
+- Reads (`readAll`, `forExecution`, `header`, `ofType`) return a `Flux`/`Mono` and `applyRecovery` a `Mono<Void>`. `applyRecovery` runs in the pipeline; a read takes the pipeline only to drain the events queued before it, then queries and parses outside it, so it sees everything appended before it is subscribed and a slow read never holds back the appends behind it. A cancelled read is skipped. After the store stops they answer empty. `readAll` loads every row into memory and skips rows it cannot parse.
 - `applyRecovery` is used by startup and takeover recovery. In one transaction, after locking the lease row, it deletes the dropped runs (`execution_id = ANY(:gone)`, through the `(execution_id, seq)` index), keeps the newest scheduler entries and appends the abort events through the batch insert. A failure rolls it all back.
 - After every `compact-after` (10,000) appended events the writer trims the table to the newest `retained-runs` (500) runs by their last event, never dropping a run that has a start but no end, and keeps the newest 500 scheduler entries (execution id `scheduler`).
 - If an event's payload cannot be written as JSON, the event is stored without the payload and a warning says that the run cannot be resumed.

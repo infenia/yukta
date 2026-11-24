@@ -15,6 +15,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
+import com.infenia.yukta.model.session.SessionSummary;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
@@ -1217,6 +1218,21 @@ class SessionServiceTest {
         .verifyComplete();
     StepVerifier.create(service.getSessionIds(true).collectList())
         .assertNext(ids -> assertThat(ids).containsExactly("a", SYS, "b"))
+        .verifyComplete();
+  }
+
+  @Test
+  void sessionSummaries_leaveInternalSessionsOutByTheirTag_unlessAskedFor() {
+    final SessionSummary visible = new SessionSummary("a", "a", "", "", Map.of(), "", 1);
+    final SessionSummary internal =
+        new SessionSummary("b", "b", "", "", Map.of(InternalSessions.TAG, "TRUE"), "", 1);
+    when(configService.summaries()).thenReturn(Flux.just(visible, internal));
+
+    StepVerifier.create(sessionService.getSessionSummaries(false))
+        .expectNext(visible)
+        .verifyComplete();
+    StepVerifier.create(sessionService.getSessionSummaries(true))
+        .expectNext(visible, internal)
         .verifyComplete();
   }
 }

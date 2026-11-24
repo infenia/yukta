@@ -20,6 +20,18 @@ Two checks catch what a pass on latency hides, both must be 0:
 own status never turns final, so leave it off. Open problems found by these tests are in
 [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
 
+## PostgreSQL (`PERSISTENCE=postgres`)
+
+`PERSISTENCE=postgres perf/run.sh perf` runs the same workloads with the sessions, definitions, execution log and checkpoints in
+PostgreSQL, to show what the database costs per run. A `postgres:18-alpine` container (`PG_CPUS=2`, `PG_MEMORY=2g`, no swap) joins the
+server's compose project and the server starts on the `prod,postgres` profile. The binary must be the Plus flavour:
+`YUKTA_BUILD_FLAGS="-Pyukta.persistence=postgres -Pyukta.workers=true" NATIVE_QUICK=1 release/build-server.sh`, then
+`BINARY=dist/linux-amd64/yukta PERSISTENCE=postgres perf/run.sh perf`. Compare a run with `PERSISTENCE=memory` (the default) on the
+same commit and machine: `workflow_e2e` is the cost of the stores on the run's path (checkpoints, the log). `meta.json` records the
+`persistence`. `compare.py` checks a report against `baseline.json`, which is a memory baseline: do not run it on a PostgreSQL report, and
+compare the two reports by hand. No PostgreSQL numbers are recorded yet; they need a run of the Plus native binary on the CI runner,
+not on a development machine.
+
 ## Input requests (`k6/inputs.js`)
 
 `perf/run.sh inputs` starts 1,000 runs (`OPEN_REQUESTS`, spread over `SESSIONS`=25 sessions because a session may

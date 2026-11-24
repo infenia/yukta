@@ -440,9 +440,18 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
                     .timeout(STATEMENT_TIMEOUT))));
   }
 
-  /** Runs a read behind the queued events, so it sees every earlier append. */
+  /**
+   * Runs a read once the events queued before it are written, so it sees every earlier append. Only
+   * that drain takes the write pipeline: the query and the parsing run outside it, so a slow read
+   * (a whole log at recovery, a large run) no longer holds back the appends behind it. A store that
+   * has stopped answers empty, and a failed read is logged and answers empty.
+   */
   private Flux<ExecutionLogEvent> reading(final Mono<List<ExecutionLogEvent>> read) {
-    return serial(drainAll().then(read)).flatMapMany(Flux::fromIterable);
+    return serial(drainAll().thenReturn(Boolean.TRUE))
+        .flatMap(_ -> read)
+        .doOnError(error -> log.atError().setCause(error).log("Could not read the log"))
+        .onErrorResume(_ -> Mono.empty())
+        .flatMapMany(Flux::fromIterable);
   }
 
   /**

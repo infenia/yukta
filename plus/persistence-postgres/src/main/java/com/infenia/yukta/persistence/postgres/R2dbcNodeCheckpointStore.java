@@ -9,6 +9,7 @@ import com.infenia.yukta.service.store.CheckpointJson;
 import com.infenia.yukta.service.store.RunOutputSweep;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -36,6 +37,9 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
 
   /** The table of messages. */
   private static final String MESSAGES = "node_checkpoint";
+
+  /** Longest the sweep of gone runs at recovery may take; the rest waits for the next one. */
+  private static final java.time.Duration SWEEP_TIMEOUT = java.time.Duration.ofMinutes(5);
 
   /** Runs the statements. */
   private final DatabaseClient client;
@@ -228,29 +232,44 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
     return size.bytes(MESSAGES);
   }
 
-  /** Deletes the output of every run not in {@code kept}, in one transaction. */
+  /**
+   * Deletes the output of every run not in {@code kept}, a short statement at a time instead of one
+   * transaction that a large backlog would run into the statement timeout with. The state rows go
+   * first: a node without one reads as unfinished, so a sweep cut short makes a resume run it again
+   * rather than trust a partial output. Then each gone run's messages, through the {@code
+   * (execution_id, node_id, seq)} index. What is left after {@link #SWEEP_TIMEOUT} is swept at the
+   * next recovery.
+   */
   @Override
   public void removeNotIn(final Set<String> kept) {
     final String[] ids = kept.toArray(String[]::new);
     try {
-      Transactions.inTransaction(
-              client,
+      client
+          .sql("DELETE FROM node_checkpoint_state WHERE NOT (execution_id = ANY(:k))")
+          .bind("k", ids)
+          .fetch()
+          .rowsUpdated()
+          .thenMany(
               client
-                  .sql("DELETE FROM node_checkpoint WHERE NOT (execution_id = ANY(:k))")
+                  .sql(
+                      "SELECT DISTINCT execution_id FROM node_checkpoint"
+                          + " WHERE NOT (execution_id = ANY(:k))")
                   .bind("k", ids)
-                  .fetch()
-                  .rowsUpdated()
-                  .then(
-                      client
-                          .sql(
-                              "DELETE FROM node_checkpoint_state WHERE NOT (execution_id ="
-                                  + " ANY(:k))")
-                          .bind("k", ids)
-                          .fetch()
-                          .rowsUpdated()
-                          .then()))
+                  .map(row -> Objects.requireNonNull(row.get("execution_id", String.class)))
+                  .all())
+          .concatMap(gone ->
+              Batches.repeat(size ->
+                  client
+                      .sql(
+                          "DELETE FROM node_checkpoint WHERE seq IN (SELECT seq FROM"
+                              + " node_checkpoint WHERE execution_id = :e LIMIT :size)")
+                      .bind(CheckpointRows.EXECUTION, gone)
+                      .bind("size", size)
+                      .fetch()
+                      .rowsUpdated()))
+          .then()
           .toFuture()
-          .get(CheckpointRows.QUESTION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+          .get(SWEEP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     } catch (final ExecutionException | TimeoutException e) {
