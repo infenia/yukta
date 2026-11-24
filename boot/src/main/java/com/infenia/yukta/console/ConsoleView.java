@@ -59,7 +59,7 @@ import org.jline.utils.AttributedStyle;
   private final ConsoleLogs logs;
   private final boolean color;
 
-  private Page page = Page.DASHBOARD;
+  private volatile Page page = Page.DASHBOARD;
   private int levelIndex = 2; // INFO
   private int scroll; // lines up from the newest; 0 follows the tail
   private boolean quit;

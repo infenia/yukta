@@ -12,6 +12,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.IntFunction;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
 import org.jline.terminal.Attributes;
@@ -79,7 +81,12 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
         .start(() -> {
           int code = 0;
           try {
-            loop(view, "http://127.0.0.1:" + port, key);
+            final String base = "http://127.0.0.1:" + port;
+            try (Terminal term = TerminalBuilder.builder().system(true).build()) {
+              loop(term, view, limit -> poll(base, key, limit));
+            }
+            // the shutdown below can take a while (graceful stop): say so, q was not ignored
+            System.out.println("Stopping Yukta…");
           } catch (Exception | LinkageError e) {
             System.err.println("console failed: " + e);
             code = 1;
@@ -89,62 +96,76 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
         });
   }
 
-  private static void loop(final ConsoleView view, final String base, final String key)
+  /**
+   * Runs the dashboard on {@code term} until q. The server is polled on its own thread, so a slow
+   * or dead server never delays a key.
+   */
+  /* default */ static void loop(
+      final Terminal term, final ConsoleView view, final IntFunction<ConsoleView.Snapshot> poller)
       throws IOException {
     final Instant started = Instant.now();
-    ConsoleView.Snapshot snap = ConsoleView.Snapshot.NONE;
-    Instant lastPoll = Instant.EPOCH;
-    try (Terminal term = TerminalBuilder.builder().system(true).build()) {
-      final var saved = term.enterRawMode();
-      // the terminal is put back even if the JVM is killed
-      final Thread restore = new Thread(() -> leave(term));
-      Runtime.getRuntime().addShutdownHook(restore);
-      term.puts(Capability.enter_ca_mode);
-      term.puts(Capability.cursor_invisible);
-      term.puts(Capability.keypad_xmit);
-      final boolean graphemes =
-          term.supportsGraphemeClusterMode() && term.setGraphemeClusterMode(true, false);
-      boolean mouse = term.hasMouseSupport() && term.trackMouse(Terminal.MouseTracking.Normal);
-      term.flush();
-      final AtomicBoolean dirty = new AtomicBoolean(true);
-      term.handle(Terminal.Signal.WINCH, sig -> dirty.set(true));
-      final Display display = new Display(term, true);
-      final KeyMap<String> keys = keys(term);
-      final BindingReader reader = new BindingReader(term.reader());
-      try {
-        Size size = ConsoleView.fit(term.getSize());
-        display.resize(size.getRows(), size.getColumns());
-        while (!view.quit()) {
-          if (Duration.between(lastPoll, Instant.now()).toMillis() >= 1000) {
-            snap = poll(base, key, view.wantsManyRuns() ? 50 : 8);
-            lastPoll = Instant.now();
-          }
-          if (dirty.getAndSet(false)) {
-            size = ConsoleView.fit(term.getSize());
-            display.resize(size.getRows(), size.getColumns());
-            display.clear();
-          }
-          final List<AttributedString> lines =
-              view.render(
-                  snap,
-                  Duration.between(started, Instant.now()),
-                  size.getColumns(),
-                  size.getRows());
-          term.beginSynchronizedUpdate();
-          display.update(lines, 0);
-          term.endSynchronizedUpdate();
-          term.flush();
-          final String k = key(term, reader, keys);
-          if ("m".equals(k) && term.hasMouseSupport()) {
-            mouse = toggleMouse(term, mouse);
-          } else if (k != null) {
-            view.onKey(k);
-          }
+    final AtomicReference<ConsoleView.Snapshot> snapRef =
+        new AtomicReference<>(ConsoleView.Snapshot.NONE);
+    final Thread poll =
+        Thread.ofPlatform()
+            .name("yukta-console-poll")
+            .daemon(true)
+            .start(() -> {
+              try {
+                while (!Thread.currentThread().isInterrupted()) {
+                  snapRef.set(poller.apply(view.wantsManyRuns() ? 50 : 8));
+                  Thread.sleep(1000);
+                }
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+            });
+    final var saved = term.enterRawMode();
+    // the terminal is put back even if the JVM is killed
+    final Thread restore = new Thread(() -> leave(term));
+    Runtime.getRuntime().addShutdownHook(restore);
+    term.puts(Capability.enter_ca_mode);
+    term.puts(Capability.cursor_invisible);
+    term.puts(Capability.keypad_xmit);
+    final boolean graphemes =
+        term.supportsGraphemeClusterMode() && term.setGraphemeClusterMode(true, false);
+    boolean mouse = term.hasMouseSupport() && term.trackMouse(Terminal.MouseTracking.Normal);
+    term.flush();
+    final AtomicBoolean dirty = new AtomicBoolean(true);
+    term.handle(Terminal.Signal.WINCH, sig -> dirty.set(true));
+    final Display display = new Display(term, true);
+    final KeyMap<String> keys = keys(term);
+    final BindingReader reader = new BindingReader(term.reader());
+    try {
+      Size size = ConsoleView.fit(term.getSize());
+      display.resize(size.getRows(), size.getColumns());
+      while (!view.quit()) {
+        if (dirty.getAndSet(false)) {
+          size = ConsoleView.fit(term.getSize());
+          display.resize(size.getRows(), size.getColumns());
+          display.clear();
         }
-      } finally {
-        Runtime.getRuntime().removeShutdownHook(restore);
-        restore(term, graphemes, mouse, saved);
+        final List<AttributedString> lines =
+            view.render(
+                snapRef.get(),
+                Duration.between(started, Instant.now()),
+                size.getColumns(),
+                size.getRows());
+        term.beginSynchronizedUpdate();
+        display.update(lines, 0);
+        term.endSynchronizedUpdate();
+        term.flush();
+        final String k = key(term, reader, keys);
+        if ("m".equals(k) && term.hasMouseSupport()) {
+          mouse = toggleMouse(term, mouse);
+        } else if (k != null) {
+          view.onKey(k);
+        }
       }
+    } finally {
+      poll.interrupt();
+      Runtime.getRuntime().removeShutdownHook(restore);
+      restore(term, graphemes, mouse, saved);
     }
   }
 
