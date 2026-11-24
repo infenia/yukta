@@ -9,9 +9,5 @@ overrides:
   "undici@>=7 <8": 7.30.1
   "undici@>=8": 8.12.2
   systeminformation: 5.33.16
-
-# eslint, typescript-eslint, ts-morph and socks pin versions below the patched releases (OSV: GHSA-g3hv-75wg-m249,
-# GHSA-mrhx-c7xc-m3w5, GHSA-rxp7-6hxx-x8q5). Dev-only paths. Drop these once their parents ship the fixed range.
+  # shadcn (ts-morph 0.27) and older typescript-estree copies still pin minimatch 10.x (GHSA-g3hv-75wg-m249). Dev-only.
   "minimatch@>=7 <11": 11.0.5
-  "zod@<4.6.6": 4.6.7
-  "ip-address@<10.7.4": 10.7.6
