@@ -588,37 +588,37 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
         });
   }
 
-  /** The statement that inserts {@code batch}, whose events are already written as {@code json}. */
+  /**
+   * The statement that inserts {@code batch}, whose events are already written as {@code json}. The
+   * columns travel as four parallel arrays, so the statement text is the same for every batch size
+   * (one prepared statement), and the rows keep the order of the batch.
+   */
   private DatabaseClient.GenericExecuteSpec batchInsert(
       final List<ExecutionLogEvent> batch, final List<String> json) {
-    final StringBuilder sql =
-        new StringBuilder(256)
-            .append(
-                "INSERT INTO execution_log (execution_id, type, ts, event)"
-                    + " SELECT e, t, s, j FROM (VALUES ");
-    for (int i = 0; i < batch.size(); i++) {
-      sql.append(i == 0 ? "(" : ", (")
-          .append(":e")
-          .append(i)
-          .append(", :t")
-          .append(i)
-          .append(", CAST(:s")
-          .append(i)
-          .append(" AS timestamptz), CAST(:j")
-          .append(i)
-          .append(" AS jsonb))");
-    }
-    sql.append(") AS v(e, t, s, j) WHERE ").append(Fencing.NOT_STALE);
-    DatabaseClient.GenericExecuteSpec spec = client.sql(sql.toString());
-    for (int i = 0; i < batch.size(); i++) {
+    final int size = batch.size();
+    final String[] runs = new String[size];
+    final String[] types = new String[size];
+    final String[] times = new String[size];
+    for (int i = 0; i < size; i++) {
       final ExecutionLogEvent event = batch.get(i);
-      spec =
-          spec.bind("e" + i, event.executionId())
-              .bind("t" + i, event.type().name())
-              .bind("s" + i, event.timestamp())
-              .bind("j" + i, json.get(i));
+      runs[i] = event.executionId();
+      types[i] = event.type().name();
+      times[i] = event.timestamp().toString();
     }
-    return fencing.bind(spec);
+    return fencing.bind(
+        client
+            .sql(
+                "INSERT INTO execution_log (execution_id, type, ts, event)"
+                    + " SELECT e, t, CAST(s AS timestamptz), CAST(j AS jsonb)"
+                    + " FROM unnest(CAST(:e AS text[]), CAST(:t AS text[]), CAST(:s AS text[]),"
+                    + " CAST(:j AS text[])) WITH ORDINALITY AS u(e, t, s, j, o)"
+                    + " WHERE "
+                    + Fencing.NOT_STALE
+                    + " ORDER BY o")
+            .bind("e", runs)
+            .bind("t", types)
+            .bind("s", times)
+            .bind("j", json.toArray(String[]::new)));
   }
 
   /**

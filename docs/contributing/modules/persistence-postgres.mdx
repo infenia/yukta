@@ -241,7 +241,7 @@ Records the start and end of runs, node ends, control commands and idempotency k
 
 Stores what each node of a run produced and whether it ended normally, so a run can restart from a node or resume after a crash.
 
-- `save` inserts one row per message in `node_checkpoint` (JSONB). If the insert fails the node is marked *incomplete* in `node_checkpoint_state`, so a restart that needs this node is refused instead of replaying part of it.
+- `saveAll` inserts a batch of messages (`CheckpointStream` hands over up to 64) as one row per message in `node_checkpoint` (JSONB), in one statement and one round trip: the messages travel as one `text[]` parameter through `unnest ... WITH ORDINALITY`, so the statement text is the same for every batch size and the rows keep their order. `save` is a batch of one. The statement is atomic, and if it fails the node is marked *incomplete* in `node_checkpoint_state`, so a restart that needs this node is refused instead of replaying part of it.
 - `markComplete` sets the *done* flag in a second table, after the last message; if that fails the node is marked incomplete instead and a resume will run it again. `isFinished` is true only when done is set and incomplete is not.
 - `isComplete` and `isFinished` are plain (blocking) methods in the interface, so they wait for the database up to 30 s; a timeout is treated as *unfinished*, which is the safe side for a resume.
 - `get` reads only the newest row of the node. `getAll` streams the rows in order. `clear` deletes the rows and the state of a run. Recovery (at startup, and on takeover with `yukta.ha.mode=postgres`) deletes the rows of every run no longer in the log (`removeNotIn`), unless the log read came back empty.
@@ -263,12 +263,12 @@ Lets several servers share the database while only one admits runs, and lets ano
 - One row in `leader_lease` holds the name, the holder, a fencing number and an expiry. Each server runs one statement every third of a lease (5 s by default): it inserts the row or, if it is the holder or the lease has expired, takes it and renews the expiry. The fencing number grows by one when the holder changes.
 - The expiry uses the database clock. A server counts itself the leader only while the time since it *sent* its last successful renewal is shorter than the lease, measured with a local monotonic clock, so a server that cannot reach the database stops being leader before another can take over.
 - When a server becomes leader it runs the registered takeover actions on another thread (core uses this for recovery and auto-resume). A server that stops releases the lease by setting its expiry in the past, waiting up to 10 s.
-- `fencingToken()` exposes the number. The execution log (append and `replaceAll`) and the checkpoint messages (`save`) use it: the insert runs only if no lease row holds a higher number, in the same statement (`replaceAll` locks the lease row for the length of its transaction). A refused write is counted in `yukta.fencing.refused{store}` and logged; a server that has never led is not checked. Definition, session and checkpoint-state writes are not fenced. The gauge `yukta.leader` is 1 on the leader.
+- `fencingToken()` exposes the number. The execution log (append and `replaceAll`), the checkpoint messages (`saveAll`) and the checkpoint state flags (done, incomplete) use it: the insert runs only if no lease row holds a higher number, in the same statement (`replaceAll` locks the lease row for the length of its transaction). A refused write is counted in `yukta.fencing.refused{store}` and logged; a server that has never led is not checked. Definition and session writes are not fenced. The gauge `yukta.leader` is 1 on the leader.
 
 - **Guarantees.** Two servers never both believe they hold a lease that has not expired, as long as the local clock does not run slow relative to the database clock.
 - **State.** The row in `leader_lease`; in memory the validity time, the fencing number and the takeover list.
 - **Ceiling.** One tiny statement per 5 s per server; no contention beyond that.
-- **On failure.** A leader paused for longer than the lease (a long stop-the-world pause) can still finish a write to a store that is not fenced (definitions, sessions, checkpoint state flags); log and checkpoint inserts are refused.
+- **On failure.** A leader paused for longer than the lease (a long stop-the-world pause) can still finish a write to a store that is not fenced (definitions, sessions); log and checkpoint writes are refused.
 
 **Settings:** `yukta.ha.mode`, `yukta.ha.lease`, `yukta.ha.instance-id`
 

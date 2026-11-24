@@ -63,8 +63,8 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
   }
 
   /**
-   * Creates the store; saved messages are refused once another server holds the leader lease.
-   * ponytail: only message rows are fenced; the node state flags (done/incomplete) are not.
+   * Creates the store; saved messages and node state flags are refused once another server holds
+   * the leader lease.
    *
    * @param client runs the statements
    * @param mapper reads and writes messages
@@ -86,12 +86,27 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
 
   @Override
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
-    return Mono.fromCallable(() -> CheckpointJson.write(mapper, message))
+    return saveAll(executionId, nodeId, List.of(message));
+  }
+
+  /**
+   * One statement and one round trip for the whole batch ({@code CheckpointStream} hands over up to
+   * 64 messages at a time), instead of one per message. The statement is atomic, so a batch is
+   * written whole or not at all.
+   */
+  @Override
+  public Mono<Void> saveAll(
+      final String executionId, final String nodeId, final List<Message<?>> messages) {
+    if (messages.isEmpty()) {
+      return Mono.empty();
+    }
+    return Mono.fromCallable(
+            () -> messages.stream().map(message -> CheckpointJson.write(mapper, message)).toList())
         .flatMap(json ->
-            rows.insert(executionId, nodeId, json)
+            rows.insertAll(executionId, nodeId, json)
                 .doOnNext(written -> {
                   if (written == 0) {
-                    fencing.refused(1);
+                    fencing.refused(json.size());
                   }
                 }))
         .onErrorResume(error -> {
@@ -131,20 +146,26 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
         .map(json -> CheckpointJson.read(mapper, json));
   }
 
+  /**
+   * Deletes the run's messages and state rows in one transaction: a half-done clear would leave a
+   * node marked done with no output, which a resume would trust.
+   */
   @Override
   public Mono<Void> clearAsync(final String executionId) {
-    return client
-        .sql("DELETE FROM node_checkpoint WHERE execution_id = :e")
-        .bind(CheckpointRows.EXECUTION, executionId)
-        .fetch()
-        .rowsUpdated()
-        .then(
+    return Transactions.inTransaction(
+            client,
             client
-                .sql("DELETE FROM node_checkpoint_state WHERE execution_id = :e")
+                .sql("DELETE FROM node_checkpoint WHERE execution_id = :e")
                 .bind(CheckpointRows.EXECUTION, executionId)
                 .fetch()
                 .rowsUpdated()
-                .then())
+                .then(
+                    client
+                        .sql("DELETE FROM node_checkpoint_state WHERE execution_id = :e")
+                        .bind(CheckpointRows.EXECUTION, executionId)
+                        .fetch()
+                        .rowsUpdated()
+                        .then()))
         .timeout(CheckpointRows.QUESTION_TIMEOUT)
         .onErrorResume(error -> {
           log.atWarn()
@@ -177,15 +198,12 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
 
   @Override
   public Mono<Boolean> completeAsync(final String executionId, final String nodeId) {
-    return rows.flag(executionId, nodeId, CheckpointRows.INCOMPLETE).map(incomplete -> !incomplete);
+    return rows.flags(executionId, nodeId).map(flags -> !flags.incomplete());
   }
 
   @Override
   public Mono<Boolean> finishedAsync(final String executionId, final String nodeId) {
-    return Mono.zip(
-            rows.flag(executionId, nodeId, CheckpointRows.DONE),
-            rows.flag(executionId, nodeId, CheckpointRows.INCOMPLETE))
-        .map(t -> t.getT1() && !t.getT2());
+    return rows.flags(executionId, nodeId).map(CheckpointRows.Flags::finished);
   }
 
   @Override
