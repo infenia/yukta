@@ -194,24 +194,13 @@ export const CATALOG: ConfigOption[] = [
       key: 'yukta.session.store-type',
       default: 'in-memory',
       purpose:
-        '`in-memory`, `file` (Plus edition) or `postgres` (build with `-Pyukta.persistence=postgres`). An unavailable value stops the server at start.',
+        '`in-memory` or `postgres` (build with `-Pyukta.persistence=postgres`). An unavailable value stops the server at start.',
       native: FROZEN,
-    },
-    {
-      key: 'yukta.session.base-dir',
-      default: '~/.yukta',
-      purpose: 'Folder of the file store. Mount a volume here in Docker.',
     },
     {
       key: 'yukta.restart.store-type',
-      default: 'memory (file when dir is set)',
-      purpose: 'Where node checkpoints live: `memory`, `file` or `postgres`.',
-      native: FROZEN,
-    },
-    {
-      key: 'yukta.restart.dir',
-      default: 'unset',
-      purpose: 'Folder for node checkpoints (Plus edition).',
+      default: 'memory',
+      purpose: 'Where node checkpoints live: `memory` or `postgres`.',
       native: FROZEN,
     },
     {
@@ -223,12 +212,6 @@ export const CATALOG: ConfigOption[] = [
       key: 'yukta.restart.retained-executions',
       default: '10',
       purpose: 'Executions whose checkpoints are kept.',
-    },
-    {
-      key: 'yukta.execution-log.dir',
-      default: 'unset (in memory)',
-      purpose: 'Folder for the JSONL execution log (Plus edition).',
-      native: FROZEN,
     },
     {
       key: 'yukta.execution-log.retained-runs',
@@ -292,11 +275,6 @@ export const CATALOG: ConfigOption[] = [
       key: 'yukta.restart.bytes-per-node',
       default: '4194304',
       purpose: 'Bytes kept per node in a checkpoint.',
-    },
-    {
-      key: 'yukta.restart.spill-dir',
-      default: 'empty',
-      purpose: 'Folder where checkpoint data over the limit is written.',
     },
     {
       key: 'yukta.restart.payload-packages',

@@ -294,7 +294,7 @@ Starts a new run from one node. The nodes before it replay their last recorded o
 
 `POST /api/executions/{executionId}/recover`
 
-Continues a run that a server restart aborted, as a new run. Nodes that finished are replayed from their recorded output and the rest run again. It needs the execution log and checkpoints to be kept on disk; see [Checkpoints and resume](/concepts/durability-and-high-availability).
+Continues a run that a server restart aborted, as a new run. Nodes that finished are replayed from their recorded output and the rest run again. It needs the execution log and checkpoints to be kept in PostgreSQL; see [Checkpoints and resume](/concepts/durability-and-high-availability).
 
 **Response `data`**: `executionId` of the new run.
 

@@ -23,8 +23,8 @@ Reference for the scheduler, `Idempotency-Key`, control commands, stop modes and
   `yukta.executions.rejected{reason=shutdown|limit|queue_full|workflow_queue_full|queue_timeout}`.
 - `POST /workflow/start` accepts an optional `Idempotency-Key` header: a repeat with the same key for
   the same session and workflow within `yukta.start.idempotency-ttl` (default 10m) returns the first
-  execution id instead of starting another. A failed start is not remembered. With the file log
-  (`yukta.execution-log.dir`) the keys are written to it (`IDEMPOTENCY_KEY`) and reloaded on startup,
+  execution id instead of starting another. A failed start is not remembered. With the PostgreSQL log
+  (`yukta.session.store-type=postgres`) the keys are written to it (`IDEMPOTENCY_KEY`) and reloaded on startup,
   so a client retrying after a restart still gets the first execution; the window restarts at the
   reload. `yukta.start.idempotency-max-keys` (default 100000) caps the cache; a key evicted before its TTL lets a repeat start again.
 - Waiting starts are admitted by priority: a start payload key `yukta.priority` (number, higher
@@ -87,7 +87,7 @@ Gateway commands for a live run (`ControlBusGateway`). REST: `POST /api/executio
 `onReject`) and tags it with `signal.name/decision/data`; the engine timeout for the node is the wait
 plus 30 s. An answer is recorded in the run's checkpoint store as a message of the
 pseudo node `signal:<node>` (payload `{messageId, name, decision, data}`, a timeout is not recorded), so a resumed run
-reuses it for the same message id instead of waiting again; that needs a file or PostgreSQL store and a message that
+reuses it for the same message id instead of waiting again; that needs the PostgreSQL store and a message that
 was replayed from a finished parent.
 
 ### Input requests on the control bus

@@ -287,7 +287,7 @@ However a run starts, from a script, the web UI, the command line or an AI assis
 ## Honest limits
 
 - **It's alpha.** The workflow format and the APIs can still change before 1.0. The macOS and Windows builds are new and not signed yet, so downloading them in a browser triggers a warning.
-- **Nothing is saved by default.** One server keeps everything in memory, so stopping it loses your sessions and run history. Saving to disk or PostgreSQL, running several servers together, and remote workers are in the [Plus build](LICENSING.md), which is a work in progress and may not work properly yet.
+- **Nothing is saved by default.** One server keeps everything in memory, so stopping it loses your sessions and run history. Saving to PostgreSQL, running several servers together, and remote workers are in the [Plus build](LICENSING.md), which is a work in progress and may not work properly yet.
 - **Workflows can run real commands.** A workflow can start programs and scripts and query databases, so only let people you trust write them. Out of the box the server listens only on your own machine and refuses outside connections without an API key. See [Secure the server](https://yukta.infenia.com/guides/operate/secure-the-server) and [`SECURITY.md`](SECURITY.md).
 
 ## Built with
@@ -340,7 +340,7 @@ Each module has its own `CLAUDE.md` with build commands and architecture notes.
 > [!WARNING]
 > Persistence and the Plus modules are a work in progress and may not work properly yet. Do not rely on them for data you cannot lose.
 
-Sessions, workflows and the execution log live in memory by default. File storage is in the Plus build (`-Pyukta.edition=plus`, AGPL-3.0-only); PostgreSQL is `./gradlew bootJar -Pyukta.persistence=postgres`. See [Persistence](https://yukta.infenia.com/guides/operate/persist-sessions).
+Sessions, workflows and the execution log live in memory by default. PostgreSQL is the durable store, in the Plus build (`./gradlew bootJar -Pyukta.persistence=postgres`, AGPL-3.0-only). See [Persistence](https://yukta.infenia.com/guides/operate/persist-sessions).
 
 </details>
 
@@ -359,7 +359,7 @@ Ask questions in [Discussions](https://github.com/infenia/yukta/discussions); re
 | Edition | License | Where | What you get |
 |---|---|---|---|
 | **Community** | [Apache-2.0](LICENSE) | Everything outside `plus/` | The whole engine, UI, CLI, MCP server and plugins. This is the default build, the installers and the Docker image. |
-| **Plus** | [AGPL-3.0-only](LICENSE-AGPL), or a commercial license | `plus/` | Durable storage (disk, PostgreSQL), high availability, remote workers. |
+| **Plus** | [AGPL-3.0-only](LICENSE-AGPL), or a commercial license | `plus/` | Durable storage (PostgreSQL), high availability, remote workers. |
 
 Community never depends on Plus, so using Yukta as installed needs nothing beyond Apache-2.0. Details in [`LICENSING.md`](LICENSING.md). The repository follows the [REUSE](https://reuse.software/) specification.
 

@@ -153,10 +153,6 @@ if [ "$full" = true ] || [ -n "${affected[:plus:workers]:-}" ] || [ -n "${change
   shards=$(jq -c '. + [{name: "workers-acceptance",
     args: "-Pyukta.workers=true :boot:test --tests *Workers*AcceptanceTest"}]' <<<"$shards")
 fi
-if [ "$full" = true ] || [ -n "${affected[:plus]:-}" ] || [ -n "${changed[:boot]:-}" ]; then
-  shards=$(jq -c '. + [{name: "plus-acceptance",
-    args: "-Pyukta.edition=plus :boot:test --tests *FileStoreAcceptanceTest"}]' <<<"$shards")
-fi
 
 e2e=false
 if [ "$full" = true ] || [ -n "${changed[:ui]:-}" ]; then e2e=true; fi

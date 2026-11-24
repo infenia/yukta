@@ -2,14 +2,14 @@
 title: "Core module reference: architecture and features"
 sidebarTitle: "Core module reference"
 description: "Architecture, feature catalog and reference for the Yukta core module: the execution engine, admission, control plane, observability, durability and security."
-verifiedCommit: "6e64677be"
-verifiedDate: "2026-11-22"
+verifiedCommit: "d2fd431ad"
+verifiedDate: "2026-11-24"
 keywords: ["core module", "architecture", "feature catalog"]
 ---
 
 The `core` module is the engine and control plane of Yukta. It takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and records enough to explain or resume it afterwards.
 
-Last verified against commit `6e64677be` on 2026-11-22.
+Last verified against commit `d2fd431ad` on 2026-11-24.
 
 <CardGroup cols={2}>
   <Card title="Reactive">
@@ -90,7 +90,7 @@ The vocabulary used throughout. Terms appear in `code` style where they match a 
 | **Engine policy** | The reserved `engine` object in a node's config (retry, onError, timeouts, placement). The engine reads it; plugins never see it. | `NodePolicy` |
 | **Command** | An instruction to a live run (pause, stop, skip, signal ...), applied in order and audited. | `ExecutionControlCommand` |
 | **Supervisor / reviewer** | A supervisor watches the event feed and returns commands. A reviewer can veto any command before it runs. | `ExecutionSupervisor`, `ControlReviewer` |
-| **Checkpoint** | A node's recorded output, kept so a restart or resume can replay it instead of recomputing. | `FileNodeCheckpointStore` |
+| **Checkpoint** | A node's recorded output, kept so a restart or resume can replay it instead of recomputing. | `NodeCheckpointStore` |
 
 ### A workflow, concretely
 
@@ -225,16 +225,16 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `service.agent` | Conversations with AI agents: store, service, gateway, retention, live stream | `AgentConversationStore` `InMemoryAgentConversationStore` `AgentConversationService` `DefaultAgentConversationGateway` `AgentRetention` `AgentSteering` | CTL-10 |
 | `service.supervisor` | Supervisor host, service and definitions | `SupervisorHost` `SupervisorService` `DefinitionSupervisors` | CTL-06, CTL-07 |
 | `service.review` | Reviewer hook, event feed and attached-supervisor contracts the lower layers use | `ControlReviewer` `ExecutionEventFeed` `AttachedSupervisors` `BoundSupervisor` `ReviewVerdict` | CTL-06, CTL-07 |
-| `service.log / archive / store` | Execution log, archive, node checkpoint stores | `ExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionArchive` `FileNodeCheckpointStore` | DUR |
-| `service.workflow / workflow.store` | Definitions, versions, diff, topological sort, prepared-workflow cache | `TopologicalSortService` `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
-| `service.session` | Session config and its stores | `SessionService` `FileSessionConfigStore` (plus) `InMemorySessionConfigStore` | DUR-05 |
+| `service.log / archive / store` | Execution log, archive, node checkpoint stores | `ExecutionLogStore` `InMemoryExecutionLogStore` `ExecutionArchive` `InMemoryNodeCheckpointStore` | DUR |
+| `service.workflow / workflow.store` | Definitions, versions, diff, topological sort, prepared-workflow cache | `TopologicalSortService` `WorkflowDefinitionStore` `InMemoryWorkflowDefinitionStore` `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
+| `service.session` | Session config and its stores | `SessionService` `InMemorySessionConfigStore` | DUR-05 |
 | `service.result / streaming` | Terminal results channel; progress history cache | `ExecutionResultService` `StatusHistoryCache` | OBS |
 | `service.diagnosis` | Failure digest, failure extractors, run log search | `FailureDigestService` `RunLogSearcher` `FailureExtractor` | OBS-06 |
 | `service.worker / leader` | Worker registry and remote node execution; leader election | `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `LeaderElection` | SCL |
 | `service.plugin` | Plugin lookup by type | `PluginRegistry` | EXT-01 |
 | `security` | API keys, roles, request path rules | `ApiKeys` `ApiRole` `RequestPaths` | SEC-01 |
 | `logging.api` | Plugin log store and node output paging | `PluginLogStore` `NodeOutputPager` | EXT-02, OBS-02 |
-| `model.* · event · validation · util · config` | Records, tracker events, identifier validators, helpers, Spring config | `NodePolicy` `TaskStatus` `SinkEmit` `VariableResolver` `SessionConfigProperties` | various |
+| `model.* · event · validation · util · config` | Records, tracker events, identifier validators, helpers, Spring config | `NodePolicy` `TaskStatus` `SinkEmit` `VariableResolver` `YuktaProperties` | various |
 
 ## Feature catalog
 
@@ -255,13 +255,12 @@ Keeps each workflow definition per session together with its newest 20 versions,
 - Saving an identical definition adds no version. Each run records a content hash of the graph it used (`definitionVersion`), carried by progress, history and the log.
 - A start payload with `yukta.version` runs that saved version and bypasses the prepared-workflow cache.
 - `WorkflowDiff` reports a changed description, nodes added, removed or changed, and edges added or removed. A version may carry a note.
-- File layout: `<baseDir>/workflows/<session>/<workflow>/current.json` and `history/<version>.json`; ids are URL-encoded; writes are atomic and fsynced.
 
-**Configure:** `yukta.session.store-type` = `in-memory` \| `file` \| `postgres`
+**Configure:** `yukta.session.store-type` = `in-memory` \| `postgres`
 
 **Surface:** REST `GET …/versions/diff?from=&to=` (omit `to` for current), rollback endpoint, `POST …/versions/note?version=&note=`. MCP `list_workflow_versions`, `diff_workflow_versions`, `rollback_workflow`, `note_workflow_version`. UI Versions panel.
 
-**Source:** `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `InMemoryWorkflowDefinitionStore` `DefinitionRevision` `WorkflowDiff`
+**Source:** `WorkflowDefinitionStore` `InMemoryWorkflowDefinitionStore` `DefinitionRevision` `WorkflowDiff`
 
 **Limits:** Newest 20 versions kept. PostgreSQL variant lives in [DUR-04](#dur-04-postgresql-stores).
 
@@ -497,7 +496,7 @@ A client that retries a start after a network failure gets the first run back in
 **Behaviour**
 
 - `POST /workflow/start` accepts an `Idempotency-Key` header. A repeat with the same key, session and workflow within the TTL returns the first execution id. A failed start is not remembered.
-- With the file log the keys are written as `IDEMPOTENCY_KEY` entries and reloaded on startup (the window restarts at the reload).
+- With the PostgreSQL log the keys are written as `IDEMPOTENCY_KEY` entries and reloaded on startup (the window restarts at the reload).
 
 **Configure:** `yukta.start.idempotency-ttl` (10m) · `yukta.start.idempotency-max-keys` (100000)
 
@@ -588,10 +587,10 @@ Re-run a whole run, or one node and everything after it, replaying the recorded 
 
 - **Restart from node** re-runs the node and its descendants and replays the recorded output of the nodes feeding them (`RestartPlan`); independent branches are left alone. On a run still going, only parents that have **finished** (durable end marker) are replayed; a replayed output is marked finished under the new run.
 - **Retry node** does the same for a node that ended `FAILURE` or `TIMED_OUT`, using the output its parents recorded.
-- The **archive** keeps recent finished runs restartable: graph, start payload and recorded outputs (`ExecutionArchive`). A node that exceeds its caps makes a restart that needs it be refused rather than replayed partially, unless a spill directory is set ([DUR-02](#dur-02-checkpoints-and-durable-end-markers)).
+- The **archive** keeps recent finished runs restartable: graph, start payload and recorded outputs (`ExecutionArchive`). A node that exceeds its caps makes a restart that needs it be refused rather than replayed partially ([DUR-02](#dur-02-checkpoints-and-durable-end-markers)).
 - Restart-from-node after a **server restart** is not supported (the archive is in memory); use [resume](#dur-03-resume-and-recovery) for aborted runs.
 
-**Configure:** `yukta.restart.retained-executions` (10) · `…messages-per-node` (200) · `…bytes-per-node` (4 MiB) · `…spill-dir`
+**Configure:** `yukta.restart.retained-executions` (10) · `…messages-per-node` (200) · `…bytes-per-node` (4 MiB)
 
 **Source:** `RestartPlan` `RestartCoordinator` `RestartFromNodeCommandProcessor` `ExecutionArchive` `ArchivedExecution`
 
@@ -836,33 +835,31 @@ An append-only record of run starts (with the input payload), ends, control comm
 **Behaviour**
 
 - Event types: `RUN_STARTED`, `RUN_FINISHED`, `RUN_ABORTED`, `CONTROL_APPLIED`, `CONTROL_REJECTED`, `NODE_FINISHED` (history only), `RUN_RESUMED`, `IDEMPOTENCY_KEY`, `LIMITS_CHANGED` (scheduler limits changed at run time; restored on startup), `INPUT` (something happened to an input request; the payload holds `event`, the request id and tier, never the prompt or an answer text).
-- Memory by default, trimmed like the file log (`LogRetention`: newest `retained-runs`, never a run without an end, every `compact-after` events). With `yukta.execution-log.dir` it is `executions.jsonl` on disk.
-- File access runs on one background writer thread. Events are **not fsynced** unless `yukta.execution-log.fsync=true`; a rewritten file (compaction, session config) is forced to disk before it replaces the old one.
-- **Store API**: `append` is fire-and-forget (it never fails a run); the reads (`readAll`, `forExecution`, `header`, `ofType`) return `Flux`/`Mono` and `replaceAll` a `Mono<Void>`, so no caller parks a thread. A read sees every event appended before it is subscribed.
-- **Boot recovery** (`ExecutionRecovery`): runs that never finished are marked `ABORTED`, the newest `retained-runs` are restored into history, and the log is rewritten without older ones.
+- Memory by default, trimmed (`LogRetention`: newest `retained-runs`, never a run without an end, every `compact-after` events). With `yukta.session.store-type=postgres` it is the `execution_log` table ([DUR-04](#dur-04-postgresql-stores)).
+- **Store API**: `append` is fire-and-forget (it never fails a run); the reads (`readAll`, `forExecution`, `header`, `ofType`) return `Flux`/`Mono` and `applyRecovery` a `Mono<Void>`, so no caller parks a thread. A read sees every event appended before it is subscribed.
+- **Boot recovery** (`ExecutionRecovery`): runs that never finished are marked `ABORTED`, the newest `retained-runs` are restored into history, and `applyRecovery` deletes the older runs and appends the abort events (only the difference is written).
 
-**Configure:** `yukta.execution-log.dir` · `…retained-runs` (500) · `…compact-after` (10000) · `…min-runs-per-session` (10) · `…fsync` (false)
+**Configure:** `yukta.execution-log.retained-runs` (500) · `…compact-after` (10000) · `…min-runs-per-session` (10)
 
-**Source:** `ExecutionLogStore` `InMemoryExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionLogEvent` `ExecutionRecovery`
+**Source:** `ExecutionLogStore` `InMemoryExecutionLogStore` `ExecutionLogEvent` `ExecutionRecovery`
 
-**Limits:** Without fsync, power loss can lose the last few events. A failure to write a run's end no longer keeps the run from ending.
+**Limits:** In memory, the log is gone after a restart. A failure to write a run's end no longer keeps the run from ending.
 
 ### DUR-02: Checkpoints and durable end markers
 
 **Status:** stable
 
-Each node's output is recorded; when a node finishes, a small “done” marker is forced to disk with it before downstream nodes continue. A resume trusts only that marker.
+Each node's output is recorded; when a node finishes, a small “done” marker is written with it before downstream nodes continue. A resume trusts only that marker.
 
 **Behaviour**
 
-- **Memory** store: capped by messages per node, bytes per node (strings and byte arrays by size, other payloads count 1 KiB) and retained executions. A node over a cap makes a restart that needs it refuse, unless a **spill directory** is set: the whole node output then moves to files (replayed as plain JSON), is deleted with the execution, and leftovers of an earlier process are removed at startup. Do not point it at a shared folder.
-- **File** store (`yukta.restart.dir`): one JSON line per message through one open channel per node until `markComplete`; no caps. `markComplete` forces the output, writes and forces `<node>.done` and the directory.
+- **Memory** store: capped by messages per node, bytes per node (strings and byte arrays by size, other payloads count 1 KiB) and retained executions. A node over a cap makes a restart that needs it refuse.
 - **PostgreSQL** store: [DUR-04](#dur-04-postgresql-stores).
 - `yukta.checkpoint.errors` counts failed markers; that node then runs again on resume.
 
-**Configure:** `yukta.restart.dir` · `…spill-dir` · `…store-type` · `…retained-executions` (10) · `…messages-per-node` (200) · `…bytes-per-node` (4194304)
+**Configure:** `yukta.restart.store-type` · `…retained-executions` (10) · `…messages-per-node` (200) · `…bytes-per-node` (4194304)
 
-**Source:** `NodeCheckpointStore` `FileNodeCheckpointStore` `InMemoryNodeCheckpointStore` `CheckpointMetrics`
+**Source:** `NodeCheckpointStore` `InMemoryNodeCheckpointStore` `CheckpointMetrics`
 
 **Limits:** There remains an instant between a plugin's side effect and the marker: make plugins idempotent on the message `id`. A resume reads a node's whole output into memory.
 
@@ -874,7 +871,7 @@ Continue a run that a restart aborted: finished nodes replay their recorded outp
 
 **Behaviour**
 
-- Needs `yukta.execution-log.dir` (holds the start payload) and a file or PostgreSQL checkpoint store. A run resumes **once** (`RUN_RESUMED`) and only if its definition is unchanged. The claim is kept in memory and dropped on failure or if the caller cancels.
+- Needs the PostgreSQL execution log (holds the start payload) and PostgreSQL checkpoints. A run resumes **once** (`RUN_RESUMED`) and only if its definition is unchanged. The claim is kept in memory and dropped on failure or if the caller cancels.
 - Refused (HTTP 409 `ConflictException`) if the run was not aborted, was already resumed or its workflow changed.
 - `yukta.restart.auto-resume=true` resumes each interrupted run after any recovery, one after another.
 - Resume reads the log and checkpoint files on `boundedElastic`.
@@ -916,7 +913,7 @@ Stores each session's configuration (workflows, execution timeout, tags) and its
 
 **Configure:** `yukta.session.store-type` (in-memory \| file \| postgres)
 
-**Source:** `SessionService` `SessionConfigStore` `FileSessionConfigStore` (plus) `InMemorySessionConfigStore` `SessionConfigProperties`
+**Source:** `SessionService` `SessionConfigStore` `InMemorySessionConfigStore`
 
 ## Scale-out and high availability
 
@@ -953,7 +950,7 @@ Several servers share a PostgreSQL database; one holds a lease and admits runs, 
 
 **Behaviour**
 
-- A single server is always leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` the lease row (`V4__leader_lease`) has a fencing number that grows with every change of holder. It is renewed three times per lease; a graceful stop releases it.
+- A single server is always leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` the lease row (`leader_lease`) has a fencing number that grows with every change of holder. It is renewed three times per lease; a graceful stop releases it.
 - A server counts itself leader only while its last renewal is younger than the lease, so one that cannot reach the database stops *before* another takes over.
 - A standby refuses every start, restart and resume with `NotLeaderException` (HTTP 503; `yukta.executions.rejected{reason=not_leader}`).
 - While the run history is recovered (start-up, or takeover) and while the idempotency keys reload, every start, restart and resume is refused (HTTP 503; `reason=recovering`, `ExecutionScheduler.holdStarts()`), so a run that starts early cannot be marked aborted and a repeated start cannot slip past a stored key. Both steps run off the start-up thread; `GET` history can look empty for that moment.
@@ -1145,20 +1142,17 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.results.retained-events` | 1000 | [OBS-03](#obs-03-execution-results) | Replay buffer per run |
 | `yukta.results.retention` | 1h | [OBS-03](#obs-03-execution-results) | Time after last use before results are dropped |
 | `yukta.results.max-executions` | 200 | [OBS-03](#obs-03-execution-results) | Runs with retained results |
-| `yukta.execution-log.dir` | unset (memory) | [DUR-01](#dur-01-execution-log) | Keep `executions.jsonl` on disk |
 | `yukta.execution-log.retained-runs` | 500 | [DUR-01](#dur-01-execution-log) | Newest runs kept and restored |
 | `yukta.execution-log.compact-after` | 10000 | [DUR-01](#dur-01-execution-log) | Compact after this many events |
-| `yukta.execution-log.fsync` | false | [DUR-01](#dur-01-execution-log) | Force every event to disk |
-| `yukta.restart.dir` | unset (memory) | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Keep node outputs on disk (needed for resume) |
-| `yukta.restart.spill-dir` | off | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Move over-cap node outputs to files |
-| `yukta.restart.store-type` | file/memory | [DUR-04](#dur-04-postgresql-stores) | `postgres` for checkpoints (module: persistence-postgres) |
+| `yukta.restart.store-type` | memory | [DUR-04](#dur-04-postgresql-stores) | `postgres` for checkpoints (module: persistence-postgres) |
 | `yukta.agents.store-type` | memory | [DUR-04](#dur-04-postgresql-stores) | `memory` \| `postgres` for agent conversations; an unknown value stops start-up |
 | `yukta.restart.retained-executions` | 10 | [CTL-04](#ctl-04-restart-restart-from-node-and-retry-node), [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Finished runs kept restartable |
 | `yukta.restart.payload-packages` | empty | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Extra class name prefixes whose payloads a resume restores with their type |
 | `yukta.restart.messages-per-node` | 200 | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Memory cap per node |
 | `yukta.restart.bytes-per-node` | 4194304 (4 MiB) | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Memory cap per node, bytes |
 | `yukta.restart.auto-resume` | false | [DUR-03](#dur-03-resume-and-recovery), [SCL-02](#scl-02-active/standby-high-availability) | Resume interrupted runs after recovery |
-| `yukta.session.store-type` | `in-memory` | [DEF-01](#def-01-definition-store-and-versions), [DUR-05](#dur-05-session-configuration) | `in-memory` \| `file` \| `postgres` |
+| `yukta.session.store-type` | `in-memory` | [DEF-01](#def-01-definition-store-and-versions), [DUR-05](#dur-05-session-configuration) | `in-memory` \| `postgres` |
+| `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.restart.spill-dir` | removed | [DUR-04](#dur-04-postgresql-stores) | Switches of the removed on-disk stores; setting one (or `yukta.session.store-type=file`) stops start-up |
 | `yukta.bootstrap.dir` | unset | [DUR-05](#dur-05-session-configuration) | Folder of session files applied at start-up (module: web) |
 | `yukta.workers.lease` | 15s | [SCL-01](#scl-01-remote-workers) | Worker lease; a missed renewal drops the worker |
 | `yukta.workers.token` | unset | [SCL-01](#scl-01-remote-workers) | Shared token (module: workers) |
@@ -1280,30 +1274,30 @@ What the module promises, and the honest edges of each promise.
 | **Status order** | Node status only moves forward. | Some late information is ignored (metadata is still merged). |
 | **Output atomicity** | With retry or onError, a message yields all of its output or none. | That output is buffered until the attempt ends. |
 | **Start** | One execution id per granted slot; the same `Idempotency-Key` returns the first id. | Key window is finite; cache is bounded. |
-| **Resume** | At most once per run, only with an unchanged definition, trusting only the durable end marker. | Needs a file or PostgreSQL checkpoint store. |
+| **Resume** | At most once per run, only with an unchanged definition, trusting only the durable end marker. | Needs the PostgreSQL checkpoint store. |
 | **Back-pressure** | Memory per edge is bounded; the slowest child paces a fan-out. | One slow branch slows the others unless `edgeBuffer` is set on it. |
 | **Failure isolation** | A slow or failing supervisor never blocks a run. | Its events are dropped, not queued. |
 
 ### Durability matrix
 
-What survives a restart, by deployment profile. "Memory" is the default; "File" sets the log and restart directories and file stores; "PostgreSQL" adds the PostgreSQL stores.
+What survives a restart, by deployment profile. "Memory" is the default; "PostgreSQL" adds the PostgreSQL stores. The on-disk stores were removed.
 
-| Item | Memory | File | PostgreSQL |
-|---|---|---|---|
-| Workflow definitions and versions | Lost | Kept | Kept |
-| Session configuration | Lost | Kept | Kept |
-| Run history and audit | Lost | Kept; last events may be lost without fsync | Kept, newest runs |
-| Runs in flight at the crash | Vanish | Marked ABORTED | Marked ABORTED |
-| Idempotency keys | Lost | Reloaded | Reloaded |
-| Node outputs (checkpoints) | Capped; spill to files | On disk, no caps | In PostgreSQL (`restart.store-type`) |
-| Resume an aborted run | Not possible | Needs log + restart dirs | Log and outputs in PostgreSQL |
-| Queued starts and slots | Lost | Lost; run marked ABORTED, recoverable | Lost; run marked ABORTED, recoverable |
-| Signal waits (approvals) | Lost | Lost; an answered signal is reused on resume | Lost; an answered signal is reused on resume |
-| Limits changed at run time | Reset | Restored from the log | Restored from the log |
-| Execution results | Lost | Lost | Lost |
+| Item | Memory | PostgreSQL |
+|---|---|---|
+| Workflow definitions and versions | Lost | Kept |
+| Session configuration | Lost | Kept |
+| Run history and audit | Lost | Kept, newest runs |
+| Runs in flight at the crash | Vanish | Marked ABORTED |
+| Idempotency keys | Lost | Reloaded |
+| Node outputs (checkpoints) | Capped | In PostgreSQL (`restart.store-type`) |
+| Resume an aborted run | Not possible | Log and outputs in PostgreSQL |
+| Queued starts and slots | Lost | Lost; run marked ABORTED, recoverable |
+| Signal waits (approvals) | Lost | Lost; an answered signal is reused on resume |
+| Limits changed at run time | Reset | Restored from the log |
+| Execution results | Lost | Lost |
 
 <Warning>
-  **Check before relying on this.** The PostgreSQL column assumes the matching store properties are set. Each backend has its own switch (`session.store-type`, `execution-log.dir`, `restart.dir` / `restart.store-type`), so a deployment can be half durable.
+  **Check before relying on this.** The PostgreSQL column assumes the matching store properties are set. Each backend has its own switch (`session.store-type`, `restart.store-type`, `input.store-type`), so a deployment can be half durable.
 </Warning>
 
 ### Capacity ceilings

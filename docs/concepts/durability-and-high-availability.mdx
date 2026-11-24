@@ -31,13 +31,13 @@ You then move each kind of state to durable storage, one kind at a time.
 | Input requests | So a question waiting for a person survives a restart |
 | The leader lease | So several servers can share one database safely |
 
-Files suit a single server. PostgreSQL suits a shared database and high availability. Both are part of the Plus edition; the Community edition has only memory. A middle path that works in every edition is to keep definitions in files and have the server apply a folder of them at start-up, so memory is rebuilt from git.
+PostgreSQL is the durable store, for a single server as well as for a shared database and high availability. It is part of the Plus edition; the Community edition has only memory. A middle path that works in every edition is to keep definitions in files and have the server apply a folder of them at start-up, so memory is rebuilt from git.
 
 ## Checkpoints: what makes resuming possible
 
 A **checkpoint** is the recorded output of one node in one run. Every message a node emits is recorded as it leaves, and when the node finishes normally a small durable **end marker** is written before downstream nodes see the completion. A node counts as finished only if its marker exists.
 
-A resume trusts only that marker, not the execution log. The log record of a node's end could still have been waiting to be written when the server stopped; the marker is forced to disk first. If a checkpoint cannot be saved, the run carries on and the node is left unmarked, so a resume runs it again rather than trusting partial output. The design prefers redoing work to believing something that might be false.
+A resume trusts only that marker, not the execution log. The log record of a node's end could still have been waiting to be written when the server stopped; the marker is committed first. If a checkpoint cannot be saved, the run carries on and the node is left unmarked, so a resume runs it again rather than trusting partial output. The design prefers redoing work to believing something that might be false.
 
 This gives you three related abilities, all of which start a *new* run:
 
@@ -45,7 +45,7 @@ This gives you three related abilities, all of which start a *new* run:
 - **Restart from a node**, or retry a node that failed, replaying the recorded output of what came before.
 - **Resume** a run a restart aborted: finished nodes replay, unfinished ones run.
 
-What you can restart depends on what is checkpointed, and where. In memory, checkpoints are capped per node and are lost on restart; a node that outgrows a cap is marked incomplete and a restart that needs it is refused rather than replaying part of it. In files or PostgreSQL there are no such caps. And after a restart, only resume works for the runs that were aborted.
+What you can restart depends on what is checkpointed, and where. In memory, checkpoints are capped per node and are lost on restart; a node that outgrows a cap is marked incomplete and a restart that needs it is refused rather than replaying part of it. In PostgreSQL there are no such caps. And after a restart, only resume works for the runs that were aborted.
 
 ## What a crash looks like
 
@@ -94,7 +94,7 @@ On takeover the new leader runs recovery once, exactly as after a restart: unfin
 | If you need | Use |
 |---|---|
 | Trying it out, or definitions that live in git | Memory (default) |
-| One server, definitions and history surviving restarts | Files |
+| One server, definitions and history surviving restarts | PostgreSQL |
 | Resume after a crash, or a database you already run | PostgreSQL |
 | Failover when a server dies | PostgreSQL plus high availability |
 | Run state surviving for years with exact replay | A tool built for that. See [Compared with other tools](/concepts/compared-with-other-tools) |

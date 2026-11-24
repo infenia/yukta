@@ -76,6 +76,10 @@ class SessionConfigControllerTest {
     return Fixtures.workflow(id, "desc", List.of(), List.of());
   }
 
+  private static com.infenia.yukta.model.session.SessionSummary summary(final String id) {
+    return new com.infenia.yukta.model.session.SessionSummary(id, id, "", "", Map.of(), "", 1);
+  }
+
   private static SessionConfigResponse config(final String id) {
     return new SessionConfigResponse(
         id, "n", "d", "i", Map.of("t", "v"), "/p", Map.of("wf", workflow("wf")));
@@ -162,7 +166,8 @@ class SessionConfigControllerTest {
 
   @Test
   void testListSessionsIsBareSortedAndPaged() {
-    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("c", "a", "b"));
+    when(sessionService.getSessionSummaries(false))
+        .thenReturn(Flux.just(summary("a"), summary("b"), summary("c")));
 
     client
         .get()
@@ -187,10 +192,9 @@ class SessionConfigControllerTest {
   }
 
   @Test
-  void testSummariesLoadOnlyTheRequestedPage() {
-    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("a", "b", "c"));
-    when(sessionService.getSessionConfig("a")).thenReturn(Mono.just(config("a")));
-    when(sessionService.getSessionConfig("b")).thenReturn(Mono.just(config("b")));
+  void testSummariesArePagedWithoutLoadingAnySession() {
+    when(sessionService.getSessionSummaries(false))
+        .thenReturn(Flux.just(summary("a"), summary("b"), summary("c")));
 
     client
         .get()
@@ -205,16 +209,15 @@ class SessionConfigControllerTest {
         .isEqualTo(2)
         .jsonPath("$.data[1].workflowCount")
         .isEqualTo(1);
-    verify(sessionService, never()).getSessionConfig("c");
+    // one read of the summaries: no session config and no definitions are loaded
+    verify(sessionService, never()).getSessionConfig(anyString());
     verify(sessionService, never()).getAllSessionConfigs();
   }
 
   @Test
   void testSummariesCarryEachSessionsNewestRun() {
-    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("a", "b", "c"));
-    for (final String id : List.of("a", "b", "c")) {
-      when(sessionService.getSessionConfig(id)).thenReturn(Mono.just(config(id)));
-    }
+    when(sessionService.getSessionSummaries(false))
+        .thenReturn(Flux.just(summary("a"), summary("b"), summary("c")));
     final Instant noon = LocalDateTime.of(2026, 10, 30, 12, 0).toInstant(ZoneOffset.UTC);
     when(controlBus.getHistory("a"))
         .thenReturn(
@@ -246,23 +249,6 @@ class SessionConfigControllerTest {
 
   private static WorkflowExecutionSummary run(final String id, final Instant start) {
     return Fixtures.summary(id, "wf", TaskStatus.SUCCESS, start, null);
-  }
-
-  @Test
-  void testSummariesSkipSessionsThatFailToLoad() {
-    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("a", "bad"));
-    when(sessionService.getSessionConfig("a")).thenReturn(Mono.just(config("a")));
-    when(sessionService.getSessionConfig("bad")).thenReturn(Mono.error(new RuntimeException("io")));
-
-    client
-        .get()
-        .uri("/api/sessions/summaries")
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.data.length()")
-        .isEqualTo(1);
   }
 
   @Test
@@ -397,8 +383,7 @@ class SessionConfigControllerTest {
 
   @Test
   void testLastSummariesPageHasNoNextCursor() {
-    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("a"));
-    when(sessionService.getSessionConfig("a")).thenReturn(Mono.just(config("a")));
+    when(sessionService.getSessionSummaries(false)).thenReturn(Flux.just(summary("a")));
 
     client
         .get()

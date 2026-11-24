@@ -235,7 +235,7 @@ Writes down a handful of engine settings so they are visible and changeable with
 
 - **Guarantees.** These values are what a fresh start uses. Unset settings fall back to the defaults written in core.
 - **State.** None here. Values are read at start.
-- **Ceiling.** Because they are only defaults, a deployment that needs limits, a durable log or file stores must add keys of its own; boot does not provide a production profile for state.
+- **Ceiling.** Because they are only defaults, a deployment that needs limits or a durable log must add keys of its own; boot does not provide a production profile for state.
 - **On failure.** A wrongly typed value stops start-up. A key that nothing reads, such as one left over after a rename, is silently ignored.
 
 **Settings:** `yukta.tracker.cleanup-ttl`, `yukta.streaming.status-history-ttl-minutes`, `yukta.session.*`, `yukta.logs.store.*`
@@ -292,7 +292,7 @@ Compiles the app into a standalone executable with fast start and low memory.
 - `META-INF/native-image/com.infenia.yukta/boot/reflect-config.json` (and `resource-config.json`) are hand-kept metadata for classes the AOT step cannot see, mostly cache and library internals. Prefer declaring reflection next to the class with `@RegisterReflectionForBinding` or a `RuntimeHintsRegistrar` (see `MessageReflectionHints`); both are merged into the same image. When a new dependency or plugin fails in the native binary with a missing-class error, add the entry in code, or regenerate the file by running the tests on a GraalVM JVM with the tracing agent (`-agentlib:native-image-agent=config-merge-dir=boot/src/main/resources/META-INF/native-image/com.infenia.yukta/boot`) and review the diff: the agent only records what the run touched, so entries it did not see are not removed for you.
 
 - **Guarantees.** A native image either builds with all reflection and resources known, or the build fails (no fallback).
-- **State.** None. The binary is immutable; data directories must be mounted if you use file stores.
+- **State.** None. The binary is immutable; durable state lives in PostgreSQL in a Plus build.
 - **Ceiling.** The 16 GB build heap is not measured; a small CI machine may run out. Native builds are slow, so most developers use the JVM.
 - **On failure.** Reflection or resource gaps appear only at run time in the native binary, since tests run on the JVM.
 
@@ -428,10 +428,10 @@ Session store, log store and tracker are in memory by default. Nothing is writte
 The base YAML again says store-type in-memory, logs backend memory. No workflow definition, session setting or run history is there.
 </Step>
 <Step title="Optional state is on you">
-Only configuration you added (file stores or logs directories) brings state back, or a build with -Pyukta.persistence=postgres and yukta.session.store-type=postgres. The default build has no database module.
+Only a build with -Pyukta.persistence=postgres and yukta.session.store-type=postgres brings state back. The default build has no database module.
 </Step>
 <Step title="Clients reconnect">
-The UI shows an empty system. Anyone who relied on stored definitions must re-create them. File stores must be configured on purpose.
+The UI shows an empty system. Anyone who relied on stored definitions must re-create them. PostgreSQL must be configured on purpose.
 </Step>
 </Steps>
 

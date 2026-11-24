@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.Test;
 
-/** A migration that fails halfway leaves the schema as it was. */
+/** The schema: a migration that fails halfway leaves it as it was, and a fresh one is complete. */
 @NoArgsConstructor
 @ExpectedErrorLog("ERROR org.flywaydb.core.internal.command.DbMigrate - ")
 class MigrationUpgradeTest extends PostgresTestSupport {
@@ -71,94 +71,61 @@ class MigrationUpgradeTest extends PostgresTestSupport {
       assertThat(scalar(statement, "SELECT to_regclass('half_done')::text")).isNull();
       assertThat(scalar(statement, "SELECT count(*) FROM workflow_definition")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("5");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("1");
   }
 
   /**
-   * A database on the alpha.4 schema, with a queued delivery, takes V3 and keeps everything else.
+   * The squashed schema creates every table, seeds the two epochs and starts both change sequences
+   * at 1. The alpha schema was squashed into V1 again (2026-11-24), so there is no upgrade to test.
    */
   @Test
-  void notificationsMigrationDropsTheOldOutboxAndKeepsTheRest() throws SQLException {
-    final String schema = "upgrade_v3_test";
+  void freshSchemaHasEveryTableAndItsSeeds() throws SQLException {
+    final String schema = "fresh_schema_test";
     try (Connection connection = jdbc();
         Statement statement = connection.createStatement()) {
       statement.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
     }
-    flywayFor(schema).target("1").load().migrate();
-    try (Connection connection = jdbc();
-        Statement statement = connection.createStatement()) {
-      statement.execute(SET_PATH + schema);
-      statement.execute(
-          "INSERT INTO workflow_definition (session_id, workflow_id, definition)"
-              + " VALUES ('s1', 'w1', '"
-              + DEFINITION
-              + "')");
-      statement.execute(
-          "INSERT INTO input_request (id, req_key, session_id, workflow_id, execution_id,"
-              + " node_id, kind, risk, state, version, tier, targets, spec, votes, created_at,"
-              + " updated_at) VALUES ('r1', 'k', 's1', 'w1', 'e1', 'n1', 'TEXT', 'LOW', 'OPEN',"
-              + " 0, 'default', '[]', '{}', '[]', now(), now())");
-      statement.execute(
-          "INSERT INTO input_delivery (id, request_id, tier, responder, state, attempts,"
-              + " next_attempt) VALUES ('d1', 'r1', 'default', 'external:webhook:ops', 'PENDING',"
-              + " 0, now())");
-    }
-
     flywayFor(schema).load().migrate();
 
     try (Connection connection = jdbc();
         Statement statement = connection.createStatement()) {
       statement.execute(SET_PATH + schema);
-      assertThat(scalar(statement, "SELECT to_regclass('input_delivery')::text")).isNull();
-      assertThat(scalar(statement, "SELECT count(*) FROM input_request")).isEqualTo("1");
-      assertThat(scalar(statement, "SELECT count(*) FROM workflow_definition")).isEqualTo("1");
       for (final String table :
           new String[] {
+            "workflow_definition",
+            "workflow_definition_revision",
+            "session_config",
+            "execution_log",
+            "node_checkpoint",
+            "node_checkpoint_state",
+            "leader_lease",
+            "supervisor",
+            "supervisor_attachment",
+            "session_supervisor",
+            "supervisor_version",
+            "agent_credential",
+            "input_request",
+            "input_response",
             "notifications",
             "notification_receipts",
             "notification_preferences",
             "notification_deliveries",
-            "notification_epoch"
+            "notification_epoch",
+            "agent_conversation",
+            "agent_event",
+            "agent_epoch"
           }) {
         assertThat(regclass(connection, table)).isEqualTo(table);
       }
+      for (final String gone : new String[] {"kv_entry", "session_history", "input_delivery"}) {
+        assertThat(regclass(connection, gone)).isNull();
+      }
       assertThat(scalar(statement, "SELECT length(epoch) > 0 FROM notification_epoch"))
           .isEqualTo("t");
-      assertThat(scalar(statement, "SELECT nextval('notification_seq')")).isEqualTo("1");
-    }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("5");
-  }
-
-  /** A database on the V3 schema takes V4 (agent conversations) and keeps its notifications. */
-  @Test
-  void agentConversationsMigrationAddsItsTablesAndKeepsTheNotifications() throws SQLException {
-    final String schema = "upgrade_v4_test";
-    try (Connection connection = jdbc();
-        Statement statement = connection.createStatement()) {
-      statement.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
-    }
-    flywayFor(schema).target("3").load().migrate();
-    try (Connection connection = jdbc();
-        Statement statement = connection.createStatement()) {
-      statement.execute(SET_PATH + schema);
-      statement.execute(
-          "INSERT INTO notifications (id, notif_key, kind, severity, category, title, audience,"
-              + " state, count, seq, created_at, updated_at) VALUES ('n1', 'k', 'INFO', 'INFO',"
-              + " 'workflow', 'T', '[]', 'OPEN', 1, 1, now(), now())");
-    }
-
-    flywayFor(schema).load().migrate();
-
-    try (Connection connection = jdbc();
-        Statement statement = connection.createStatement()) {
-      statement.execute(SET_PATH + schema);
-      assertThat(scalar(statement, "SELECT count(*) FROM notifications")).isEqualTo("1");
-      for (final String table : new String[] {"agent_conversation", "agent_event", "agent_epoch"}) {
-        assertThat(regclass(connection, table)).isEqualTo(table);
-      }
       assertThat(scalar(statement, "SELECT length(epoch) > 0 FROM agent_epoch")).isEqualTo("t");
+      assertThat(scalar(statement, "SELECT nextval('notification_seq')")).isEqualTo("1");
       assertThat(scalar(statement, "SELECT nextval('agent_seq')")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("5");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("1");
   }
 }

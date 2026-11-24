@@ -40,7 +40,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
-import tools.jackson.databind.ObjectMapper;
 
 /**
  * The single-server defaults: an execution log and node checkpoints in memory, and a leader that is
@@ -50,14 +49,14 @@ import tools.jackson.databind.ObjectMapper;
  * property conditions are kept, so the file and PostgreSQL stores behave as before.
  */
 @Slf4j
-@SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyMethods"})
 @AutoConfiguration
 @EnableConfigurationProperties(YuktaProperties.class)
 @NoArgsConstructor
 public class DefaultsAutoConfiguration {
 
   /**
-   * The execution log in memory, trimmed like the file log.
+   * The execution log in memory, unless the PostgreSQL module keeps it.
    *
    * @param properties the settings
    * @return the store
@@ -65,15 +64,14 @@ public class DefaultsAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean(ExecutionLogStore.class)
   @ConditionalOnExpression(
-      "'${yukta.execution-log.dir:}'.isEmpty()"
-          + " && !'postgres'.equalsIgnoreCase('${yukta.session.store-type:in-memory}'.trim())")
+      "!'postgres'.equalsIgnoreCase('${yukta.session.store-type:in-memory}'.trim())")
   public InMemoryExecutionLogStore inMemoryExecutionLogStore(final YuktaProperties properties) {
     return new InMemoryExecutionLogStore(
         properties.executionLog().retainedRuns(), properties.executionLog().compactAfter());
   }
 
   /**
-   * Wraps whichever execution log store is built (memory, files, Postgres) so test runs are never
+   * Wraps whichever execution log store is built (memory or Postgres) so test runs are never
    * logged.
    *
    * @return the post-processor
@@ -91,22 +89,17 @@ public class DefaultsAutoConfiguration {
   }
 
   /**
-   * The node checkpoints in memory, with optional spill to files.
+   * The node checkpoints in memory, unless {@code yukta.restart.store-type} is {@code postgres}.
    *
    * @param properties the settings
-   * @param mapper writes spilled messages
    * @return the store
    */
   @Bean
   @ConditionalOnMissingBean(NodeCheckpointStore.class)
-  @ConditionalOnExpression(
-      "'${yukta.restart.dir:}'.isEmpty() &&"
-          + " !'postgres'.equalsIgnoreCase('${yukta.restart.store-type:}'.trim())")
-  public InMemoryNodeCheckpointStore inMemoryNodeCheckpointStore(
-      final YuktaProperties properties, final ObjectProvider<ObjectMapper> mapper) {
+  @ConditionalOnExpression("!'postgres'.equalsIgnoreCase('${yukta.restart.store-type:}'.trim())")
+  public InMemoryNodeCheckpointStore inMemoryNodeCheckpointStore(final YuktaProperties properties) {
     final YuktaProperties.Restart restart = properties.restart();
-    return new InMemoryNodeCheckpointStore(
-        restart.messagesPerNode(), restart.bytesPerNode(), restart.spillDir(), mapper);
+    return new InMemoryNodeCheckpointStore(restart.messagesPerNode(), restart.bytesPerNode());
   }
 
   /**

@@ -6,6 +6,7 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.session.SessionSnapshot;
+import com.infenia.yukta.model.session.SessionSummary;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
@@ -341,6 +342,20 @@ public class SessionService {
     return includeInternal || internal == null
         ? getSessionIds()
         : getSessionIds().filterWhen(id -> internal.checkInternal(id).map(hidden -> !hidden));
+  }
+
+  /**
+   * The sessions as a list shows them, ordered by id: one read of the store, no definitions, and
+   * the internal sessions left out by their tag unless asked for.
+   *
+   * @param includeInternal true to list internal sessions too
+   * @return the summaries, ordered by session id
+   */
+  public Flux<SessionSummary> getSessionSummaries(final boolean includeInternal) {
+    return configService
+        .summaries()
+        .filter(summary ->
+            includeInternal || !"true".equalsIgnoreCase(summary.tags().get(InternalSessions.TAG)));
   }
 
   /**

@@ -200,6 +200,92 @@ class InMemoryNodeCheckpointStoreTest {
   }
 
   @Test
+  void nullPayloadIsCountedAsOneUnknownPayload() {
+    final InMemoryNodeCheckpointStore small = new InMemoryNodeCheckpointStore(10, 100);
+
+    small.save("e", "n", DefaultMessage.create(UUID.randomUUID(), null)).block();
+
+    assertThat(small.isComplete("e", "n")).isFalse();
+  }
+
+  @Test
+  void lateMessageAfterClearIsDropped() {
+    store.save("late", "n", DefaultMessage.create(UUID.randomUUID(), "early")).block();
+    store.clear("late");
+
+    store.save("late", "n", DefaultMessage.create(UUID.randomUUID(), "late")).block();
+
+    StepVerifier.create(store.getAll("late", "n")).verifyComplete();
+    assertThat(store.bytesHeld()).isZero();
+  }
+
+  @Test
+  void clearThatRunsWhileMessageIsBeingSavedDropsTheMessage() {
+    // sizeOf runs after the node's record is inserted and before its lock is taken, so a clear
+    // issued from inside the payload lands in exactly that window
+    final CharSequence clearingText =
+        new CharSequence() {
+          @Override
+          public int length() {
+            store.clear("racing");
+            return 3;
+          }
+
+          @Override
+          public char charAt(final int index) {
+            return 'a';
+          }
+
+          @Override
+          public CharSequence subSequence(final int start, final int end) {
+            return this;
+          }
+
+          @Override
+          public String toString() {
+            return "aaa";
+          }
+        };
+
+    store.save("racing", "n", DefaultMessage.create(UUID.randomUUID(), clearingText)).block();
+
+    StepVerifier.create(store.getAll("racing", "n")).verifyComplete();
+    assertThat(store.bytesHeld()).isZero();
+  }
+
+  @Test
+  void lateMarkCompleteAfterClearLeavesNoFinishedNode() {
+    store.save("gone", "n", DefaultMessage.create(UUID.randomUUID(), "x")).block();
+    store.clear("gone");
+
+    store.markComplete("gone", "n").block();
+
+    assertThat(store.isFinished("gone", "n")).isFalse();
+  }
+
+  @Test
+  void clearOfUnknownExecutionIsHarmless() {
+    store.clear("never-seen");
+
+    assertThat(store.bytesHeld()).isZero();
+    assertThat(store.isComplete("never-seen", "n")).isTrue();
+  }
+
+  @Test
+  void clearedRunsAreForgottenOnceMoreThanTheRememberedLimit() {
+    store.save("first", "n", DefaultMessage.create(UUID.randomUUID(), "a")).block();
+    store.clear("first");
+    for (int i = 0; i < 4096; i++) {
+      store.clear("run-" + i);
+    }
+
+    // "first" has been evicted from the remembered cleared runs, so a message is recorded again
+    store.save("first", "n", DefaultMessage.create(UUID.randomUUID(), "b")).block();
+
+    StepVerifier.create(store.getAll("first", "n")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
   void markComplete_makesTheNodeFinished_untilTheExecutionIsCleared() {
     store.save("exec-9", "node-9", DefaultMessage.create(UUID.randomUUID(), "x")).block();
     assertThat(store.isFinished("exec-9", "node-9")).isFalse();

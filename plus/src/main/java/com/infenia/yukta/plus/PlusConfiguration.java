@@ -4,11 +4,9 @@ package com.infenia.yukta.plus;
 
 import com.infenia.yukta.edition.Edition;
 import com.infenia.yukta.edition.EditionInfo;
-import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.plus.ext.EnterpriseModule;
 import com.infenia.yukta.plus.ext.EnterpriseModuleRegistry;
 import com.infenia.yukta.plus.ext.LicenseVerifier;
-import com.infenia.yukta.service.store.FileNodeCheckpointStore;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -16,17 +14,15 @@ import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.info.InfoContributor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.ClassUtils;
-import tools.jackson.databind.ObjectMapper;
 
 /**
- * The Plus edition (AGPL-3.0-only): single-node durable storage on disk. The session, workflow and
- * execution-log stores are components of their own; this adds the checkpoint and chat-history files
- * and tells users where the source is, as section 13 of the AGPL asks.
+ * The Plus edition (AGPL-3.0-only): durable storage in PostgreSQL, high availability and remote
+ * workers, each from its own module. This registers the Enterprise modules and tells users where
+ * the source is, as section 13 of the AGPL asks.
  */
 @NoArgsConstructor
 @Configuration(proxyBeanMethods = false)
@@ -38,22 +34,6 @@ public class PlusConfiguration {
 
   /** Present when the workers module is in the build. */
   private static final String WORKERS = "com.infenia.workers.WorkersAutoConfiguration";
-
-  /**
-   * Keeps what each node produced on disk when {@code yukta.restart.dir} is set.
-   *
-   * @param dir root directory
-   * @param mapper reads and writes messages
-   * @return the store
-   */
-  @Bean
-  @ConditionalOnExpression(
-      "!'${yukta.restart.dir:}'.isEmpty() &&"
-          + " !'postgres'.equalsIgnoreCase('${yukta.restart.store-type:}'.trim())")
-  public NodeCheckpointStore fileNodeCheckpointStore(
-      @Value("${yukta.restart.dir}") final String dir, final ObjectMapper mapper) {
-    return new FileNodeCheckpointStore(dir, mapper);
-  }
 
   /**
    * The installed Enterprise modules, checked against this API version and the licence.
@@ -91,8 +71,8 @@ public class PlusConfiguration {
   }
 
   /**
-   * The features of this build: the file stores, PostgreSQL storage with leader election and remote
-   * workers when their modules are present, and what Enterprise modules add.
+   * The features of this build: PostgreSQL storage with leader election and remote workers when
+   * their modules are present, and what Enterprise modules add.
    *
    * @param present tells whether a class is on the classpath
    * @param registry the installed modules
@@ -100,7 +80,7 @@ public class PlusConfiguration {
    */
   /* default */ static List<String> features(
       final Predicate<String> present, final EnterpriseModuleRegistry registry) {
-    final List<String> features = new ArrayList<>(List.of("file-stores"));
+    final List<String> features = new ArrayList<>();
     if (present.test(POSTGRES)) {
       features.add("postgres");
       features.add("high-availability");

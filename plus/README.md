@@ -1,14 +1,8 @@
 # Plus
 
-Single-node durable storage on disk, licensed **AGPL-3.0-only** (the text is in [`LICENSE`](LICENSE); see [`LICENSING.md`](../LICENSING.md) for what that means in practice).
+The Plus edition, licensed **AGPL-3.0-only** (the text is in [`LICENSE`](LICENSE); see [`LICENSING.md`](../LICENSING.md) for what that means in practice).
 
-Added to the application with `-Pyukta.edition=plus` (the file stores below). `plus/persistence-postgres` (`-Pyukta.persistence=postgres`) and `plus/workers` (`-Pyukta.workers=true`) are nested modules with the same licence.
-
-| Setting | Stores |
-|---|---|
-| `yukta.session.store-type=file` | sessions and workflow definitions (`yukta.session.base-dir`) |
-| `yukta.execution-log.dir` | the execution log (JSONL) |
-| `yukta.restart.dir` | node checkpoints, for resuming after a restart |
+This module holds the Enterprise module API (`com.infenia.yukta.plus.ext`), the edition information with the source offer (`/actuator/info`) and the store contract tests (`src/testFixtures`). It is added with `-Pyukta.edition=plus`. The durable stores are the nested module `plus/persistence-postgres` (`-Pyukta.persistence=postgres`), and `plus/workers` (`-Pyukta.workers=true`) adds remote workers; both have the same licence. The on-disk stores were removed: PostgreSQL is the only durable store.
 
 Rules for this module: nothing outside `boot` may depend on it, and every file keeps the
 `AGPL-3.0-only` SPDX header (Spotless adds it).

@@ -32,7 +32,7 @@ See `../design/decisions/0006-remote-workers.md`.
 
 ### High availability (active/standby)
 `LeaderElection` (`service/leader`) says whether this server admits runs. A single server is always the
-leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` (persistence-postgres, `V4__leader_lease`) servers share
+leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` (persistence-postgres, table `leader_lease`) servers share
 the database and one holds a lease row (`yukta.ha.lease`, default 15s, renewed three times per lease; a graceful stop
 releases it; the `yukta.leader` gauge is 1 on the leader; the fencing number grows with every change of holder). A
 server counts itself the leader only while its own last renewal is younger than the lease, so one that cannot reach

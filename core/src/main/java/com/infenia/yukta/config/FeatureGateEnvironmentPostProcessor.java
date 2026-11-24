@@ -36,19 +36,12 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   /** The in-memory store type. */
   private static final String IN_MEMORY_TYPE = "in-memory";
 
-  /** Provider of the on-disk stores. */
-  private static final String FILES =
-      "com.infenia.yukta.service.sessionstore.FileSessionConfigStore";
-
   /** Provider of the PostgreSQL stores and the leader lease. */
   private static final String POSTGRES =
       "com.infenia.yukta.persistence.postgres.PostgresPersistenceAutoConfiguration";
 
   /** Provider of remote workers. */
   private static final String WORKERS = "com.infenia.workers.WorkersAutoConfiguration";
-
-  /** Build hint for the on-disk stores. */
-  private static final String FILES_HINT = "-Pyukta.edition=plus";
 
   /** Build hint for PostgreSQL. */
   private static final String POSTGRES_HINT = "-Pyukta.persistence=postgres";
@@ -63,15 +56,24 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   /* default */ static final Map<String, Set<String>> STORE_VALUES =
       Map.of(
           SESSION_TYPE,
-          Set.of(IN_MEMORY_TYPE, "file", POSTGRES_TYPE),
+          Set.of(IN_MEMORY_TYPE, POSTGRES_TYPE),
           "yukta.restart.store-type",
-          Set.of("memory", IN_MEMORY_TYPE, "file", POSTGRES_TYPE),
+          Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
           "yukta.input.store-type",
           Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
           "yukta.agents.store-type",
           Set.of("memory", IN_MEMORY_TYPE, POSTGRES_TYPE),
           "yukta.ha.mode",
           Set.of("single", POSTGRES_TYPE));
+
+  /**
+   * The settings that turned an on-disk store on, which were removed: PostgreSQL is the durable
+   * store. Left alone they would keep the data in memory without a word. {@code
+   * yukta.session.base-dir} and {@code yukta.execution-log.fsync} did nothing on their own, so they
+   * are simply no longer read.
+   */
+  /* default */ static final List<String> REMOVED_FILE_SETTINGS =
+      List.of("yukta.execution-log.dir", "yukta.restart.dir", "yukta.restart.spill-dir");
 
   /** Switches whose {@code postgres} value only works with PostgreSQL sessions. */
   /* default */ static final List<String> POSTGRES_ONLY =
@@ -84,9 +86,6 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   /** The gated settings. */
   /* default */ static final List<Gate> GATES =
       List.of(
-          new Gate(SESSION_TYPE, "file", FILES, Edition.PLUS, FILES_HINT),
-          new Gate("yukta.execution-log.dir", null, FILES, Edition.PLUS, FILES_HINT),
-          new Gate("yukta.restart.dir", null, FILES, Edition.PLUS, FILES_HINT),
           new Gate(SESSION_TYPE, POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
           new Gate(
               "yukta.restart.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
@@ -99,8 +98,7 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
    * One gated setting.
    *
    * @param key the property
-   * @param value the value that needs the module, or null when any non-blank value does (a
-   *     directory setting is not gated when its store type is {@code postgres})
+   * @param value the value that needs the module, or null when any non-blank value does
    * @param provider a class that exists only when the module is in the build
    * @param edition the edition that has the module
    * @param hint how to build it
@@ -108,28 +106,10 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   /* default */ record Gate(
       String key, @Nullable String value, String provider, Edition edition, String hint) {
 
-    private static @Nullable String strip(@Nullable final String s) {
-      return s == null ? null : s.strip();
-    }
-
     /* default */ boolean isUsed(final Environment environment) {
       final String actual = environment.getProperty(key);
-      final boolean used;
-      if (value != null) {
-        // like @ConditionalOnProperty: case does not matter, and neither do stray blanks
-        used = value.equalsIgnoreCase(strip(actual));
-      } else if (StringUtils.hasText(actual)) {
-        used =
-            !key.endsWith(".dir")
-                || !POSTGRES_TYPE.equalsIgnoreCase(strip(environment.getProperty(storeType())));
-      } else {
-        used = false;
-      }
-      return used;
-    }
-
-    private String storeType() {
-      return key.substring(0, key.length() - ".dir".length()) + ".store-type";
+      // like @ConditionalOnProperty: case does not matter, and neither do stray blanks
+      return value == null ? StringUtils.hasText(actual) : value.equalsIgnoreCase(strip(actual));
     }
 
     /* default */ String describe() {
@@ -144,6 +124,19 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   }
 
   /* default */ static void check(final Environment environment, final Predicate<String> present) {
+    final boolean fileSessions =
+        "file".equalsIgnoreCase(strip(environment.getProperty(SESSION_TYPE)));
+    REMOVED_FILE_SETTINGS.stream()
+        .filter(key -> fileSessions || StringUtils.hasText(environment.getProperty(key)))
+        .findFirst()
+        .ifPresent(key -> {
+          throw new IllegalStateException(
+              (fileSessions ? SESSION_TYPE + "=file" : key)
+                  + " is no longer read: the on-disk stores were removed. Keep state in PostgreSQL"
+                  + " (yukta.session.store-type=postgres, built with "
+                  + POSTGRES_HINT
+                  + "), or remove the setting to keep it in memory.");
+        });
     STORE_VALUES.forEach((key, allowed) -> {
       final String value = environment.getProperty(key);
       if (StringUtils.hasText(value) && !allowed.contains(value.strip().toLowerCase(Locale.ROOT))) {
@@ -183,6 +176,10 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
                     + "=postgres, or it is ignored and the data stays in memory.");
           });
     }
+  }
+
+  private static @Nullable String strip(@Nullable final String s) {
+    return s == null ? null : s.strip();
   }
 
   private static boolean isPostgres(final Environment environment, final String key) {

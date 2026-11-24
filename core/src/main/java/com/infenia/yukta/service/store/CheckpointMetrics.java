@@ -29,11 +29,5 @@ public class CheckpointMetrics implements MeterBinder {
           .description("Node ends that could not be made durable")
           .register(registry);
     }
-    if (store instanceof FileNodeCheckpointStore || store instanceof InMemoryNodeCheckpointStore) {
-      Gauge.builder("yukta.checkpoint.io.pending", FileNodeCheckpointStore::pendingIo)
-          .description(
-              "Checkpoint file operations queued for or running on the checkpoint scheduler")
-          .register(registry);
-    }
   }
 }

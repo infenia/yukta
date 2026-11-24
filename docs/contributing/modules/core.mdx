@@ -257,12 +257,12 @@ Makes a run explainable and resumable after the process dies.
 - After a crash, on boot, runs that never finished are marked ABORTED and recent history is restored. Someone can then resume an aborted run: nodes with a done marker replay their recorded output and the others run again.
 - The archive keeps the last 10 finished runs (graph, input, outputs) so they can be restarted.
 
-- **Guarantees.** A resume trusts only the done marker, never the log. A node whose output exceeded the memory cap refuses a restart rather than replaying part of its output, unless a spill directory is set: then the node's whole output moves to files and replays complete.
+- **Guarantees.** A resume trusts only the done marker, never the log. A node whose output exceeded the memory cap refuses a restart rather than replaying part of its output; PostgreSQL checkpoints have no cap.
 - **State.** Durable only if you configure directories (or PostgreSQL for the log).
 - **Ceiling.** Checkpoints are files or memory, not PostgreSQL. All file I/O runs on one writer thread, and log events are not fsynced unless yukta.execution-log.fsync=true.
 - **On failure.** There is a tiny window: if a plugin performs a side effect and the process dies before the done marker is written, that node runs again after a resume and the side effect can happen twice.
 
-**Settings:** `yukta.execution-log.dir, retained-runs (500), compact-after (10000)`, `yukta.restart.dir, retained-executions (10), messages-per-node (200), bytes-per-node (4 MiB), spill-dir (off)`
+**Settings:** `yukta.execution-log.retained-runs (500), compact-after (10000)`, `yukta.restart.store-type, retained-executions (10), messages-per-node (200), bytes-per-node (4 MiB)`
 
 ### Persistence Backends
 
@@ -440,7 +440,7 @@ What is lost and what is kept when the server dies mid-run, and how a run is con
 
 <Steps>
 <Step title="The JVM dies mid-run">
-Memory is gone: tracker, scheduler slots, queued starts, signal waits. On disk (if configured): the log with the start payload, and checkpoint outputs with end markers.
+Memory is gone: tracker, scheduler slots, queued starts, signal waits. In PostgreSQL (if configured): the log with the start payload, and checkpoint outputs with end markers.
 </Step>
 <Step title="Boot recovery">
 Unfinished runs are marked ABORTED, the newest runs are restored into history, idempotency keys are reloaded so a retrying client still gets its first id.
@@ -557,7 +557,7 @@ What this module does, how, what it guarantees and where the guarantee stops.
 | Output atomicity | With retry or onError, a message yields all of its output or none. |
 | Start | Exactly one execution id per slot; same Idempotency-Key returns the first id. |
 | Resume | Once per run, only with an unchanged definition. |
-| Durability switches | Each backend has its own switch (session.store-type, execution-log.dir, restart.dir), so a deployment can be half durable. The profiles above assume the matching ones are set. |
+| Durability switches | Each backend has its own switch (session.store-type, restart.store-type, input.store-type), so a deployment can be half durable. The profiles above assume the matching ones are set. |
 
 
 ### The five clocks
@@ -573,19 +573,19 @@ What this module does, how, what it guarantees and where the guarantee stops.
 
 ### What survives a restart
 
-| What | In-memory (default) | File (directories set) | PostgreSQL + checkpoint dir |
-|---|---|---|---|
-| Workflow definitions and versions | \*\*No.\*\* Gone on restart | \*\*Yes.\*\* Kept, newest 20 versions, atomic writes | \*\*Yes.\*\* Kept, newest 20 versions |
-| Session config | \*\*No.\*\* Gone | \*\*Yes.\*\* Kept | \*\*Yes.\*\* Kept |
-| Run history and audit | \*\*No.\*\* Gone; nothing to mark ABORTED | \*\*Partly.\*\* Kept in JSONL; last events can be lost on power loss unless yukta.execution-log.fsync is on | \*\*Yes.\*\* Kept; trimmed to newest runs |
-| Runs in flight at the crash | \*\*No.\*\* Vanish | \*\*Yes.\*\* Marked ABORTED on boot | \*\*Yes.\*\* Marked ABORTED on boot |
-| Idempotency keys | \*\*No.\*\* Gone | \*\*Yes.\*\* Reloaded from the log | \*\*Yes.\*\* Ride the log |
-| Node outputs (checkpoints) | \*\*Partly.\*\* Memory, capped; with a spill directory the overflow goes to files | \*\*Yes.\*\* On disk if restart dir is set; no caps | \*\*Partly.\*\* Still files or memory, not PostgreSQL |
-| Resume an aborted run | \*\*No.\*\* Not possible | \*\*Yes.\*\* Needs log dir and restart dir | \*\*Partly.\*\* Log in PostgreSQL, outputs on files |
-| Queued starts and slots | \*\*No.\*\* Lost | \*\*Partly.\*\* Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered | \*\*Partly.\*\* Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered |
-| Signal waits (approvals) | \*\*No.\*\* Lost | \*\*No.\*\* Lost; a resumed run waits again | \*\*No.\*\* Lost; a resumed run waits again |
-| Limits changed at run time | \*\*No.\*\* Reset | \*\*Yes.\*\* Restored from the log | \*\*Yes.\*\* Restored from the log |
-| Live progress and metrics | \*\*No.\*\* Gone: the in-memory log is empty after a restart | \*\*Partly.\*\* Newest 500 runs restored | \*\*Partly.\*\* Newest 500 runs restored |
+| What | In-memory (default) | PostgreSQL |
+|---|---|---|
+| Workflow definitions and versions | \*\*No.\*\* Gone on restart | \*\*Yes.\*\* Kept, newest 20 versions |
+| Session config | \*\*No.\*\* Gone | \*\*Yes.\*\* Kept |
+| Run history and audit | \*\*No.\*\* Gone; nothing to mark ABORTED | \*\*Yes.\*\* Kept; trimmed to newest runs |
+| Runs in flight at the crash | \*\*No.\*\* Vanish | \*\*Yes.\*\* Marked ABORTED on boot |
+| Idempotency keys | \*\*No.\*\* Gone | \*\*Yes.\*\* Ride the log |
+| Node outputs (checkpoints) | \*\*Partly.\*\* Memory, capped; a node over the caps cannot be replayed | \*\*Yes.\*\* In PostgreSQL with `restart.store-type=postgres`; no caps |
+| Resume an aborted run | \*\*No.\*\* Not possible | \*\*Yes.\*\* Log and outputs in PostgreSQL |
+| Queued starts and slots | \*\*No.\*\* Lost | \*\*Partly.\*\* Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered |
+| Signal waits (approvals) | \*\*No.\*\* Lost | \*\*No.\*\* Lost; a resumed run waits again |
+| Limits changed at run time | \*\*No.\*\* Reset | \*\*Yes.\*\* Restored from the log |
+| Live progress and metrics | \*\*No.\*\* Gone: the in-memory log is empty after a restart | \*\*Partly.\*\* Newest 500 runs restored |
 
 
 ### Pitfalls
@@ -748,7 +748,7 @@ The full list of configuration properties, metrics and enums is in the [core ref
 | Checkpoint | A node's recorded output, kept so it can be replayed instead of recomputed. | Memory is capped; file keeps everything. |
 | Durable end marker | A small file written and forced to disk with a node's output when the node completes. | What a resume trusts to skip a node. |
 | ABORTED | The status given on boot to a run that never finished because the process died. | Candidates for resume. |
-| Restart vs resume | Restart starts a new run (optionally from one node) using recorded outputs; resume continues an aborted run after a crash. | Resume needs file stores and an unchanged definition. |
+| Restart vs resume | Restart starts a new run (optionally from one node) using recorded outputs; resume continues an aborted run after a crash. | Resume needs the PostgreSQL log and checkpoints and an unchanged definition. |
 | Definition version (content hash) | A fingerprint of the graph a run used, stored with the run. | Lets you tell which version ran. |
 | Claim check | Passing a reference to big data instead of the data itself. | Planned for large payloads. |
 | Virtual threads | Cheap threads used so blocking plugins do not tie up the event loop. | Why blocking plugins are allowed. |

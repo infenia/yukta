@@ -12,11 +12,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Default execution log: kept in memory, so nothing survives a restart. Set {@code
- * yukta.execution-log.dir} to keep the log on disk.
+ * Default execution log: kept in memory, so nothing survives a restart. The PostgreSQL module
+ * ({@code yukta.session.store-type=postgres}) keeps it durable.
  *
- * <p>Like the file log, it is trimmed to the newest {@code retained-runs} runs after every {@code
- * compact-after} appended events; a run without an end is never dropped.
+ * <p>It is trimmed to the newest {@code retained-runs} runs after every {@code compact-after}
+ * appended events; a run without an end is never dropped.
  */
 public class InMemoryExecutionLogStore implements ExecutionLogStore {
 
@@ -86,11 +86,28 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
   }
 
   @Override
-  public Mono<Void> replaceAll(final List<ExecutionLogEvent> kept) {
+  public Mono<Void> applyRecovery(
+      final Set<String> dropped, final int schedulerKept, final List<ExecutionLogEvent> added) {
     return Mono.fromRunnable(() -> {
       lock.lock();
       try {
-        events = new ArrayList<>(kept);
+        int scheduler = 0;
+        for (final ExecutionLogEvent event : events) {
+          if (ExecutionLogEvent.SCHEDULER.equals(event.executionId())) {
+            scheduler++;
+          }
+        }
+        int skip = Math.max(0, scheduler - schedulerKept);
+        final List<ExecutionLogEvent> kept = new ArrayList<>(events.size() + added.size());
+        for (final ExecutionLogEvent event : events) {
+          if (ExecutionLogEvent.SCHEDULER.equals(event.executionId()) && skip > 0) {
+            skip--;
+          } else if (!dropped.contains(event.executionId())) {
+            kept.add(event);
+          }
+        }
+        kept.addAll(added);
+        events = kept;
         reindex();
         sinceTrim = 0;
       } finally {
