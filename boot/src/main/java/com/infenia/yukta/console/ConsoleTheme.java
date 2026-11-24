@@ -9,7 +9,6 @@ import org.jline.utils.AttributedStyle;
  * The console's palette and the pure, frame-indexed drawing helpers (spinners, shimmer, meters).
  * Colours are truecolor; JLine rounds them down to what the terminal supports.
  */
-@SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
 /* default */ final class ConsoleTheme {
 
   private static final int WHITE = 255;
@@ -40,23 +39,23 @@ import org.jline.utils.AttributedStyle;
     G6(rgb(0xE8, 0x60, 0x1F)),
     G7(rgb(0xE9, 0x5D, 0x0C));
 
-    private final AttributedStyle style;
+    private final transient AttributedStyle attributes;
 
     private static AttributedStyle rgb(final int r, final int g, final int b) {
       return AttributedStyle.DEFAULT.foreground(r, g, b);
     }
 
     Role(final AttributedStyle style) {
-      this.style = style;
+      this.attributes = style;
     }
 
     /* default */ AttributedStyle style() {
-      return style;
+      return attributes;
     }
   }
 
-  private static final String[] STAR = {"·", "✢", "✳", "✶", "✻", "✽", "✻", "✶", "✳", "✢"};
-  private static final String BRAILLE = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+  private static final String[] STAR_FRAMES = {"·", "✢", "✳", "✶", "✻", "✽", "✻", "✶", "✳", "✢"};
+  private static final String BRAILLE_FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
   private static final String SPARK = "▁▂▃▄▅▆▇█";
   private static final String EIGHTHS = " ▏▎▍▌▋▊▉█";
 
@@ -76,12 +75,12 @@ import org.jline.utils.AttributedStyle;
 
   /** The Claude-style star spinner. */
   /* default */ static String star(final long f) {
-    return STAR[Math.floorMod((int) f, STAR.length)];
+    return STAR_FRAMES[Math.floorMod((int) f, STAR_FRAMES.length)];
   }
 
   /** The braille spinner for a running row. */
   /* default */ static String braille(final long f) {
-    return String.valueOf(BRAILLE.charAt(Math.floorMod((int) f, BRAILLE.length())));
+    return String.valueOf(BRAILLE_FRAMES.charAt(Math.floorMod((int) f, BRAILLE_FRAMES.length())));
   }
 
   /** A bar {@code width} cells wide, filled to {@code value / max} in eighths of a cell. */

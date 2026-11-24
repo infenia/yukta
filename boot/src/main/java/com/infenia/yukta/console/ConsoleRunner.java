@@ -3,10 +3,6 @@
 package com.infenia.yukta.console;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -32,7 +28,6 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The interactive console: a full-screen dashboard on the terminal, fed by the server's own REST
@@ -50,8 +45,6 @@ import tools.jackson.databind.json.JsonMapper;
 })
 public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent> {
 
-  private static final JsonMapper JSON = JsonMapper.builder().build();
-  private static final HttpClient HTTP = HttpClient.newHttpClient();
   private static final int TICK_MS = 100;
 
   @Override
@@ -154,18 +147,24 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
         display.update(lines, 0);
         term.endSynchronizedUpdate();
         term.flush();
-        final String k = key(term, reader, keys);
-        if ("m".equals(k) && term.hasMouseSupport()) {
-          mouse = toggleMouse(term, mouse);
-        } else if (k != null) {
-          view.onKey(k);
-        }
+        mouse = dispatch(term, view, key(term, reader, keys), mouse);
       }
     } finally {
       poll.interrupt();
       Runtime.getRuntime().removeShutdownHook(restore);
       restore(term, graphemes, mouse, saved);
     }
+  }
+
+  private static boolean dispatch(
+      final Terminal term, final ConsoleView view, final String k, final boolean mouse) {
+    if ("m".equals(k) && term.hasMouseSupport()) {
+      return toggleMouse(term, mouse);
+    }
+    if (k != null) {
+      view.onKey(k);
+    }
+    return mouse;
   }
 
   private static boolean toggleMouse(final Terminal term, final boolean mouse) {
@@ -249,18 +248,20 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
 
   private static ConsoleView.Snapshot poll(final String base, final String key, final int limit) {
     try {
-      final JsonNode counts = get(base + "/api/executions/counts", key).path("data");
-      final JsonNode runs = get(base + "/api/executions?limit=" + limit, key).path("data");
+      final JsonNode counts = ConsoleApi.get(base + "/api/executions/counts", key).path("data");
+      final JsonNode runs =
+          ConsoleApi.get(base + "/api/executions?limit=" + limit, key).path("data");
       final List<ConsoleView.Run> rows = new ArrayList<>();
       for (final JsonNode r : runs) {
         rows.add(
             new ConsoleView.Run(
                 r.path("workflowId").asString(""),
                 r.path("status").asString(""),
-                time(r.path("startTime").asString("")),
+                ConsoleApi.time(r.path("startTime").asString("")),
                 r.path("initiator").asString("")));
       }
-      final String health = get(base + "/actuator/health", key).path("status").asString("?");
+      final String health =
+          ConsoleApi.get(base + "/actuator/health", key).path("status").asString("?");
       return new ConsoleView.Snapshot(
           health,
           counts.path("running").asInt(0),
@@ -273,21 +274,5 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
       Thread.currentThread().interrupt();
       return ConsoleView.Snapshot.NONE;
     }
-  }
-
-  /** The time of day of an ISO timestamp ({@code 2026-01-01T10:00:07.5Z} gives 10:00:07). */
-  private static String time(final String iso) {
-    final int t = iso.indexOf('T');
-    return t < 0 ? iso : iso.substring(t + 1, Math.min(iso.length(), t + 9));
-  }
-
-  private static JsonNode get(final String url, final String key)
-      throws IOException, InterruptedException {
-    final HttpRequest.Builder b =
-        HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(2));
-    if (!key.isBlank()) {
-      b.header("Authorization", "Bearer " + key);
-    }
-    return JSON.readTree(HTTP.send(b.build(), HttpResponse.BodyHandlers.ofString()).body());
   }
 }

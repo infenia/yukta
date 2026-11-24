@@ -13,15 +13,25 @@ import java.util.function.Predicate;
  * Draws one frame of the console onto {@link Cells}. Pure: the same model, size and frame always
  * give the same cells, so the screens can be compared with the approved mockup cell for cell.
  */
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.CyclomaticComplexity",
-  "PMD.NPathComplexity",
-  "PMD.AvoidLiteralsInIfCondition",
-  "PMD.CognitiveComplexity",
-  "PMD.GodClass"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CognitiveComplexity"})
 /* default */ final class ConsolePainter {
+
+  private static final String UP = "UP";
+  private static final int TOP = 4;
+  private static final String[][] HELP = {
+    {"q", "quit the server"},
+    {"l", "full logs (toggle)"},
+    {"r", "runs (toggle)"},
+    {"f", "cycle the log level filter"},
+    {"↑ ↓ PgUp PgDn", "scroll, G or End to follow"},
+    {"m", "mouse wheel (toggle)"},
+    {"?", "this help"}
+  };
+
+  private final int width;
+  private final int height;
+  private final long frame;
+  private final boolean motion;
 
   /** The sparkline history: the last samples of each counter, oldest first. */
   /* default */ record Series(List<Integer> running, List<Integer> queued, List<Integer> failed) {}
@@ -39,23 +49,6 @@ import java.util.function.Predicate;
       long busySeconds,
       Predicate<ConsoleView.Run> flashed,
       int slide) {}
-
-  private static final int TOP = 4;
-  private static final int SPARK_MIN_WIDTH = 50;
-  private static final String[][] HELP = {
-    {"q", "quit the server"},
-    {"l", "full logs (toggle)"},
-    {"r", "runs (toggle)"},
-    {"f", "cycle the log level filter"},
-    {"↑ ↓ PgUp PgDn", "scroll, G or End to follow"},
-    {"m", "mouse wheel (toggle)"},
-    {"?", "this help"}
-  };
-
-  private final int width;
-  private final int height;
-  private final long frame;
-  private final boolean motion;
 
   /* default */ ConsolePainter(
       final int width, final int height, final long frameMs, final boolean motion) {
@@ -84,8 +77,8 @@ import java.util.function.Predicate;
     final String port = m.url().substring(m.url().lastIndexOf(':'));
     final String rest = " " + m.version() + " │ " + port + " │ ";
     g.put(0, 9, rest, Role.DIM);
-    final boolean up = "UP".equals(health);
-    final String dot = up ? (Math.floorMod(frame / 5, 2L) == 0 || !motion ? "●" : "◉") : "✗";
+    final boolean up = UP.equals(health);
+    final String dot = up ? (Math.floorMod(frame / 5, 2L) == 0 ? "●" : "◉") : "✗";
     g.put(0, 9 + rest.length(), dot + " " + health, up ? Role.OK : Role.FAIL);
     final String uptime =
         String.format(" │ up %dh%02dm", m.uptime().toHours(), m.uptime().toMinutesPart());
@@ -97,22 +90,28 @@ import java.util.function.Predicate;
 
   private void statusLine(final Cells g, final Model m, final String health) {
     final ConsoleView.Snapshot s = m.snap();
-    if (!"UP".equals(health)) {
+    if (UP.equals(health)) {
+      if (s.running() == 0) {
+        g.put(1, 0, "· Idle", Role.DIM);
+        g.put(1, 7, " " + s.queued() + " queued", Role.DIM);
+      } else {
+        final String phrase =
+            "Orchestrating " + s.running() + (s.running() > 1 ? " runs…" : " run…");
+        g.put(1, 0, motion ? ConsoleTheme.star(frame) : "*", Role.ACCENT);
+        g.put(
+            1,
+            2,
+            phrase,
+            i -> motion ? ConsoleTheme.shimmer(frame, phrase.length(), i) : Role.TEXT);
+        g.put(
+            1,
+            3 + phrase.length(),
+            "(" + elapsed(m.busySeconds()) + " · " + s.queued() + " queued)",
+            Role.DIM);
+      }
+    } else {
       g.put(1, 0, "✗ Server unreachable", Role.FAIL);
       g.put(1, 21, " retrying…", Role.DIM);
-    } else if (s.running() == 0) {
-      g.put(1, 0, "· Idle", Role.DIM);
-      g.put(1, 7, " " + s.queued() + " queued", Role.DIM);
-    } else {
-      final String phrase = "Orchestrating " + s.running() + (s.running() > 1 ? " runs…" : " run…");
-      g.put(1, 0, motion ? ConsoleTheme.star(frame) : "*", Role.ACCENT);
-      g.put(
-          1, 2, phrase, i -> motion ? ConsoleTheme.shimmer(frame, phrase.length(), i) : Role.TEXT);
-      g.put(
-          1,
-          3 + phrase.length(),
-          "(" + elapsed(m.busySeconds()) + " · " + s.queued() + " queued)",
-          Role.DIM);
     }
   }
 
@@ -169,7 +168,7 @@ import java.util.function.Predicate;
           g.put(TOP + i, HELP[i][0].length() + 3, " " + HELP[i][1], Role.TEXT);
         }
       }
-      default -> dashboard(g, m, "UP".equals(health), bottom);
+      default -> dashboard(g, m, UP.equals(health), bottom);
     }
     return g;
   }
@@ -220,9 +219,7 @@ import java.util.function.Predicate;
     g.put(row, 9, ConsoleTheme.meter(value, Math.max(8, value), 18), role);
     g.put(row, 27, "]", Role.SLATE);
     g.put(row, 29, String.format("%2d", value), Role.BOLD);
-    if (width >= SPARK_MIN_WIDTH) {
-      g.put(row, 33, ConsoleTheme.sparkline(samples), role);
-    }
+    g.put(row, 33, ConsoleTheme.sparkline(samples), role);
   }
 
   private void runsTable(
@@ -249,7 +246,7 @@ import java.util.function.Predicate;
       g.put(y, 50, ConsoleView.clean(run.initiator()), Role.DIM);
       if (motion && flashed.test(run)) {
         g.shadeBlanks(y, Role.FLASH);
-      } else if (motion && i % 2 == 1) {
+      } else if (motion && i % 2 != 0) {
         g.shadeBlanks(y, Role.ZEBRA);
       }
     }
@@ -326,7 +323,7 @@ import java.util.function.Predicate;
     }
     g.put(y0 + boxH - 3, x0 + 2, url, Role.TEXT);
     final int n = 12;
-    final double p = Math.min(1.0, (Math.floorMod(frameMs, 3200L)) / 2400.0);
+    final double p = Math.min(1.0, Math.floorMod(frameMs, 3200L) / 2400.0);
     final int on = (int) Math.round(p * n);
     g.put(y0 + boxH - 2, x0 + 2, "▰".repeat(on) + "▱".repeat(n - on), Role.BRAND);
     g.put(y0 + boxH - 2, x0 + 3 + n, p < 1 ? "starting" : "ready", Role.DIM);

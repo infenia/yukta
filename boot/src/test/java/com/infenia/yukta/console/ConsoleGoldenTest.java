@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 import org.jline.utils.AttributedString;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -27,18 +28,20 @@ class ConsoleGoldenTest {
 
   private static final Pattern NAME = Pattern.compile("(\\w+)-(\\d+)x(\\d+)-t(\\d+)(-plain)?");
   private static final String ROLE_LETTERS = ".dbasofwrBCTzFS01234567";
+  private static final String ME = "arun";
+  private static final String SPLASH = "splash";
 
   private static final List<ConsoleView.Run> RUNS =
       List.of(
           run("nightly-build", "RUNNING", "10:41:07", "ci-bot"),
-          run("deploy-staging", "RUNNING", "10:42:30", "arun"),
-          run("lint-and-test", "RUNNING", "10:43:02", "arun"),
+          run("deploy-staging", "RUNNING", "10:42:30", ME),
+          run("lint-and-test", "RUNNING", "10:43:02", ME),
           run("data-sync", "QUEUED", "10:43:15", "cron"),
           run("quality-gate", "QUEUED", "10:43:20", "mcp"),
-          run("release-notes", "SUCCESS", "10:38:11", "arun"),
+          run("release-notes", "SUCCESS", "10:38:11", ME),
           run("backup-db", "FAILURE", "10:30:00", "cron"),
           run("docs-publish", "SUCCESS", "10:21:44", "ci-bot"),
-          run("index-search", "PAUSED", "10:12:08", "arun"));
+          run("index-search", "PAUSED", "10:12:08", ME));
 
   // the sparkline history the mockup draws, oldest first; the last sample is the current count
   private static final int[] RUNNING = {1, 1, 2, 3, 4, 6, 7, 5, 3, 2, 2, 3, 4, 3};
@@ -113,7 +116,7 @@ class ConsoleGoldenTest {
     final ConsoleView view =
         new ConsoleView("0.1.0", "http://127.0.0.1:9858", logs, !plain, !plain);
     final Duration uptime = Duration.ofMinutes(12);
-    if ("splash".equals(screen)) {
+    if (SPLASH.equals(screen)) {
       return view.render(ConsoleView.Snapshot.NONE, uptime, cols, rows, t);
     }
     switch (screen) {
@@ -131,14 +134,14 @@ class ConsoleGoldenTest {
           default -> new ConsoleView.Snapshot("UP", 3, 2, 1, RUNS);
         };
     // twelve seconds of history: one snapshot a second, ending with the one drawn
-    for (int i = 0; i < RUNNING.length - 1; i++) {
-      view.render(
-          new ConsoleView.Snapshot("UP", RUNNING[i], QUEUED[i], FAILED[i], main.runs()),
-          uptime,
-          cols,
-          rows,
-          -12_000);
-    }
+    IntStream.range(0, RUNNING.length - 1)
+        .forEach(i ->
+            view.render(
+                new ConsoleView.Snapshot("UP", RUNNING[i], QUEUED[i], FAILED[i], main.runs()),
+                uptime,
+                cols,
+                rows,
+                -12_000));
     return view.render(main, uptime, cols, rows, t);
   }
 

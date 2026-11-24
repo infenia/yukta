@@ -5,6 +5,7 @@ package com.infenia.yukta.console;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -39,7 +40,7 @@ class ConsoleRunnerKeysTest {
                     sleep(5000); // a hung server must not hold up q
                     return ConsoleView.Snapshot.NONE;
                   });
-            } catch (java.io.IOException e) {
+            } catch (IOException e) {
               throw new IllegalStateException(e);
             }
           });
@@ -54,7 +55,7 @@ class ConsoleRunnerKeysTest {
   }
 
   @Test
-  void aMouseClickIsNotTakenForTheMouseKey() throws Exception {
+  void mouseClickIsNotTakenForTheMouseKey() throws Exception {
     final PipedOutputStream keys = new PipedOutputStream();
     final ByteArrayOutputStream out = new ByteArrayOutputStream();
     try (Terminal term =
@@ -71,7 +72,7 @@ class ConsoleRunnerKeysTest {
     assertThat(screen.split("\033\\[\\?1000l", -1).length - 1).isEqualTo(1);
   }
 
-  private static void send(final PipedOutputStream out, final String s) throws Exception {
+  private static void send(final PipedOutputStream out, final String s) throws IOException {
     out.write(s.getBytes(StandardCharsets.UTF_8));
     out.flush();
   }

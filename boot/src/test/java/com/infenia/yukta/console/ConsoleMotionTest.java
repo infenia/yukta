@@ -2,18 +2,17 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.console;
 
+import static com.infenia.yukta.console.ConsoleScreens.draw;
 import static com.infenia.yukta.console.ConsoleScreens.text;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.console.ConsoleTheme.Role;
-import java.time.Duration;
 import java.util.List;
-import org.jline.utils.AttributedString;
 import org.junit.jupiter.api.Test;
 
 class ConsoleMotionTest {
 
-  private static final Duration UP = Duration.ofMinutes(3);
+  private static final String WELCOME = "Welcome";
 
   private final ConsoleView view =
       new ConsoleView("1.0", "http://h:9", new ConsoleLogs(), true, true);
@@ -21,21 +20,16 @@ class ConsoleMotionTest {
       new ConsoleView.Snapshot(
           "UP", 1, 0, 0, List.of(new ConsoleView.Run("build", "RUNNING", "10:00:00", "me")));
 
-  private List<AttributedString> draw(
-      final ConsoleView v, final ConsoleView.Snapshot s, final long frameMs) {
-    return v.render(s, UP, 80, 24, frameMs);
-  }
-
   @Test
   void theWelcomeBoxEndsOnItsOwn() {
     assertThat(text(draw(view, ConsoleView.Snapshot.NONE, 0))).contains("Welcome to Yukta 1.0");
     // an answer from the server ends it once it has been up for 0.9 s
     assertThat(text(draw(view, busy, 500))).contains("Welcome to Yukta");
-    assertThat(text(draw(view, busy, 1000))).contains("YUKTA").doesNotContain("Welcome");
+    assertThat(text(draw(view, busy, 1000))).contains("YUKTA").doesNotContain(WELCOME);
     // a server that never answers cannot hold it for more than 3 s
     final var silent = new ConsoleView("1.0", "http://h:9", new ConsoleLogs(), true, true);
     draw(silent, ConsoleView.Snapshot.NONE, 0);
-    assertThat(text(draw(silent, ConsoleView.Snapshot.NONE, 3000))).doesNotContain("Welcome");
+    assertThat(text(draw(silent, ConsoleView.Snapshot.NONE, 3000))).doesNotContain(WELCOME);
   }
 
   @Test
@@ -43,13 +37,13 @@ class ConsoleMotionTest {
     draw(view, ConsoleView.Snapshot.NONE, 0);
     view.onKey("q");
     assertThat(view.quit()).isTrue();
-    assertThat(text(draw(view, ConsoleView.Snapshot.NONE, 100))).doesNotContain("Welcome");
+    assertThat(text(draw(view, ConsoleView.Snapshot.NONE, 100))).doesNotContain(WELCOME);
   }
 
   @Test
-  void aShortTerminalGetsNoWelcomeBox() {
-    final var rows = view.render(ConsoleView.Snapshot.NONE, UP, 80, 8, 0);
-    assertThat(text(rows)).doesNotContain("Welcome");
+  void shortTerminalGetsNoWelcomeBox() {
+    final var rows = view.render(ConsoleView.Snapshot.NONE, ConsoleScreens.UP, 80, 8, 0);
+    assertThat(text(rows)).doesNotContain(WELCOME);
   }
 
   @Test
@@ -57,26 +51,27 @@ class ConsoleMotionTest {
     final var still = new ConsoleView("1.0", "http://h:9", new ConsoleLogs(), true, false);
     final String a = text(draw(still, busy, 0));
     assertThat(text(draw(still, busy, 900))).isEqualTo(a);
-    assertThat(a).doesNotContain("Welcome").contains("* Orchestrating 1 run…").contains("*");
+    assertThat(a).doesNotContain(WELCOME).contains("* Orchestrating 1 run…").contains("*");
   }
 
   @Test
-  void aStatusChangeFlashesForAMoment() {
-    final var queued = new ConsoleView.Snapshot("UP", 0, 1, 0, List.of(run("QUEUED")));
+  void statusChangeFlashesBriefly() {
+    final var queued =
+        new ConsoleView.Snapshot("UP", 0, 1, 0, List.of(ConsoleScreens.run("QUEUED")));
     draw(view, queued, -5000);
     draw(view, busy, 1000); // QUEUED -> RUNNING
-    assertThat(roleOfBlank(draw(view, busy, 1200), 10)).isEqualTo(Role.FLASH);
-    assertThat(roleOfBlank(draw(view, busy, 1700), 10)).isNotEqualTo(Role.FLASH);
+    assertThat(ConsoleScreens.roleOfBlank(draw(view, busy, 1200), 10)).isEqualTo(Role.FLASH);
+    assertThat(ConsoleScreens.roleOfBlank(draw(view, busy, 1700), 10)).isNotEqualTo(Role.FLASH);
   }
 
   @Test
-  void aPageChangeSlidesIn() {
+  void pageChangeSlidesIn() {
     draw(view, busy, -5000);
     view.onKey("?");
-    final String start = body(draw(view, busy, 0)); // first frame: shifted right
-    final String later = body(draw(view, busy, 250));
+    final String start = ConsoleScreens.body(draw(view, busy, 0)); // first frame: shifted right
+    final String later = ConsoleScreens.body(draw(view, busy, 250));
     assertThat(start).isNotEqualTo(later);
-    assertThat(body(draw(view, busy, 300))).isEqualTo(later);
+    assertThat(ConsoleScreens.body(draw(view, busy, 300))).isEqualTo(later);
   }
 
   @Test
@@ -85,7 +80,7 @@ class ConsoleMotionTest {
     assertThat(text(draw(view, busy, 0))).contains("Orchestrating 1 run…").contains("(1m30s ·");
     final var down = new ConsoleView.Snapshot("DOWN", 0, 0, 0, List.of());
     assertThat(text(draw(view, down, 100))).contains("Server unreachable", "DOWN");
-    assertThat(text(view.render(busy, UP, 20, 24, 100))).doesNotContain("up 0h03m");
+    assertThat(text(view.render(busy, ConsoleScreens.UP, 20, 24, 100))).doesNotContain("up 0h03m");
   }
 
   @Test
@@ -137,20 +132,5 @@ class ConsoleMotionTest {
     assertThat(base.roleAt(0, 2)).isEqualTo(Role.OK);
     assertThat(base.roleAt(1, 3)).isEqualTo(Role.ZEBRA);
     base.put(5, 0, "off", Role.TEXT); // off the grid: ignored
-  }
-
-  private static String body(final List<AttributedString> lines) {
-    return text(lines.subList(4, lines.size() - 1));
-  }
-
-  private static ConsoleView.Run run(final String status) {
-    return new ConsoleView.Run("build", status, "10:00:00", "me");
-  }
-
-  /** The role of the first blank cell right of the row's text, on screen row {@code row}. */
-  private static Role roleOfBlank(final List<AttributedString> lines, final int row) {
-    final AttributedString line = lines.get(row);
-    final var flash = Role.FLASH.style();
-    return line.styleAt(60).equals(flash) ? Role.FLASH : Role.TEXT;
   }
 }

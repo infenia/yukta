@@ -6,9 +6,12 @@ import ch.qos.logback.classic.Level;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.jline.terminal.Size;
 import org.jline.utils.AttributedString;
 
@@ -18,9 +21,7 @@ import org.jline.utils.AttributedString;
   "PMD.CommentDefaultAccessModifier",
   "PMD.FieldDeclarationsShouldBeAtStartOfClass",
   "PMD.AvoidFieldNameMatchingMethodName",
-  "PMD.CyclomaticComplexity",
-  "PMD.NPathComplexity",
-  "PMD.GodClass"
+  "PMD.CyclomaticComplexity"
 })
 /* default */ final class ConsoleView {
 
@@ -70,26 +71,27 @@ import org.jline.utils.AttributedString;
   private final boolean color;
   private final boolean motion;
 
-  private volatile Page page = Page.DASHBOARD;
-  private int levelIndex = 2; // INFO
-  private int scroll; // lines up from the newest; 0 follows the tail
-  private boolean quit;
+  private final AtomicReference<Page> page = new AtomicReference<>(Page.DASHBOARD);
+  private final AtomicInteger levelIndex = new AtomicInteger(2); // INFO
+  // lines up from the newest; 0 follows the tail
+  private final AtomicInteger scroll = new AtomicInteger();
+  private final AtomicBoolean quit = new AtomicBoolean();
 
-  // what the frames remember (the key loop thread only)
-  private long firstFrame = Long.MIN_VALUE;
-  private boolean splashDismissed;
-  private boolean seenSnapshot;
-  private Snapshot lastSnapshot = Snapshot.NONE;
+  // what the frames remember: only the render loop touches these, keys only set splashDismissed
+  private final AtomicReference<Long> firstFrame = new AtomicReference<>();
+  private final AtomicBoolean splashDismissed = new AtomicBoolean();
+  private final AtomicBoolean seenSnapshot = new AtomicBoolean();
+  private final AtomicReference<Snapshot> lastSnapshot = new AtomicReference<>(Snapshot.NONE);
   private final Deque<Integer> running = new ArrayDeque<>();
   private final Deque<Integer> queued = new ArrayDeque<>();
   private final Deque<Integer> failed = new ArrayDeque<>();
-  private boolean busy;
-  private long busySince;
-  private boolean pageChanged;
-  private boolean sliding;
-  private long slideStart;
-  private final Map<String, String> statusOf = new HashMap<>();
-  private final Map<String, Long> changedAt = new HashMap<>();
+  private final AtomicBoolean busy = new AtomicBoolean();
+  private final AtomicReference<Long> busySince = new AtomicReference<>(0L);
+  private final AtomicBoolean pageChanged = new AtomicBoolean();
+  private final AtomicBoolean sliding = new AtomicBoolean();
+  private final AtomicReference<Long> slideStart = new AtomicReference<>(0L);
+  private final Map<String, String> statusOf = new ConcurrentHashMap<>();
+  private final Map<String, Long> changedAt = new ConcurrentHashMap<>();
 
   // a fresh pty reports 0x0 and JLine would then allocate a negative array: use 80x24
   /* default */ static Size fit(final Size size) {
@@ -121,37 +123,37 @@ import org.jline.utils.AttributedString;
   }
 
   /* default */ boolean quit() {
-    return quit;
+    return quit.get();
   }
 
   /* default */ Page page() {
-    return page;
+    return page.get();
   }
 
   /* default */ Level level() {
-    return LEVELS.get(levelIndex);
+    return LEVELS.get(levelIndex.get());
   }
 
   /** Whether the runs page wants a longer list than the dashboard. */
   /* default */ boolean wantsManyRuns() {
-    return page == Page.RUNS;
+    return page.get() == Page.RUNS;
   }
 
   /** Applies a key: a character, or one of the names UP DOWN PGUP PGDN HOME END. */
   /* default */ void onKey(final String key) {
-    splashDismissed = true; // any key ends the welcome box, and is still applied
+    splashDismissed.set(true); // any key ends the welcome box, and is still applied
     switch (key) {
-      case "q" -> quit = true;
+      case "q" -> quit.set(true);
       case "l" -> toggle(Page.LOGS);
       case "r" -> toggle(Page.RUNS);
       case "?" -> toggle(Page.HELP);
-      case "f" -> levelIndex = (levelIndex + 1) % LEVELS.size();
-      case "UP" -> scroll++;
-      case "DOWN" -> scroll = Math.max(0, scroll - 1);
-      case "PGUP" -> scroll += 10;
-      case "PGDN" -> scroll = Math.max(0, scroll - 10);
-      case "G", "END" -> scroll = 0;
-      case "HOME" -> scroll = Integer.MAX_VALUE / 2;
+      case "f" -> levelIndex.updateAndGet(i -> (i + 1) % LEVELS.size());
+      case "UP" -> scroll.incrementAndGet();
+      case "DOWN" -> scroll.updateAndGet(v -> Math.max(0, v - 1));
+      case "PGUP" -> scroll.addAndGet(10);
+      case "PGDN" -> scroll.updateAndGet(v -> Math.max(0, v - 10));
+      case "G", "END" -> scroll.set(0);
+      case "HOME" -> scroll.set(Integer.MAX_VALUE / 2);
       default -> {
         // ignored
       }
@@ -159,9 +161,9 @@ import org.jline.utils.AttributedString;
   }
 
   private void toggle(final Page target) {
-    page = page == target ? Page.DASHBOARD : target;
-    scroll = 0;
-    pageChanged = true;
+    page.set(page.get() == target ? Page.DASHBOARD : target);
+    scroll.set(0);
+    pageChanged.set(true);
   }
 
   /**
@@ -175,35 +177,33 @@ import org.jline.utils.AttributedString;
     final int height = Math.max(rows > 0 ? rows : 24, 5);
     observe(s, frameMs);
     final ConsolePainter painter = new ConsolePainter(width, height, frameMs, motion);
-    final Cells cells =
-        splashing(frameMs, height)
+    return (splashing(frameMs, height)
             ? painter.splash(version, url, frameMs)
-            : painter.screen(model(s, uptime, frameMs));
-    return cells.lines(color);
+            : painter.screen(model(s, uptime, frameMs)))
+        .lines(color);
   }
 
   private void observe(final Snapshot s, final long frameMs) {
-    if (firstFrame == Long.MIN_VALUE) {
-      firstFrame = frameMs;
-    }
-    if (s != lastSnapshot) {
-      lastSnapshot = s;
+    firstFrame.compareAndSet(null, frameMs);
+    // each poll makes a new snapshot object: compareAndSet tests for that same object (identity)
+    if (!lastSnapshot.compareAndSet(s, s)) {
+      lastSnapshot.set(s);
       if (s != Snapshot.NONE) {
-        seenSnapshot = true;
+        seenSnapshot.set(true);
         sample(running, s.running());
         sample(queued, s.queued());
         sample(failed, s.failed());
         trackStatuses(s, frameMs);
       }
     }
-    if (s.running() > 0 && !busy) {
-      busySince = frameMs;
+    final boolean active = s.running() > 0;
+    if (active && !busy.get()) {
+      busySince.set(frameMs);
     }
-    busy = s.running() > 0;
-    if (pageChanged) {
-      pageChanged = false;
-      sliding = true;
-      slideStart = frameMs;
+    busy.set(active);
+    if (pageChanged.getAndSet(false)) {
+      sliding.set(true);
+      slideStart.set(frameMs);
     }
   }
 
@@ -232,31 +232,31 @@ import org.jline.utils.AttributedString;
   }
 
   private boolean splashing(final long frameMs, final int height) {
-    final long shown = frameMs - firstFrame;
+    final long shown = frameMs - firstFrame.get();
     return motion
         && height >= SPLASH_MIN_ROWS
-        && !splashDismissed
+        && !splashDismissed.get()
         && shown < SPLASH_MAX_MS
-        && (!seenSnapshot || shown < SPLASH_MIN_MS);
+        && (!seenSnapshot.get() || shown < SPLASH_MIN_MS);
   }
 
   private ConsolePainter.Model model(final Snapshot s, final Duration uptime, final long frameMs) {
     int slide = 0;
-    if (sliding) {
-      final double left = 1 - (frameMs - slideStart) / SLIDE_MS;
+    if (sliding.get()) {
+      final double left = 1 - (frameMs - slideStart.get()) / SLIDE_MS;
       slide = left > 0 ? (int) Math.round(left * SLIDE_COLUMNS) : 0;
-      sliding = left > 0;
+      sliding.set(left > 0);
     }
     return new ConsolePainter.Model(
         s,
-        page,
+        page.get(),
         uptime,
         version,
         url,
         level(),
         this::logLines,
         new ConsolePainter.Series(List.copyOf(running), List.copyOf(queued), List.copyOf(failed)),
-        busy ? (frameMs - busySince) / 1000 : 0,
+        busy.get() ? (frameMs - busySince.get()) / 1000 : 0,
         r -> {
           final Long at = changedAt.get(runKey(r));
           return at != null && frameMs - at < FLASH_MS;
@@ -266,7 +266,7 @@ import org.jline.utils.AttributedString;
 
   private List<ConsoleLogs.Line> logLines(final int rows) {
     final List<ConsoleLogs.Line> all = logs.snapshot(level());
-    final int end = Math.max(0, all.size() - Math.min(scroll, Math.max(0, all.size() - 1)));
+    final int end = Math.max(0, all.size() - Math.min(scroll.get(), Math.max(0, all.size() - 1)));
     final int start = Math.max(0, end - rows);
     return all.subList(start, end);
   }

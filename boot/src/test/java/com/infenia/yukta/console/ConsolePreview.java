@@ -18,7 +18,6 @@ import org.jline.terminal.TerminalBuilder;
  * seconds (keys must still answer), {@code --down} reports a dead server. {@code NO_COLOR} and
  * {@code YUKTA_CONSOLE_ANIMATION=off} apply as in the real console.
  */
-@SuppressWarnings({"PMD.SystemPrintln", "PMD.UseUtilityClass", "PMD.DoNotTerminateVM"})
 public final class ConsolePreview {
 
   private static final String[] WORKFLOWS = {
@@ -64,9 +63,7 @@ public final class ConsolePreview {
     int queued = 0;
     int failed = 0;
     for (int i = 0; i < Math.min(limit, WORKFLOWS.length); i++) {
-      final int phase = Math.floorMod(n + i * 2, 14);
-      final String status =
-          phase < 2 ? "QUEUED" : phase < 9 ? "RUNNING" : phase < 12 ? "SUCCESS" : "FAILURE";
+      final String status = statusOf(Math.floorMod(n + i * 2, 14));
       running += "RUNNING".equals(status) ? 1 : 0;
       queued += "QUEUED".equals(status) ? 1 : 0;
       failed += "FAILURE".equals(status) ? 1 : 0;
@@ -77,6 +74,10 @@ public final class ConsolePreview {
     final Level level = levels[n % levels.length];
     logs.add(level, "10:43:%02d.000 %-5s Preview : tick %d".formatted(n % 60, level, n));
     return new ConsoleView.Snapshot("UP", running, queued, failed, runs);
+  }
+
+  private static String statusOf(final int phase) {
+    return phase < 2 ? "QUEUED" : phase < 9 ? "RUNNING" : phase < 12 ? "SUCCESS" : "FAILURE";
   }
 
   private static void sleep(final long ms) {
