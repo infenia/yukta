@@ -9715,7 +9715,7 @@
     },
     "/api/executions/{executionId}" : {
       "get" : {
-        "description" : "Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
+        "description" : "Pass sessionId to read a run older than the execution index from its session's history.",
         "operationId" : "getWorkflowStatus",
         "parameters" : [ {
           "description" : "Session ID, to read from the session's history",
@@ -10335,7 +10335,7 @@
     },
     "/api/executions/{executionId}/nodes/{nodeId}/pause" : {
       "post" : {
-        "description" : "Pauses a single node via backpressure. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/pause (deprecated)",
+        "description" : "Pauses a single node via backpressure.",
         "operationId" : "pauseNode",
         "parameters" : [ {
           "description" : "Execution ID",
@@ -10372,7 +10372,7 @@
     },
     "/api/executions/{executionId}/nodes/{nodeId}/resume" : {
       "post" : {
-        "description" : "Resumes a single paused node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/resume (deprecated)",
+        "description" : "Resumes a single paused node.",
         "operationId" : "resumeNode",
         "parameters" : [ {
           "description" : "Execution ID",
@@ -10446,7 +10446,7 @@
     },
     "/api/executions/{executionId}/nodes/{nodeId}/skip" : {
       "post" : {
-        "description" : "Marks a node as skipped (passthrough) or not. Core currently rejects this for running executions.. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/skip (deprecated)",
+        "description" : "Marks a node as skipped (passthrough) or not. Core currently rejects this for running executions..",
         "operationId" : "skipNode",
         "parameters" : [ {
           "description" : "Execution ID",
@@ -10492,7 +10492,7 @@
     },
     "/api/executions/{executionId}/nodes/{nodeId}/step" : {
       "post" : {
-        "description" : "Lets exactly one element through a node in step-through mode. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step (deprecated)",
+        "description" : "Lets exactly one element through a node in step-through mode.",
         "operationId" : "stepNode",
         "parameters" : [ {
           "description" : "Execution ID",
@@ -10529,7 +10529,7 @@
     },
     "/api/executions/{executionId}/nodes/{nodeId}/step/disable" : {
       "post" : {
-        "description" : "Disables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable (deprecated)",
+        "description" : "Disables step-through debug mode on a node.",
         "operationId" : "disableStepMode",
         "parameters" : [ {
           "description" : "Execution ID",
@@ -10566,7 +10566,7 @@
     },
     "/api/executions/{executionId}/nodes/{nodeId}/step/enable" : {
       "post" : {
-        "description" : "Enables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable (deprecated)",
+        "description" : "Enables step-through debug mode on a node.",
         "operationId" : "enableStepMode",
         "parameters" : [ {
           "description" : "Execution ID",
@@ -10603,7 +10603,7 @@
     },
     "/api/executions/{executionId}/nodes/{nodeId}/stop" : {
       "post" : {
-        "description" : "Stops a single node, immediately or after draining inflight work. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/stop (deprecated)",
+        "description" : "Stops a single node, immediately or after draining inflight work.",
         "operationId" : "stopNode",
         "parameters" : [ {
           "description" : "Execution ID",
@@ -10658,7 +10658,7 @@
     },
     "/api/executions/{executionId}/pause" : {
       "post" : {
-        "description" : "Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)",
+        "description" : "Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow.",
         "operationId" : "pauseWorkflow",
         "parameters" : [ {
           "description" : "Execution ID",
@@ -10763,8 +10763,8 @@
     },
     "/api/executions/{executionId}/restart" : {
       "post" : {
-        "description" : "Stops the execution and restarts the workflow with the original trigger payload. Legacy path: /api/workflow/executions/{executionId}/restart (deprecated)",
-        "operationId" : "restartWorkflow_1",
+        "description" : "Stops the execution and restarts the workflow with the original trigger payload.",
+        "operationId" : "restartWorkflow",
         "parameters" : [ {
           "description" : "Execution ID",
           "in" : "path",
@@ -10792,8 +10792,8 @@
     },
     "/api/executions/{executionId}/restart/{fromNodeId}" : {
       "post" : {
-        "description" : "Restarts from a node, replaying the last checkpoints of its parents. Legacy path: /api/workflow/executions/{executionId}/restart/{fromNodeId} (deprecated)",
-        "operationId" : "restartFromNode_1",
+        "description" : "Restarts from a node, replaying the last checkpoints of its parents.",
+        "operationId" : "restartFromNode",
         "parameters" : [ {
           "description" : "Execution ID",
           "in" : "path",
@@ -10829,7 +10829,7 @@
     },
     "/api/executions/{executionId}/resume" : {
       "post" : {
-        "description" : "Resumes a specific paused workflow execution; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)",
+        "description" : "Resumes a specific paused workflow execution; with tree=true also every run it started",
         "operationId" : "resumeWorkflow",
         "parameters" : [ {
           "description" : "Execution ID",
@@ -10896,7 +10896,7 @@
     },
     "/api/executions/{executionId}/status/stream" : {
       "get" : {
-        "description" : "Streams progress via SSE. Legacy path: /api/workflow/{sessionId}/status/{executionId}/stream (deprecated)",
+        "description" : "Streams progress via SSE.",
         "operationId" : "streamWorkflowStatus",
         "parameters" : [ {
           "description" : "Execution ID",
@@ -10944,8 +10944,8 @@
     },
     "/api/executions/{executionId}/stop" : {
       "post" : {
-        "description" : "With tree=true also every unfinished run it started as a sub-workflow. Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)",
-        "operationId" : "stopExecution_1",
+        "description" : "With tree=true also every unfinished run it started as a sub-workflow.",
+        "operationId" : "stopExecution",
         "parameters" : [ {
           "description" : "Execution ID",
           "in" : "path",
@@ -13731,123 +13731,6 @@
         "tags" : [ "Workers API" ]
       }
     },
-    "/api/workflow/executions/{executionId}/restart" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Stops the execution and restarts the workflow with the original trigger payload. Legacy path: /api/workflow/executions/{executionId}/restart (deprecated)",
-        "operationId" : "restartWorkflow",
-        "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Restart a workflow execution",
-        "tags" : [ "Execution API" ]
-      }
-    },
-    "/api/workflow/executions/{executionId}/restart/{fromNodeId}" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Restarts from a node, replaying the last checkpoints of its parents. Legacy path: /api/workflow/executions/{executionId}/restart/{fromNodeId} (deprecated)",
-        "operationId" : "restartFromNode",
-        "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID to restart from",
-          "in" : "path",
-          "name" : "fromNodeId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Restart a workflow execution from a node",
-        "tags" : [ "Execution API" ]
-      }
-    },
-    "/api/workflow/executions/{executionId}/stop" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "With tree=true also every unfinished run it started as a sub-workflow. Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)",
-        "operationId" : "stopExecution",
-        "parameters" : [ {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Also the runs it started as sub-workflows, at any depth",
-          "in" : "query",
-          "name" : "tree",
-          "required" : false,
-          "schema" : {
-            "default" : false,
-            "type" : "boolean"
-          }
-        }, {
-          "description" : "DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once",
-          "in" : "query",
-          "name" : "mode",
-          "required" : false,
-          "schema" : {
-            "default" : "DRAIN",
-            "enum" : [ "DRAIN", "CANCEL", "KILL" ],
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Stop a specific execution",
-        "tags" : [ "Execution API" ]
-      }
-    },
     "/api/workflow/start" : {
       "post" : {
         "description" : "Starts the execution of a DAG workflow for a session. Answers 404 for an unknown session or workflow and 429 when the execution limit is reached.",
@@ -13935,590 +13818,6 @@
         },
         "summary" : "Get workflow history",
         "tags" : [ "Workflow API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/status/{executionId}" : {
-      "get" : {
-        "deprecated" : true,
-        "description" : "Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)",
-        "operationId" : "getWorkflowStatus_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Session ID, to read from the session's history",
-          "in" : "query",
-          "name" : "sessionId",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowProgress"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Get workflow execution status",
-        "tags" : [ "Execution API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/status/{executionId}/stream" : {
-      "get" : {
-        "deprecated" : true,
-        "description" : "Streams progress via SSE. Legacy path: /api/workflow/{sessionId}/status/{executionId}/stream (deprecated)",
-        "operationId" : "streamWorkflowStatus_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Include historical status updates (last N minutes)",
-          "in" : "query",
-          "name" : "includeHistory",
-          "required" : false,
-          "schema" : {
-            "default" : true,
-            "type" : "boolean"
-          }
-        }, {
-          "in" : "header",
-          "name" : "Last-Event-ID",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "text/event-stream" : {
-                "schema" : {
-                  "items" : {
-                    "$ref" : "#/components/schemas/ServerSentEventWorkflowProgress"
-                  },
-                  "type" : "array"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Stream workflow execution status",
-        "tags" : [ "Execution API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/pause" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Pauses a single node via backpressure. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/pause (deprecated)",
-        "operationId" : "pauseNode_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
-          "in" : "path",
-          "name" : "nodeId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Pause a node",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/resume" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Resumes a single paused node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/resume (deprecated)",
-        "operationId" : "resumeNode_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
-          "in" : "path",
-          "name" : "nodeId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Resume a node",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/skip" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Marks a node as skipped (passthrough) or not. Core currently rejects this for running executions.. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/skip (deprecated)",
-        "operationId" : "skipNode_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
-          "in" : "path",
-          "name" : "nodeId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "True to skip, false to unskip",
-          "in" : "query",
-          "name" : "skip",
-          "required" : false,
-          "schema" : {
-            "default" : true,
-            "type" : "boolean"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Skip or unskip a node",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/step" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Lets exactly one element through a node in step-through mode. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step (deprecated)",
-        "operationId" : "stepNode_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
-          "in" : "path",
-          "name" : "nodeId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Step a node",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Disables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable (deprecated)",
-        "operationId" : "disableStepMode_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
-          "in" : "path",
-          "name" : "nodeId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Disable step mode on a node",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Enables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable (deprecated)",
-        "operationId" : "enableStepMode_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
-          "in" : "path",
-          "name" : "nodeId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Enable step mode on a node",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/stop" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Stops a single node, immediately or after draining inflight work. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/stop (deprecated)",
-        "operationId" : "stopNode_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Node ID",
-          "in" : "path",
-          "name" : "nodeId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "True for hard stop, false for drain & stop",
-          "in" : "query",
-          "name" : "immediate",
-          "required" : false,
-          "schema" : {
-            "default" : false,
-            "type" : "boolean"
-          }
-        }, {
-          "description" : "Human-readable reason for the stop",
-          "in" : "query",
-          "name" : "reason",
-          "required" : false,
-          "schema" : {
-            "default" : "Stopped via REST API",
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Stop a node",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/{executionId}/pause" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)",
-        "operationId" : "pauseWorkflow_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Also every unfinished run the execution started as a sub-workflow, at any depth",
-          "in" : "query",
-          "name" : "tree",
-          "required" : false,
-          "schema" : {
-            "default" : false,
-            "type" : "boolean"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Pause a workflow execution",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/{executionId}/recover" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Continues a run that a server restart aborted as a new run: nodes that finished are replayed from their recorded output, the rest run again. Needs the file execution log and checkpoint directories. Answers 409 if the run was not aborted, was already resumed or its workflow changed.",
-        "operationId" : "recoverExecution_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Recover an aborted workflow execution",
-        "tags" : [ "Execution Control API" ]
-      }
-    },
-    "/api/workflow/{sessionId}/{executionId}/resume" : {
-      "post" : {
-        "deprecated" : true,
-        "description" : "Resumes a specific paused workflow execution; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)",
-        "operationId" : "resumeWorkflow_1",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Execution ID",
-          "in" : "path",
-          "name" : "executionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "description" : "Also every unfinished run the execution started as a sub-workflow, at any depth",
-          "in" : "query",
-          "name" : "tree",
-          "required" : false,
-          "schema" : {
-            "default" : false,
-            "type" : "boolean"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWorkflowStartResponse"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Resume a workflow execution",
-        "tags" : [ "Execution Control API" ]
       }
     },
     "/api/workflow/{sessionId}/{workflowId}/stop" : {

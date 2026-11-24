@@ -32,7 +32,7 @@ All responses use the [envelope](/api/overview#response-envelope). An unknown ex
 
 `sessionId` is required on the `/api/control/workflows/...` call, because workflow ids are only unique within a session. Give `executionId` too when the session has several live runs of the workflow; without it such a call answers `409`, and `404` when the session has no live run of it.
 
-Every execution and node control call, except retry, returns `data.executionId`, the id of the execution it acted on. The deprecated `/api/workflow/{sessionId}/{executionId}/...` forms of these calls are listed under [deprecated aliases](/api/overview#deprecated-aliases).
+Every execution and node control call, except retry, returns `data.executionId`, the id of the execution it acted on.
 
 ## Pause and resume a run
 

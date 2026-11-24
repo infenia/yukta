@@ -25,9 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
 /**
- * Pause, resume and per-node control of a running execution. Each operation lives at {@code
- * /api/executions/{executionId}/…} and, for existing clients, at its legacy {@code /api/workflow/…}
- * path, which also verifies that the execution belongs to the session in the path.
+ * Pause, resume and per-node control of a running execution, at {@code
+ * /api/executions/{executionId}/…}.
  */
 @RestController
 @RequestMapping("/api")
@@ -35,9 +34,6 @@ import reactor.core.publisher.Mono;
 @Tag(name = "Execution Control API", description = "Pause, resume, step and stop nodes")
 @SuppressWarnings("PMD.TooManyMethods")
 public class ExecutionControlController {
-
-  /** Session ID parameter description. */
-  private static final String SESSION_ID = "Session ID";
 
   /** Node ID parameter description. */
   private static final String NODE_ID = "Node ID";
@@ -65,45 +61,38 @@ public class ExecutionControlController {
   private final ExecutionScheduler scheduler;
 
   /** Pause a workflow execution. */
-  @PostMapping({"/executions/{executionId}/pause", "/workflow/{sessionId}/{executionId}/pause"})
+  @PostMapping({"/executions/{executionId}/pause"})
   @Operation(
       summary = "Pause a workflow execution",
       description =
           "Pauses a specific workflow execution via global backpressure; with tree=true also every"
-              + " run it started as a sub-workflow. Legacy path:"
-              + " /api/workflow/{sessionId}/{executionId}/pause (deprecated)")
+              + " run it started as a sub-workflow.")
   public Mono<ApiResponse<WorkflowStartResponse>> pauseWorkflow(
-      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = TREE) @RequestParam(defaultValue = "false") final boolean tree) {
     return signal(
-        sessionId,
         executionId,
         "Workflow pause signal accepted",
         () -> treeControl.apply(executionId, tree, control::pauseWorkflow));
   }
 
   /** Resume a workflow execution. */
-  @PostMapping({"/executions/{executionId}/resume", "/workflow/{sessionId}/{executionId}/resume"})
+  @PostMapping({"/executions/{executionId}/resume"})
   @Operation(
       summary = "Resume a workflow execution",
       description =
-          "Resumes a specific paused workflow execution; with tree=true also every run it started"
-              + " as a sub-workflow. Legacy path:"
-              + " /api/workflow/{sessionId}/{executionId}/resume (deprecated)")
+          "Resumes a specific paused workflow execution; with tree=true also every run it started")
   public Mono<ApiResponse<WorkflowStartResponse>> resumeWorkflow(
-      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = TREE) @RequestParam(defaultValue = "false") final boolean tree) {
     return signal(
-        sessionId,
         executionId,
         "Workflow resume signal accepted",
         () -> treeControl.apply(executionId, tree, control::resumeWorkflow));
   }
 
   /** Continue a run that a server restart aborted, as a new run. */
-  @PostMapping({"/executions/{executionId}/recover", "/workflow/{sessionId}/{executionId}/recover"})
+  @PostMapping({"/executions/{executionId}/recover"})
   @Operation(
       summary = "Recover an aborted workflow execution",
       description =
@@ -112,10 +101,9 @@ public class ExecutionControlController {
               + " execution log and checkpoint directories. Answers 409 if the run was not"
               + " aborted, was already resumed or its workflow changed.")
   public Mono<ApiResponse<WorkflowStartResponse>> recoverExecution(
-      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
     return access
-        .require(sessionId, executionId)
+        .require(null, executionId)
         .then(Mono.defer(() -> control.recover(executionId)))
         .map(newId ->
             ApiResponse.success(
@@ -123,60 +111,31 @@ public class ExecutionControlController {
   }
 
   /** Pause a node. */
-  @PostMapping({
-    "/executions/{executionId}/nodes/{nodeId}/pause",
-    "/workflow/{sessionId}/{executionId}/node/{nodeId}/pause"
-  })
-  @Operation(
-      summary = "Pause a node",
-      description =
-          "Pauses a single node via backpressure. Legacy path:"
-              + " /api/workflow/{sessionId}/{executionId}/node/{nodeId}/pause (deprecated)")
+  @PostMapping({"/executions/{executionId}/nodes/{nodeId}/pause"})
+  @Operation(summary = "Pause a node", description = "Pauses a single node via backpressure.")
   public Mono<ApiResponse<WorkflowStartResponse>> pauseNode(
-      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = NODE_ID) @PathVariable final String nodeId) {
     return signal(
-        sessionId,
-        executionId,
-        "Node pause signal accepted",
-        () -> control.pauseNode(executionId, nodeId));
+        executionId, "Node pause signal accepted", () -> control.pauseNode(executionId, nodeId));
   }
 
   /** Resume a node. */
-  @PostMapping({
-    "/executions/{executionId}/nodes/{nodeId}/resume",
-    "/workflow/{sessionId}/{executionId}/node/{nodeId}/resume"
-  })
-  @Operation(
-      summary = "Resume a node",
-      description =
-          "Resumes a single paused node. Legacy path:"
-              + " /api/workflow/{sessionId}/{executionId}/node/{nodeId}/resume (deprecated)")
+  @PostMapping({"/executions/{executionId}/nodes/{nodeId}/resume"})
+  @Operation(summary = "Resume a node", description = "Resumes a single paused node.")
   public Mono<ApiResponse<WorkflowStartResponse>> resumeNode(
-      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = NODE_ID) @PathVariable final String nodeId) {
     return signal(
-        sessionId,
-        executionId,
-        "Node resume signal accepted",
-        () -> control.resumeNode(executionId, nodeId));
+        executionId, "Node resume signal accepted", () -> control.resumeNode(executionId, nodeId));
   }
 
   /** Stop a node. */
-  @PostMapping({
-    "/executions/{executionId}/nodes/{nodeId}/stop",
-    "/workflow/{sessionId}/{executionId}/node/{nodeId}/stop"
-  })
+  @PostMapping({"/executions/{executionId}/nodes/{nodeId}/stop"})
   @Operation(
       summary = "Stop a node",
-      description =
-          "Stops a single node, immediately or after draining inflight work. Legacy path:"
-              + " /api/workflow/{sessionId}/{executionId}/node/{nodeId}/stop (deprecated)")
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+      description = "Stops a single node, immediately or after draining inflight work.")
   public Mono<ApiResponse<WorkflowStartResponse>> stopNode(
-      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = NODE_ID) @PathVariable final String nodeId,
       @Parameter(description = "True for hard stop, false for drain & stop")
@@ -186,97 +145,67 @@ public class ExecutionControlController {
           @RequestParam(defaultValue = "Stopped via REST API")
           final String reason) {
     return signal(
-        sessionId,
         executionId,
         "Node stop signal accepted",
         () -> control.stopNode(executionId, nodeId, immediate, reason));
   }
 
   /** Skip or unskip a node. */
-  @PostMapping({
-    "/executions/{executionId}/nodes/{nodeId}/skip",
-    "/workflow/{sessionId}/{executionId}/node/{nodeId}/skip"
-  })
+  @PostMapping({"/executions/{executionId}/nodes/{nodeId}/skip"})
   @Operation(
       summary = "Skip or unskip a node",
       description =
           "Marks a node as skipped (passthrough) or not. Core currently rejects this for running"
-              + " executions.. Legacy path:"
-              + " /api/workflow/{sessionId}/{executionId}/node/{nodeId}/skip (deprecated)")
+              + " executions..")
   public Mono<ApiResponse<WorkflowStartResponse>> skipNode(
-      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = NODE_ID) @PathVariable final String nodeId,
       @Parameter(description = "True to skip, false to unskip") @RequestParam(defaultValue = "true")
           final boolean skip) {
     return signal(
-        sessionId,
         executionId,
         "Node skip signal accepted",
         () -> control.skipNode(executionId, nodeId, skip));
   }
 
   /** Enable step mode on a node. */
-  @PostMapping({
-    "/executions/{executionId}/nodes/{nodeId}/step/enable",
-    "/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable"
-  })
+  @PostMapping({"/executions/{executionId}/nodes/{nodeId}/step/enable"})
   @Operation(
       summary = "Enable step mode on a node",
-      description =
-          "Enables step-through debug mode on a node. Legacy path:"
-              + " /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable (deprecated)")
+      description = "Enables step-through debug mode on a node.")
   public Mono<ApiResponse<WorkflowStartResponse>> enableStepMode(
-      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = NODE_ID) @PathVariable final String nodeId) {
     return signal(
-        sessionId,
         executionId,
         "Step mode enable signal accepted",
         () -> control.enableStepMode(executionId, nodeId));
   }
 
   /** Disable step mode on a node. */
-  @PostMapping({
-    "/executions/{executionId}/nodes/{nodeId}/step/disable",
-    "/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable"
-  })
+  @PostMapping({"/executions/{executionId}/nodes/{nodeId}/step/disable"})
   @Operation(
       summary = "Disable step mode on a node",
-      description =
-          "Disables step-through debug mode on a node. Legacy path:"
-              + " /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable (deprecated)")
+      description = "Disables step-through debug mode on a node.")
   public Mono<ApiResponse<WorkflowStartResponse>> disableStepMode(
-      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = NODE_ID) @PathVariable final String nodeId) {
     return signal(
-        sessionId,
         executionId,
         "Step mode disable signal accepted",
         () -> control.disableStepMode(executionId, nodeId));
   }
 
   /** Step a node. */
-  @PostMapping({
-    "/executions/{executionId}/nodes/{nodeId}/step",
-    "/workflow/{sessionId}/{executionId}/node/{nodeId}/step"
-  })
+  @PostMapping({"/executions/{executionId}/nodes/{nodeId}/step"})
   @Operation(
       summary = "Step a node",
-      description =
-          "Lets exactly one element through a node in step-through mode. Legacy path:"
-              + " /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step (deprecated)")
+      description = "Lets exactly one element through a node in step-through mode.")
   public Mono<ApiResponse<WorkflowStartResponse>> stepNode(
-      @Parameter(description = SESSION_ID) @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = NODE_ID) @PathVariable final String nodeId) {
     return signal(
-        sessionId,
-        executionId,
-        "Node step signal accepted",
-        () -> control.stepNode(executionId, nodeId));
+        executionId, "Node step signal accepted", () -> control.stepNode(executionId, nodeId));
   }
 
   /** Retry a failed node. */
@@ -310,7 +239,6 @@ public class ExecutionControlController {
       @Parameter(description = "Value that triggers the breakpoint") @RequestParam("equals")
           final String equalsValue) {
     return signal(
-        null,
         executionId,
         "Breakpoint accepted",
         () -> control.addBreakpoint(executionId, nodeId, field, equalsValue));
@@ -323,10 +251,7 @@ public class ExecutionControlController {
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = NODE_ID) @PathVariable final String nodeId) {
     return signal(
-        null,
-        executionId,
-        "Breakpoint cleared",
-        () -> control.clearBreakpoint(executionId, nodeId));
+        executionId, "Breakpoint cleared", () -> control.clearBreakpoint(executionId, nodeId));
   }
 
   /** Change the priority of an execution that waits for a slot. */
@@ -339,7 +264,6 @@ public class ExecutionControlController {
       @Parameter(description = "New priority; higher runs first") @RequestParam
           final int priority) {
     return signal(
-        null,
         executionId,
         "Priority change accepted",
         () -> control.changePriority(executionId, priority));
@@ -419,12 +343,9 @@ public class ExecutionControlController {
   }
 
   private Mono<ApiResponse<WorkflowStartResponse>> signal(
-      final String sessionId,
-      final String executionId,
-      final String message,
-      final Supplier<Mono<Void>> action) {
+      final String executionId, final String message, final Supplier<Mono<Void>> action) {
     return access
-        .require(sessionId, executionId)
+        .require(null, executionId)
         .then(Mono.defer(action))
         .thenReturn(ApiResponse.success(200, message, new WorkflowStartResponse(executionId)));
   }

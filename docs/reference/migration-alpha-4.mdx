@@ -35,9 +35,9 @@ The model and rules-first control planes are gone. A stored supervisor of those 
 
 Direct steering also changes. A person can only steer a unit that a supervisor owns if that supervisor lists the command in `operatorAccess`; the default is none. Otherwise you get `409 CONTROLLED_BY_SUPERVISOR`. Units with no owner fall to the default supervisor (`yukta.supervisor.default.enabled`). See [How supervisors work](/concepts/supervisors).
 
-## Deprecated API aliases
+## Removed API aliases
 
-Older paths such as `/api/workflow/{sessionId}/{executionId}/pause` still answer but are marked deprecated. Move to the paths in the [API reference](/api/control).
+The `/api/workflow/{sessionId}/{executionId}/pause`-style paths are gone. Use the `/api/executions/{executionId}/...` paths in the [API reference](/api/control).
 
 ## The Overview page is removed
 

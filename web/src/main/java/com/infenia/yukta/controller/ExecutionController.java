@@ -30,11 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-/**
- * Execution lifecycle and status. Each operation lives at {@code /api/executions/{executionId}/…}
- * and, for existing clients, at its legacy {@code /api/workflow/…} path. Legacy paths that name a
- * session also check that the execution belongs to it.
- */
+/** Execution lifecycle and status, at {@code /api/executions/{executionId}/…}. */
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -70,12 +66,10 @@ public class ExecutionController {
    * @param mode how to stop: DRAIN, CANCEL or KILL
    * @return the stopped execution ID
    */
-  @PostMapping({"/executions/{executionId}/stop", "/workflow/executions/{executionId}/stop"})
+  @PostMapping("/executions/{executionId}/stop")
   @Operation(
       summary = "Stop a specific execution",
-      description =
-          "With tree=true also every unfinished run it started as a sub-workflow. Legacy path:"
-              + " /api/workflow/executions/{executionId}/stop (deprecated)")
+      description = "With tree=true also every unfinished run it started as a sub-workflow.")
   public Mono<ApiResponse<WorkflowStartResponse>> stopExecution(
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = "Also the runs it started as sub-workflows, at any depth")
@@ -140,12 +134,11 @@ public class ExecutionController {
    * @param executionId the execution
    * @return the new execution ID
    */
-  @PostMapping({"/executions/{executionId}/restart", "/workflow/executions/{executionId}/restart"})
+  @PostMapping("/executions/{executionId}/restart")
   @Operation(
       summary = "Restart a workflow execution",
       description =
-          "Stops the execution and restarts the workflow with the original trigger payload."
-              + " Legacy path: /api/workflow/executions/{executionId}/restart (deprecated)")
+          "Stops the execution and restarts the workflow with the original trigger payload.")
   public Mono<ApiResponse<WorkflowStartResponse>> restartWorkflow(
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
     return control.restartWorkflow(executionId).map(id -> started("Workflow restart accepted", id));
@@ -158,15 +151,10 @@ public class ExecutionController {
    * @param fromNodeId the node to restart from
    * @return the new execution ID
    */
-  @PostMapping({
-    "/executions/{executionId}/restart/{fromNodeId}",
-    "/workflow/executions/{executionId}/restart/{fromNodeId}"
-  })
+  @PostMapping({"/executions/{executionId}/restart/{fromNodeId}"})
   @Operation(
       summary = "Restart a workflow execution from a node",
-      description =
-          "Restarts from a node, replaying the last checkpoints of its parents. Legacy path:"
-              + " /api/workflow/executions/{executionId}/restart/{fromNodeId} (deprecated)")
+      description = "Restarts from a node, replaying the last checkpoints of its parents.")
   public Mono<ApiResponse<WorkflowStartResponse>> restartFromNode(
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = "Node ID to restart from") @PathVariable final String fromNodeId) {
@@ -178,27 +166,24 @@ public class ExecutionController {
   /**
    * Get an execution's progress.
    *
-   * @param sessionId the owning session (legacy path only)
    * @param session the owning session as a query parameter: reads a run from the session's history
    *     once the execution index has dropped it, and checks that the run belongs to the session
    * @param executionId the execution
    * @return the progress snapshot
    */
-  @GetMapping({"/executions/{executionId}", "/workflow/{sessionId}/status/{executionId}"})
+  @GetMapping("/executions/{executionId}")
   @Operation(
       summary = "Get workflow execution status",
       description =
           "Pass sessionId to read a run older than the execution index from its session's"
-              + " history. Legacy path: /api/workflow/{sessionId}/status/{executionId}"
-              + " (deprecated)")
+              + " history.")
   public Mono<ApiResponse<WorkflowProgress>> getWorkflowStatus(
-      @Parameter(description = "Session ID") @PathVariable(required = false) final String sessionId,
       @Parameter(description = "Session ID, to read from the session's history")
           @RequestParam(name = "sessionId", required = false)
           final String session,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
     return access
-        .require(sessionId == null ? session : sessionId, executionId)
+        .require(session, executionId)
         .map(progress ->
             ApiResponse.success(200, "Workflow status retrieved successfully", progress));
   }
@@ -206,7 +191,6 @@ public class ExecutionController {
   /**
    * Stream an execution's progress.
    *
-   * @param sessionId the owning session (legacy path only)
    * @param executionId the execution
    * @param includeHistory whether to replay recent status updates first
    * @param lastEventId ignored: the replay window moves with time (or is off), so event IDs of an
@@ -215,25 +199,19 @@ public class ExecutionController {
    * @return progress events with IDs and a keep-alive comment every 15 seconds
    */
   @GetMapping(
-      value = {
-        "/executions/{executionId}/status/stream",
-        "/workflow/{sessionId}/status/{executionId}/stream"
-      },
+      value = {"/executions/{executionId}/status/stream"},
       produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   @Operation(
       summary = "Stream workflow execution status",
-      description =
-          "Streams progress via SSE. Legacy path:"
-              + " /api/workflow/{sessionId}/status/{executionId}/stream (deprecated)")
+      description = "Streams progress via SSE.")
   public Flux<ServerSentEvent<WorkflowProgress>> streamWorkflowStatus(
-      @Parameter(description = "Session ID") @PathVariable(required = false) final String sessionId,
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = "Include historical status updates (last N minutes)")
           @RequestParam(defaultValue = "true")
           final boolean includeHistory,
       @RequestHeader(value = "Last-Event-ID", required = false) final String lastEventId) {
     return access
-        .require(sessionId, executionId)
+        .require(null, executionId)
         .flatMapMany(_ ->
             SseStreams.events(
                 controlBus.watchExecution(executionId, includeHistory),

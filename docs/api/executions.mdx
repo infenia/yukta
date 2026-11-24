@@ -30,7 +30,7 @@ An execution is one run of a workflow, identified by the `executionId` that the 
 | `POST /api/scheduler/limits` | Change the execution limits | `ADMIN` |
 | `GET`, `POST`, `DELETE /api/admin/drain` | Read, start or end a drain of the server | `ADMIN` |
 
-Responses use the [envelope](/api/overview#response-envelope), except the results read, which returns its object directly. For an unknown execution, or one that belongs to another session, every call answers `404`. The older `/api/workflow/...` paths for these calls are listed under [deprecated aliases](/api/overview#deprecated-aliases).
+Responses use the [envelope](/api/overview#response-envelope), except the results read, which returns its object directly. For an unknown execution, or one that belongs to another session, every call answers `404`.
 
 ## Search runs
 
