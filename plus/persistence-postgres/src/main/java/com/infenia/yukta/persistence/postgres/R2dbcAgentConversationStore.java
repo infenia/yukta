@@ -198,7 +198,9 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
                       updated_at = :updated, ended_at = :ended, seq = nextval('agent_seq')
                     """
                         + " RETURNING "
-                        + COLUMNS)
+                        + COLUMNS
+                        // xmax is 0 on a row the statement inserted, not on one it updated
+                        + ", (xmax = 0) AS inserted")
                 .bind(ID, c.id())
                 .bind("execution", c.executionId())
                 .bind("root", c.rootExecutionId())
@@ -219,9 +221,15 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
                 .bind("started", c.startedAt())
                 .bind("updated", c.updatedAt())
                 .bind("ended", nullable(c.endedAt(), Instant.class))
-                .map(this::conversation)
+                .map(row ->
+                    Map.entry(
+                        conversation(row), Boolean.TRUE.equals(row.get("inserted", Boolean.class))))
                 .one())
-        .flatMap(saved -> evictEnded(saved.id()).thenReturn(saved));
+        // only a new conversation can push the count over the bound
+        .flatMap(saved ->
+            saved.getValue()
+                ? evictEnded(saved.getKey().id()).thenReturn(saved.getKey())
+                : Mono.just(saved.getKey()));
   }
 
   /**
@@ -246,37 +254,31 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
         .then();
   }
 
+  /**
+   * One round trip for an event: the statement that stores it also proves the conversation exists
+   * and counts it, so the trim runs only when the conversation is over the bound and never counts
+   * its events.
+   */
   @Override
   public Mono<AppendResult> append(final AgentEvent event) {
-    return exists(event.conversationId())
-        .flatMap(found -> {
-          if (!found) {
-            return Mono.error(
-                new IllegalArgumentException(
-                    "Unknown conversation '" + event.conversationId() + "'"));
-          }
-          if (event.kind() == AgentEventKind.TERMINAL) {
-            return terminal(event);
-          }
-          return insertEvent(event)
-              .flatMap(stored ->
-                  trim(stored.conversationId())
-                      .map(notice -> new AppendResult(stored, notice))
-                      .defaultIfEmpty(new AppendResult(stored, null)));
-        });
+    final Mono<AppendResult> appended =
+        event.kind() == AgentEventKind.TERMINAL
+            ? terminal(event)
+            : insertCounted(event)
+                .flatMap(counted ->
+                    counted.getValue() > maxEvents
+                        ? trim(event.conversationId())
+                            .map(notice -> new AppendResult(counted.getKey(), notice))
+                            .defaultIfEmpty(new AppendResult(counted.getKey(), null))
+                        : Mono.just(new AppendResult(counted.getKey(), null)));
+    return appended.switchIfEmpty(
+        Mono.error(() ->
+            new IllegalArgumentException("Unknown conversation '" + event.conversationId() + "'")));
   }
 
-  private Mono<Boolean> exists(final String id) {
-    return client
-        .sql("SELECT 1 AS one FROM agent_conversation WHERE id = :id")
-        .bind(ID, id)
-        .map(row -> true)
-        .one()
-        .defaultIfEmpty(false);
-  }
-
+  /** Terminal output is not stored; it takes a number from the shared sequence, in one query. */
   private Mono<AppendResult> terminal(final AgentEvent event) {
-    return nextSeq()
+    return nextSeq(event.conversationId())
         .flatMap(seq -> {
           final AgentEvent stored = withSeq(event, seq);
           if (!stored.data().containsKey("screen")) {
@@ -299,11 +301,47 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
         });
   }
 
-  private Mono<Long> nextSeq() {
+  /** The next number of the sequence, or empty if the conversation does not exist. */
+  private Mono<Long> nextSeq(final String conversationId) {
     return client
-        .sql("SELECT nextval('agent_seq') AS seq")
+        .sql("SELECT nextval('agent_seq') AS seq FROM agent_conversation WHERE id = :id")
+        .bind(ID, conversationId)
         .map(row -> Objects.requireNonNull(row.get(SEQ, Long.class)))
         .one();
+  }
+
+  /**
+   * Stores an event and counts it on its conversation in one statement.
+   *
+   * @return the stored event and the conversation's count after it, or empty if the conversation
+   *     does not exist
+   */
+  private Mono<Map.Entry<AgentEvent, Integer>> insertCounted(final AgentEvent event) {
+    return Mono.fromCallable(() -> json(event.data()))
+        .flatMap(data ->
+            client
+                .sql(
+                    """
+                    WITH c AS (
+                      UPDATE agent_conversation
+                      SET events = events + CASE WHEN :kind = 'NOTICE' THEN 0 ELSE 1 END
+                      WHERE id = :conversation
+                      RETURNING events)
+                    INSERT INTO agent_event (seq, conversation_id, occurred_at, kind, item_id, data)
+                    SELECT nextval('agent_seq'), :conversation, :at, :kind, :item,
+                      CAST(:data AS jsonb) FROM c
+                    """
+                        + " RETURNING "
+                        + EVENT_COLUMNS
+                        + ", (SELECT events FROM c) AS events")
+                .bind("conversation", event.conversationId())
+                .bind("at", event.timestamp())
+                .bind("kind", event.kind().name())
+                .bind("item", nullable(event.itemId(), String.class))
+                .bind("data", data)
+                .map(row ->
+                    Map.entry(event(row), Objects.requireNonNull(row.get("events", Integer.class))))
+                .one());
   }
 
   private Mono<AgentEvent> insertEvent(final AgentEvent event) {
@@ -327,21 +365,29 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
                 .one());
   }
 
-  /** Drops the oldest events over the bound; the first drop of a conversation writes a notice. */
+  /**
+   * Drops the oldest events over the bound, as many as the conversation's counter says, and lowers
+   * the counter in the same statement; the first drop of a conversation writes a notice.
+   */
   private Mono<AgentEvent> trim(final String conversationId) {
     return client
         .sql(
             """
-            DELETE FROM agent_event WHERE seq IN (
-              SELECT seq FROM agent_event WHERE conversation_id = :id AND kind <> 'NOTICE'
-              ORDER BY seq ASC
-              LIMIT GREATEST(0, (SELECT count(*) FROM agent_event WHERE conversation_id = :id
-                AND kind <> 'NOTICE') - :max))
+            WITH gone AS (
+              DELETE FROM agent_event WHERE seq IN (
+                SELECT seq FROM agent_event WHERE conversation_id = :id AND kind <> 'NOTICE'
+                ORDER BY seq ASC
+                LIMIT GREATEST(0,
+                  (SELECT events FROM agent_conversation WHERE id = :id) - :max))
+              RETURNING seq)
+            UPDATE agent_conversation SET events = events - (SELECT count(*) FROM gone)
+            WHERE id = :id
+            RETURNING (SELECT count(*) FROM gone) AS dropped
             """)
         .bind(ID, conversationId)
         .bind("max", maxEvents)
-        .fetch()
-        .rowsUpdated()
+        .map(row -> Objects.requireNonNull(row.get("dropped", Long.class)))
+        .one()
         .filter(dropped -> dropped > 0)
         .flatMap(dropped ->
             client
@@ -426,10 +472,16 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
                 + " AND e.seq > :after"
                 + kindClause
                 + " ORDER BY e.seq ASC LIMIT :size");
+    // A settled screen and the terminal ring are terminal events: without TERMINAL in the kinds
+    // neither is read. Every matching conversation is listed (its ring is in memory), but its
+    // screen is sent only if the cursor has not passed it.
+    final boolean terminal = kinds.isEmpty() || kinds.contains(AgentEventKind.TERMINAL);
     DatabaseClient.GenericExecuteSpec screens =
         client.sql(
-            "SELECT c.id, CAST(c.screen AS text) AS screen FROM agent_conversation c WHERE "
-                + where);
+            "SELECT c.id, CASE WHEN CAST(c.screen ->> 'seq' AS bigint) > :after"
+                + " THEN CAST(c.screen AS text) END AS screen FROM agent_conversation c WHERE "
+                + where
+                + (terminal ? "" : " AND FALSE"));
     for (final Map.Entry<String, Object> bind : binds.entrySet()) {
       rows = rows.bind(bind.getKey(), bind.getValue());
       screens = screens.bind(bind.getKey(), bind.getValue());
@@ -439,6 +491,7 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
     }
     final DatabaseClient.GenericExecuteSpec rowsSpec = rows.bind("after", after).bind("size", size);
     return screens
+        .bind("after", after)
         .map(row ->
             Map.entry(
                 text(row, ID), Objects.requireNonNullElse(row.get("screen", String.class), "")))
@@ -463,7 +516,7 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
                 found.addAll(stored);
                 return Flux.fromStream(
                     found.stream()
-                        .filter(piece -> piece.seq() > after && filter.matches(piece))
+                        .filter(piece -> piece.seq() > after)
                         .sorted(Comparator.comparingLong(AgentEvent::seq))
                         .limit(size));
               });
@@ -481,15 +534,20 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
         .map(this::screen);
   }
 
+  /** In batches ({@link Batches}); the events go with each conversation. */
   @Override
   public Mono<Long> purge(final Instant before) {
-    return client
-        .sql("DELETE FROM agent_conversation WHERE ended_at < :before RETURNING id")
-        .bind("before", before)
-        .map(row -> Objects.requireNonNull(row.get(ID, String.class)))
-        .all()
-        .doOnNext(rings::remove)
-        .count();
+    return Batches.repeat(size ->
+        client
+            .sql(
+                "DELETE FROM agent_conversation WHERE id IN (SELECT id FROM agent_conversation"
+                    + " WHERE ended_at < :before LIMIT :size) RETURNING id")
+            .bind("before", before)
+            .bind("size", size)
+            .map(row -> Objects.requireNonNull(row.get(ID, String.class)))
+            .all()
+            .doOnNext(rings::remove)
+            .count());
   }
 
   // ---- mapping

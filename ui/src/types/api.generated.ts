@@ -1652,7 +1652,7 @@ export interface paths {
         };
         /**
          * List session summaries
-         * @description Lean per-session rows for table display, alphabetical by session ID. Only the requested page is loaded. A further page is announced in the X-Next-Cursor header.
+         * @description Lean per-session rows for table display, alphabetical by session ID. Only the session settings and workflow counts are read, not the definitions. A further page is announced in the X-Next-Cursor header.
          */
         get: operations["listSessionSummaries"];
         put?: never;

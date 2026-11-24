@@ -836,8 +836,8 @@ An append-only record of run starts (with the input payload), ends, control comm
 
 - Event types: `RUN_STARTED`, `RUN_FINISHED`, `RUN_ABORTED`, `CONTROL_APPLIED`, `CONTROL_REJECTED`, `NODE_FINISHED` (history only), `RUN_RESUMED`, `IDEMPOTENCY_KEY`, `LIMITS_CHANGED` (scheduler limits changed at run time; restored on startup), `INPUT` (something happened to an input request; the payload holds `event`, the request id and tier, never the prompt or an answer text).
 - Memory by default, trimmed (`LogRetention`: newest `retained-runs`, never a run without an end, every `compact-after` events). With `yukta.session.store-type=postgres` it is the `execution_log` table ([DUR-04](#dur-04-postgresql-stores)).
-- **Store API**: `append` is fire-and-forget (it never fails a run); the reads (`readAll`, `forExecution`, `header`, `ofType`) return `Flux`/`Mono` and `replaceAll` a `Mono<Void>`, so no caller parks a thread. A read sees every event appended before it is subscribed.
-- **Boot recovery** (`ExecutionRecovery`): runs that never finished are marked `ABORTED`, the newest `retained-runs` are restored into history, and the log is rewritten without older ones.
+- **Store API**: `append` is fire-and-forget (it never fails a run); the reads (`readAll`, `forExecution`, `header`, `ofType`) return `Flux`/`Mono` and `applyRecovery` a `Mono<Void>`, so no caller parks a thread. A read sees every event appended before it is subscribed.
+- **Boot recovery** (`ExecutionRecovery`): runs that never finished are marked `ABORTED`, the newest `retained-runs` are restored into history, and `applyRecovery` deletes the older runs and appends the abort events (only the difference is written).
 
 **Configure:** `yukta.execution-log.retained-runs` (500) · `…compact-after` (10000) · `…min-runs-per-session` (10)
 
@@ -950,7 +950,7 @@ Several servers share a PostgreSQL database; one holds a lease and admits runs, 
 
 **Behaviour**
 
-- A single server is always leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` the lease row (`V4__leader_lease`) has a fencing number that grows with every change of holder. It is renewed three times per lease; a graceful stop releases it.
+- A single server is always leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` the lease row (`leader_lease`) has a fencing number that grows with every change of holder. It is renewed three times per lease; a graceful stop releases it.
 - A server counts itself leader only while its last renewal is younger than the lease, so one that cannot reach the database stops *before* another takes over.
 - A standby refuses every start, restart and resume with `NotLeaderException` (HTTP 503; `yukta.executions.rejected{reason=not_leader}`).
 - While the run history is recovered (start-up, or takeover) and while the idempotency keys reload, every start, restart and resume is refused (HTTP 503; `reason=recovering`, `ExecutionScheduler.holdStarts()`), so a run that starts early cannot be marked aborted and a repeated start cannot slip past a stored key. Both steps run off the start-up thread; `GET` history can look empty for that moment.

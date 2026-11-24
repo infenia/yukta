@@ -56,7 +56,7 @@ class DraftRunFilteringLogStoreTest {
     when(delegate.header("e")).thenReturn(Mono.just(header));
     when(delegate.ofType(ExecutionLogEvent.Type.RUN_STARTED, since)).thenReturn(Flux.just(event));
     when(delegate.newest(types, "e", 3)).thenReturn(Flux.just(event));
-    when(delegate.replaceAll(List.of(event))).thenReturn(Mono.empty());
+    when(delegate.applyRecovery(Set.of("x"), 1, List.of(event))).thenReturn(Mono.empty());
 
     StepVerifier.create(store.readAll()).expectNext(event).verifyComplete();
     StepVerifier.create(store.forExecution("e")).expectNext(event).verifyComplete();
@@ -65,6 +65,6 @@ class DraftRunFilteringLogStoreTest {
         .expectNext(event)
         .verifyComplete();
     StepVerifier.create(store.newest(types, "e", 3)).expectNext(event).verifyComplete();
-    StepVerifier.create(store.replaceAll(List.of(event))).verifyComplete();
+    StepVerifier.create(store.applyRecovery(Set.of("x"), 1, List.of(event))).verifyComplete();
   }
 }

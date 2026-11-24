@@ -621,7 +621,7 @@ These tables do not list every route; the complete, current list is the [REST AP
 |---|---|---|---|---|
 | POST | /api/sessions | Create or replace a session and its workflows | Body: ConfigRequest. 200, no data | 400 validation, unknown field |
 | GET | /api/sessions?limit&cursor | Session ids, alphabetical | Paged (X-Next-Cursor). Loads all ids per call | - |
-| GET | /api/sessions/summaries?limit&cursor | Lean rows: id, name, tag names, workflow count | Paged; loads only the page's configs, in order; unreadable sessions are skipped with a warning | - |
+| GET | /api/sessions/summaries?limit&cursor | Lean rows: id, name, tag names, workflow count | Paged; one read of `SessionConfigStore.summaries()` (PostgreSQL: one query that counts the workflows instead of loading them); internal sessions are left out by their tag; an unreadable session is skipped | - |
 | GET | /api/sessions/\{sid\} | Details: tag names and workflow ids | Not the full config (tag values omitted) | 404 unknown session |
 | GET | /api/sessions/\{sid\}/config | Full configuration, same shape POST accepts | Node config returned as stored | 404 |
 | GET | /api/sessions/\{sid\}/workflows | Workflow summaries: node and edge counts, latest run status | Latest status from core | 404 |

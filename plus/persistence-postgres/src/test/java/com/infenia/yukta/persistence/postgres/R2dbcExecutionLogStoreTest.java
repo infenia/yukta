@@ -32,6 +32,8 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   private final java.util.concurrent.CountDownLatch release =
       new java.util.concurrent.CountDownLatch(1);
 
+  private static final String OLD = "old";
+
   private static final String REASON = "reason";
 
   private static final String WRITE_FAILED = "write_failed";
@@ -100,28 +102,31 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void replaceAllSwapsTheWholeLog() {
-    store.append(started("old"));
+  void applyRecoveryDeletesOnlyTheDroppedRuns_andAppendsTheNewEvents() {
+    store.append(started(OLD));
+    store.append(started("kept"));
 
-    store.replaceAll(List.of(started("new1"), started("new2"))).block();
+    store
+        .applyRecovery(java.util.Set.of(OLD), 0, List.of(started("new1"), started("new2")))
+        .block();
 
     assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
-        .containsExactly("new1", "new2");
+        .containsExactly("kept", "new1", "new2");
   }
 
   @Test
-  void replaceAllThatFails_keepsTheOldLog() {
-    store.append(started("old"));
+  void applyRecoveryThatFails_keepsTheOldLog() {
+    store.append(started(OLD));
     store.readAll().collectList().block();
     // PostgreSQL text cannot hold a NUL character, so the second insert fails
     final ExecutionLogEvent unwritable = started(UNWRITABLE);
 
-    store.replaceAll(List.of(started("new1"), unwritable)).block();
+    store.applyRecovery(java.util.Set.of(OLD), 0, List.of(started("new1"), unwritable)).block();
 
     assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
-        .containsExactly("old");
+        .containsExactly(OLD);
   }
 
   @Test
@@ -135,11 +140,11 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void replaceAllWritesMoreThanOneBatch() {
+  void applyRecoveryWritesMoreThanOneBatch() {
     final List<ExecutionLogEvent> events =
         java.util.stream.IntStream.range(0, 250).mapToObj(i -> started("r" + i)).toList();
 
-    store.replaceAll(events).block();
+    store.applyRecovery(java.util.Set.of(), 0, events).block();
 
     assertThat(store.readAll().collectList().block()).hasSize(250);
   }
@@ -149,8 +154,8 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     store.append(started("r1"));
     store.readAll().collectList().block();
     db.sql(
-            "INSERT INTO execution_log (execution_id, event) VALUES ('bad',"
-                + " CAST('{\"type\":\"NOPE\"}' AS jsonb))")
+            "INSERT INTO execution_log (execution_id, type, ts, event) VALUES ('bad', 'NOPE',"
+                + " now(), CAST('{\"type\":\"NOPE\"}' AS jsonb))")
         .fetch()
         .rowsUpdated()
         .block();
@@ -285,6 +290,45 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void slowRead_doesNotHoldBackTheAppendsBehindIt() throws Exception {
+    // parsing the "slow" run takes 3 s; the read used to hold the write pipeline that long
+    final ObjectMapper real = new ObjectMapper();
+    final ObjectMapper slow = org.mockito.Mockito.spy(real);
+    org.mockito.Mockito.doAnswer(
+            call -> {
+              final String row = call.getArgument(0);
+              if (row.contains("\"slow\"")) {
+                Thread.sleep(3_000); // nosem: yukta-test-thread-sleep
+              }
+              return call.callRealMethod();
+            })
+        .when(slow)
+        .readValue(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.<Class<ExecutionLogEvent>>any());
+    final R2dbcExecutionLogStore reads = new R2dbcExecutionLogStore(db, slow, 2, 1_000, 5_000);
+    reads.append(started("slow"));
+    reads.forExecution("other").collectList().block(); // the start is written
+
+    final var read = reads.forExecution("slow").collectList().toFuture();
+    reads.append(started("fast"));
+
+    org.awaitility.Awaitility.await()
+        .atMost(java.time.Duration.ofMillis(1_500))
+        .until(() ->
+            Long.valueOf(1L)
+                .equals(
+                    db.sql("SELECT count(*) AS n FROM execution_log WHERE execution_id = 'fast'")
+                        .map(row -> row.get("n", Long.class))
+                        .one()
+                        .block()));
+    assertThat(read.get(10, java.util.concurrent.TimeUnit.SECONDS))
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("slow");
+    closeAndWait(reads);
+  }
+
+  @Test
   void cancelledRead_givesUpQuietly() {
     // a busy writer, so the read waits behind it on a boundedElastic thread
     final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
@@ -372,7 +416,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     try {
       trimming.append(started("r1"));
       assertThat(trimming.readAll().collectList().block()).isEmpty();
-      trimming.replaceAll(List.of(started("r2"))).block();
+      trimming.applyRecovery(java.util.Set.of("r1"), 0, List.of(started("r2"))).block();
       closeAndWait(trimming);
     } finally {
       db.sql("ALTER TABLE execution_log_gone RENAME TO execution_log")
@@ -553,7 +597,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     leaseAt(2); // another server took over
     leader.append(started("r2"));
     leader.append(finished("r2"));
-    leader.replaceAll(List.of(started("r3"))).block();
+    leader.applyRecovery(java.util.Set.of("r1"), 0, List.of(started("r3"))).block();
 
     assertThat(leader.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)

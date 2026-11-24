@@ -9,6 +9,7 @@ import com.infenia.yukta.service.store.CheckpointJson;
 import com.infenia.yukta.service.store.RunOutputSweep;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -37,6 +38,9 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
   /** The table of messages. */
   private static final String MESSAGES = "node_checkpoint";
 
+  /** Longest the sweep of gone runs at recovery may take; the rest waits for the next one. */
+  private static final java.time.Duration SWEEP_TIMEOUT = java.time.Duration.ofMinutes(5);
+
   /** Runs the statements. */
   private final DatabaseClient client;
 
@@ -63,8 +67,8 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
   }
 
   /**
-   * Creates the store; saved messages are refused once another server holds the leader lease.
-   * ponytail: only message rows are fenced; the node state flags (done/incomplete) are not.
+   * Creates the store; saved messages and node state flags are refused once another server holds
+   * the leader lease.
    *
    * @param client runs the statements
    * @param mapper reads and writes messages
@@ -86,12 +90,27 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
 
   @Override
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
-    return Mono.fromCallable(() -> CheckpointJson.write(mapper, message))
+    return saveAll(executionId, nodeId, List.of(message));
+  }
+
+  /**
+   * One statement and one round trip for the whole batch ({@code CheckpointStream} hands over up to
+   * 64 messages at a time), instead of one per message. The statement is atomic, so a batch is
+   * written whole or not at all.
+   */
+  @Override
+  public Mono<Void> saveAll(
+      final String executionId, final String nodeId, final List<Message<?>> messages) {
+    if (messages.isEmpty()) {
+      return Mono.empty();
+    }
+    return Mono.fromCallable(
+            () -> messages.stream().map(message -> CheckpointJson.write(mapper, message)).toList())
         .flatMap(json ->
-            rows.insert(executionId, nodeId, json)
+            rows.insertAll(executionId, nodeId, json)
                 .doOnNext(written -> {
                   if (written == 0) {
-                    fencing.refused(1);
+                    fencing.refused(json.size());
                   }
                 }))
         .onErrorResume(error -> {
@@ -131,20 +150,26 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
         .map(json -> CheckpointJson.read(mapper, json));
   }
 
+  /**
+   * Deletes the run's messages and state rows in one transaction: a half-done clear would leave a
+   * node marked done with no output, which a resume would trust.
+   */
   @Override
   public Mono<Void> clearAsync(final String executionId) {
-    return client
-        .sql("DELETE FROM node_checkpoint WHERE execution_id = :e")
-        .bind(CheckpointRows.EXECUTION, executionId)
-        .fetch()
-        .rowsUpdated()
-        .then(
+    return Transactions.inTransaction(
+            client,
             client
-                .sql("DELETE FROM node_checkpoint_state WHERE execution_id = :e")
+                .sql("DELETE FROM node_checkpoint WHERE execution_id = :e")
                 .bind(CheckpointRows.EXECUTION, executionId)
                 .fetch()
                 .rowsUpdated()
-                .then())
+                .then(
+                    client
+                        .sql("DELETE FROM node_checkpoint_state WHERE execution_id = :e")
+                        .bind(CheckpointRows.EXECUTION, executionId)
+                        .fetch()
+                        .rowsUpdated()
+                        .then()))
         .timeout(CheckpointRows.QUESTION_TIMEOUT)
         .onErrorResume(error -> {
           log.atWarn()
@@ -177,15 +202,12 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
 
   @Override
   public Mono<Boolean> completeAsync(final String executionId, final String nodeId) {
-    return rows.flag(executionId, nodeId, CheckpointRows.INCOMPLETE).map(incomplete -> !incomplete);
+    return rows.flags(executionId, nodeId).map(flags -> !flags.incomplete());
   }
 
   @Override
   public Mono<Boolean> finishedAsync(final String executionId, final String nodeId) {
-    return Mono.zip(
-            rows.flag(executionId, nodeId, CheckpointRows.DONE),
-            rows.flag(executionId, nodeId, CheckpointRows.INCOMPLETE))
-        .map(t -> t.getT1() && !t.getT2());
+    return rows.flags(executionId, nodeId).map(CheckpointRows.Flags::finished);
   }
 
   @Override
@@ -210,29 +232,44 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
     return size.bytes(MESSAGES);
   }
 
-  /** Deletes the output of every run not in {@code kept}, in one transaction. */
+  /**
+   * Deletes the output of every run not in {@code kept}, a short statement at a time instead of one
+   * transaction that a large backlog would run into the statement timeout with. The state rows go
+   * first: a node without one reads as unfinished, so a sweep cut short makes a resume run it again
+   * rather than trust a partial output. Then each gone run's messages, through the {@code
+   * (execution_id, node_id, seq)} index. What is left after {@link #SWEEP_TIMEOUT} is swept at the
+   * next recovery.
+   */
   @Override
   public void removeNotIn(final Set<String> kept) {
     final String[] ids = kept.toArray(String[]::new);
     try {
-      Transactions.inTransaction(
-              client,
+      client
+          .sql("DELETE FROM node_checkpoint_state WHERE NOT (execution_id = ANY(:k))")
+          .bind("k", ids)
+          .fetch()
+          .rowsUpdated()
+          .thenMany(
               client
-                  .sql("DELETE FROM node_checkpoint WHERE NOT (execution_id = ANY(:k))")
+                  .sql(
+                      "SELECT DISTINCT execution_id FROM node_checkpoint"
+                          + " WHERE NOT (execution_id = ANY(:k))")
                   .bind("k", ids)
-                  .fetch()
-                  .rowsUpdated()
-                  .then(
-                      client
-                          .sql(
-                              "DELETE FROM node_checkpoint_state WHERE NOT (execution_id ="
-                                  + " ANY(:k))")
-                          .bind("k", ids)
-                          .fetch()
-                          .rowsUpdated()
-                          .then()))
+                  .map(row -> Objects.requireNonNull(row.get("execution_id", String.class)))
+                  .all())
+          .concatMap(gone ->
+              Batches.repeat(size ->
+                  client
+                      .sql(
+                          "DELETE FROM node_checkpoint WHERE seq IN (SELECT seq FROM"
+                              + " node_checkpoint WHERE execution_id = :e LIMIT :size)")
+                      .bind(CheckpointRows.EXECUTION, gone)
+                      .bind("size", size)
+                      .fetch()
+                      .rowsUpdated()))
+          .then()
           .toFuture()
-          .get(CheckpointRows.QUESTION_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+          .get(SWEEP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
     } catch (final ExecutionException | TimeoutException e) {

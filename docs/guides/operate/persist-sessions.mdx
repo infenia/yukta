@@ -126,6 +126,9 @@ A file that cannot be read, is invalid or cannot be applied is logged and skippe
 
     A half-durable setup is allowed, so check each switch: a PostgreSQL log with in-memory checkpoints keeps run history but leaves nothing to resume from.
   </Step>
+  <Step title="Size the connection pool">
+    The profile keeps 4 to 20 connections, waits at most 5 s for one, and has the database stop any statement after 30 s. Change them through the environment, for example `SPRING_R2DBC_POOL_MAX_SIZE=40` when several busy servers share a large database. The `r2dbc.pool.*` metrics show how many connections are in use and how many callers wait.
+  </Step>
 </Steps>
 
 ## Resume runs after a restart

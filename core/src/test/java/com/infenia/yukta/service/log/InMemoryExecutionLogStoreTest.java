@@ -45,7 +45,7 @@ class InMemoryExecutionLogStoreTest {
   }
 
   @Test
-  void inMemory_appendsAndReplaces() {
+  void inMemory_appendsAndDropsRunsOnRecovery() {
     final InMemoryExecutionLogStore store = new InMemoryExecutionLogStore();
     final ExecutionLogEvent first = ExecutionLogEvent.started("a", "s", "w", "v");
     final ExecutionLogEvent second = ExecutionLogEvent.started("b", "s", "w", "v");
@@ -54,7 +54,7 @@ class InMemoryExecutionLogStoreTest {
     store.append(second);
     assertThat(store.readAll().collectList().block()).containsExactly(first, second);
 
-    store.replaceAll(List.of(second)).block();
+    store.applyRecovery(java.util.Set.of("a"), 0, List.of()).block();
     assertThat(store.readAll().collectList().block()).containsExactly(second);
   }
 

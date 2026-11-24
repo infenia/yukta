@@ -30,10 +30,13 @@ class ExecutionLogStoreDefaultsTest {
       }
 
       @Override
-      public Mono<Void> replaceAll(final List<ExecutionLogEvent> kept) {
+      public Mono<Void> applyRecovery(
+          final java.util.Set<String> dropped,
+          final int schedulerKept,
+          final List<ExecutionLogEvent> added) {
         return Mono.fromRunnable(() -> {
-          events.clear();
-          events.addAll(kept);
+          events.removeIf(event -> dropped.contains(event.executionId()));
+          events.addAll(added);
         });
       }
     };

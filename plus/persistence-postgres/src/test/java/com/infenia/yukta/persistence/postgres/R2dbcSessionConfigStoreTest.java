@@ -112,6 +112,18 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void summaries_listWorkflowsWithoutSessionRow_withEmptyValues() {
+    new R2dbcWorkflowDefinitionStore(db, new ObjectMapper()).save("orphan", workflow()).block();
+
+    assertThat(store.summaries().collectList().block())
+        .filteredOn(summary -> "orphan".equals(summary.sessionId()))
+        .singleElement()
+        .isEqualTo(
+            new com.infenia.yukta.model.session.SessionSummary(
+                "orphan", "", "", "", Map.of(), "", 1));
+  }
+
+  @Test
   void setInitiator_createsTheSessionAndKeepsTheFirstInitiator() {
     store.setInitiator("new", "alice").block();
     store.setInitiator("new", "bob").block();

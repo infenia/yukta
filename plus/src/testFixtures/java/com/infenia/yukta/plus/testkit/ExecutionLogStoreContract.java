@@ -64,16 +64,43 @@ public abstract class ExecutionLogStoreContract {
   }
 
   @Test
-  void replaceAllKeepsOnlyTheGivenEvents() {
+  void applyRecoveryDropsRunsTrimsTheSchedulerAndAppendsTheEnds() {
     final ExecutionLogStore store = create();
-    final ExecutionLogEvent first = ExecutionLogEvent.started("a", "s", "w", "v");
-    final ExecutionLogEvent second = ExecutionLogEvent.started("b", "s", "w", "v");
-    store.append(first);
-    store.append(second);
+    final ExecutionLogEvent interrupted = ExecutionLogEvent.started("live", "s", "w", "v");
+    store.append(ExecutionLogEvent.started("old", "s", "w", "v"));
+    store.append(ExecutionLogEvent.limitsChanged(1, 1));
+    store.append(interrupted);
+    store.append(ExecutionLogEvent.limitsChanged(2, 2));
+    store.append(ExecutionLogEvent.limitsChanged(3, 3));
 
-    store.replaceAll(List.of(second)).block();
+    store
+        .applyRecovery(java.util.Set.of("old"), 2, List.of(ExecutionLogEvent.aborted(interrupted)))
+        .block();
 
-    assertThat(store.readAll().collectList().block()).containsExactly(second);
+    final List<ExecutionLogEvent> left = store.readAll().collectList().block();
+    assertThat(left)
+        .extracting(ExecutionLogEvent::executionId, ExecutionLogEvent::type)
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("live", ExecutionLogEvent.Type.RUN_STARTED),
+            org.assertj.core.groups.Tuple.tuple(
+                ExecutionLogEvent.SCHEDULER, ExecutionLogEvent.Type.LIMITS_CHANGED),
+            org.assertj.core.groups.Tuple.tuple(
+                ExecutionLogEvent.SCHEDULER, ExecutionLogEvent.Type.LIMITS_CHANGED),
+            org.assertj.core.groups.Tuple.tuple("live", ExecutionLogEvent.Type.RUN_ABORTED));
+    // the two newest scheduler changes stay
+    assertThat(left.get(1).nodeStatuses()).containsEntry(ExecutionLogEvent.MAX_CONCURRENT, "2");
+    assertThat(store.forExecution("old").collectList().block()).isEmpty();
+  }
+
+  @Test
+  void applyRecoveryWithNothingToDo_changesNothing() {
+    final ExecutionLogStore store = create();
+    store.append(ExecutionLogEvent.started("a", "s", "w", "v"));
+    store.append(ExecutionLogEvent.limitsChanged(1, 1));
+
+    store.applyRecovery(java.util.Set.of(), 5, List.of()).block();
+
+    assertThat(store.readAll().collectList().block()).hasSize(2);
   }
 
   @Test

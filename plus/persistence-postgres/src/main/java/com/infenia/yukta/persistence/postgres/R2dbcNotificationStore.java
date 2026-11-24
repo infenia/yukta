@@ -47,6 +47,9 @@ import tools.jackson.databind.ObjectMapper;
 })
 public class R2dbcNotificationStore implements NotificationStore {
 
+  /** The most due deliveries one call returns. */
+  private static final int DUE_BATCH = 500;
+
   /** How often a change that loses to another is read and merged again before it gives up. */
   private static final int MAX_TRIES = 8;
 
@@ -242,21 +245,28 @@ public class R2dbcNotificationStore implements NotificationStore {
   public Flux<Notification> find(final NotificationQuery query) {
     final Notification.State state = query.state();
     final NotificationKind kind = query.kind();
-    return client
-        .sql(
+    final String session = query.sessionId();
+    // only the filters that are set become predicates, so a generic plan keeps its indexes
+    DatabaseClient.GenericExecuteSpec spec =
+        client.sql(
             "SELECT "
                 + COLUMNS
                 + " FROM notifications WHERE seq > :since"
-                + " AND (CAST(:state AS text) IS NULL OR state = CAST(:state AS text))"
-                + " AND (CAST(:kind AS text) IS NULL OR kind = CAST(:kind AS text))"
-                + " AND (CAST(:session AS text) IS NULL OR session_id = CAST(:session AS text))"
-                + " ORDER BY seq DESC")
-        .bind("since", query.sinceSeq())
-        .bind("state", nullable(state == null ? null : state.name(), String.class))
-        .bind("kind", nullable(kind == null ? null : kind.name(), String.class))
-        .bind("session", nullable(query.sessionId(), String.class))
-        .map(this::notification)
-        .all();
+                + (state == null ? "" : " AND state = :state")
+                + (kind == null ? "" : " AND kind = :kind")
+                + (session == null ? "" : " AND session_id = :session")
+                + " ORDER BY seq DESC");
+    spec = spec.bind("since", query.sinceSeq());
+    if (state != null) {
+      spec = spec.bind("state", state.name());
+    }
+    if (kind != null) {
+      spec = spec.bind("kind", kind.name());
+    }
+    if (session != null) {
+      spec = spec.bind("session", session);
+    }
+    return spec.map(this::notification).all();
   }
 
   @Override
@@ -340,14 +350,22 @@ public class R2dbcNotificationStore implements NotificationStore {
 
   @Override
   public Mono<NotificationDelivery> enqueueDelivery(final NotificationDelivery delivery) {
+    // one round trip: the row inserted, or the one already there under that id
     return client
         .sql(
             """
-            INSERT INTO notification_deliveries (id, notification_id, channel, tier, state,
-              attempts, next_attempt, last_error)
-            VALUES (:id, :notification, :channel, :tier, :state, :attempts, :next, :error)
-            ON CONFLICT (id) DO NOTHING
-            """)
+            WITH ins AS (
+              INSERT INTO notification_deliveries (id, notification_id, channel, tier, state,
+                attempts, next_attempt, last_error)
+              VALUES (:id, :notification, :channel, :tier, :state, :attempts, :next, :error)
+              ON CONFLICT (id) DO NOTHING
+              RETURNING *)
+            """
+                + "SELECT "
+                + DELIVERY_COLUMNS
+                + " FROM ins UNION ALL SELECT "
+                + DELIVERY_COLUMNS
+                + " FROM notification_deliveries WHERE id = :id AND NOT EXISTS (SELECT 1 FROM ins)")
         .bind("id", delivery.id())
         .bind("notification", delivery.notificationId())
         .bind("channel", delivery.channel())
@@ -356,16 +374,14 @@ public class R2dbcNotificationStore implements NotificationStore {
         .bind("attempts", delivery.attempts())
         .bind("next", delivery.nextAttempt())
         .bind("error", nullable(delivery.lastError(), String.class))
-        .fetch()
-        .rowsUpdated()
-        .then(
-            client
-                .sql("SELECT " + DELIVERY_COLUMNS + " FROM notification_deliveries WHERE id = :id")
-                .bind("id", delivery.id())
-                .map(R2dbcNotificationStore::delivery)
-                .one());
+        .map(R2dbcNotificationStore::delivery)
+        .one();
   }
 
+  /**
+   * At most {@value #DUE_BATCH} deliveries, the longest due first, so one tick of the delivery
+   * worker has bounded work; each attempt moves the delivery on, so the next tick takes the rest.
+   */
   @Override
   public Flux<NotificationDelivery> dueDeliveries(final Instant now) {
     return client
@@ -373,7 +389,8 @@ public class R2dbcNotificationStore implements NotificationStore {
             "SELECT "
                 + DELIVERY_COLUMNS
                 + " FROM notification_deliveries WHERE state = 'PENDING' AND next_attempt <= :now"
-                + " ORDER BY next_attempt, id")
+                + " ORDER BY next_attempt, id LIMIT "
+                + DUE_BATCH)
         .bind("now", now)
         .map(R2dbcNotificationStore::delivery)
         .all();
@@ -405,20 +422,25 @@ public class R2dbcNotificationStore implements NotificationStore {
         .then();
   }
 
+  /** In batches ({@link Batches}); receipts and deliveries go with each notification. */
   @Override
   public Mono<Long> purge(final Instant before) {
-    return client
-        .sql(
-            """
-            WITH gone AS (
-              DELETE FROM notifications
-              WHERE updated_at < :before AND (kind = 'INFO' OR state = 'RESOLVED')
-              RETURNING id)
-            SELECT count(*) AS removed FROM gone
-            """)
-        .bind("before", before)
-        .map(row -> Objects.requireNonNull(row.get("removed", Long.class)))
-        .one();
+    return Batches.repeat(size ->
+        client
+            .sql(
+                """
+                WITH gone AS (
+                  DELETE FROM notifications WHERE id IN (
+                    SELECT id FROM notifications
+                    WHERE updated_at < :before AND (kind = 'INFO' OR state = 'RESOLVED')
+                    LIMIT :size)
+                  RETURNING id)
+                SELECT count(*) AS removed FROM gone
+                """)
+            .bind("before", before)
+            .bind("size", size)
+            .map(row -> Objects.requireNonNull(row.get("removed", Long.class)))
+            .one());
   }
 
   @Override

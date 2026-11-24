@@ -186,9 +186,10 @@ public class SessionConfigController {
       @RequestParam(required = false) final Integer limit,
       @RequestParam(required = false) final String cursor,
       @RequestParam(defaultValue = FALSE_DEFAULT) final boolean includeInternal) {
+    // one read of the store; internal sessions are left out by their tag, not one lookup each
     return sessionService
-        .getSessionIds(includeInternal)
-        .sort()
+        .getSessionSummaries(includeInternal)
+        .map(com.infenia.yukta.model.session.SessionSummary::sessionId)
         .collectList()
         .map(ids ->
             Pagination.page(ids, limit, cursor, id -> id, "Sessions retrieved successfully"));
@@ -200,34 +201,32 @@ public class SessionConfigController {
    * @param limit page size (default 500, at most 1000)
    * @param cursor the last session ID of the previous page
    * @param includeInternal true to list internal sessions (supervisor workflows) too
-   * @return one page of summaries; only the sessions on the page are read from storage
+   * @return one page of summaries, read from storage in one query without the definitions
    */
   @GetMapping("/summaries")
   @Operation(
       summary = "List session summaries",
       description =
-          "Lean per-session rows for table display, alphabetical by session ID. Only the"
-              + " requested page is loaded. A further page is announced in the X-Next-Cursor"
-              + " header.")
+          "Lean per-session rows for table display, alphabetical by session ID. Only the session"
+              + " settings and workflow counts are read, not the definitions. A further page is"
+              + " announced in the X-Next-Cursor header.")
   public Mono<ResponseEntity<ApiResponse<List<SessionListItem>>>> listSessionSummaries(
       @RequestParam(required = false) final Integer limit,
       @RequestParam(required = false) final String cursor,
       @RequestParam(defaultValue = FALSE_DEFAULT) final boolean includeInternal) {
+    // one read of the store for the whole list: no definitions are loaded, only counted
     return sessionService
-        .getSessionIds(includeInternal)
-        .sort()
+        .getSessionSummaries(includeInternal)
         .collectList()
-        .flatMap(ids -> {
-          final Pagination.Slice<String> page = Pagination.slice(ids, limit, cursor, id -> id);
+        .flatMap(summaries -> {
+          final Pagination.Slice<com.infenia.yukta.model.session.SessionSummary> page =
+              Pagination.slice(
+                  summaries,
+                  limit,
+                  cursor,
+                  com.infenia.yukta.model.session.SessionSummary::sessionId);
           return Flux.fromIterable(page.items())
-              .concatMap(id ->
-                  sessionService
-                      .getSessionConfig(id)
-                      .onErrorResume(e -> {
-                        log.atWarn().setCause(e).log("Skipping session {}", id);
-                        return Mono.empty();
-                      }))
-              .map(sessionMapper::sessionConfigResponseToSessionListItem)
+              .map(sessionMapper::summaryToSessionListItem)
               .concatMap(this::withLastRun)
               .collectList()
               .map(items -> Pagination.respond(items, page.next(), "Session summaries retrieved"));
