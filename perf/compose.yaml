@@ -12,7 +12,7 @@ services:
     memswap_limit: ${MEMORY:-8g}   # no swap: results must not depend on it
     environment:
       JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Dyukta.rate-limit-per-minute=0}
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: ${PROFILES:-prod}   # prod,postgres with PERSISTENCE=postgres (run.sh)
       YUKTA_SERVER_ADDRESS: 0.0.0.0
       YUKTA_API_KEYS_0_NAME: admin
       YUKTA_API_KEYS_0_KEY: ${API_KEY:?set by run.sh}
@@ -21,9 +21,31 @@ services:
       - ${KEYS_ENV:-/dev/null}   # more keys for the notifications test (run.sh writes it)
     volumes:
       - ${JAR:?set by run.sh}:/app/yukta.jar:ro   # the jar, or the native binary (BINARY=)
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false   # only with PERSISTENCE=postgres
     ports:
       - "127.0.0.1:${PORT:-9858}:9858"   # loopback only, so k6 may send the key over http
     healthcheck:
       test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9858"]
       interval: 2s
       retries: 60
+
+  # PERSISTENCE=postgres only (run.sh sets COMPOSE_PROFILES=postgres): the database of the Plus flavour.
+  # Pinned like the server, and with no swap, so the numbers do not depend on the host.
+  postgres:
+    profiles: ["postgres"]
+    image: postgres:18-alpine
+    cpus: ${PG_CPUS:-2}
+    cpuset: ${PG_CPUSET:-}
+    mem_limit: ${PG_MEMORY:-2g}
+    memswap_limit: ${PG_MEMORY:-2g}
+    environment:
+      POSTGRES_DB: yukta
+      POSTGRES_USER: yukta
+      POSTGRES_PASSWORD: perf-only
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "yukta", "-d", "yukta"]
+      interval: 2s
+      retries: 30

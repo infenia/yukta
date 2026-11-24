@@ -422,20 +422,25 @@ public class R2dbcNotificationStore implements NotificationStore {
         .then();
   }
 
+  /** In batches ({@link Batches}); receipts and deliveries go with each notification. */
   @Override
   public Mono<Long> purge(final Instant before) {
-    return client
-        .sql(
-            """
-            WITH gone AS (
-              DELETE FROM notifications
-              WHERE updated_at < :before AND (kind = 'INFO' OR state = 'RESOLVED')
-              RETURNING id)
-            SELECT count(*) AS removed FROM gone
-            """)
-        .bind("before", before)
-        .map(row -> Objects.requireNonNull(row.get("removed", Long.class)))
-        .one();
+    return Batches.repeat(size ->
+        client
+            .sql(
+                """
+                WITH gone AS (
+                  DELETE FROM notifications WHERE id IN (
+                    SELECT id FROM notifications
+                    WHERE updated_at < :before AND (kind = 'INFO' OR state = 'RESOLVED')
+                    LIMIT :size)
+                  RETURNING id)
+                SELECT count(*) AS removed FROM gone
+                """)
+            .bind("before", before)
+            .bind("size", size)
+            .map(row -> Objects.requireNonNull(row.get("removed", Long.class)))
+            .one());
   }
 
   @Override
