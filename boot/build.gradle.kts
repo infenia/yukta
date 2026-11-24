@@ -298,3 +298,15 @@ coverageConfig {
         mapOf("LINE" to 0.6, "BRANCH" to 0.7)
     )
 }
+
+// Work on the console without a native build: `yk gradle :boot:consolePreviewArgs`, then in a real terminal
+// `java @boot/build/console-preview.args [--slow|--down]` (ConsolePreview runs the real key loop on fake runs and logs).
+val consolePreviewArgs by tasks.registering {
+    dependsOn(tasks.named("testClasses"))
+    val argsFile = layout.buildDirectory.file("console-preview.args")
+    val classpath = sourceSets.test.get().runtimeClasspath
+    outputs.file(argsFile)
+    doLast {
+        argsFile.get().asFile.writeText("-cp\n${classpath.asPath}\ncom.infenia.yukta.console.ConsolePreview\n")
+    }
+}

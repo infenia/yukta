@@ -10,13 +10,12 @@ import ch.qos.logback.classic.Level;
 import java.time.Duration;
 import java.util.List;
 import org.jline.utils.AttributedString;
-import org.jline.utils.AttributedStyle;
 import org.junit.jupiter.api.Test;
 
 class ConsoleViewTest {
 
   private final ConsoleLogs logs = new ConsoleLogs();
-  private final ConsoleView view = new ConsoleView("1.2", "http://h:1", logs, false);
+  private final ConsoleView view = new ConsoleView("1.2", "http://h:1", logs, false, false);
   private final ConsoleView.Snapshot snap =
       new ConsoleView.Snapshot(
           "UP",
@@ -28,21 +27,32 @@ class ConsoleViewTest {
   @Test
   void showsHeaderCountsAndRuns() {
     final String all = text(screen(view, snap));
-    assertThat(all).contains("Yukta 1.2", "up 0h01m05s", "health UP", "running 2", "build");
+    assertThat(all).contains("YUKTA 1.2", "up 0h01m", "UP", "Running", "build");
     assertThat(screen(view, snap)).hasSize(20);
   }
 
   @Test
   void colorsOnlyWhenWanted() {
-    final var colored = new ConsoleView("1.2", "http://h:1", logs, true);
+    final var colored = new ConsoleView("1.2", "http://h:1", logs, true, true);
+    colored.onKey("x"); // any key ends the welcome box
     final String ansi =
         String.join(
             "",
-            colored.render(snap, Duration.ZERO, 80, 20).stream()
+            colored.render(snap, Duration.ZERO, 80, 20, 0).stream()
                 .map(AttributedString::toAnsi)
                 .toList());
-    assertThat(ansi).contains("\033[32mUP", "\033[31m3");
+    assertThat(ansi).contains("\033[").contains("UP");
     assertThat(screen(view, snap)).allSatisfy(l -> assertThat(l.toAnsi()).doesNotContain("\033"));
+  }
+
+  @Test
+  void motionFollowsColourAndTheSwitch() {
+    assertThat(ConsoleView.motionWanted(java.util.Map.of("TERM", "xterm"))).isTrue();
+    assertThat(
+            ConsoleView.motionWanted(
+                java.util.Map.of("TERM", "xterm", "YUKTA_CONSOLE_ANIMATION", "off")))
+        .isFalse();
+    assertThat(ConsoleView.motionWanted(java.util.Map.of("TERM", "dumb"))).isFalse();
   }
 
   @Test
@@ -56,8 +66,8 @@ class ConsoleViewTest {
 
   @Test
   void drawsForAnUnsizedTerminal() {
-    assertThat(view.render(snap, Duration.ZERO, 0, 0)).hasSize(24);
-    assertThat(view.render(snap, Duration.ZERO, 10, 1)).hasSize(5);
+    assertThat(view.render(snap, Duration.ZERO, 0, 0, 0)).hasSize(24);
+    assertThat(view.render(snap, Duration.ZERO, 10, 1, 0)).hasSize(5);
   }
 
   @Test
@@ -96,11 +106,14 @@ class ConsoleViewTest {
   }
 
   @Test
-  void clipCountsColumnsNotCharacters() {
-    final var red = new AttributedString("abcdef", AttributedStyle.DEFAULT.foreground(1));
-    assertThat(ConsoleView.clip(red, 3).toString()).isEqualTo("abc");
+  void cellsClipByColumnsNotCharacters() {
+    final var cells = new Cells(3, 1);
+    cells.put(0, 0, "abcdef", ConsoleTheme.Role.TEXT);
+    assertThat(cells.lines(true).get(0).toString()).isEqualTo("abc");
     // a wide character takes two columns
-    assertThat(ConsoleView.clip(new AttributedString("你好a"), 3).toString()).isEqualTo("你");
+    final var wide = new Cells(3, 1);
+    wide.put(0, 0, "你好a", ConsoleTheme.Role.TEXT);
+    assertThat(wide.lines(false).get(0).toString()).isEqualTo("你");
   }
 
   @Test

@@ -18,7 +18,8 @@ import org.junit.jupiter.api.Test;
 /** Drives the real key loop through a fake terminal: no native build, no real tty. */
 class ConsoleRunnerKeysTest {
 
-  private final ConsoleView view = new ConsoleView("1.2", "http://h:1", new ConsoleLogs(), false);
+  private final ConsoleView view =
+      new ConsoleView("1.2", "http://h:1", new ConsoleLogs(), false, false);
 
   @Test
   void keysWorkWhileTheServerIsSlow() throws Exception {

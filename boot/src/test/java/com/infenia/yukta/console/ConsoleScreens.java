@@ -14,7 +14,7 @@ final class ConsoleScreens {
   /** The screen as drawn at 80x20 with a 65 second uptime. */
   /* default */ static List<AttributedString> screen(
       final ConsoleView view, final ConsoleView.Snapshot snap) {
-    return view.render(snap, Duration.ofSeconds(65), 80, 20);
+    return view.render(snap, Duration.ofSeconds(65), 80, 20, 0);
   }
 
   /* default */ static String text(final List<AttributedString> lines) {

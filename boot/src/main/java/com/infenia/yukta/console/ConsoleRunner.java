@@ -74,7 +74,8 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
             version,
             "http://127.0.0.1:" + port,
             ConsoleLogs.install(),
-            ConsoleView.colorWanted(System.getenv()));
+            ConsoleView.colorWanted(System.getenv()),
+            ConsoleView.motionWanted(System.getenv()));
     Thread.ofPlatform()
         .name("yukta-console")
         .daemon(true)
@@ -145,12 +146,10 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
           display.resize(size.getRows(), size.getColumns());
           display.clear();
         }
+        final Duration uptime = Duration.between(started, Instant.now());
         final List<AttributedString> lines =
             view.render(
-                snapRef.get(),
-                Duration.between(started, Instant.now()),
-                size.getColumns(),
-                size.getRows());
+                snapRef.get(), uptime, size.getColumns(), size.getRows(), uptime.toMillis());
         term.beginSynchronizedUpdate();
         display.update(lines, 0);
         term.endSynchronizedUpdate();
@@ -258,7 +257,7 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
             new ConsoleView.Run(
                 r.path("workflowId").asString(""),
                 r.path("status").asString(""),
-                r.path("startTime").asString("").replace('T', ' '),
+                time(r.path("startTime").asString("")),
                 r.path("initiator").asString("")));
       }
       final String health = get(base + "/actuator/health", key).path("status").asString("?");
@@ -274,6 +273,12 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
       Thread.currentThread().interrupt();
       return ConsoleView.Snapshot.NONE;
     }
+  }
+
+  /** The time of day of an ISO timestamp ({@code 2026-01-01T10:00:07.5Z} gives 10:00:07). */
+  private static String time(final String iso) {
+    final int t = iso.indexOf('T');
+    return t < 0 ? iso : iso.substring(t + 1, Math.min(iso.length(), t + 9));
   }
 
   private static JsonNode get(final String url, final String key)
