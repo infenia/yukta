@@ -34,7 +34,7 @@ expect 'web/src/A.java' "$affected" '":architecture :boot :e2e :plus:plus-archit
 expect 'mcp/src/A.java' "$affected" '":architecture :boot :e2e :mcp :plus:plus-architecture"'
 expect 'core/src/A.java' "$affected" \
   '":architecture :boot :core :e2e :mcp :plus :plus:persistence-postgres :plus:plus-architecture :plus:workers :web"'
-expect 'core/src/A.java' "$shards" '"platform infra e2e postgres-acceptance workers-acceptance plus-acceptance"'
+expect 'core/src/A.java' "$shards" '"platform infra e2e postgres-acceptance workers-acceptance"'
 # 31 modules: :plugins:processors:agent-session depends on :messaging, so it is rebuilt with it
 expect 'messaging/src/A.java' '.affected | length' '32'
 expect 'messaging/src/A.java' '.affected | index(":cli")' 'null'
@@ -51,7 +51,7 @@ expect 'plugins/processors/http-request/src/A.java' "$shards" '"platform infra p
 # The deepest module owns a path: plus/workers is not plus.
 expect 'plus/workers/src/A.java' "$affected" '":boot :e2e :plus:plus-architecture :plus:workers"'
 expect 'plus/workers/src/A.java' "$shards" '"platform infra e2e workers-acceptance"'
-expect 'plus/src/A.java' "$shards" '"platform infra e2e postgres-acceptance plus-acceptance"'
+expect 'plus/src/A.java' "$shards" '"platform infra e2e postgres-acceptance"'
 expect 'plus/persistence-postgres/src/A.java' "$shards" '"platform infra e2e postgres-acceptance"'
 
 # Leaf modules: the UI rebuilds boot (which embeds it) and runs E2E; the CLI stands alone.
@@ -61,7 +61,7 @@ expect 'cli/main.go' "$shards" '"cli"'
 expect 'cli/main.go' '.e2e' 'false'
 
 # A boot change runs all three acceptance suites.
-expect 'boot/src/A.java' "$shards" '"platform e2e postgres-acceptance workers-acceptance plus-acceptance"'
+expect 'boot/src/A.java' "$shards" '"platform e2e postgres-acceptance workers-acceptance"'
 
 # Lint covers the affected JVM modules; boot gets OpenGrep only, cli and ui none.
 expect 'web/src/A.java' '.lint' \
@@ -89,7 +89,7 @@ expect 'core/gradle.lockfile' '.full' 'false'
 
 # FULL=true (main, schedule, dispatch, `ci:full` label) runs every shard and E2E.
 got=$(FULL=true "$planner" </dev/null | jq -c '[([.shards[].name] | join(" ")), (.affected | length), .e2e]')
-want='["platform infra plugins cli ui e2e postgres-acceptance workers-acceptance plus-acceptance",35,true]'
+want='["platform infra plugins cli ui e2e postgres-acceptance workers-acceptance",35,true]'
 [ "$got" = "$want" ] || fail "FULL=true" "$want" "$got"
 
 # A dependency on a module missing from settings.gradle.kts must fail loudly, not be skipped.
