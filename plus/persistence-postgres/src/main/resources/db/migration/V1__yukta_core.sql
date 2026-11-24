@@ -302,6 +302,9 @@ CREATE TABLE agent_conversation (
     seq               BIGINT      NOT NULL,
     -- true once the oldest events were dropped and the notice that says so was written
     dropped           BOOLEAN     NOT NULL DEFAULT FALSE,
+    -- how many of its events are stored, notices left out: an append compares it with the bound
+    -- instead of counting the events
+    events            INT         NOT NULL DEFAULT 0,
     -- the latest settled screen of a terminal, as the event that carried it
     screen            JSONB
 );
