@@ -1,6 +1,6 @@
 # Design
 
-Why Yukta is built the way it is. Start with [architecture.md](architecture.md) for the picture, then read the ADR of the area you touch.
+Why Yukta is built the way it is. Start with [architecture.md](architecture.md) for the picture ([c4-architecture.md](c4-architecture.md) has it as C4 diagrams), then read the ADR of the area you touch.
 
 How the code works, and how to use it, is not here: see the module guides in [`docs/contributing/`](../docs/contributing/), the reference in [`docs/reference/`](../docs/reference/) and the `CLAUDE.md` of each module. Open work is in GitHub issues, not here.
 
