@@ -534,15 +534,20 @@ public final class R2dbcAgentConversationStore implements AgentConversationStore
         .map(this::screen);
   }
 
+  /** In batches ({@link Batches}); the events go with each conversation. */
   @Override
   public Mono<Long> purge(final Instant before) {
-    return client
-        .sql("DELETE FROM agent_conversation WHERE ended_at < :before RETURNING id")
-        .bind("before", before)
-        .map(row -> Objects.requireNonNull(row.get(ID, String.class)))
-        .all()
-        .doOnNext(rings::remove)
-        .count();
+    return Batches.repeat(size ->
+        client
+            .sql(
+                "DELETE FROM agent_conversation WHERE id IN (SELECT id FROM agent_conversation"
+                    + " WHERE ended_at < :before LIMIT :size) RETURNING id")
+            .bind("before", before)
+            .bind("size", size)
+            .map(row -> Objects.requireNonNull(row.get(ID, String.class)))
+            .all()
+            .doOnNext(rings::remove)
+            .count());
   }
 
   // ---- mapping

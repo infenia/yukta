@@ -116,4 +116,33 @@ class R2dbcNotificationStoreContractTest extends NotificationStoreContract {
         n.createdAt(),
         n.updatedAt());
   }
+
+  @Test
+  void dueDeliveries_returnAtMostOneBatch_theLongestDueFirst() {
+    final NotificationStore store = create();
+    db.sql(
+            "INSERT INTO notifications (id, notif_key, kind, severity, category, title, audience,"
+                + " state, count, seq, created_at, updated_at) VALUES ('n1', 'k', 'INFO', 'INFO',"
+                + " 'workflow', 'T', '[]', 'OPEN', 1, 1, now(), now())")
+        .fetch()
+        .rowsUpdated()
+        .block();
+    db.sql(
+            "INSERT INTO notification_deliveries (id, notification_id, channel, state, attempts,"
+                + " next_attempt) SELECT 'd' || g, 'n1', 'webhook:a', 'PENDING', 0,"
+                + " now() - make_interval(secs => g) FROM generate_series(1, 501) g")
+        .fetch()
+        .rowsUpdated()
+        .block();
+
+    final List<com.infenia.yukta.service.notify.NotificationDelivery> due =
+        store.dueDeliveries(Instant.now()).collectList().block();
+
+    // one tick takes 500; the newest due one waits for the next tick
+    org.assertj.core.api.Assertions.assertThat(due).hasSize(500);
+    org.assertj.core.api.Assertions.assertThat(due.getFirst().id()).isEqualTo("d501");
+    org.assertj.core.api.Assertions.assertThat(due)
+        .extracting(com.infenia.yukta.service.notify.NotificationDelivery::id)
+        .doesNotContain("d1");
+  }
 }
