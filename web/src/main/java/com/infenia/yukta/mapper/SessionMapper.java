@@ -60,6 +60,16 @@ public interface SessionMapper {
   SessionListItem sessionConfigResponseToSessionListItem(SessionConfigResponse response);
 
   /**
+   * Map a session summary to a list row (the newest run is added by the controller).
+   *
+   * @param summary the summary
+   * @return the row
+   */
+  @Mapping(target = "tags", expression = "java(java.util.List.copyOf(summary.tags().keySet()))")
+  @Mapping(target = "lastRun", ignore = true)
+  SessionListItem summaryToSessionListItem(com.infenia.yukta.model.session.SessionSummary summary);
+
+  /**
    * Map session configuration response to session details for the detail page.
    *
    * <p>Extracts all metadata (name, description, initiator, tags, projectPath) and workflow IDs
