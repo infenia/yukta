@@ -1,0 +1,24 @@
+◉─● YUKTA 0.1.0 │ :9858 │ ● UP │ up 0h12m                                       
+· Orchestrating 3 runs… (12s · 2 queued)                                        
+ Dashboard   Runs   Logs   Help                                                 
+────────────────────────────────────────────────────────────────────────────────
+ q   quit the server                                                            
+ d   dashboard                                                                  
+ l   full logs (toggle)                                                         
+ r   runs (toggle)                                                              
+ f   cycle the log level filter                                                 
+ ↑ ↓ PgUp PgDn   scroll, G or End to follow                                     
+ ← →   previous / next tab                                                      
+ m   mouse: wheel scrolls, tabs click; off lets you select text                 
+ ?   this help                                                                  
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+ q  Quit  d  Dash  l  Logs  r  Runs  ?  Help  f  INFO  ↑↓  Scroll  m  Mouse     

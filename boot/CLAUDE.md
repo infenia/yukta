@@ -12,6 +12,9 @@ Spring Boot application entry point and application-level configuration.
 yk gradle nativeCompile
 ```
 
+## Console
+Work on the interactive console without a native build: `yk gradle :boot:consolePreviewArgs`, then `java @boot/build/console-preview.args` in a real terminal (see `../docs/contributing/modules/boot.mdx`, "Work on the console").
+
 ## Configuration
 - `src/main/resources/application.yaml`: Application configuration.
 - `../docs/contributing/modules/boot.mdx` (module guide); open risks, bugs and review findings: GitHub issues labelled `boot` (`gh issue list -l boot`; risks also carry `risk`).

@@ -1,0 +1,12 @@
+◉─● YUKTA 0.1.0 │ :9858 │ ● UP          
+· Orchestrating 3 runs… (12s · 2 queued)
+ Dashboard   Runs   Logs   Help         
+────────────────────────────────────────
+running 3  queued 2  failed 1           
+────────────────────────────────────────
+  WORKFLOW                STATUS      ST
+⠋ nightly-build           RUNNING     10
+⠋ deploy-staging          RUNNING     10
+                                        
+                                        
+ q  Quit  d  Dash  l  Logs  r  Runs     

@@ -1,0 +1,40 @@
+◉─● YUKTA 0.1.0 │ :9858 │ ● UP │ up 0h12m                                                                               
+· Orchestrating 3 runs… (12s · 2 queued)                                                                                
+ Dashboard   Runs   Logs   Help                                                                                         
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Running [██████▊           ]  3  ▂▂▃▄▅▇█▆▄▃▃▄▅▄                                                                         
+Queued  [████▌             ]  2  ▁▃▃▆██▆▃▃▆█▆▆▆                                                                         
+Failed  [██▎               ]  1  ▁▁▁████▁▁▁████                                                                         
+                                                                                                                        
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  WORKFLOW                STATUS      STARTED     BY                                                                    
+⠋ nightly-build           RUNNING     10:41:07    ci-bot                                                                
+⠋ deploy-staging          RUNNING     10:42:30    arun                                                                  
+⠋ lint-and-test           RUNNING     10:43:02    arun                                                                  
+◌ data-sync               QUEUED      10:43:15    cron                                                                  
+◌ quality-gate            QUEUED      10:43:20    mcp                                                                   
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+10:43:20.502 INFO  RunService : run 7f3a started by mcp                                                                 
+10:43:21.017 INFO  Node : lint-and-test/compile finished in 4.2s                                                        
+10:43:22.140 WARN  Retry : data-sync attempt 2 of 3                                                                     
+10:43:23.900 INFO  Node : deploy-staging/push finished in 1.8s                                                          
+10:43:24.310 ERROR Postgres : connection reset, retrying                                                                
+10:43:25.002 INFO  RunService : run 91bc queued                                                                         
+10:43:26.114 INFO  Node : nightly-build/test finished in 31.0s                                                          
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+ q  Quit  d  Dash  l  Logs  r  Runs  ?  Help  f  INFO  ↑↓  Scroll  m  Mouse                                             
