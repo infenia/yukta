@@ -385,6 +385,24 @@ jobs:
           subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
 
+      # The attestations above live in GitHub's store. This puts them next to the files as one
+      # <name>.intoto.jsonl (the name OpenSSF Scorecard and SLSA verifiers look for in the release assets);
+      # `gh attestation verify` in the next job still checks the originals.
+      - name: Attach the provenance to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          out="yukta-${TAG#v}.intoto.jsonl"
+          mkdir "$RUNNER_TEMP/prov" && cd "$RUNNER_TEMP/prov"
+          for subject in "$GITHUB_WORKSPACE"/dist/cli/yukta-cli-* "$GITHUB_WORKSPACE"/dist/*/yukta \
+              "$GITHUB_WORKSPACE"/dist/windows-amd64/yukta.exe "oci://$IMAGE:${TAG#v}"; do
+            gh attestation download "$subject" -R "$GITHUB_REPOSITORY"   # writes sha256:<digest>.jsonl
+          done
+          cat sha256:*.jsonl | sort -u > "$out"
+          [ -s "$out" ] || { echo "::error::no attestations found for $TAG"; exit 1; }
+          gh release upload "$TAG" "$out" -R "$GITHUB_REPOSITORY"
+
   # Installs what was just uploaded the way a user would, before anyone publishes the draft.
   verify:
     name: Test the draft
