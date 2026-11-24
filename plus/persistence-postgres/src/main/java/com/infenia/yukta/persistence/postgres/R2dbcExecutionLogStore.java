@@ -739,17 +739,19 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
   }
 
   private Mono<List<ExecutionLogEvent>> parse(final Mono<List<String>> rows) {
-    return rows.map(list -> {
-      final List<ExecutionLogEvent> events = new ArrayList<>();
-      for (final String row : list) {
-        try {
-          events.add(mapper.readValue(row, ExecutionLogEvent.class));
-        } catch (final RuntimeException e) {
-          log.atWarn().setCause(e).log("Skipping an unreadable execution log row");
-        }
-      }
-      return events;
-    });
+    // off the driver's event loop: parsing a large log would stall every query on that thread
+    return rows.publishOn(Schedulers.boundedElastic())
+        .map(list -> {
+          final List<ExecutionLogEvent> events = new ArrayList<>();
+          for (final String row : list) {
+            try {
+              events.add(mapper.readValue(row, ExecutionLogEvent.class));
+            } catch (final RuntimeException e) {
+              log.atWarn().setCause(e).log("Skipping an unreadable execution log row");
+            }
+          }
+          return events;
+        });
   }
 
   /**
