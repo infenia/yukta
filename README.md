@@ -17,10 +17,9 @@
   <a href="https://github.com/infenia/yukta/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/infenia/yukta/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/infenia/yukta/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/infenia/yukta/actions/workflows/codeql.yml/badge.svg"></a>
   <a href="https://codecov.io/gh/infenia/yukta"><img alt="Coverage" src="https://codecov.io/gh/infenia/yukta/branch/main/graph/badge.svg"></a>
-  <a href="https://scorecard.dev/viewer/?uri=github.com/infenia/yukta"><img alt="OpenSSF Scorecard" src="https://api.scorecard.dev/projects/github.com/infenia/yukta/badge"></a>
-  <a href="https://github.com/infenia/yukta/releases"><img alt="Release" src="https://img.shields.io/github/v/release/infenia/yukta?include_prereleases"></a>
+  <a href="https://scorecard.dev/viewer/?uri=github.com/infenia/yukta"><img alt="OpenSSF Scorecard" src="https://img.shields.io/ossf-scorecard/github.com/infenia/yukta?label=openssf+scorecard"></a>
+  <a href="https://github.com/infenia/yukta/releases"><img alt="Release" src="https://img.shields.io/github/v/tag/infenia/yukta?sort=semver&include_prereleases"></a>
   <a href="LICENSING.md"><img alt="License: Apache 2.0, with AGPL-3.0 for plus/" src="https://img.shields.io/badge/license-Apache%202.0%20%2B%20AGPL--3.0-blue"></a>
-  <a href="https://github.com/infenia/yukta/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/infenia/yukta?style=social"></a>
 </p>
 
 <picture>
