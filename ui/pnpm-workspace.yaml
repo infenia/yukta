@@ -9,3 +9,5 @@ overrides:
   "undici@>=7 <8": 7.30.1
   "undici@>=8": 8.12.2
   systeminformation: 5.33.16
+  # shadcn (ts-morph 0.27) and older typescript-estree copies still pin minimatch 10.x (GHSA-g3hv-75wg-m249). Dev-only.
+  "minimatch@>=7 <11": 11.0.5
