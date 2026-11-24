@@ -23,9 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.LongSupplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.SmartLifecycle;
-import org.springframework.r2dbc.connection.R2dbcTransactionManager;
 import org.springframework.r2dbc.core.DatabaseClient;
-import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -37,9 +35,9 @@ import tools.jackson.databind.ObjectMapper;
  * Keeps the execution log in PostgreSQL.
  *
  * <p>All database work runs through one serial pipeline, so no thread is parked: {@link #append}
- * only queues the event and schedules a drain; {@link #readAll} and {@link #replaceAll} are queued
- * behind it, so they see every event appended before. After {@code compact-after} events the log is
- * trimmed to the newest {@code retained-runs} runs; a run without an end is never dropped.
+ * only queues the event and schedules a drain; {@link #readAll} and {@link #applyRecovery} are
+ * queued behind it, so they see every event appended before. After {@code compact-after} events the
+ * log is trimmed to the newest {@code retained-runs} runs; a run without an end is never dropped.
  *
  * <p>The events that start and end a run are never dropped for a full queue: they wait in a second,
  * unbounded queue (one entry per run, so it stays small) that the drain empties after the batches.
@@ -54,8 +52,7 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.AvoidCatchingGenericException",
   "PMD.GodClass",
   "PMD.TooManyMethods",
-  "PMD.CouplingBetweenObjects",
-  "PMD.ExcessiveImports"
+  "PMD.CouplingBetweenObjects"
 })
 public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle {
 
@@ -449,37 +446,62 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
   }
 
   /**
-   * Swaps the log for {@code events} in one transaction: a crash, a lost connection or a failed
-   * insert rolls everything back and leaves the old log, never an empty or partial one.
+   * Applies recovery's decision in one transaction, under the lease lock: deletes the dropped runs
+   * by id (index {@code execution_log_run}), trims the scheduler changes and appends the new run
+   * ends. Only what changes is written, so a restart no longer rewrites the whole log; a failure
+   * rolls everything back and leaves the old log.
    */
   @Override
-  public Mono<Void> replaceAll(final List<ExecutionLogEvent> events) {
+  public Mono<Void> applyRecovery(
+      final java.util.Set<String> dropped,
+      final int schedulerKept,
+      final List<ExecutionLogEvent> added) {
     return serial(
             drainAll()
                 .then(
                     Mono.defer(() -> {
-                      final TransactionalOperator transaction =
-                          TransactionalOperator.create(
-                              new R2dbcTransactionManager(client.getConnectionFactory()));
-                      final List<String> json = events.stream().map(this::json).toList();
-                      return lockLease()
-                          .then(client.sql("DELETE FROM execution_log").fetch().rowsUpdated())
-                          .thenMany(
-                              Flux.range(0, (events.size() + BATCH_SIZE - 1) / BATCH_SIZE)
-                                  .concatMap(chunk -> {
-                                    final int start = chunk * BATCH_SIZE;
-                                    final int end = Math.min(events.size(), start + BATCH_SIZE);
-                                    return batchInsert(
-                                            events.subList(start, end), json.subList(start, end))
-                                        .fetch()
-                                        .rowsUpdated();
-                                  }))
-                          .then()
-                          .as(transaction::transactional)
-                          .timeout(REWRITE_TIMEOUT);
+                      final List<String> json = added.stream().map(this::json).toList();
+                      final Mono<Void> work =
+                          lockLease()
+                              .then(
+                                  client
+                                      .sql(
+                                          "DELETE FROM execution_log"
+                                              + " WHERE execution_id = ANY(CAST(:gone AS text[]))")
+                                      .bind("gone", dropped.toArray(String[]::new))
+                                      .fetch()
+                                      .rowsUpdated())
+                              .then(trimScheduler(schedulerKept))
+                              .thenMany(
+                                  Flux.range(0, (added.size() + BATCH_SIZE - 1) / BATCH_SIZE)
+                                      .concatMap(chunk -> {
+                                        final int start = chunk * BATCH_SIZE;
+                                        final int end = Math.min(added.size(), start + BATCH_SIZE);
+                                        return batchInsert(
+                                                added.subList(start, end), json.subList(start, end))
+                                            .fetch()
+                                            .rowsUpdated();
+                                      }))
+                              .then();
+                      return Transactions.inTransaction(client, work).timeout(REWRITE_TIMEOUT);
                     }))
                 .then(Mono.just(Boolean.TRUE)))
         .then();
+  }
+
+  /** Keeps the newest {@code kept} scheduler changes, the changes that belong to no run. */
+  private Mono<Long> trimScheduler(final int kept) {
+    return client
+        .sql(
+            """
+            DELETE FROM execution_log WHERE execution_id = :scheduler AND seq NOT IN (
+              SELECT seq FROM execution_log WHERE execution_id = :scheduler
+              ORDER BY seq DESC LIMIT :runs)
+            """)
+        .bind("scheduler", SCHEDULER)
+        .bind("runs", kept)
+        .fetch()
+        .rowsUpdated();
   }
 
   @Override
@@ -743,19 +765,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
                 .fetch()
                 .rowsUpdated()
                 .timeout(STATEMENT_TIMEOUT)
-                .then(
-                    client
-                        .sql(
-                            """
-                            DELETE FROM execution_log WHERE execution_id = :scheduler AND seq NOT IN (
-                              SELECT seq FROM execution_log WHERE execution_id = :scheduler
-                              ORDER BY seq DESC LIMIT :runs)
-                            """)
-                        .bind("scheduler", SCHEDULER)
-                        .bind("runs", retainedRuns)
-                        .fetch()
-                        .rowsUpdated()
-                        .timeout(STATEMENT_TIMEOUT))
+                .then(trimScheduler(retainedRuns).timeout(STATEMENT_TIMEOUT))
                 .then())
         .onErrorResume(error -> {
           log.atError().setCause(error).log("Could not trim the execution log");

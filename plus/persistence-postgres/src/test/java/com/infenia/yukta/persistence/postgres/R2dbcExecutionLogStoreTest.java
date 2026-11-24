@@ -32,6 +32,8 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   private final java.util.concurrent.CountDownLatch release =
       new java.util.concurrent.CountDownLatch(1);
 
+  private static final String OLD = "old";
+
   private static final String REASON = "reason";
 
   private static final String WRITE_FAILED = "write_failed";
@@ -100,28 +102,31 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void replaceAllSwapsTheWholeLog() {
-    store.append(started("old"));
+  void applyRecoveryDeletesOnlyTheDroppedRuns_andAppendsTheNewEvents() {
+    store.append(started(OLD));
+    store.append(started("kept"));
 
-    store.replaceAll(List.of(started("new1"), started("new2"))).block();
+    store
+        .applyRecovery(java.util.Set.of(OLD), 0, List.of(started("new1"), started("new2")))
+        .block();
 
     assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
-        .containsExactly("new1", "new2");
+        .containsExactly("kept", "new1", "new2");
   }
 
   @Test
-  void replaceAllThatFails_keepsTheOldLog() {
-    store.append(started("old"));
+  void applyRecoveryThatFails_keepsTheOldLog() {
+    store.append(started(OLD));
     store.readAll().collectList().block();
     // PostgreSQL text cannot hold a NUL character, so the second insert fails
     final ExecutionLogEvent unwritable = started(UNWRITABLE);
 
-    store.replaceAll(List.of(started("new1"), unwritable)).block();
+    store.applyRecovery(java.util.Set.of(OLD), 0, List.of(started("new1"), unwritable)).block();
 
     assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)
-        .containsExactly("old");
+        .containsExactly(OLD);
   }
 
   @Test
@@ -135,11 +140,11 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void replaceAllWritesMoreThanOneBatch() {
+  void applyRecoveryWritesMoreThanOneBatch() {
     final List<ExecutionLogEvent> events =
         java.util.stream.IntStream.range(0, 250).mapToObj(i -> started("r" + i)).toList();
 
-    store.replaceAll(events).block();
+    store.applyRecovery(java.util.Set.of(), 0, events).block();
 
     assertThat(store.readAll().collectList().block()).hasSize(250);
   }
@@ -372,7 +377,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     try {
       trimming.append(started("r1"));
       assertThat(trimming.readAll().collectList().block()).isEmpty();
-      trimming.replaceAll(List.of(started("r2"))).block();
+      trimming.applyRecovery(java.util.Set.of("r1"), 0, List.of(started("r2"))).block();
       closeAndWait(trimming);
     } finally {
       db.sql("ALTER TABLE execution_log_gone RENAME TO execution_log")
@@ -553,7 +558,7 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     leaseAt(2); // another server took over
     leader.append(started("r2"));
     leader.append(finished("r2"));
-    leader.replaceAll(List.of(started("r3"))).block();
+    leader.applyRecovery(java.util.Set.of("r1"), 0, List.of(started("r3"))).block();
 
     assertThat(leader.readAll().collectList().block())
         .extracting(ExecutionLogEvent::executionId)

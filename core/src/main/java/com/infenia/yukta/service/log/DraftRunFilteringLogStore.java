@@ -34,8 +34,9 @@ public class DraftRunFilteringLogStore implements ExecutionLogStore {
   }
 
   @Override
-  public Mono<Void> replaceAll(final List<ExecutionLogEvent> events) {
-    return delegate.replaceAll(events);
+  public Mono<Void> applyRecovery(
+      final Set<String> dropped, final int schedulerKept, final List<ExecutionLogEvent> added) {
+    return delegate.applyRecovery(dropped, schedulerKept, added);
   }
 
   @Override
