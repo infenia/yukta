@@ -174,7 +174,7 @@ Provides the two connections the module needs: R2DBC for all run-time statements
 
 - **Guarantees.** Every statement has a timeout where it blocks; a timeout is logged and turned into a safe default.
 - **State.** The connection pool belongs to Spring Boot's R2DBC auto-configuration, not to this module.
-- **Ceiling.** Pool size and R2DBC pool metrics are not set or exposed here.
+- **Ceiling.** The `postgres` profile sizes the pool (`spring.r2dbc.pool.*`: 4 to 20 connections, at most 5 s to get or open one, connections renewed after 30 min) and sets the session's `statement_timeout` to 30 s (`spring.r2dbc.properties.statementTimeout`), so the server stops a statement the stores no longer wait for. Boot exposes the pool as `r2dbc.pool.*` meters. The leader lease shares this pool.
 - **On failure.** An unreachable database makes writes fail (logged) and reads return empty or "unfinished"; the application keeps running.
 
 **Settings:** `spring.r2dbc.url`, `spring.flyway.url`, `spring.flyway.user`, `spring.flyway.password`
