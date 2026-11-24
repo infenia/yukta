@@ -41,7 +41,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      # Only boot (behind -Pyukta.edition=plus) may use the AGPL plus module; a dependency anywhere
+      # Only boot (behind -Pyukta.edition=plus, -Pyukta.persistence=postgres or -Pyukta.workers=true) may use the AGPL plus module; a dependency anywhere
       # else would make the Apache-2.0 Community build AGPL as a whole.
       - name: Check that only boot depends on :plus
         run: |

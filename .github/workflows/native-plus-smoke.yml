@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: Native Plus smoke
+
+# The Plus flavour (AGPL-3.0-only, see LICENSING.md) as a native binary: built with
+# -Pyukta.persistence=postgres -Pyukta.workers=true and run against a PostgreSQL service. R2DBC, Flyway
+# and the PostgreSQL driver have never been compiled into a native image before; this shows what the
+# native-image metadata is missing without waiting for a release build. It checks that the binary starts
+# on the postgres profile, reports the Plus edition, runs the Quickstart, and keeps its session across
+# a restart. The Community build is checked by native-smoke.yml.
+on:
+  schedule:
+    - cron: '23 3 * * 1' # weekly, Monday 8:53 AM IST (03:23 UTC)
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Native Plus binary runs against PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: yukta
+          POSTGRES_USER: yukta
+          POSTGRES_PASSWORD: yukta-smoke
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U yukta -d yukta"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - name: Add swap
+        run: |
+          sudo fallocate -l 8G /mnt/extra.swap
+          sudo chmod 600 /mnt/extra.swap
+          sudo mkswap /mnt/extra.swap
+          sudo swapon /mnt/extra.swap
+          free -m
+
+      - name: Native compile (quick, Plus flavour)
+        env:
+          NATIVE_QUICK: '1'
+          NATIVE_HEAP: 12g
+          YUKTA_BUILD_FLAGS: -Pyukta.persistence=postgres -Pyukta.workers=true
+        run: release/build-server.sh
+
+      # The binary on the postgres profile: R2DBC for the stores, JDBC for Flyway's migrations.
+      - name: Smoke test, edition and restart
+        env:
+          SPRING_PROFILES_ACTIVE: prod,postgres
+          SPRING_R2DBC_URL: r2dbc:postgresql://127.0.0.1:5432/yukta
+          SPRING_R2DBC_USERNAME: yukta
+          SPRING_R2DBC_PASSWORD: yukta-smoke
+          SPRING_FLYWAY_URL: jdbc:postgresql://127.0.0.1:5432/yukta
+          SPRING_FLYWAY_USER: yukta
+          SPRING_FLYWAY_PASSWORD: yukta-smoke
+          YUKTA_API_KEYS_0_NAME: smoke
+          YUKTA_API_KEYS_0_KEY: native-plus-smoke-key
+          YUKTA_API_KEYS_0_ROLE: ADMIN
+        run: |
+          key=native-plus-smoke-key
+          base=http://127.0.0.1:9858
+          dist/linux-amd64/yukta >server.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true; cat server.log' EXIT
+          release/smoke-test.sh "$base" "$key"
+          edition="$(curl -fsS -H "X-API-Key: $key" "$base/api/edition")"
+          echo "$edition"
+          grep -q '"PLUS"' <<<"$edition" || { echo "::error::the binary does not report the Plus edition"; exit 1; }
+          grep -q '"postgres"' <<<"$edition" || { echo "::error::the binary does not list the postgres feature"; exit 1; }
+          # a restart keeps what the first run stored
+          kill "$pid"; wait "$pid" || true
+          dist/linux-amd64/yukta >server.log 2>&1 &
+          pid=$!
+          until curl -fs "$base/actuator/health" | grep -q '"status":"UP"'; do sleep 1; done
+          sessions="$(curl -fsS -H "X-API-Key: $key" "$base/api/sessions")"
+          grep -q '"demo"' <<<"$sessions" || { echo "::error::the session did not survive the restart: $sessions"; exit 1; }
+          echo "the Quickstart session survived the restart"

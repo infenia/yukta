@@ -42,6 +42,9 @@ ARG NATIVE_HEAP=16g
 # Any non-empty value builds with -Ob: much faster to compile, slower at run time. For rehearsals
 # and smoke tests only; never for a release.
 ARG NATIVE_QUICK=
+# Extra Gradle properties for the flavour of the build. The Plus flavour (AGPL-3.0-only, see
+# LICENSING.md) is "-Pyukta.persistence=postgres -Pyukta.workers=true"; empty is the Community build.
+ARG YUKTA_BUILD_FLAGS=
 
 # Keep the Gradle home and the pnpm store between builds (BuildKit cache mounts), so dependencies
 # download once on a machine. They live outside the image: nothing in the result depends on them.
@@ -51,7 +54,8 @@ ENV npm_config_store_dir=/pnpm-store
 RUN --mount=type=cache,target=/root/.gradle \
     --mount=type=cache,target=/pnpm-store \
     ./gradlew nativeCompile -x test --no-daemon --max-workers="$(nproc)" \
-      -Pnative.heap=${NATIVE_HEAP} -Pnative.static ${NATIVE_QUICK:+-Pnative.quick}
+      -Pnative.heap=${NATIVE_HEAP} -Pnative.static ${NATIVE_QUICK:+-Pnative.quick} \
+      ${YUKTA_BUILD_FLAGS}
 
 # Stage 2: Copy binary (UPX compression attempted but not critical for image size)
 FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS compressor

@@ -33,6 +33,7 @@ peak_log="$(mktemp)"
 sampler=$!
 docker build --target builder --build-arg "NATIVE_HEAP=$heap" \
   --build-arg "NATIVE_QUICK=${NATIVE_QUICK:-}" \
+  --build-arg "YUKTA_BUILD_FLAGS=${YUKTA_BUILD_FLAGS:-}" \
   -t "yukta-builder:$platform" "$REPO_ROOT"
 kill "$sampler" 2>/dev/null || true
 sort -n "$peak_log" | tail -1 | awk '{print "peak machine memory used: " $1 " MB"}'
