@@ -84,7 +84,7 @@ import java.util.function.Predicate;
     final String rest = " " + m.version() + " │ " + port + " │ ";
     g.put(0, 9, rest, Role.DIM);
     final boolean up = UP.equals(health);
-    final String dot = up ? (Math.floorMod(frame / 5, 2L) == 0 ? "●" : "◉") : "✗";
+    final String dot = up ? (Math.floorMod(frame / 5, 2L) == 0 ? "●" : "◉") : "×";
     g.put(0, 9 + rest.length(), dot + " " + health, up ? Role.OK : Role.FAIL);
     final String uptime =
         String.format(" │ up %dh%02dm", m.uptime().toHours(), m.uptime().toMinutesPart());
@@ -116,7 +116,7 @@ import java.util.function.Predicate;
             Role.DIM);
       }
     } else {
-      g.put(1, 0, "✗ Server unreachable", Role.FAIL);
+      g.put(1, 0, "× Server unreachable", Role.FAIL);
       g.put(1, 21, " retrying…", Role.DIM);
     }
   }
@@ -285,7 +285,7 @@ import java.util.function.Predicate;
     return switch (status) {
       case "RUNNING" -> motion ? ConsoleTheme.braille(frame) : "*";
       case "SUCCESS" -> "●";
-      case "FAILURE", "TIMED_OUT" -> "✗";
+      case "FAILURE", "TIMED_OUT" -> "×";
       case "QUEUED" -> "◌";
       default -> "‖";
     };

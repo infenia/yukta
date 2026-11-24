@@ -9,7 +9,7 @@ Failed  [██▎               ]  1  ▁▁▁████▁▁▁███�
 ────────────────────────────────────────────────────────────────────────────────
   WORKFLOW                STATUS      STARTED     BY                            
 ● release-notes           SUCCESS     10:38:11    arun                          
-✗ backup-db               FAILURE     10:30:00    cron                          
+× backup-db               FAILURE     10:30:00    cron                          
 ● docs-publish            SUCCESS     10:21:44    ci-bot                        
 ‖ index-search            PAUSED      10:12:08    arun                          
 ────────────────────────────────────────────────────────────────────────────────

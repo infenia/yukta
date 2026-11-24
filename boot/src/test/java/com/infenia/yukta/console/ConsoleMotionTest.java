@@ -99,7 +99,7 @@ class ConsoleMotionTest {
                     "a-very-long-workflow-name-that-cannot-fit", "TIMED_OUT", "t", "u"),
                 new ConsoleView.Run("b", "CANCELLED", "t", "u")));
     final String screen = text(draw(view, odd, 5000));
-    assertThat(screen).contains("a-very-long-workflow-na ").contains("✗").contains("‖");
+    assertThat(screen).contains("a-very-long-workflow-na ").contains("×").contains("‖");
   }
 
   @Test

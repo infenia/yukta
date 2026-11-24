@@ -1,5 +1,5 @@
-◉─● YUKTA 0.1.0 │ :9858 │ ✗ DOWN │ up 0h12m                                     
-✗ Server unreachable  retrying…                                                 
+◉─● YUKTA 0.1.0 │ :9858 │ × DOWN │ up 0h12m                                     
+× Server unreachable  retrying…                                                 
  Dashboard   Runs   Logs   Help                                                 
 ────────────────────────────────────────────────────────────────────────────────
 No data: the server is not answering                                            
