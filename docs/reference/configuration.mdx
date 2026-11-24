@@ -331,7 +331,8 @@ All of these are read at start; none changes while the server runs. The log leve
 |---|---|---|
 | `yukta.run-mode` (`YUKTA_MODE`, `--mode=console\|plain\|daemon`, `--plain`) | `console` on a terminal, else `plain` | How the server runs: with a live console, plain log lines, or detached as a daemon (`yukta start`). |
 | `YUKTA_HOME` | `$XDG_STATE_HOME/yukta`, else `~/.local/state/yukta` | Folder of the daemon's pid and log files. `yukta-cli` reads the same folder. |
-| `NO_COLOR`, `TERM=dumb` | unset | Turn off colour in the console. |
+| `NO_COLOR`, `TERM=dumb` | unset | Turn off colour (and with it all motion) in the console. |
+| `YUKTA_CONSOLE_ANIMATION` | unset | `off` keeps the console's colours but turns off its spinners, welcome box, shimmer and page slide. |
 
 ## Fixed limits
 

@@ -595,6 +595,20 @@ JVM vs native.
 | /assets/\*\* | SPA host | none |
 | any other GET | SPA host (index.html) | none |
 
+## Work on the console
+
+The console (`boot/.../console/`) is drawn by `ConsolePainter` onto a grid of characters and colour roles, so a frame is a pure function of its inputs. No native build is needed to change it:
+
+```bash
+yk gradle :boot:test --tests 'com.infenia.yukta.console.*'   # keys, motion and the golden screens
+yk gradle :boot:consolePreviewArgs                           # once per change, a few seconds
+java @boot/build/console-preview.args [--slow] [--down]      # in a real terminal; q quits
+```
+
+`ConsolePreview` runs the real key loop on fake runs and logs (`--slow` makes each poll take five seconds, `--down` reports a dead server). To see it on the real server, `yk gradle :boot:bootJar`, then `java -jar boot/build/libs/boot-<version>.jar --mode=console` with `YUKTA_API_KEYS_0_KEY` set so the console can poll.
+
+`ConsoleGoldenTest` compares fourteen screens with `src/test/resources/console/*.txt` (characters) and `*.roles` (one role letter per cell). They came from the approved design mockup; change them only with a changed design.
+
 ## Architecture decisions
 
 <AccordionGroup>

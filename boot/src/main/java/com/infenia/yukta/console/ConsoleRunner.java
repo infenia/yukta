@@ -3,10 +3,6 @@
 package com.infenia.yukta.console;
 
 import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -17,7 +13,6 @@ import java.util.function.IntFunction;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
 import org.jline.terminal.Attributes;
-import org.jline.terminal.MouseEvent;
 import org.jline.terminal.Size;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
@@ -32,7 +27,6 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The interactive console: a full-screen dashboard on the terminal, fed by the server's own REST
@@ -50,8 +44,6 @@ import tools.jackson.databind.json.JsonMapper;
 })
 public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent> {
 
-  private static final JsonMapper JSON = JsonMapper.builder().build();
-  private static final HttpClient HTTP = HttpClient.newHttpClient();
   private static final int TICK_MS = 100;
 
   @Override
@@ -74,7 +66,8 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
             version,
             "http://127.0.0.1:" + port,
             ConsoleLogs.install(),
-            ConsoleView.colorWanted(System.getenv()));
+            ConsoleView.colorWanted(System.getenv()),
+            ConsoleView.motionWanted(System.getenv()));
     Thread.ofPlatform()
         .name("yukta-console")
         .daemon(true)
@@ -145,28 +138,35 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
           display.resize(size.getRows(), size.getColumns());
           display.clear();
         }
+        final Duration uptime = Duration.between(started, Instant.now());
         final List<AttributedString> lines =
             view.render(
-                snapRef.get(),
-                Duration.between(started, Instant.now()),
-                size.getColumns(),
-                size.getRows());
+                snapRef.get(), uptime, size.getColumns(), size.getRows(), uptime.toMillis());
         term.beginSynchronizedUpdate();
         display.update(lines, 0);
         term.endSynchronizedUpdate();
         term.flush();
-        final String k = key(term, reader, keys);
-        if ("m".equals(k) && term.hasMouseSupport()) {
-          mouse = toggleMouse(term, mouse);
-        } else if (k != null) {
-          view.onKey(k);
-        }
+        mouse = dispatch(term, view, key(term, reader, keys), mouse);
       }
     } finally {
       poll.interrupt();
       Runtime.getRuntime().removeShutdownHook(restore);
       restore(term, graphemes, mouse, saved);
     }
+  }
+
+  private static boolean dispatch(
+      final Terminal term, final ConsoleView view, final String k, final boolean mouse) {
+    if ("m".equals(k) && term.hasMouseSupport()) {
+      return toggleMouse(term, mouse);
+    }
+    if (k != null && k.startsWith("CLICK:")) {
+      final String[] at = k.split(":");
+      view.onClick(Integer.parseInt(at[1]), Integer.parseInt(at[2]));
+    } else if (k != null) {
+      view.onKey(k);
+    }
+    return mouse;
   }
 
   private static boolean toggleMouse(final Terminal term, final boolean mouse) {
@@ -197,19 +197,21 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
   /** The keys the console reacts to, by name (see {@link ConsoleView#onKey}). */
   private static KeyMap<String> keys(final Terminal term) {
     final KeyMap<String> map = new KeyMap<>();
-    for (final String c : List.of("q", "l", "r", "?", "f", "G", "m")) {
+    for (final String c : List.of("q", "d", "l", "r", "?", "f", "G", "m")) {
       map.bind(c, c);
     }
     // both the normal ([A) and the application keypad (OA) forms, plus what terminfo says
     bindKey(map, "UP", term, Capability.key_up, "\033[A", "\033OA");
     bindKey(map, "DOWN", term, Capability.key_down, "\033[B", "\033OB");
+    bindKey(map, "LEFT", term, Capability.key_left, "\033[D", "\033OD");
+    bindKey(map, "RIGHT", term, Capability.key_right, "\033[C", "\033OC");
     bindKey(map, "PGUP", term, Capability.key_ppage, "\033[5~");
     bindKey(map, "PGDN", term, Capability.key_npage, "\033[6~");
     bindKey(map, "HOME", term, Capability.key_home, "\033[H", "\033OH", "\033[1~");
     bindKey(map, "END", term, Capability.key_end, "\033[F", "\033OF", "\033[4~");
-    if (term.hasMouseSupport()) {
-      map.bind("MOUSE", KeyMap.key(term, Capability.key_mouse));
-    }
+    // the reports are read by ConsoleMouse (JLine's reader can wait for ever on a click's release)
+    map.bind("MOUSE", "\033[<");
+    map.bind("MOUSE_X10", "\033[M");
     map.setNomatch("");
     map.setUnicode("");
     return map;
@@ -239,29 +241,30 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
     }
     final String name = reader.readBinding(keys);
     if ("MOUSE".equals(name)) {
-      final MouseEvent e = term.readMouseEvent();
-      if (e.getType() == MouseEvent.Type.Wheel) {
-        return e.getButton() == MouseEvent.Button.WheelUp ? "UP" : "DOWN";
-      }
-      return null;
+      return ConsoleMouse.toKey(ConsoleMouse.readSgr(term.reader()));
+    }
+    if ("MOUSE_X10".equals(name)) {
+      return ConsoleMouse.toKey(ConsoleMouse.readX10(term.reader()));
     }
     return name == null || name.isEmpty() ? null : name;
   }
 
   private static ConsoleView.Snapshot poll(final String base, final String key, final int limit) {
     try {
-      final JsonNode counts = get(base + "/api/executions/counts", key).path("data");
-      final JsonNode runs = get(base + "/api/executions?limit=" + limit, key).path("data");
+      final JsonNode counts = ConsoleApi.get(base + "/api/executions/counts", key).path("data");
+      final JsonNode runs =
+          ConsoleApi.get(base + "/api/executions?limit=" + limit, key).path("data");
       final List<ConsoleView.Run> rows = new ArrayList<>();
       for (final JsonNode r : runs) {
         rows.add(
             new ConsoleView.Run(
                 r.path("workflowId").asString(""),
                 r.path("status").asString(""),
-                r.path("startTime").asString("").replace('T', ' '),
+                ConsoleApi.time(r.path("startTime").asString("")),
                 r.path("initiator").asString("")));
       }
-      final String health = get(base + "/actuator/health", key).path("status").asString("?");
+      final String health =
+          ConsoleApi.get(base + "/actuator/health", key).path("status").asString("?");
       return new ConsoleView.Snapshot(
           health,
           counts.path("running").asInt(0),
@@ -274,15 +277,5 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
       Thread.currentThread().interrupt();
       return ConsoleView.Snapshot.NONE;
     }
-  }
-
-  private static JsonNode get(final String url, final String key)
-      throws IOException, InterruptedException {
-    final HttpRequest.Builder b =
-        HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(2));
-    if (!key.isBlank()) {
-      b.header("Authorization", "Bearer " + key);
-    }
-    return JSON.readTree(HTTP.send(b.build(), HttpResponse.BodyHandlers.ofString()).body());
   }
 }

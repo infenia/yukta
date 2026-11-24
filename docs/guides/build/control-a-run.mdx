@@ -153,11 +153,11 @@ A node that waits for a person is answered through an [input request](/concepts/
 
 | Mode | What you get | Default when |
 |---|---|---|
-| `console` | A full-screen dashboard: version, URL, uptime, health, run counts, recent runs and a log pane | stdin and stdout are a terminal |
+| `console` | A full-screen dashboard: a welcome box at start, then version, URL, uptime, health, run meters with sparklines, recent runs with a spinner on running ones, and a log pane | stdin and stdout are a terminal |
 | `plain` | Log lines on stdout | not a terminal (service, container, pipe) |
 | `daemon` | A detached background process managed with the commands below | only through `yukta start` |
 
-In the console, `q` stops the server, `l` shows full-screen logs, `r` the longer run list, `f` cycles the log level filter and `?` helps. Set `NO_COLOR` for plain text.
+In the console, `q` stops the server, `l` shows full-screen logs, `r` the longer run list, `f` cycles the log level filter and `?` helps. Keys answer even while the server is slow or down. Set `NO_COLOR` for plain text, or `YUKTA_CONSOLE_ANIMATION=off` to keep the colours and drop the spinners, the welcome box and the other motion.
 
 ```bash
 yukta start      # detached, plain mode; waits until /actuator/health answers
