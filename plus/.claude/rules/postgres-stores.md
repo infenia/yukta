@@ -10,7 +10,7 @@ Moved from `core/CLAUDE.md`; loads when you touch `plus/persistence-postgres`.
 ### PostgreSQL stores (`plus/persistence-postgres`, optional, AGPL)
 `yukta.session.store-type=postgres` (profile `postgres`, build with `-Pyukta.persistence=postgres`)
 selects `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (definitions plus the newest 20
-versions) and `R2dbcExecutionLogStore` (reactive reads, one serial write pipeline, a `SmartLifecycle` that flushes on stop; trims to the newest
+versions) and `R2dbcExecutionLogStore` (reactive reads, one serial write pipeline that a read only waits on to drain the events before it, then queries outside it, a `SmartLifecycle` that flushes on stop; trims to the newest
 `retained-runs` runs and never drops a run without an end). Schema: one Flyway migration, `V1__yukta_core.sql` (the alpha schema, squashed again on 2026-11-24: recreate an older database; while alpha, change V1 rather than adding V2). `execution_log` repeats the event `type` and `ts` as columns (indexes `(execution_id, seq)`, `(type, seq)`, partial `execution_log_run_edge` on run starts and ends, which the log trim reads instead of the whole log); `input_request` has partial indexes `input_request_due` (`LEAST(deadline, tier_deadline)`), `input_request_answered` and `input_request_purge`, so queries must repeat their predicates. In
 `plus/persistence-postgres/src/main/resources/db/migration` (applied over JDBC from `spring.flyway.url`);
 run time uses R2DBC (`spring.r2dbc.url`). The in-memory defaults step aside when the type is

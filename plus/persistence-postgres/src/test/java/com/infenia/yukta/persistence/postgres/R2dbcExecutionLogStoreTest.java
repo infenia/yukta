@@ -290,6 +290,45 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void slowRead_doesNotHoldBackTheAppendsBehindIt() throws Exception {
+    // parsing the "slow" run takes 3 s; the read used to hold the write pipeline that long
+    final ObjectMapper real = new ObjectMapper();
+    final ObjectMapper slow = org.mockito.Mockito.spy(real);
+    org.mockito.Mockito.doAnswer(
+            call -> {
+              final String row = call.getArgument(0);
+              if (row.contains("\"slow\"")) {
+                Thread.sleep(3_000); // nosem: yukta-test-thread-sleep
+              }
+              return call.callRealMethod();
+            })
+        .when(slow)
+        .readValue(
+            org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.<Class<ExecutionLogEvent>>any());
+    final R2dbcExecutionLogStore reads = new R2dbcExecutionLogStore(db, slow, 2, 1_000, 5_000);
+    reads.append(started("slow"));
+    reads.forExecution("other").collectList().block(); // the start is written
+
+    final var read = reads.forExecution("slow").collectList().toFuture();
+    reads.append(started("fast"));
+
+    org.awaitility.Awaitility.await()
+        .atMost(java.time.Duration.ofMillis(1_500))
+        .until(() ->
+            Long.valueOf(1L)
+                .equals(
+                    db.sql("SELECT count(*) AS n FROM execution_log WHERE execution_id = 'fast'")
+                        .map(row -> row.get("n", Long.class))
+                        .one()
+                        .block()));
+    assertThat(read.get(10, java.util.concurrent.TimeUnit.SECONDS))
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("slow");
+    closeAndWait(reads);
+  }
+
+  @Test
   void cancelledRead_givesUpQuietly() {
     // a busy writer, so the read waits behind it on a boundedElastic thread
     final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
