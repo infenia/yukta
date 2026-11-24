@@ -182,7 +182,7 @@ GET /api/sessions?limit=2
 
 `GET /api/sessions/summaries`
 
-Returns one lean row per session, ordered by session id, for tables. Only the sessions on the requested page are read. A session that cannot be read is skipped. It takes the same `limit` and `cursor` parameters and the same `X-Next-Cursor` header as the list above.
+Returns one lean row per session, ordered by session id, for tables. The rows come from one read of the session settings and workflow counts; the workflow definitions are not loaded. A session that cannot be read is skipped. It takes the same `limit` and `cursor` parameters and the same `X-Next-Cursor` header as the list above.
 
 **Response `data`**: an array of rows.
 
