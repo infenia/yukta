@@ -73,19 +73,26 @@ abstract class PostgresTestSupport {
         .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
         .load()
         .migrate();
-    final ConnectionFactory connectionFactory =
-        ConnectionFactories.get(
-            "r2dbc:postgresql://"
-                + POSTGRES.getUsername()
-                + ":"
-                + POSTGRES.getPassword()
-                + "@"
-                + POSTGRES.getHost()
-                + ":"
-                + POSTGRES.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT)
-                + "/"
-                + POSTGRES.getDatabaseName());
+    final ConnectionFactory connectionFactory = ConnectionFactories.get(r2dbcUrl());
     db = DatabaseClient.create(connectionFactory);
+  }
+
+  /**
+   * The R2DBC URL of the database, with the credentials in it.
+   *
+   * @return the URL
+   */
+  protected static String r2dbcUrl() {
+    return "r2dbc:postgresql://"
+        + POSTGRES.getUsername()
+        + ":"
+        + POSTGRES.getPassword()
+        + "@"
+        + POSTGRES.getHost()
+        + ":"
+        + POSTGRES.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT)
+        + "/"
+        + POSTGRES.getDatabaseName();
   }
 
   /**

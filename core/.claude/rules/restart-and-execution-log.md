@@ -38,7 +38,8 @@ Reference for the restart archive, checkpoints, resume and the execution log (an
   does not run those nodes again. A resume claim is dropped if the caller cancels.
 - Run starts and ends go to an `ExecutionLogStore`. By default it is in memory and trimmed (`LogRetention`: the newest `retained-runs`, never a run without an end, every `compact-after` events); `yukta.session.store-type=postgres` keeps it in PostgreSQL. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
-  `yukta.execution-log.retained-runs` (default 500) into history, and rewrites the log without
-  older ones. The log is compacted to the newest `retained-runs` runs after every
+  `yukta.execution-log.retained-runs` (default 500) into history, and calls
+  `ExecutionLogStore.applyRecovery` (drop the older runs, trim scheduler entries, append the abort
+  events; PostgreSQL does it in one transaction and writes only the difference). The log is compacted to the newest `retained-runs` runs after every
   `yukta.execution-log.compact-after` (default 10000) events. Compaction and recovery keep the
   newest runs by their last event, and compaction never drops a run without an end.

@@ -101,11 +101,11 @@ A workflow run is logged, each node leaves its output, the server crashes, and a
 
 </Step>
 <Step title="Restart recovery">
-**What happens.** On start (or when a standby takes over) core reads the whole log, marks runs without an end ABORTED, and rewrites the log without the oldest runs with `replaceAll`: delete every row, then insert the kept events one by one.
+**What happens.** On start (or when a standby takes over) core reads the whole log, marks runs without an end ABORTED, and calls `applyRecovery`: in one transaction, under the lease lock, it deletes the runs it drops by id, trims the scheduler entries and appends the abort events. Rows that do not change are not touched.
 
-**Why it works this way.** The rewrite keeps the log bounded and records the abort of each interrupted run.
+**Why it works this way.** It keeps the log bounded and records the abort of each interrupted run, and writes only the difference (a few rows), not the whole log.
 
-**Can go wrong.** The rewrite is not in a transaction. A crash after the delete and before the inserts finish loses the log, and with it the means to resume anything.
+**Can go wrong.** The read still loads the whole retained log into memory (500 runs by default). A failure rolls the transaction back and leaves the old log.
 
 </Step>
 <Step title="Resume">
@@ -174,7 +174,7 @@ Provides the two connections the module needs: R2DBC for all run-time statements
 
 - **Guarantees.** Every statement has a timeout where it blocks; a timeout is logged and turned into a safe default.
 - **State.** The connection pool belongs to Spring Boot's R2DBC auto-configuration, not to this module.
-- **Ceiling.** Pool size and R2DBC pool metrics are not set or exposed here.
+- **Ceiling.** The `postgres` profile sizes the pool (`spring.r2dbc.pool.*`: 4 to 20 connections, at most 5 s to get or open one, connections renewed after 30 min) and sets the session's `statement_timeout` to 30 s (`spring.r2dbc.properties.statementTimeout`), so the server stops a statement the stores no longer wait for. Boot exposes the pool as `r2dbc.pool.*` meters. The leader lease shares this pool.
 - **On failure.** An unreachable database makes writes fail (logged) and reads return empty or "unfinished"; the application keeps running.
 
 **Settings:** `spring.r2dbc.url`, `spring.flyway.url`, `spring.flyway.user`, `spring.flyway.password`
@@ -223,15 +223,15 @@ Stores the workflow definitions of each session with their newest 20 versions, a
 Records the start and end of runs, node ends, control commands and idempotency keys, so a restart can mark interrupted runs ABORTED and resume them.
 
 - `append` puts an event in a queue (10,000 events) and schedules a drain on the serial write pipeline (one task at a time, no thread parked). The drain inserts up to 100 events per statement; if a batch fails it writes the events one by one and logs the ones that still fail. When the queue is full the event is dropped and an error is logged.
-- Reads (`readAll`, `forExecution`, `header`, `ofType`) return a `Flux`/`Mono` and `replaceAll` a `Mono<Void>`; they run in the same pipeline, after the pending events, so they see everything appended before they are subscribed. A cancelled read is skipped. After the store stops they answer empty. `readAll` loads every row into memory and skips rows it cannot parse.
-- `replaceAll` is used by startup and takeover recovery to rewrite the log without the oldest runs. It deletes every row and then inserts the kept events one at a time, each with its own statement and a 30 s wait, with no transaction.
+- Reads (`readAll`, `forExecution`, `header`, `ofType`) return a `Flux`/`Mono` and `applyRecovery` a `Mono<Void>`. `applyRecovery` runs in the pipeline; a read takes the pipeline only to drain the events queued before it, then queries and parses outside it, so it sees everything appended before it is subscribed and a slow read never holds back the appends behind it. A cancelled read is skipped. After the store stops they answer empty. `readAll` loads every row into memory and skips rows it cannot parse.
+- `applyRecovery` is used by startup and takeover recovery. In one transaction, after locking the lease row, it deletes the dropped runs (`execution_id = ANY(:gone)`, through the `(execution_id, seq)` index), keeps the newest scheduler entries and appends the abort events through the batch insert. A failure rolls it all back.
 - After every `compact-after` (10,000) appended events the writer trims the table to the newest `retained-runs` (500) runs by their last event, never dropping a run that has a start but no end, and keeps the newest 500 scheduler entries (execution id `scheduler`).
 - If an event's payload cannot be written as JSON, the event is stored without the payload and a warning says that the run cannot be resumed.
 
 - **Guarantees.** Events of one run keep their order (the sequence column); a run without an end is never trimmed.
 - **State.** Table `execution_log`: a sequence number, the execution id and the event as JSONB. In memory: the queue and a counter since the last compaction.
 - **Ceiling.** One write pipeline, one statement at a time. Every 10,000 events the trim reads only the run ends through the partial index `execution_log_run_edge` (about 0.15 s for 500 runs of 2,000 events) and keeps the newest `retained-runs` ended runs plus every open run. `yukta.execution.log.queue` shows the events waiting.
-- **On failure.** A full queue or a failing insert loses events silently as far as the run is concerned; a crash inside `replaceAll` loses the log.
+- **On failure.** A full queue or a failing insert loses events silently as far as the run is concerned; a failure inside `applyRecovery` rolls back and leaves the old log.
 
 **Settings:** `yukta.execution-log.retained-runs`, `yukta.execution-log.compact-after`
 
@@ -263,7 +263,7 @@ Lets several servers share the database while only one admits runs, and lets ano
 - One row in `leader_lease` holds the name, the holder, a fencing number and an expiry. Each server runs one statement every third of a lease (5 s by default): it inserts the row or, if it is the holder or the lease has expired, takes it and renews the expiry. The fencing number grows by one when the holder changes.
 - The expiry uses the database clock. A server counts itself the leader only while the time since it *sent* its last successful renewal is shorter than the lease, measured with a local monotonic clock, so a server that cannot reach the database stops being leader before another can take over.
 - When a server becomes leader it runs the registered takeover actions on another thread (core uses this for recovery and auto-resume). A server that stops releases the lease by setting its expiry in the past, waiting up to 10 s.
-- `fencingToken()` exposes the number. The execution log (append and `replaceAll`), the checkpoint messages (`saveAll`) and the checkpoint state flags (done, incomplete) use it: the insert runs only if no lease row holds a higher number, in the same statement (`replaceAll` locks the lease row for the length of its transaction). A refused write is counted in `yukta.fencing.refused{store}` and logged; a server that has never led is not checked. Definition and session writes are not fenced. The gauge `yukta.leader` is 1 on the leader.
+- `fencingToken()` exposes the number. The execution log (append and `applyRecovery`), the checkpoint messages (`saveAll`) and the checkpoint state flags (done, incomplete) use it: the insert runs only if no lease row holds a higher number, in the same statement (`applyRecovery` locks the lease row for the length of its transaction). A refused write is counted in `yukta.fencing.refused{store}` and logged; a server that has never led is not checked. Definition and session writes are not fenced. The gauge `yukta.leader` is 1 on the leader.
 
 - **Guarantees.** Two servers never both believe they hold a lease that has not expired, as long as the local clock does not run slow relative to the database clock.
 - **State.** The row in `leader_lease`; in memory the validity time, the fencing number and the takeover list.
@@ -349,9 +349,9 @@ If the old leader was only paused (a long garbage collection, a frozen VM), it m
 </Step>
 </Steps>
 
-### Startup recovery rewrites the log
+### Startup recovery changes the log
 
-The startup rewrite of the execution log, and why it is the most fragile statement sequence in the module.
+How startup recovery reads the execution log and writes back only what changed.
 
 <Steps>
 <Step title="Read everything">
@@ -360,11 +360,11 @@ Recovery calls `readAll`: every row of the log is loaded into memory, parsed, an
 <Step title="Decide what to keep">
 It keeps the newest 500 runs, marks the ones without an end ABORTED, and clears the checkpoints of the runs it drops.
 </Step>
-<Step title="Replace the log">
-`replaceAll` deletes all rows and inserts the kept events one by one, each waiting up to 30 s. There is no transaction around the delete and the inserts.
+<Step title="Write the difference">
+`applyRecovery` runs one transaction under the lease lock: it deletes the dropped runs by id, trims the scheduler entries and appends one abort event per interrupted run. The rows of the kept runs are not rewritten.
 </Step>
 <Step title="If it is cut short">
-A crash, a lost connection or a leader change between the delete and the last insert leaves a partial log. The runs that could be resumed are gone from it.
+A crash, a lost connection or a leader change rolls the transaction back: the old log stays whole, and the next start recovers again.
 </Step>
 </Steps>
 
@@ -496,7 +496,7 @@ Nine tables from six migrations. 'Cleaned by' says what removes rows; 'nothing' 
 | workflow_definition | V1 | Definition store (save) | find, findAll | remove, removeAll (no caller in core) |
 | workflow_definition_revision | V1 | save, saveNote | revisions, findRevision | prune to 20 after each save; remove |
 | session_config | V1 | Session config store | getAllConfigs, getSessionIds | removeSession |
-| execution_log | V1 | Log write pipeline | readAll at recovery and resume | compaction; replaceAll |
+| execution_log | V1 | Log write pipeline | readAll at recovery and resume | compaction; applyRecovery |
 | node_checkpoint | V1 | Checkpoint save | get, getAll | clear when the run leaves the archive of retained executions; recovery (startup, takeover): every run no longer in the log |
 | node_checkpoint_state | V1 | markComplete, failed saves | isComplete, isFinished | clear |
 | leader_lease | V1 | Every server, every 5 s | The same statement | nothing (one row) |
@@ -592,7 +592,7 @@ Short rules that follow from the guarantees.
 <Accordion title="Reactive reads on the log store, a blocking checkpoint check">
 **Context.** `NodeCheckpointStore.isFinished` is a plain method in its interface; the execution log store used to be one too.
 
-**Decision.** The log store's reads (`readAll`, `forExecution`, `header`, `ofType`) and `replaceAll` are reactive, so nothing parks a thread. `append` stays fire-and-forget. Start-up recovery and the idempotency reload hold new starts back (HTTP 503, `reason=recovering`) until they are done.
+**Decision.** The log store's reads (`readAll`, `forExecution`, `header`, `ofType`) and `applyRecovery` are reactive, so nothing parks a thread. `append` stays fire-and-forget. Start-up recovery and the idempotency reload hold new starts back (HTTP 503, `reason=recovering`) until they are done.
 
 **Consequences.** The store has no blocking call and no exemption in the architecture rules; the history can look empty for a moment after start-up. The checkpoint store's check still waits on the statement with a timeout and falls back to 'unfinished'.
 
