@@ -1,6 +1,6 @@
 # Architecture overview
 
-One page on how Yukta fits together and which decision explains each part. It states only what the repository's own guides and ADRs state; follow the links for detail.
+One page on how Yukta fits together and which decision explains each part. It states only what the repository's own guides and ADRs state; follow the links for detail. The same system as C4 diagrams (context, containers, server components): [c4-architecture.md](c4-architecture.md).
 
 ## What it is
 
