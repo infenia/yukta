@@ -55,6 +55,37 @@ class ConsoleRunnerKeysTest {
   }
 
   @Test
+  void keysStillWorkAfterMouseClick() throws Exception {
+    final PipedOutputStream keys = new PipedOutputStream();
+    try (Terminal term =
+        TerminalBuilder.builder()
+            .streams(new PipedInputStream(keys), new ByteArrayOutputStream())
+            .type("xterm-256color")
+            .build()) {
+      final CompletableFuture<Void> run =
+          CompletableFuture.runAsync(() -> {
+            try {
+              ConsoleRunner.loop(term, view, limit -> ConsoleView.Snapshot.NONE);
+            } catch (IOException e) {
+              throw new IllegalStateException(e);
+            }
+          });
+      // a click is a press (M) then a release (m), as two reads; the release used to hang the loop
+      send(keys, "\033[<0;5;5M");
+      sleep(300);
+      send(keys, "\033[<0;5;5m");
+      sleep(300);
+      send(keys, "l");
+      Awaitility.await()
+          .atMost(2, TimeUnit.SECONDS)
+          .until(() -> view.page() == ConsoleView.Page.LOGS);
+      send(keys, "q");
+      run.get(2, TimeUnit.SECONDS);
+      assertThat(view.quit()).isTrue();
+    }
+  }
+
+  @Test
   void mouseClickIsNotTakenForTheMouseKey() throws Exception {
     final PipedOutputStream keys = new PipedOutputStream();
     final ByteArrayOutputStream out = new ByteArrayOutputStream();

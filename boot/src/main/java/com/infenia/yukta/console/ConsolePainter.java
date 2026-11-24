@@ -17,14 +17,20 @@ import java.util.function.Predicate;
 /* default */ final class ConsolePainter {
 
   private static final String UP = "UP";
+
+  /** The row of the tab strip. */
+  /* default */ static final int TAB_ROW = 2;
+
   private static final int TOP = 4;
   private static final String[][] HELP = {
     {"q", "quit the server"},
+    {"d", "dashboard"},
     {"l", "full logs (toggle)"},
     {"r", "runs (toggle)"},
     {"f", "cycle the log level filter"},
     {"↑ ↓ PgUp PgDn", "scroll, G or End to follow"},
-    {"m", "mouse wheel (toggle)"},
+    {"← →", "previous / next tab"},
+    {"m", "mouse: wheel scrolls, tabs click; off lets you select text"},
     {"?", "this help"}
   };
 
@@ -123,18 +129,32 @@ import java.util.function.Predicate;
     int col = 0;
     for (final ConsoleView.Page p : ConsoleView.Page.values()) {
       final String label = " " + p.label() + " ";
-      g.put(2, col, label, p == page ? Role.TAB : Role.DIM);
+      g.put(TAB_ROW, col, label, p == page ? Role.TAB : Role.DIM);
       col += label.length() + 1;
     }
+  }
+
+  /** The tab drawn at column {@code at}, or null between tabs. */
+  /* default */ static ConsoleView.Page tabAt(final int at) {
+    int col = 0;
+    for (final ConsoleView.Page p : ConsoleView.Page.values()) {
+      final int end = col + p.label().length() + 2;
+      if (at >= col && at < end) {
+        return p;
+      }
+      col = end + 1;
+    }
+    return null;
   }
 
   private void keybar(final Cells g, final Level level) {
     final String[][] items = {
       {"q", "Quit"},
+      {"d", "Dash"},
       {"l", "Logs"},
       {"r", "Runs"},
       {"?", "Help"},
-      {"f", "Level:" + level},
+      {"f", level.toString()},
       {"↑↓", "Scroll"},
       {"m", "Mouse"}
     };

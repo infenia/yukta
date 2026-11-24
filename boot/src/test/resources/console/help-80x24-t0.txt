@@ -3,11 +3,13 @@
  Dashboard   Runs   Logs   Help                                                 
 ────────────────────────────────────────────────────────────────────────────────
  q   quit the server                                                            
+ d   dashboard                                                                  
  l   full logs (toggle)                                                         
  r   runs (toggle)                                                              
  f   cycle the log level filter                                                 
  ↑ ↓ PgUp PgDn   scroll, G or End to follow                                     
- m   mouse wheel (toggle)                                                       
+ ← →   previous / next tab                                                      
+ m   mouse: wheel scrolls, tabs click; off lets you select text                 
  ?   this help                                                                  
                                                                                 
                                                                                 
@@ -19,6 +21,4 @@
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                                                                
- q  Quit  l  Logs  r  Runs  ?  Help  f  Level:INFO  ↑↓  Scroll  m  Mouse        
+ q  Quit  d  Dash  l  Logs  r  Runs  ?  Help  f  INFO  ↑↓  Scroll  m  Mouse     

@@ -21,4 +21,4 @@ Failed  [██▎               ]  1  ▁▁▁████▁▁▁███�
 10:43:25.002 INFO  RunService : run 91bc queued                                 
 10:43:26.114 INFO  Node : nightly-build/test finished in 31.0s                  
                                                                                 
- q  Quit  l  Logs  r  Runs  ?  Help  f  Level:INFO  ↑↓  Scroll  m  Mouse        
+ q  Quit  d  Dash  l  Logs  r  Runs  ?  Help  f  INFO  ↑↓  Scroll  m  Mouse     

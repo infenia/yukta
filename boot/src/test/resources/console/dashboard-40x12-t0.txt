@@ -9,4 +9,4 @@ running 3  queued 2  failed 1
 ⠋ deploy-staging          RUNNING     10
                                         
                                         
- q  Quit  l  Logs  r  Runs  ?  Help     
+ q  Quit  d  Dash  l  Logs  r  Runs     

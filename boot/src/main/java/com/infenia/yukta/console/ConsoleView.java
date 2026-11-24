@@ -144,6 +144,9 @@ import org.jline.utils.AttributedString;
     splashDismissed.set(true); // any key ends the welcome box, and is still applied
     switch (key) {
       case "q" -> quit.set(true);
+      case "d" -> show(Page.DASHBOARD);
+      case "LEFT" -> show(Page.values()[Math.floorMod(page().ordinal() - 1, Page.values().length)]);
+      case "RIGHT" -> show(Page.values()[(page().ordinal() + 1) % Page.values().length]);
       case "l" -> toggle(Page.LOGS);
       case "r" -> toggle(Page.RUNS);
       case "?" -> toggle(Page.HELP);
@@ -161,9 +164,23 @@ import org.jline.utils.AttributedString;
   }
 
   private void toggle(final Page target) {
-    page.set(page.get() == target ? Page.DASHBOARD : target);
-    scroll.set(0);
-    pageChanged.set(true);
+    show(page.get() == target ? Page.DASHBOARD : target);
+  }
+
+  private void show(final Page target) {
+    if (page.getAndSet(target) != target) {
+      scroll.set(0);
+      pageChanged.set(true);
+    }
+  }
+
+  /** A left click on the cell {@code col}, {@code row} (from 0): a click on a tab opens it. */
+  /* default */ void onClick(final int col, final int row) {
+    splashDismissed.set(true);
+    final Page tab = row == ConsolePainter.TAB_ROW ? ConsolePainter.tabAt(col) : null;
+    if (tab != null) {
+      show(tab);
+    }
   }
 
   /**

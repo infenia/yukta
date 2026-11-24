@@ -13,7 +13,6 @@ import java.util.function.IntFunction;
 import org.jline.keymap.BindingReader;
 import org.jline.keymap.KeyMap;
 import org.jline.terminal.Attributes;
-import org.jline.terminal.MouseEvent;
 import org.jline.terminal.Size;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
@@ -161,7 +160,10 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
     if ("m".equals(k) && term.hasMouseSupport()) {
       return toggleMouse(term, mouse);
     }
-    if (k != null) {
+    if (k != null && k.startsWith("CLICK:")) {
+      final String[] at = k.split(":");
+      view.onClick(Integer.parseInt(at[1]), Integer.parseInt(at[2]));
+    } else if (k != null) {
       view.onKey(k);
     }
     return mouse;
@@ -195,19 +197,21 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
   /** The keys the console reacts to, by name (see {@link ConsoleView#onKey}). */
   private static KeyMap<String> keys(final Terminal term) {
     final KeyMap<String> map = new KeyMap<>();
-    for (final String c : List.of("q", "l", "r", "?", "f", "G", "m")) {
+    for (final String c : List.of("q", "d", "l", "r", "?", "f", "G", "m")) {
       map.bind(c, c);
     }
     // both the normal ([A) and the application keypad (OA) forms, plus what terminfo says
     bindKey(map, "UP", term, Capability.key_up, "\033[A", "\033OA");
     bindKey(map, "DOWN", term, Capability.key_down, "\033[B", "\033OB");
+    bindKey(map, "LEFT", term, Capability.key_left, "\033[D", "\033OD");
+    bindKey(map, "RIGHT", term, Capability.key_right, "\033[C", "\033OC");
     bindKey(map, "PGUP", term, Capability.key_ppage, "\033[5~");
     bindKey(map, "PGDN", term, Capability.key_npage, "\033[6~");
     bindKey(map, "HOME", term, Capability.key_home, "\033[H", "\033OH", "\033[1~");
     bindKey(map, "END", term, Capability.key_end, "\033[F", "\033OF", "\033[4~");
-    if (term.hasMouseSupport()) {
-      map.bind("MOUSE", KeyMap.key(term, Capability.key_mouse));
-    }
+    // the reports are read by ConsoleMouse (JLine's reader can wait for ever on a click's release)
+    map.bind("MOUSE", "\033[<");
+    map.bind("MOUSE_X10", "\033[M");
     map.setNomatch("");
     map.setUnicode("");
     return map;
@@ -237,11 +241,10 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
     }
     final String name = reader.readBinding(keys);
     if ("MOUSE".equals(name)) {
-      final MouseEvent e = term.readMouseEvent();
-      if (e.getType() == MouseEvent.Type.Wheel) {
-        return e.getButton() == MouseEvent.Button.WheelUp ? "UP" : "DOWN";
-      }
-      return null;
+      return ConsoleMouse.toKey(ConsoleMouse.readSgr(term.reader()));
+    }
+    if ("MOUSE_X10".equals(name)) {
+      return ConsoleMouse.toKey(ConsoleMouse.readX10(term.reader()));
     }
     return name == null || name.isEmpty() ? null : name;
   }

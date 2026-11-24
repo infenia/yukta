@@ -94,4 +94,26 @@ class ConsoleViewTest {
     wide.put(0, 0, "你好a", ConsoleTheme.Role.TEXT);
     assertThat(wide.lines(false).get(0).toString()).isEqualTo("你");
   }
+
+  @Test
+  void theDashboardKeyArrowsAndClicksMoveBetweenTabs() {
+    view.onKey("l");
+    assertThat(view.page()).isEqualTo(ConsoleView.Page.LOGS);
+    view.onKey("d");
+    assertThat(view.page()).isEqualTo(ConsoleView.Page.DASHBOARD);
+    view.onKey("RIGHT");
+    assertThat(view.page()).isEqualTo(ConsoleView.Page.RUNS);
+    view.onKey("LEFT");
+    view.onKey("LEFT"); // wraps round to the last tab
+    assertThat(view.page()).isEqualTo(ConsoleView.Page.HELP);
+    // " Dashboard " is columns 0-10, " Runs " 12-17, " Logs " 19-24, " Help " 26-31, on row 2
+    view.onClick(13, 2);
+    assertThat(view.page()).isEqualTo(ConsoleView.Page.RUNS);
+    view.onClick(20, 2);
+    assertThat(view.page()).isEqualTo(ConsoleView.Page.LOGS);
+    view.onClick(11, 2); // the gap between two tabs
+    view.onClick(3, 5); // not the tab row
+    assertThat(view.page()).isEqualTo(ConsoleView.Page.LOGS);
+    assertThat(ConsolePainter.tabAt(100)).isNull();
+  }
 }

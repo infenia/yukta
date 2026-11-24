@@ -37,4 +37,4 @@ Failed  [██▎               ]  1  ▁▁▁████▁▁▁███�
                                                                                                                         
                                                                                                                         
                                                                                                                         
- q  Quit  l  Logs  r  Runs  ?  Help  f  Level:INFO  ↑↓  Scroll  m  Mouse                                                
+ q  Quit  d  Dash  l  Logs  r  Runs  ?  Help  f  INFO  ↑↓  Scroll  m  Mouse                                             
