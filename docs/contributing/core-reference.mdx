@@ -950,7 +950,7 @@ Several servers share a PostgreSQL database; one holds a lease and admits runs, 
 
 **Behaviour**
 
-- A single server is always leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` the lease row (`V4__leader_lease`) has a fencing number that grows with every change of holder. It is renewed three times per lease; a graceful stop releases it.
+- A single server is always leader (`SingleServerLeader`). With `yukta.ha.mode=postgres` the lease row (`leader_lease`) has a fencing number that grows with every change of holder. It is renewed three times per lease; a graceful stop releases it.
 - A server counts itself leader only while its last renewal is younger than the lease, so one that cannot reach the database stops *before* another takes over.
 - A standby refuses every start, restart and resume with `NotLeaderException` (HTTP 503; `yukta.executions.rejected{reason=not_leader}`).
 - While the run history is recovered (start-up, or takeover) and while the idempotency keys reload, every start, restart and resume is refused (HTTP 503; `reason=recovering`, `ExecutionScheduler.holdStarts()`), so a run that starts early cannot be marked aborted and a repeated start cannot slip past a stored key. Both steps run off the start-up thread; `GET` history can look empty for that moment.

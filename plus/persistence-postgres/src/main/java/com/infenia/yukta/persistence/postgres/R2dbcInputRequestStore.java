@@ -255,8 +255,8 @@ public class R2dbcInputRequestStore implements InputRequestStore {
                 + REQUEST_COLUMNS
                 + " FROM input_request WHERE "
                 + LIVE
-                + " AND ((deadline IS NOT NULL AND deadline <= :now)"
-                + " OR (tier_deadline IS NOT NULL AND tier_deadline <= :now))"
+                // LEAST skips a null deadline; the partial index input_request_due covers it
+                + " AND LEAST(deadline, tier_deadline) <= :now"
                 + " ORDER BY created_at, id")
         .bind("now", now)
         .map(this::request)

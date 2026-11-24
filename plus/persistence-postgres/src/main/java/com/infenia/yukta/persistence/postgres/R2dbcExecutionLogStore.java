@@ -84,7 +84,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
   private static final String EVENT = "event";
 
   private static final String NEWEST_SQL =
-      "SELECT CAST(event AS text) AS event FROM execution_log WHERE event->>'type' IN (";
+      "SELECT CAST(event AS text) AS event FROM execution_log WHERE type IN (";
 
   /** Longest one statement may take. */
   private static final Duration STATEMENT_TIMEOUT = Duration.ofSeconds(30);
@@ -358,7 +358,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
     });
   }
 
-  /** Uses the {@code execution_id} index, so a lookup does not read the table. */
+  /** Uses the {@code (execution_id, seq)} index, so a lookup does not read the table. */
   @Override
   public Flux<ExecutionLogEvent> forExecution(final String executionId) {
     return reading(
@@ -411,23 +411,23 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
         }));
   }
 
+  /** Uses the {@code (type, seq)} index; only the events after {@code since} are read. */
   @Override
   public Flux<ExecutionLogEvent> ofType(
       final ExecutionLogEvent.Type type, final java.time.Instant since) {
     return reading(
         Mono.defer(() ->
             parse(
-                    client
-                        .sql(
-                            "SELECT CAST(event AS text) AS event FROM execution_log"
-                                + " WHERE event->>'type' = :type ORDER BY seq")
-                        .bind("type", type.name())
-                        .map(row -> row.get(EVENT, String.class))
-                        .all()
-                        .collectList()
-                        .timeout(STATEMENT_TIMEOUT))
-                .map(events ->
-                    events.stream().filter(event -> event.timestamp().isAfter(since)).toList())));
+                client
+                    .sql(
+                        "SELECT CAST(event AS text) AS event FROM execution_log"
+                            + " WHERE type = :type AND ts > :since ORDER BY seq")
+                    .bind("type", type.name())
+                    .bind("since", since)
+                    .map(row -> row.get(EVENT, String.class))
+                    .all()
+                    .collectList()
+                    .timeout(STATEMENT_TIMEOUT))));
   }
 
   @Override
@@ -592,20 +592,31 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
   private DatabaseClient.GenericExecuteSpec batchInsert(
       final List<ExecutionLogEvent> batch, final List<String> json) {
     final StringBuilder sql =
-        new StringBuilder(128)
-            .append("INSERT INTO execution_log (execution_id, event) SELECT a, b FROM (VALUES ");
+        new StringBuilder(256)
+            .append(
+                "INSERT INTO execution_log (execution_id, type, ts, event)"
+                    + " SELECT e, t, s, j FROM (VALUES ");
     for (int i = 0; i < batch.size(); i++) {
-      sql.append(i == 0 ? "" : ", ")
-          .append("(:e")
+      sql.append(i == 0 ? "(" : ", (")
+          .append(":e")
           .append(i)
-          .append(", CAST(:j")
+          .append(", :t")
+          .append(i)
+          .append(", CAST(:s")
+          .append(i)
+          .append(" AS timestamptz), CAST(:j")
           .append(i)
           .append(" AS jsonb))");
     }
-    sql.append(") AS v(a, b) WHERE ").append(Fencing.NOT_STALE);
+    sql.append(") AS v(e, t, s, j) WHERE ").append(Fencing.NOT_STALE);
     DatabaseClient.GenericExecuteSpec spec = client.sql(sql.toString());
     for (int i = 0; i < batch.size(); i++) {
-      spec = spec.bind("e" + i, batch.get(i).executionId()).bind("j" + i, json.get(i));
+      final ExecutionLogEvent event = batch.get(i);
+      spec =
+          spec.bind("e" + i, event.executionId())
+              .bind("t" + i, event.type().name())
+              .bind("s" + i, event.timestamp())
+              .bind("j" + i, json.get(i));
     }
     return fencing.bind(spec);
   }
@@ -723,7 +734,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
                     """
                     DELETE FROM execution_log WHERE execution_id IN (
                       SELECT execution_id FROM execution_log
-                      WHERE event ->> 'type' IN ('RUN_FINISHED', 'RUN_ABORTED')
+                      WHERE type IN ('RUN_FINISHED', 'RUN_ABORTED')
                         AND execution_id <> :scheduler
                       GROUP BY execution_id ORDER BY max(seq) DESC OFFSET :runs)
                     """)

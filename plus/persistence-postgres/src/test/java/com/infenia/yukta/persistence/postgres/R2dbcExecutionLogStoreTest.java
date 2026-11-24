@@ -149,8 +149,8 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     store.append(started("r1"));
     store.readAll().collectList().block();
     db.sql(
-            "INSERT INTO execution_log (execution_id, event) VALUES ('bad',"
-                + " CAST('{\"type\":\"NOPE\"}' AS jsonb))")
+            "INSERT INTO execution_log (execution_id, type, ts, event) VALUES ('bad', 'NOPE',"
+                + " now(), CAST('{\"type\":\"NOPE\"}' AS jsonb))")
         .fetch()
         .rowsUpdated()
         .block();

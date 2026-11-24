@@ -48,7 +48,7 @@ The module depends on core and plugin-api. Nothing depends on it except the appl
 |---|---|---|
 | Store | A class that keeps one kind of data behind an interface. Core asks for a store; it does not care which one it gets. | The workflow definition store. |
 | R2DBC | A non-blocking way to talk to a database from Reactor code. Statements return a Mono or Flux instead of blocking a thread. | DatabaseClient.sql(...).fetch(). |
-| Flyway | A tool that runs numbered SQL scripts once each, to build and change the schema. | V3__node_checkpoints.sql. |
+| Flyway | A tool that runs numbered SQL scripts once each, to build and change the schema. | V1__yukta_core.sql. |
 | JSONB | A PostgreSQL column type that stores a JSON document in a binary form. Key order is not kept; the database can compare documents. | A whole workflow definition in one cell. |
 | Execution log | An append-only list of run events. Startup recovery reads it to find runs that never ended. | RUN_STARTED, NODE_FINISHED, RUN_FINISHED. |
 | Checkpoint | The recorded output of one node of one run, and a stamp saying the node ended normally. | What the HTTP node returned. |
@@ -183,12 +183,12 @@ Provides the two connections the module needs: R2DBC for all run-time statements
 
 *V1 to V6*
 
-Creates and evolves the nine tables. Each migration is a numbered SQL file that runs once per database.
+Creates and evolves the tables. Each migration is a numbered SQL file that runs once per database.
 
-- V1 creates `workflow_definition`, `workflow_definition_revision`, `session_config` and `execution_log` (with an index on execution id). V2 adds the version `note`. V3 adds `node_checkpoint` and `node_checkpoint_state`. V4 adds `leader_lease`. V5 and V6 added `kv_entry` and `session_history`, which the current V2 (after the alpha squash) drops with `KV_STORE` and `SESSION_MEMORY`.
+- V1 is the whole schema: the alpha migrations were squashed into it again on 2026-11-24, so a database made before must be recreated. It holds the definitions, session configuration, execution log, checkpoints, leader lease, supervisors, agent credentials, input requests, notifications and agent conversations.
 - Flyway runs on every server at start. It locks the schema history table, so two servers starting together do not both migrate.
 - All state is stored as JSONB documents plus a few key columns, so most changes to the Java records need no migration; a migration is needed only for a new table or column.
-- There are no down scripts. Nothing is partitioned, and the only indexes besides the primary keys are on `execution_log(execution_id)` and `node_checkpoint(execution_id, node_id, seq)`.
+- There are no down scripts and nothing is partitioned. `execution_log` keeps the event `type` and timestamp `ts` as columns next to the JSON, with indexes on `(execution_id, seq)`, `(type, seq)` and a partial one on run starts and ends; `node_checkpoint` has `(execution_id, node_id, seq)`; `input_request` has partial indexes for due, answered and purgeable requests.
 
 - **Guarantees.** A migration that ran is never run again; the schema history records it.
 - **State.** The `flyway_schema_history` table in the same database.
@@ -494,12 +494,12 @@ Nine tables from six migrations. 'Cleaned by' says what removes rows; 'nothing' 
 | Table | Migration | Written by | Read by | Cleaned by |
 |---|---|---|---|---|
 | workflow_definition | V1 | Definition store (save) | find, findAll | remove, removeAll (no caller in core) |
-| workflow_definition_revision | V1, V2 (note) | save, saveNote | revisions, findRevision | prune to 20 after each save; remove |
+| workflow_definition_revision | V1 | save, saveNote | revisions, findRevision | prune to 20 after each save; remove |
 | session_config | V1 | Session config store | getAllConfigs, getSessionIds | removeSession |
-| execution_log | V1, V5 (index of run starts and ends) | Log write pipeline | readAll at recovery and resume | compaction; replaceAll |
-| node_checkpoint | V3 | Checkpoint save | get, getAll | clear when the run leaves the archive of retained executions; recovery (startup, takeover): every run no longer in the log |
-| node_checkpoint_state | V3 | markComplete, failed saves | isComplete, isFinished | clear |
-| leader_lease | V4 | Every server, every 5 s | The same statement | nothing (one row) |
+| execution_log | V1 | Log write pipeline | readAll at recovery and resume | compaction; replaceAll |
+| node_checkpoint | V1 | Checkpoint save | get, getAll | clear when the run leaves the archive of retained executions; recovery (startup, takeover): every run no longer in the log |
+| node_checkpoint_state | V1 | markComplete, failed saves | isComplete, isFinished | clear |
+| leader_lease | V1 | Every server, every 5 s | The same statement | nothing (one row) |
 
 ### Settings that choose a store
 
@@ -622,7 +622,7 @@ Short rules that follow from the guarantees.
 | Store | A class that keeps one kind of data behind an interface from core or plugin-api. | The engine does not know which backend it is using. |
 | R2DBC | Reactive Relational Database Connectivity: a non-blocking database API. | Statements return Mono and Flux instead of blocking. |
 | Flyway | A migration tool that runs numbered SQL scripts once each. | Builds the tables and records which scripts ran. |
-| Migration | One numbered SQL script such as V3__node_checkpoints.sql. | Forward-only here. |
+| Migration | One numbered SQL script such as V1__yukta_core.sql. | Forward-only here. |
 | JSONB | PostgreSQL's binary JSON column type. | Stores definitions, events, messages and chat turns. |
 | DatabaseClient | Spring's thin wrapper for running SQL over R2DBC. | Every statement in the module goes through it. |
 | Execution log | The append-only list of run events kept in execution_log. | Used to find interrupted runs and to resume. |
