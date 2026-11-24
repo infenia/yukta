@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @Tag(
-    name = "Control Bus & Observability API",
+    name = "Monitoring API",
     description =
         "Endpoints for control bus operations, node management, and execution observability")
 public class ControlBusController {
