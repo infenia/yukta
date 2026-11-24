@@ -271,21 +271,27 @@ public class R2dbcInputRequestStore implements InputRequestStore {
         .all();
   }
 
+  /** In batches ({@link Batches}); each batch deletes its requests' answers with them. */
   @Override
   public Mono<Long> purgeTerminalOlderThan(final Instant cutoff) {
-    return client
-        .sql(
-            """
-            WITH gone AS (
-              DELETE FROM input_request WHERE NOT (state IN ('OPEN', 'ESCALATED'))
-                AND updated_at < :cutoff RETURNING id),
-            answers AS (
-              DELETE FROM input_response WHERE request_id IN (SELECT id FROM gone))
-            SELECT count(*) AS removed FROM gone
-            """)
-        .bind("cutoff", cutoff)
-        .map(row -> row.get("removed", Long.class))
-        .one();
+    return Batches.repeat(size ->
+        client
+            .sql(
+                """
+                WITH gone AS (
+                  DELETE FROM input_request WHERE id IN (
+                    SELECT id FROM input_request WHERE NOT (state IN ('OPEN', 'ESCALATED'))
+                      AND updated_at < :cutoff
+                    LIMIT :size)
+                  RETURNING id),
+                answers AS (
+                  DELETE FROM input_response WHERE request_id IN (SELECT id FROM gone))
+                SELECT count(*) AS removed FROM gone
+                """)
+            .bind("cutoff", cutoff)
+            .bind("size", size)
+            .map(row -> Objects.requireNonNull(row.get("removed", Long.class)))
+            .one());
   }
 
   private InputRequest request(final Readable row) {
