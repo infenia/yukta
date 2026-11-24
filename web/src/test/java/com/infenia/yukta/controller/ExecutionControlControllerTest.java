@@ -107,7 +107,7 @@ class ExecutionControlControllerTest {
   }
 
   @Test
-  void testRecoverAtNewAndLegacyPaths() {
+  void testRecover() {
     when(resumer.resume("e1")).thenReturn(Mono.just("e2"));
 
     client
@@ -119,7 +119,6 @@ class ExecutionControlControllerTest {
         .expectBody()
         .jsonPath("$.data.executionId")
         .isEqualTo("e2");
-    client.post().uri("/api/workflow/s1/e1/recover").exchange().expectStatus().isOk();
   }
 
   @Test
@@ -132,20 +131,13 @@ class ExecutionControlControllerTest {
   }
 
   @Test
-  void testPauseAndResumeAtNewAndLegacyPaths() {
+  void testPauseAndResume() {
     when(controlBus.pauseWorkflow("e1")).thenReturn(Mono.empty());
     when(controlBus.resumeWorkflow("e1")).thenReturn(Mono.empty());
 
     client.post().uri("/api/executions/e1/pause").exchange().expectStatus().isOk();
-    client.post().uri("/api/workflow/s1/e1/pause").exchange().expectStatus().isOk();
     client.post().uri("/api/executions/e1/resume").exchange().expectStatus().isOk();
-    client.post().uri("/api/workflow/s1/e1/resume").exchange().expectStatus().isOk();
-    verify(controlBus, org.mockito.Mockito.times(2)).pauseWorkflow("e1");
-  }
-
-  @Test
-  void testForeignSessionCannotControlExecution() {
-    client.post().uri("/api/workflow/other/e1/pause").exchange().expectStatus().isNotFound();
+    verify(controlBus).pauseWorkflow("e1");
   }
 
   @Test
@@ -154,7 +146,7 @@ class ExecutionControlControllerTest {
   }
 
   @Test
-  void testNodeOperationsAtNewAndLegacyPaths() {
+  void testNodeOperations() {
     when(controlBus.pauseNode("e1", "n1")).thenReturn(Mono.empty());
     when(controlBus.resumeNode("e1", "n1")).thenReturn(Mono.empty());
     when(controlBus.stopNode("e1", "n1", true, "why")).thenReturn(Mono.empty());
@@ -164,7 +156,7 @@ class ExecutionControlControllerTest {
     when(controlBus.stepNode("e1", "n1")).thenReturn(Mono.empty());
 
     client.post().uri("/api/executions/e1/nodes/n1/pause").exchange().expectStatus().isOk();
-    client.post().uri("/api/workflow/s1/e1/node/n1/resume").exchange().expectStatus().isOk();
+    client.post().uri("/api/executions/e1/nodes/n1/resume").exchange().expectStatus().isOk();
     client
         .post()
         .uri("/api/executions/e1/nodes/n1/stop?immediate=true&reason=why")
@@ -178,7 +170,7 @@ class ExecutionControlControllerTest {
         .expectStatus()
         .isOk();
     client.post().uri("/api/executions/e1/nodes/n1/step/enable").exchange().expectStatus().isOk();
-    client.post().uri("/api/workflow/s1/e1/node/n1/step/disable").exchange().expectStatus().isOk();
+    client.post().uri("/api/executions/e1/nodes/n1/step/disable").exchange().expectStatus().isOk();
     client.post().uri("/api/executions/e1/nodes/n1/step").exchange().expectStatus().isOk();
     verify(controlBus).stepNode("e1", "n1");
   }

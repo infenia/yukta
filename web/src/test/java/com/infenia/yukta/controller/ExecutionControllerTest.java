@@ -189,21 +189,18 @@ class ExecutionControllerTest {
   }
 
   @Test
-  void testStopAtNewAndLegacyPaths() {
+  void testStop() {
     when(controlBus.stopExecution(any(), any(), any())).thenReturn(Mono.just("e1"));
 
-    for (final String uri :
-        List.of("/api/executions/e1/stop", "/api/workflow/executions/e1/stop")) {
-      client
-          .post()
-          .uri(uri)
-          .exchange()
-          .expectStatus()
-          .isOk()
-          .expectBody()
-          .jsonPath("$.data.executionId")
-          .isEqualTo("e1");
-    }
+    client
+        .post()
+        .uri("/api/executions/e1/stop")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.executionId")
+        .isEqualTo("e1");
   }
 
   @Test
@@ -254,21 +251,6 @@ class ExecutionControllerTest {
   }
 
   @Test
-  void testRestartLegacyPathWorks() {
-    when(controlBus.restartWorkflow("e1")).thenReturn(Mono.just("e2"));
-
-    client
-        .post()
-        .uri("/api/workflow/executions/e1/restart")
-        .exchange()
-        .expectStatus()
-        .isOk()
-        .expectBody()
-        .jsonPath("$.data.executionId")
-        .isEqualTo("e2");
-  }
-
-  @Test
   void testStatusByExecutionOnly() {
     when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
 
@@ -284,14 +266,6 @@ class ExecutionControllerTest {
   }
 
   @Test
-  void testLegacyStatusChecksSessionOwnership() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
-
-    client.get().uri("/api/workflow/s1/status/e1").exchange().expectStatus().isOk();
-    client.get().uri("/api/workflow/other/status/e1").exchange().expectStatus().isNotFound();
-  }
-
-  @Test
   void statusWithSessionQueryChecksOwnership() {
     when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", TaskStatus.SUCCESS));
 
@@ -300,8 +274,8 @@ class ExecutionControllerTest {
   }
 
   @Test
-  void testStatusStreamCarriesEventIdsAndRejectsForeignSession() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
+  void testStatusStreamCarriesEventIds() {
+    when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
     when(controlBus.watchExecution("e1", true))
         .thenReturn(
             Flux.just(progress("s1", TaskStatus.RUNNING), progress("s1", TaskStatus.SUCCESS)));
@@ -309,7 +283,7 @@ class ExecutionControllerTest {
     final List<String> events =
         client
             .get()
-            .uri("/api/workflow/s1/status/e1/stream")
+            .uri("/api/executions/e1/status/stream")
             .exchange()
             .expectStatus()
             .isOk()
@@ -321,13 +295,12 @@ class ExecutionControllerTest {
     final String body = String.join("\n", events);
     assertThat(body).contains("RUNNING").contains("SUCCESS");
 
-    client.get().uri("/api/workflow/other/status/e1/stream").exchange().expectStatus().isNotFound();
     verify(controlBus, never()).watchExecution("e1", false);
   }
 
   @Test
   void testStatusStreamIgnoresLastEventId() {
-    when(controlBus.getProgress("s1", "e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
+    when(controlBus.getCurrentProgress("e1")).thenReturn(progress("s1", TaskStatus.RUNNING));
     when(controlBus.watchExecution("e1", false))
         .thenReturn(
             Flux.just(progress("s1", TaskStatus.RUNNING), progress("s1", TaskStatus.SUCCESS)));
@@ -337,7 +310,7 @@ class ExecutionControllerTest {
             "\n",
             client
                 .get()
-                .uri("/api/workflow/s1/status/e1/stream?includeHistory=false")
+                .uri("/api/executions/e1/status/stream?includeHistory=false")
                 .header("Last-Event-ID", "41")
                 .exchange()
                 .expectStatus()

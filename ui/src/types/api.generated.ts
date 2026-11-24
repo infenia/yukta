@@ -634,7 +634,7 @@ export interface paths {
         };
         /**
          * Get workflow execution status
-         * @description Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)
+         * @description Pass sessionId to read a run older than the execution index from its session's history.
          */
         get: operations["getWorkflowStatus"];
         put?: never;
@@ -837,7 +837,7 @@ export interface paths {
         put?: never;
         /**
          * Pause a node
-         * @description Pauses a single node via backpressure. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/pause (deprecated)
+         * @description Pauses a single node via backpressure.
          */
         post: operations["pauseNode"];
         delete?: never;
@@ -857,7 +857,7 @@ export interface paths {
         put?: never;
         /**
          * Resume a node
-         * @description Resumes a single paused node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/resume (deprecated)
+         * @description Resumes a single paused node.
          */
         post: operations["resumeNode"];
         delete?: never;
@@ -897,7 +897,7 @@ export interface paths {
         put?: never;
         /**
          * Skip or unskip a node
-         * @description Marks a node as skipped (passthrough) or not. Core currently rejects this for running executions.. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/skip (deprecated)
+         * @description Marks a node as skipped (passthrough) or not. Core currently rejects this for running executions..
          */
         post: operations["skipNode"];
         delete?: never;
@@ -917,7 +917,7 @@ export interface paths {
         put?: never;
         /**
          * Step a node
-         * @description Lets exactly one element through a node in step-through mode. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step (deprecated)
+         * @description Lets exactly one element through a node in step-through mode.
          */
         post: operations["stepNode"];
         delete?: never;
@@ -937,7 +937,7 @@ export interface paths {
         put?: never;
         /**
          * Disable step mode on a node
-         * @description Disables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable (deprecated)
+         * @description Disables step-through debug mode on a node.
          */
         post: operations["disableStepMode"];
         delete?: never;
@@ -957,7 +957,7 @@ export interface paths {
         put?: never;
         /**
          * Enable step mode on a node
-         * @description Enables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable (deprecated)
+         * @description Enables step-through debug mode on a node.
          */
         post: operations["enableStepMode"];
         delete?: never;
@@ -977,7 +977,7 @@ export interface paths {
         put?: never;
         /**
          * Stop a node
-         * @description Stops a single node, immediately or after draining inflight work. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/stop (deprecated)
+         * @description Stops a single node, immediately or after draining inflight work.
          */
         post: operations["stopNode"];
         delete?: never;
@@ -997,7 +997,7 @@ export interface paths {
         put?: never;
         /**
          * Pause a workflow execution
-         * @description Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)
+         * @description Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow.
          */
         post: operations["pauseWorkflow"];
         delete?: never;
@@ -1057,9 +1057,9 @@ export interface paths {
         put?: never;
         /**
          * Restart a workflow execution
-         * @description Stops the execution and restarts the workflow with the original trigger payload. Legacy path: /api/workflow/executions/{executionId}/restart (deprecated)
+         * @description Stops the execution and restarts the workflow with the original trigger payload.
          */
-        post: operations["restartWorkflow_1"];
+        post: operations["restartWorkflow"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1077,9 +1077,9 @@ export interface paths {
         put?: never;
         /**
          * Restart a workflow execution from a node
-         * @description Restarts from a node, replaying the last checkpoints of its parents. Legacy path: /api/workflow/executions/{executionId}/restart/{fromNodeId} (deprecated)
+         * @description Restarts from a node, replaying the last checkpoints of its parents.
          */
-        post: operations["restartFromNode_1"];
+        post: operations["restartFromNode"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1097,7 +1097,7 @@ export interface paths {
         put?: never;
         /**
          * Resume a workflow execution
-         * @description Resumes a specific paused workflow execution; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)
+         * @description Resumes a specific paused workflow execution; with tree=true also every run it started
          */
         post: operations["resumeWorkflow"];
         delete?: never;
@@ -1135,7 +1135,7 @@ export interface paths {
         };
         /**
          * Stream workflow execution status
-         * @description Streams progress via SSE. Legacy path: /api/workflow/{sessionId}/status/{executionId}/stream (deprecated)
+         * @description Streams progress via SSE.
          */
         get: operations["streamWorkflowStatus"];
         put?: never;
@@ -1157,9 +1157,9 @@ export interface paths {
         put?: never;
         /**
          * Stop a specific execution
-         * @description With tree=true also every unfinished run it started as a sub-workflow. Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)
+         * @description With tree=true also every unfinished run it started as a sub-workflow.
          */
-        post: operations["stopExecution_1"];
+        post: operations["stopExecution"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2484,69 +2484,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/workflow/executions/{executionId}/restart": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Restart a workflow execution
-         * @deprecated
-         * @description Stops the execution and restarts the workflow with the original trigger payload. Legacy path: /api/workflow/executions/{executionId}/restart (deprecated)
-         */
-        post: operations["restartWorkflow"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/executions/{executionId}/restart/{fromNodeId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Restart a workflow execution from a node
-         * @deprecated
-         * @description Restarts from a node, replaying the last checkpoints of its parents. Legacy path: /api/workflow/executions/{executionId}/restart/{fromNodeId} (deprecated)
-         */
-        post: operations["restartFromNode"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/executions/{executionId}/stop": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Stop a specific execution
-         * @deprecated
-         * @description With tree=true also every unfinished run it started as a sub-workflow. Legacy path: /api/workflow/executions/{executionId}/stop (deprecated)
-         */
-        post: operations["stopExecution"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/workflow/start": {
         parameters: {
             query?: never;
@@ -2581,258 +2518,6 @@ export interface paths {
         get: operations["getWorkflowHistory"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/status/{executionId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get workflow execution status
-         * @deprecated
-         * @description Pass sessionId to read a run older than the execution index from its session's history. Legacy path: /api/workflow/{sessionId}/status/{executionId} (deprecated)
-         */
-        get: operations["getWorkflowStatus_1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/status/{executionId}/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Stream workflow execution status
-         * @deprecated
-         * @description Streams progress via SSE. Legacy path: /api/workflow/{sessionId}/status/{executionId}/stream (deprecated)
-         */
-        get: operations["streamWorkflowStatus_1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/pause": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Pause a node
-         * @deprecated
-         * @description Pauses a single node via backpressure. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/pause (deprecated)
-         */
-        post: operations["pauseNode_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/resume": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resume a node
-         * @deprecated
-         * @description Resumes a single paused node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/resume (deprecated)
-         */
-        post: operations["resumeNode_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/skip": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Skip or unskip a node
-         * @deprecated
-         * @description Marks a node as skipped (passthrough) or not. Core currently rejects this for running executions.. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/skip (deprecated)
-         */
-        post: operations["skipNode_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/step": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Step a node
-         * @deprecated
-         * @description Lets exactly one element through a node in step-through mode. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step (deprecated)
-         */
-        post: operations["stepNode_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Disable step mode on a node
-         * @deprecated
-         * @description Disables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/disable (deprecated)
-         */
-        post: operations["disableStepMode_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Enable step mode on a node
-         * @deprecated
-         * @description Enables step-through debug mode on a node. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/step/enable (deprecated)
-         */
-        post: operations["enableStepMode_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/{executionId}/node/{nodeId}/stop": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Stop a node
-         * @deprecated
-         * @description Stops a single node, immediately or after draining inflight work. Legacy path: /api/workflow/{sessionId}/{executionId}/node/{nodeId}/stop (deprecated)
-         */
-        post: operations["stopNode_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/{executionId}/pause": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Pause a workflow execution
-         * @deprecated
-         * @description Pauses a specific workflow execution via global backpressure; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/pause (deprecated)
-         */
-        post: operations["pauseWorkflow_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/{executionId}/recover": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Recover an aborted workflow execution
-         * @deprecated
-         * @description Continues a run that a server restart aborted as a new run: nodes that finished are replayed from their recorded output, the rest run again. Needs the file execution log and checkpoint directories. Answers 409 if the run was not aborted, was already resumed or its workflow changed.
-         */
-        post: operations["recoverExecution_1"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/workflow/{sessionId}/{executionId}/resume": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resume a workflow execution
-         * @deprecated
-         * @description Resumes a specific paused workflow execution; with tree=true also every run it started as a sub-workflow. Legacy path: /api/workflow/{sessionId}/{executionId}/resume (deprecated)
-         */
-        post: operations["resumeWorkflow_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9127,7 +8812,7 @@ export interface operations {
             };
         };
     };
-    restartWorkflow_1: {
+    restartWorkflow: {
         parameters: {
             query?: never;
             header?: never;
@@ -9150,7 +8835,7 @@ export interface operations {
             };
         };
     };
-    restartFromNode_1: {
+    restartFromNode: {
         parameters: {
             query?: never;
             header?: never;
@@ -9252,7 +8937,7 @@ export interface operations {
             };
         };
     };
-    stopExecution_1: {
+    stopExecution: {
         parameters: {
             query?: {
                 /** @description Also the runs it started as sub-workflows, at any depth */
@@ -11223,82 +10908,6 @@ export interface operations {
             };
         };
     };
-    restartWorkflow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Execution ID */
-                executionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    restartFromNode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Execution ID */
-                executionId: string;
-                /** @description Node ID to restart from */
-                fromNodeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    stopExecution: {
-        parameters: {
-            query?: {
-                /** @description Also the runs it started as sub-workflows, at any depth */
-                tree?: boolean;
-                /** @description DRAIN lets in-flight work finish (default), CANCEL cancels it, KILL stops at once */
-                mode?: "DRAIN" | "CANCEL" | "KILL";
-            };
-            header?: never;
-            path: {
-                /** @description Execution ID */
-                executionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
     startWorkflow: {
         parameters: {
             query?: never;
@@ -11348,342 +10957,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListWorkflowExecutionSummary"];
-                };
-            };
-        };
-    };
-    getWorkflowStatus_1: {
-        parameters: {
-            query?: {
-                /** @description Session ID, to read from the session's history */
-                sessionId?: string;
-            };
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowProgress"];
-                };
-            };
-        };
-    };
-    streamWorkflowStatus_1: {
-        parameters: {
-            query?: {
-                /** @description Include historical status updates (last N minutes) */
-                includeHistory?: boolean;
-            };
-            header?: {
-                "Last-Event-ID"?: string;
-            };
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": components["schemas"]["ServerSentEventWorkflowProgress"][];
-                };
-            };
-        };
-    };
-    pauseNode_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-                /** @description Node ID */
-                nodeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    resumeNode_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-                /** @description Node ID */
-                nodeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    skipNode_1: {
-        parameters: {
-            query?: {
-                /** @description True to skip, false to unskip */
-                skip?: boolean;
-            };
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-                /** @description Node ID */
-                nodeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    stepNode_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-                /** @description Node ID */
-                nodeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    disableStepMode_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-                /** @description Node ID */
-                nodeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    enableStepMode_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-                /** @description Node ID */
-                nodeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    stopNode_1: {
-        parameters: {
-            query?: {
-                /** @description True for hard stop, false for drain & stop */
-                immediate?: boolean;
-                /** @description Human-readable reason for the stop */
-                reason?: string;
-            };
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-                /** @description Node ID */
-                nodeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    pauseWorkflow_1: {
-        parameters: {
-            query?: {
-                /** @description Also every unfinished run the execution started as a sub-workflow, at any depth */
-                tree?: boolean;
-            };
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    recoverExecution_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
-                };
-            };
-        };
-    };
-    resumeWorkflow_1: {
-        parameters: {
-            query?: {
-                /** @description Also every unfinished run the execution started as a sub-workflow, at any depth */
-                tree?: boolean;
-            };
-            header?: never;
-            path: {
-                /** @description Session ID */
-                sessionId: string;
-                /** @description Execution ID */
-                executionId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseWorkflowStartResponse"];
                 };
             };
         };

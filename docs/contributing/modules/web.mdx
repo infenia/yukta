@@ -639,9 +639,9 @@ Canonical routes are /api/executions/...; the /api/workflow/... forms are deprec
 | POST | /api/workflow/start | Start a run. Header Idempotency-Key optional | 202 with data.executionId. Body: sessionId, workflowId, payload | 404 session or workflow, 429 limit, 400 body |
 | POST | /api/workflow/\{sid\}/\{wid\}/stop?mode= | Stop every active run of a workflow | DRAIN (default), CANCEL or KILL. Returns signalled ids | 404 |
 | GET | /api/workflow/\{sid\}/history?limit&cursor | A session's runs, newest first | Paged; whole history loaded then cut | 404 unknown session |
-| POST | /api/executions/\{eid\}/stop (alias /api/workflow/executions/\{eid\}/stop) | Stop one run | Returns the same id. No ownership check | 404 |
-| POST | /api/executions/\{eid\}/restart (alias /api/workflow/executions/\{eid\}/restart) | Stop and start again with the original payload | New execution id. No ownership check | 404; 409 if a restart is already in progress |
-| POST | /api/executions/\{eid\}/restart/\{node\} (alias /api/workflow/executions/\{eid\}/restart/\{node\}) | Restart from a node using its parents' checkpoints | New execution id | 404 |
+| POST | /api/executions/\{eid\}/stop | Stop one run | Returns the same id. No ownership check | 404 |
+| POST | /api/executions/\{eid\}/restart | Stop and start again with the original payload | New execution id. No ownership check | 404; 409 if a restart is already in progress |
+| POST | /api/executions/\{eid\}/restart/\{node\} | Restart from a node using its parents' checkpoints | New execution id | 404 |
 | POST | /api/executions/\{eid\}/nodes/\{nid\}/retry | Restart from a failed node | Canonical only. Existence checked | 404 |
 | GET | /api/executions/\{eid\} (alias /api/workflow/\{sid\}/status/\{eid\}) | Progress snapshot | Alias carries a session and checks ownership | 404 |
 
@@ -713,16 +713,6 @@ What a new endpoint should do to fit in.
 | Put validation on a request record, not in the controller | Records are immutable and validated before the method runs. |
 | Write 4xx messages that are safe for a client | Messages from core are echoed in 4xx replies. |
 | Add the route to OpenAPI annotations | Swagger UI and the UI's generated types are built from them. |
-
-### Deprecated aliases and who uses them
-
-| Alias | Canonical route | Used by |
-|---|---|---|
-| /api/workflow/executions/\{eid\}/stop \| restart \| restart/\{node\} | /api/executions/\{eid\}/stop \| restart \| restart/\{node\} | CLI (UI uses the canonical form) |
-| /api/workflow/\{sid\}/status/\{eid\} | /api/executions/\{eid\} | UI and CLI |
-| /api/workflow/\{sid\}/status/\{eid\}/stream | /api/executions/\{eid\}/status/stream | UI and CLI |
-| /api/workflow/\{sid\}/\{eid\}/pause \| resume | /api/executions/\{eid\}/pause \| resume | CLI |
-| /api/workflow/\{sid\}/\{eid\}/node/\{nid\}/pause \| resume \| stop \| skip \| step \| step/enable \| step/disable | /api/executions/\{eid\}/nodes/\{nid\}/... | CLI (UI uses the canonical form) |
 
 ## Architecture decisions
 

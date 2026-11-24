@@ -51,8 +51,6 @@ Sends a progress snapshot every time the run or one of its nodes changes. Each e
 |---|---|---|
 | `includeHistory` | `true` | Replay the updates of the last few minutes first (`yukta.streaming.status-history-ttl-minutes`, default 5), then follow live. Keep it `true` when you resume with `Last-Event-ID`, so the ids line up |
 
-The deprecated path `GET /api/workflow/{sessionId}/status/{executionId}/stream` does the same and also checks the session.
-
 ```http
 GET /api/executions/550e8400-e29b-41d4-a716-446655440000/status/stream
 Accept: text/event-stream

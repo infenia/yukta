@@ -162,21 +162,11 @@ Streams share these conventions; the [Streams](/api/streams) page has the detail
 
 The server reads request bodies up to `1MB`. A larger body is answered with `413`. Set `YUKTA_LIMITS_MAX_BODY` to change the limit, for example `4MB`.
 
-## Deprecated aliases
+## Execution endpoints
 
-Execution endpoints exist at two paths. The `/api/executions/{executionId}/...` form is current. The older `/api/workflow/...` form still works and is marked deprecated: its responses carry `Deprecation: true` and the server logs each call at WARN (`Deprecated alias ...`, with the caller's `User-Agent`) so you can see who still uses it; where it names a session, it also checks that the execution belongs to that session.
+Execution endpoints live at `/api/executions/{executionId}/...`. The old `/api/workflow/{sessionId}/status/...`, `/api/workflow/executions/...` and `/api/workflow/{sessionId}/{executionId}/...` aliases were removed.
 
-| Current path | Deprecated alias |
-|---|---|
-| `GET /api/executions/{executionId}` | `GET /api/workflow/{sessionId}/status/{executionId}` |
-| `GET /api/executions/{executionId}/status/stream` | `GET /api/workflow/{sessionId}/status/{executionId}/stream` |
-| `POST /api/executions/{executionId}/stop` | `POST /api/workflow/executions/{executionId}/stop` |
-| `POST /api/executions/{executionId}/restart` | `POST /api/workflow/executions/{executionId}/restart` |
-| `POST /api/executions/{executionId}/restart/{fromNodeId}` | `POST /api/workflow/executions/{executionId}/restart/{fromNodeId}` |
-| `POST /api/executions/{executionId}/pause` and `/resume` and `/recover` | `POST /api/workflow/{sessionId}/{executionId}/pause`, `/resume`, `/recover` |
-| `POST /api/executions/{executionId}/nodes/{nodeId}/pause`, `/resume`, `/stop`, `/skip`, `/step`, `/step/enable`, `/step/disable` | `POST /api/workflow/{sessionId}/{executionId}/node/{nodeId}/...` |
-
-Retry, breakpoint, signal and priority exist only at the current path. The execution index behind `/api/executions/{executionId}` keeps a finished run for `yukta.tracker.cleanup-ttl` (default `10m`). To read an older run from the session history, add the session: `GET /api/executions/{executionId}?sessionId={sessionId}`. That form also checks that the run belongs to the session.
+The execution index behind `/api/executions/{executionId}` keeps a finished run for `yukta.tracker.cleanup-ttl` (default `10m`). To read an older run from the session history, add the session: `GET /api/executions/{executionId}?sessionId={sessionId}`. That form also checks that the run belongs to the session.
 
 ## Next steps
 
