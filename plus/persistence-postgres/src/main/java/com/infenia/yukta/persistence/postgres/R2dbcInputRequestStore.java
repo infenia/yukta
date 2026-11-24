@@ -228,23 +228,31 @@ public class R2dbcInputRequestStore implements InputRequestStore {
     return query("TRUE", sessionId, executionId);
   }
 
+  /**
+   * The requests matching {@code condition} and the filters given. Only the filters that are set
+   * become predicates, so the planner can use the session or run index (a catch-all {@code :x IS
+   * NULL OR col = :x} hides them from a generic plan).
+   */
   private Flux<InputRequest> query(
       final String condition,
       final @Nullable String sessionId,
       final @Nullable String executionId) {
-    return client
-        .sql(
-            "SELECT "
-                + REQUEST_COLUMNS
-                + " FROM input_request WHERE "
-                + condition
-                + " AND (CAST(:session AS text) IS NULL OR session_id = CAST(:session AS text)) AND"
-                + " (CAST(:execution AS text) IS NULL OR execution_id = CAST(:execution AS text))"
-                + " ORDER BY created_at, id")
-        .bind("session", nullable(sessionId, String.class))
-        .bind("execution", nullable(executionId, String.class))
-        .map(this::request)
-        .all();
+    final String sql =
+        "SELECT "
+            + REQUEST_COLUMNS
+            + " FROM input_request WHERE "
+            + condition
+            + (sessionId == null ? "" : " AND session_id = :session")
+            + (executionId == null ? "" : " AND execution_id = :execution")
+            + " ORDER BY created_at, id";
+    DatabaseClient.GenericExecuteSpec spec = client.sql(sql);
+    if (sessionId != null) {
+      spec = spec.bind("session", sessionId);
+    }
+    if (executionId != null) {
+      spec = spec.bind("execution", executionId);
+    }
+    return spec.map(this::request).all();
   }
 
   @Override
