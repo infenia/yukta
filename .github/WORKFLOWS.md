@@ -316,6 +316,14 @@ Issues, issue types and the **Yukta Roadmap** project are described in
 
 ---
 
+### `native-plus-smoke.yml` — Native Plus smoke
+
+**Purpose**: Show what the Plus flavour (PostgreSQL stores, AGPL) is missing as a native image: R2DBC, Flyway and the PostgreSQL driver have no native-image metadata of their own yet.
+**Triggered on**: weekly schedule (Monday), manual.
+**Behavior**: builds the native server with `-Ob` and `YUKTA_BUILD_FLAGS="-Pyukta.persistence=postgres -Pyukta.workers=true"`, starts it on the `prod,postgres` profile against a `postgres:18-alpine` service, runs the Quickstart (`release/smoke-test.sh`), checks that `/api/edition` reports `PLUS` and the `postgres` feature, and that the `demo` session is still listed after a restart. It is not wired to the nightly issue: a failure shows in the run.
+
+---
+
 ### `native-smoke.yml` — Native smoke
 
 **Purpose**: Show missing reflection or resource entries between releases, not when the release build fails.
