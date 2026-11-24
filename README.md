@@ -122,11 +122,19 @@ export YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3,git,uv,bun,node,npm
 export YUKTA_VARIABLES_ALLOWED=java.io.tmpdir
 export YUKTA_AI_PRESETS_DIR=$HOME/.local/share/yukta/examples/3-paid-tools/16-agent-console/agent-harnesses
 yukta start     # runs the server in the background (daemon mode)
-yukta status    # is it running?
-yukta stop      # stop it when you are done
 ```
 
-Start it with `yukta start`, not a bare `yukta`: the foreground console mode still has bugs.
+- `yukta status`: check whether the server is running ([details](#check-that-it-is-running)).
+- `yukta stop`: stop the server ([details](#when-you-are-done)).
+
+<details>
+<summary><b>Foreground console mode</b> (work in progress)</summary>
+
+<br>
+
+A bare `yukta` runs the server in the foreground with a console, and it works if you want to explore it. It is still a work in progress.
+
+</details>
 
 <details>
 <summary><b>Windows</b> (PowerShell)</summary>
@@ -141,8 +149,6 @@ $env:YUKTA_PROCESS_ALLOWED_COMMANDS = 'sh,echo,shuf,python3,git,uv,bun,node,npm,
 $env:YUKTA_VARIABLES_ALLOWED = 'java.io.tmpdir'
 $env:YUKTA_AI_PRESETS_DIR = "$PWD\yukta-<version>-windows-amd64\examples\3-paid-tools\16-agent-console\agent-harnesses"
 .\yukta-<version>-windows-amd64\yukta.exe start    # daemon mode
-.\yukta-<version>-windows-amd64\yukta.exe status   # is it running?
-.\yukta-<version>-windows-amd64\yukta.exe stop     # stop it
 ```
 
 </details>
@@ -152,26 +158,26 @@ $env:YUKTA_AI_PRESETS_DIR = "$PWD\yukta-<version>-windows-amd64\examples\3-paid-
 
 <br>
 
-The image carries only `sh` and `echo`, so run the examples that need nothing else here; the ones that need `git`, `python3`, `shuf`, `uv`, `bun` or `node` (11, 12, 14, 17, 18 and 19) need the native server above. The examples keep their files in `/tmp/yukta-examples`, so the container shares that folder with your machine and runs as you. Without the installer, get the example scripts first (on macOS leave out `--wildcards`):
+The image carries only `sh` and `echo`, so run the examples that need nothing else here; the ones that need `git`, `python3`, `shuf`, `uv`, `bun` or `node` (11, 12, 14, 17, 18 and 19) need the native server above. The examples keep their files in `/tmp/yukta-examples`, so the container shares that folder with your machine and runs as you. Host networking works out of the box on Linux; Docker Desktop needs it enabled in its settings. Without the installer, get the example scripts first (on macOS leave out `--wildcards`):
 
 ```bash
 curl -fsSL https://codeload.github.com/infenia/yukta/tar.gz/refs/tags/v0.1.0-alpha.5 | tar -xz --strip-components=1 --wildcards '*/examples'
 mkdir -p /tmp/yukta-examples
-docker run --rm -p 127.0.0.1:9858:9858 --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp \
+docker run --rm --network host --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp \
   -v /tmp/yukta-examples:/tmp/yukta-examples \
-  -e YUKTA_API_KEYS_0_NAME=admin \
-  -e YUKTA_API_KEYS_0_KEY=change-me-to-a-long-random-secret \
-  -e YUKTA_API_KEYS_0_ROLE=ADMIN \
+  -e YUKTA_SERVER_ADDRESS=127.0.0.1 \
   -e YUKTA_PLUGINS_ENABLED=all -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo \
   ghcr.io/infenia/yukta:0.1.0-alpha.5
-export YUKTA_API_KEY=change-me-to-a-long-random-secret   # the scripts send it to the server
 ```
 
-Then use `./examples` wherever the steps below say `~/.local/share/yukta/examples`.
+> [!IMPORTANT]
+> With Docker your examples are in `./examples`, not in `~/.local/share/yukta/examples`. Use `./examples` wherever the steps below say `~/.local/share/yukta/examples`.
 
 </details>
 
-Check that it's up:
+### Check that it is running
+
+To see whether the server is running, run `yukta status` (`yukta.exe status` on Windows). With Docker, or to check from outside, use the health URL instead:
 
 ```bash
 curl http://localhost:9858/actuator/health
@@ -222,6 +228,14 @@ Key names differ between clients (`url`, `httpUrl`, `type`); use the one yours d
 
 </details>
 
+### When you are done
+
+To shut the server down, run `yukta stop` (`yukta.exe stop` on Windows). With Docker, press Ctrl+C in its terminal instead.
+
+```bash
+yukta stop
+```
+
 **Next:** [Your first workflow](https://yukta.infenia.com/learn/your-first-workflow) builds one by hand, step by step. [Let an assistant build a workflow](https://yukta.infenia.com/learn/let-an-assistant-build-a-workflow) does the same by asking.
 
 ## Set it up by asking
@@ -258,15 +272,8 @@ However a run starts, from a script, the web UI, the command line or an AI assis
 |:---:|:---:|
 | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/sessions-list.dark.png"><img alt="The Sessions page: five sessions with tags, creator, working directory and the status of the last run." src="docs/images/ui/sessions-list.light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/supervisors-page.dark.png"><img alt="The Supervisors page: the release-guard supervisor with its decision counts and the workflow it owns." src="docs/images/ui/supervisors-page.light.png"></picture> |
 | **Sessions.** Your workflows, grouped, and how each one last ran. | **Supervisors.** Who is in charge of each run, and what they decided. |
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/control-overview.dark.png"><img alt="The Control bus: supervisors, applied and refused decisions, runs per minute, success rate and approvals waiting." src="docs/images/ui/control-overview.light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/plugin-catalogue.dark.png"><img alt="The Plugins page: triggers, processors and terminals, with the Classify plugin open and its output ports drawn." src="docs/images/ui/plugin-catalogue.light.png"></picture> |
-| **Control bus.** How runs are doing right now, and every request to pause, stop or change one. | **Plugins.** The building blocks you put on the canvas: scripts, web calls, AI models and more. |
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/inputs-panel.dark.png">
-  <img alt="An approval waiting for an answer: a high-risk release, the supervisors that were asked first, their advice, and Approve, Reject and Escalate buttons." src="docs/images/ui/inputs-panel.light.png">
-</picture>
-
-<p align="center"><i>An approval waiting for a person. Those in charge were asked first, and their advice comes with the question.</i></p>
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/control-overview.dark.png"><img alt="The Dashboard: supervisors, applied and refused decisions, runs per minute, success rate and approvals waiting." src="docs/images/ui/control-overview.light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/plugin-catalogue.dark.png"><img alt="The Plugins page: triggers, processors and terminals, with the Classify plugin open and its output ports drawn." src="docs/images/ui/plugin-catalogue.light.png"></picture> |
+| **Dashboard.** How runs are doing right now, and every request to pause, stop or change one. | **Plugins.** The building blocks you put on the canvas: scripts, web calls, AI models and more. |
 
 ## Find your way
 
@@ -281,12 +288,21 @@ However a run starts, from a script, the web UI, the command line or an AI assis
 ## Honest limits
 
 - **It's alpha.** The workflow format and the APIs can still change before 1.0. The macOS and Windows builds are new and not signed yet, so downloading them in a browser triggers a warning.
-- **Nothing is saved by default.** One server keeps everything in memory, so stopping it loses your sessions and run history. Saving to disk or PostgreSQL, running several servers together, and remote workers are in the [Plus build](LICENSING.md).
+- **Nothing is saved by default.** One server keeps everything in memory, so stopping it loses your sessions and run history. Saving to disk or PostgreSQL, running several servers together, and remote workers are in the [Plus build](LICENSING.md), which is a work in progress and may not work properly yet.
 - **Workflows can run real commands.** A workflow can start programs and scripts and query databases, so only let people you trust write them. Out of the box the server listens only on your own machine and refuses outside connections without an API key. See [Secure the server](https://yukta.infenia.com/guides/operate/secure-the-server) and [`SECURITY.md`](SECURITY.md).
+
+## Built with
+
+Java 25 and Spring Boot 4.1 on WebFlux, with Project Reactor underneath; Spring AI for the MCP server; a React 19 web UI; a Go command-line client; and GraalVM to compile the server into one native binary.
+
+- **Reactive streams with backpressure.** Every arrow in a workflow is a Reactor stream, so a slow step slows the steps feeding it instead of piling work up in memory.
+- **Non-blocking I/O.** WebFlux serves many concurrent runs, API calls and live event streams with a small number of threads.
+- **Native binary.** GraalVM gives a single executable with a fast start and no JVM to install.
+- **Spring Boot.** Health checks, metrics, configuration through environment variables and OpenAPI docs come with the framework.
 
 ## Develop
 
-Built with Java 25, Spring Boot 4.1 (WebFlux), Project Reactor, Spring AI MCP, GraalVM, React 19 and Go. You need a JDK 25; the Gradle wrapper comes with the repository.
+You need a JDK 25; the Gradle wrapper comes with the repository.
 
 ```bash
 ./gradlew bootRun          # run the server
@@ -309,7 +325,7 @@ Built with Java 25, Spring Boot 4.1 (WebFlux), Project Reactor, Spring AI MCP, G
 | `ui` / `cli` | The React web UI / the Go command-line client |
 | `boot` | The Spring Boot entry point and the native-image setup |
 | `architecture`, `e2e`, `test-support` | Architecture rules (ArchUnit), tests against a running server, shared test helpers |
-| `plus/` | Optional (AGPL): PostgreSQL storage, high availability, remote workers |
+| `plus/` | Optional (AGPL, work in progress): PostgreSQL storage, high availability, remote workers |
 | `claude-mods` | The Claude Code plugin |
 | `messaging`, `build-logic`, `examples` | Shared messaging, Gradle conventions, the runnable examples |
 
@@ -322,16 +338,10 @@ Each module has its own `CLAUDE.md` with build commands and architecture notes.
 
 <br>
 
+> [!WARNING]
+> Persistence and the Plus modules are a work in progress and may not work properly yet. Do not rely on them for data you cannot lose.
+
 Sessions, workflows and the execution log live in memory by default. File storage is in the Plus build (`-Pyukta.edition=plus`, AGPL-3.0-only); PostgreSQL is `./gradlew bootJar -Pyukta.persistence=postgres`. See [Persistence](https://yukta.infenia.com/guides/operate/persist-sessions).
-
-</details>
-
-<details>
-<summary><b>Developing Yukta with Yukta</b></summary>
-
-<br>
-
-Contributors (and Claude Code, held to it by hooks) run builds, tests and checks through `yk` from [yukta-dogfood](https://github.com/infenia/yukta-dogfood) (`scripts/dogfood-setup.sh`): each Gradle call becomes a Yukta workflow on a local dev server built from `origin/main` at `http://127.0.0.1:9858`, and `yk check` is the staged, self-healing quality gate. See the [yukta-dogfood README](https://github.com/infenia/yukta-dogfood#readme).
 
 </details>
 
