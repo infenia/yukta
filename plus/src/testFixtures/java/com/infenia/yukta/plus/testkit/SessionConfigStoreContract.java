@@ -5,6 +5,7 @@ package com.infenia.yukta.plus.testkit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.session.SessionSummary;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.testing.Fixtures;
@@ -45,6 +46,21 @@ public abstract class SessionConfigStoreContract {
         Map.of("team", "a"),
         "/tmp",
         Map.of("w", workflow));
+  }
+
+  @Test
+  void summariesListEverySessionByIdWithItsWorkflowCount() {
+    final SessionConfigStore store = create();
+    store.applySessionConfig(session("s2", SECOND)).block();
+    store.applySessionConfig(session("s1", FIRST)).block();
+
+    final List<SessionSummary> summaries = store.summaries().collectList().block();
+
+    assertThat(summaries).extracting(SessionSummary::sessionId).containsExactly("s1", "s2");
+    assertThat(summaries.getFirst())
+        .isEqualTo(
+            new SessionSummary(
+                "s1", "name-s1", FIRST, "initiator", Map.of("team", "a"), "/tmp", 1));
   }
 
   @Test
