@@ -86,11 +86,28 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
   }
 
   @Override
-  public Mono<Void> replaceAll(final List<ExecutionLogEvent> kept) {
+  public Mono<Void> applyRecovery(
+      final Set<String> dropped, final int schedulerKept, final List<ExecutionLogEvent> added) {
     return Mono.fromRunnable(() -> {
       lock.lock();
       try {
-        events = new ArrayList<>(kept);
+        int scheduler = 0;
+        for (final ExecutionLogEvent event : events) {
+          if (ExecutionLogEvent.SCHEDULER.equals(event.executionId())) {
+            scheduler++;
+          }
+        }
+        int skip = Math.max(0, scheduler - schedulerKept);
+        final List<ExecutionLogEvent> kept = new ArrayList<>(events.size() + added.size());
+        for (final ExecutionLogEvent event : events) {
+          if (ExecutionLogEvent.SCHEDULER.equals(event.executionId()) && skip > 0) {
+            skip--;
+          } else if (!dropped.contains(event.executionId())) {
+            kept.add(event);
+          }
+        }
+        kept.addAll(added);
+        events = kept;
         reindex();
         sinceTrim = 0;
       } finally {

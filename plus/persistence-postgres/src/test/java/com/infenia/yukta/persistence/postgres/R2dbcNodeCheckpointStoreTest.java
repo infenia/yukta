@@ -56,42 +56,63 @@ class R2dbcNodeCheckpointStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void removeNotIn_dropsTheOutputOfRunsThatAreGone() {
-    store.save(GONE_RUN, "n1", message("a")).block();
-    store.markComplete(GONE_RUN, "n1").block();
-    store.save(KEPT_RUN, "n1", message("b")).block();
+  void saveAll_writesTheWholeBatchInOrder_afterEarlierSaves() {
+    store.save("e1", "n1", message("first")).block();
+    final java.util.List<Message<?>> batch =
+        java.util.stream.IntStream.range(0, 64)
+            .<Message<?>>mapToObj(i -> message("m" + i))
+            .toList();
 
-    store.removeNotIn(java.util.Set.of(KEPT_RUN));
+    store.saveAll("e1", "n1", batch).block();
+    store.saveAll("e1", "n1", java.util.List.of()).block();
 
-    assertThat(store.getAll(GONE_RUN, "n1").collectList().block()).isEmpty();
-    assertThat(store.isFinished(GONE_RUN, "n1")).isFalse();
-    assertThat(store.getAll(KEPT_RUN, "n1").collectList().block()).hasSize(1);
+    final java.util.List<Object> payloads =
+        store.getAll("e1", "n1").<Object>map(Message::payload).collectList().block();
+    assertThat(payloads).hasSize(65).startsWith("first", "m0", "m1").endsWith("m62", "m63");
+    assertThat(store.get("e1", "n1").block().payload()).isEqualTo("m63");
   }
 
-  @Test
-  void removeNotIn_thatFailsInTheDatabase_keepsTheOutputAndDoesNotThrow() {
-    store.save(GONE_RUN, "n1", message("a")).block();
+  /* default */ @Nested
+  class WhenRemovingRuns {
 
-    // a NUL character is not storable in PostgreSQL text, so the delete fails
-    store.removeNotIn(java.util.Set.of("a\u0000b"));
+    @Test
+    void removeNotIn_dropsTheOutputOfRunsThatAreGone() {
+      store.save(GONE_RUN, "n1", message("a")).block();
+      store.markComplete(GONE_RUN, "n1").block();
+      store.save(KEPT_RUN, "n1", message("b")).block();
 
-    assertThat(store.getAll(GONE_RUN, "n1").collectList().block()).hasSize(1);
-  }
-
-  @Test
-  void removeNotIn_whileInterrupted_keepsTheInterruptFlag() {
-    store.save(GONE_RUN, "n1", message("a")).block();
-    Thread.currentThread().interrupt();
-    try {
       store.removeNotIn(java.util.Set.of(KEPT_RUN));
-      assertThat(Thread.currentThread().isInterrupted()).isTrue();
-    } finally {
-      Thread.interrupted();
+
+      assertThat(store.getAll(GONE_RUN, "n1").collectList().block()).isEmpty();
+      assertThat(store.isFinished(GONE_RUN, "n1")).isFalse();
+      assertThat(store.getAll(KEPT_RUN, "n1").collectList().block()).hasSize(1);
     }
-    // let the delete that the interrupted caller started finish before the next test runs
-    org.awaitility.Awaitility.await()
-        .atMost(java.time.Duration.ofSeconds(10))
-        .until(() -> !Boolean.TRUE.equals(store.getAll(GONE_RUN, "n1").hasElements().block()));
+
+    @Test
+    void removeNotIn_thatFailsInTheDatabase_keepsTheOutputAndDoesNotThrow() {
+      store.save(GONE_RUN, "n1", message("a")).block();
+
+      // a NUL character is not storable in PostgreSQL text, so the delete fails
+      store.removeNotIn(java.util.Set.of("a\u0000b"));
+
+      assertThat(store.getAll(GONE_RUN, "n1").collectList().block()).hasSize(1);
+    }
+
+    @Test
+    void removeNotIn_whileInterrupted_keepsTheInterruptFlag() {
+      store.save(GONE_RUN, "n1", message("a")).block();
+      Thread.currentThread().interrupt();
+      try {
+        store.removeNotIn(java.util.Set.of(KEPT_RUN));
+        assertThat(Thread.currentThread().isInterrupted()).isTrue();
+      } finally {
+        Thread.interrupted();
+      }
+      // let the delete that the interrupted caller started finish before the next test runs
+      org.awaitility.Awaitility.await()
+          .atMost(java.time.Duration.ofSeconds(10))
+          .until(() -> !Boolean.TRUE.equals(store.getAll(GONE_RUN, "n1").hasElements().block()));
+    }
   }
 
   @Test
@@ -156,6 +177,22 @@ class R2dbcNodeCheckpointStoreTest extends PostgresTestSupport {
     }
   }
 
+  @Test
+  void finishedNeedsTheMarkerAndNoIncompleteFlag() {
+    store.markComplete("e1", "n1").block();
+    assertThat(store.finishedAsync("e1", "n1").block()).isTrue();
+    assertThat(store.completeAsync("e1", "n1").block()).isTrue();
+
+    // an output that could not be recorded wholly is incomplete, even with the end marker
+    final ObjectMapper broken = Mockito.mock(ObjectMapper.class);
+    Mockito.when(broken.writeValueAsString(ArgumentMatchers.any()))
+        .thenThrow(new IllegalStateException("cannot write"));
+    new R2dbcNodeCheckpointStore(db, broken).save("e1", "n1", message("a")).block();
+
+    assertThat(store.finishedAsync("e1", "n1").block()).isFalse();
+    assertThat(store.completeAsync("e1", "n1").block()).isFalse();
+  }
+
   /** The failures that the store turns into an unfinished node, or a refused write. */
   /* default */ @Nested
   class WhenItFails {
@@ -194,6 +231,27 @@ class R2dbcNodeCheckpointStoreTest extends PostgresTestSupport {
           .containsExactly("a");
       assertThat(fenced.isComplete("e1", "n1")).isTrue();
       assertThat(meters.get("yukta.fencing.refused").counter().count()).isEqualTo(1);
+    }
+
+    @Test
+    void staleLeader_batchAndEndMarkerAreRefused_andEveryMessageIsCounted() {
+      final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+      final R2dbcNodeCheckpointStore fenced =
+          new R2dbcNodeCheckpointStore(db, new ObjectMapper(), meters, () -> 1);
+      db.sql(
+              "INSERT INTO leader_lease (name, holder, fencing, expires_at)"
+                  + " VALUES ('leader', 'other', 2, now() + interval '1 hour')")
+          .fetch()
+          .rowsUpdated()
+          .block();
+
+      fenced.saveAll("e1", "n1", java.util.List.of(message("a"), message("b"))).block();
+      fenced.markComplete("e1", "n1").block();
+
+      assertThat(fenced.getAll("e1", "n1").collectList().block()).isEmpty();
+      // a server that lost the lease cannot mark a node done for the new leader to trust
+      assertThat(fenced.finishedAsync("e1", "n1").block()).isFalse();
+      assertThat(meters.get("yukta.fencing.refused").counter().count()).isEqualTo(3);
     }
   }
 }

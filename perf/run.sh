@@ -4,7 +4,7 @@
 #
 # Run a k6 test against Yukta in a container with fixed resources and keep a report.
 #   perf/run.sh <perf|load|soak|inputs|notifications> [extra k6 args]
-# Env: PORT=9858 (the host port; a run on another port has its own compose project) CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 (default: all cores after the server's; unpinned below 3 cores) IMAGE=... KEEP=1 (leave server up)
+# Env: PERSISTENCE=memory|postgres (postgres: a PostgreSQL container, and a binary of the Plus flavour) PORT=9858 (the host port; a run on another port has its own compose project) CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 (default: all cores after the server's; unpinned below 3 cores) IMAGE=... KEEP=1 (leave server up)
 #      Always runs the native binary: it is built first (release/build-server.sh; NATIVE_QUICK=1, NATIVE_HEAP=24g).
 #      BINARY=dist/linux-amd64/yukta skips that build and runs a binary built earlier (CI; image debian:12-slim)
 #      plus the k6 -e variables, e.g. RATE=50 WORKFLOWS=mapper DURATION=10m
@@ -31,6 +31,15 @@ fi
 # absolute: compose reads a relative path without a leading ./ as the name of a volume, not a file
 JAR=$(realpath "$BINARY"); export JAR   # compose mounts it at /app/yukta.jar
 export RUN_CMD="/app/yukta.jar -Dyukta.rate-limit-per-minute=0" IMAGE=${IMAGE:-debian:12-slim}
+# PERSISTENCE=postgres: the binary must be the Plus flavour (YUKTA_BUILD_FLAGS="-Pyukta.persistence=postgres
+# -Pyukta.workers=true" release/build-server.sh). A PostgreSQL container joins the server's project and the
+# server runs on the postgres profile; the same workloads then show what the database costs.
+PERSISTENCE=${PERSISTENCE:-memory}
+case $PERSISTENCE in
+  memory) ;;
+  postgres) export COMPOSE_PROFILES=postgres PROFILES=prod,postgres ;;
+  *) echo "unknown PERSISTENCE '$PERSISTENCE' (memory|postgres)" >&2; exit 2 ;;
+esac
 # One compose project per port, so two runs (two people, two sessions) on one machine never remove each other's server.
 export PORT=${PORT:-9858}
 compose=(docker compose -f perf/compose.yaml -p "yukta-perf-$PORT")
@@ -63,8 +72,13 @@ if [[ $type == notifications ]]; then
   esac
 fi
 STREAMS=${STREAMS:-$([[ $CPUS -le 2 ]] && echo 100 || echo 200)}   # people with a tab open; 100 on 2 vCPU, 200 on 4
-if [[ $type == notifications ]]; then
+if [[ $type == notifications || $PERSISTENCE == postgres ]]; then
   KEYS_ENV=$dir/keys.env; : > "$KEYS_ENV"; export KEYS_ENV
+fi
+if [[ $PERSISTENCE == postgres ]]; then
+  printf 'SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/yukta\nSPRING_R2DBC_USERNAME=yukta\nSPRING_R2DBC_PASSWORD=perf-only\nSPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/yukta\nSPRING_FLYWAY_USER=yukta\nSPRING_FLYWAY_PASSWORD=perf-only\n' >> "$KEYS_ENV"
+fi
+if [[ $type == notifications ]]; then
   for i in $(seq 1 $(( (STREAMS + 7) / 8 ))); do
     printf 'YUKTA_API_KEYS_%d_NAME=stream%d\nYUKTA_API_KEYS_%d_KEY=stream-key-%d-%s\nYUKTA_API_KEYS_%d_ROLE=OPERATOR\nYUKTA_API_KEYS_%d_SESSIONS_0=*\n' \
       "$i" "$i" "$i" "$i" "$API_KEY" "$i" "$i" >> "$KEYS_ENV"
@@ -82,9 +96,10 @@ jq -n --arg test "$type" --arg mode "$mode" --arg commit "$sha" --argjson dirty 
   --arg k6 "$(k6 version | head -1)" --arg artifact "$(basename "$JAR")" --arg sha256 "$(sha256sum "$JAR" | cut -c1-16)" \
   --arg port "$PORT" --arg docker "$(docker --version)" --arg rate "${RATE:-default}" --arg workflows "${WORKFLOWS:-default}" \
   --arg hold "${HOLD:-default}" --arg duration "${DURATION:-default}" --arg startedAt "$(date -u +%FT%TZ)" \
+  --arg persistence "$PERSISTENCE" \
   '{test:$test,mode:$mode,commit:$commit,dirty:$dirty,cpus:$cpus,cpuset:$cpuset,memory:$memory,javaOpts:$javaOpts,image:$image,
     binary:$binary,k6:$k6,artifact:$artifact,artifactSha256:$sha256,port:$port,docker:$docker,rate:$rate,workflows:$workflows,
-    hold:$hold,duration:$duration,startedAt:$startedAt}' > "$dir/meta.json"
+    persistence:$persistence,hold:$hold,duration:$duration,startedAt:$startedAt}' > "$dir/meta.json"
 
 ( echo 'time,cpu_perc,mem_usage'
   while sleep 5; do

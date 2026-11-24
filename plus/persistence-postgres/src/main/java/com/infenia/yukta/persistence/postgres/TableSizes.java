@@ -32,7 +32,11 @@ public final class TableSizes {
           "workflow_definition_revision",
           "session_config",
           "input_request",
-          "notifications");
+          "notifications",
+          "notification_receipts",
+          "notification_deliveries",
+          "agent_conversation",
+          "agent_event");
 
   /** Longest a read of the sizes may take. */
   private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
