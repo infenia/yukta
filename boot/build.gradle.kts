@@ -73,8 +73,13 @@ dependencies {
         implementation(project(":plus:persistence-postgres"))
     }
 
-    // The Plus edition info and source offer (AGPL-3.0-only, see LICENSING.md): -Pyukta.edition=plus
-    if (providers.gradleProperty("yukta.edition").orNull == "plus") {
+    // The Plus edition info and the source offer the AGPL asks for (see LICENSING.md): -Pyukta.edition=plus,
+    // and with either AGPL module above, which would otherwise ship without the offer.
+    val plusEdition =
+        providers.gradleProperty("yukta.edition").orNull == "plus" ||
+            providers.gradleProperty("yukta.persistence").orNull == "postgres" ||
+            providers.gradleProperty("yukta.workers").orNull == "true"
+    if (plusEdition) {
         implementation(project(":plus"))
     }
 

@@ -15,7 +15,7 @@ Yukta comes in editions. Community and Plus are in this repository.
 - **Plus** adds storing sessions, workflows, the execution log and checkpoints in PostgreSQL, with
   leader election for high availability (`-Pyukta.persistence=postgres`,
   `plus/persistence-postgres`), and remote workers (`-Pyukta.workers=true`, `plus/workers`);
-  `-Pyukta.edition=plus` adds the edition information and the source offer. Code already published
+  `-Pyukta.edition=plus` adds the edition information and the source offer, and either of the other two switches turns it on too, so an AGPL build never lacks the offer. Code already published
   stays available under the licence it was published with. Without Plus, those settings
   (`yukta.session.store-type=postgres`, `yukta.workers.*`) stop start-up with a clear message;
   state otherwise stays in memory. The on-disk stores were removed.

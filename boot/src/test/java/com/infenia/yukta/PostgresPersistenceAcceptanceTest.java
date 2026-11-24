@@ -54,6 +54,7 @@ class PostgresPersistenceAcceptanceTest {
   @Autowired private ControlBusGateway gateway;
   @Autowired private TaskTrackerService tracker;
   @Autowired private ExecutionLogStore executionLog;
+  @Autowired private com.infenia.yukta.edition.EditionInfo edition;
 
   @DynamicPropertySource
   /* default */ static void database(final DynamicPropertyRegistry registry) {
@@ -71,6 +72,13 @@ class PostgresPersistenceAcceptanceTest {
     registry.add("spring.flyway.url", POSTGRES::getJdbcUrl);
     registry.add("spring.flyway.user", POSTGRES::getUsername);
     registry.add("spring.flyway.password", POSTGRES::getPassword);
+  }
+
+  @Test
+  void postgresBuildReportsItselfAsPlusWithTheSourceOfferTheAgplAsksFor() {
+    assertThat(edition.edition()).isEqualTo(com.infenia.yukta.edition.Edition.PLUS);
+    assertThat(edition.features()).contains("postgres");
+    assertThat(edition.source()).isNotBlank();
   }
 
   @Test
