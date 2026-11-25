@@ -1,8 +1,8 @@
 # ADR 0013: Structured agent questions (choice, text) from terminal agents
 
-- **Status:** proposed. D1, D2, D6 and D10 were decided by Arun on 2026-11-25; the rest is proposed and needs review before the follow-up issues start. Built in this PR: the recordings, and the stop-gap of D10. Not built: everything else (the prototype lives on the branch `spike/2706-prototype`, not merged).
+- **Status:** accepted on 2026-11-25 for every decision. Built in this PR: the recordings, and the stop-gap of D10. Not built: everything else, which the follow-up issues below track. The prototype lives on the branch `spike/2706-prototype` and is not merged.
 - **Date:** 2026-11-25
-- **Prepared by:** Claude Code, at the request of Arun, for the spike #2706. The code facts come from `origin/main` at fe642fbb3. The protocol facts come from real runs of `claude` 2.1.332 and `agy` 1.5.10 (Antigravity), checked against the published Agent Client Protocol schema `schema-v1.32.0` (and `schema-v1.35.0`, which is the same for elicitation). **Decided by:** Arun, 2026-11-25, one round of questions (D1, D2, D6, D10).
+- **Prepared by:** Claude Code, at the request of Arun, for the spike #2706. The code facts come from `origin/main` at fe642fbb3. The protocol facts come from real runs of `claude` 2.1.332 and `agy` 1.5.10 (Antigravity), checked against the published Agent Client Protocol schema `schema-v1.32.0` (and `schema-v1.35.0`, which is the same for elicitation). **Decided by:** Arun, 2026-11-25, in two rounds of questions: D1, D2, D6 and D10 first, then D3 to D9 accepted as written.
 - **Epic:** #2706, under the agent console epic #2363. This replaces decision D20 of [ADR 0004](0004-agent-console.md) ("v1 maps every request to `APPROVAL`") and builds on [ADR 0001](0001-input-requests.md).
 - **Number:** the issue asked for 0005, but [0005](0005-editions.md) is taken; 0013 is the next free number.
 
@@ -64,7 +64,7 @@ A multi-select question shows `[ ]` boxes, a tab bar `←  ☐ Checks  ✔ Submi
 - **Multi-select:** the digit of each option toggles it (`[✔]`). Then `→` opens "Review your answers", and `Enter` submits.
 - **Free text:** the digit of "Type something." Then type the text and press `Enter`.
 
-Afterwards the screen shows `● Answered Claude's questions: ⎿ · Which checks should run? → Lint, Test`. The preset's `attentionPattern` (`Esc to cancel|Enter to confirm`) matches the question screen. It also matches the trust dialog and tool approvals, so `WAITING` cannot say which one is open. A parser has to recognise a question by its header line (`☐`/`☒`), the numbered options and "Type something".
+Afterwards the screen shows `● Answered Claude's questions: ⎿ · Which checks should run? → Lint, Test`. The preset's `attentionPattern` (`Esc to cancel|Enter to confirm`) matches the question screen. It also matches the trust dialog (seen in the recording) and, expected but not recorded, the tool-approval dialog, so `WAITING` cannot say which one is open. A parser has to recognise a question by its header line (`☐`/`☒`), the numbered options and "Type something".
 
 **F3. ACP: elicitation exists in v1, and Antigravity uses it.** `elicitation/create` and `elicitation/complete` are client methods in `meta.json` of `schema-v1.32.0`, not only in v2. An agent may send a form elicitation only after the client declares `clientCapabilities.elicitation.form = {}` at `initialize`. The form is a flat JSON Schema:
 
@@ -115,23 +115,23 @@ Points to note:
 | D7 | Where the question is shown | The input request card of the UI and the `REQUEST` event of the Agents tab get the header, the options with their descriptions, checkboxes for multi-select and a text field when `allowText`. `yukta-cli attach` prints numbered options and reads `1`, `1,3` or text. One form for all three clients, built from the spec, not from agent output. |
 | D8 | Risk and audience | Like the approvals: the node's `approvals` settings (`risk`, `ttl`, `audience`). A question needs `approvals: ASK`. With `approvals: NONE` it gets the no-answer reply of D6 at once, as a request is denied today. |
 | D9 | Several questions in one call | One request per question (D1), all opened together and linked by `context.group`. Claude allows one to four per call. ACP sends them as several properties of one schema, minus the `_other` siblings, which become `allowText`. |
-| D10 | The live bug of the approval path | **Fixed in this PR** (decided by Arun). The `claude-code` preset's interactive command adds `--disallowedTools AskUserQuestion`. Without the tool, the model asks in plain text, which the user answers in the conversation; this was checked with the same CLI. The flag is removed when the `jsonl` follow-up lands. Pinned by `AgentPresetTest.claudeCodeConversation_disallowsAskUserQuestion`. |
+| D10 | The live bug of the approval path | **Fixed in this PR** (decided by Arun). The `claude-code` preset's interactive command adds `--disallowedTools AskUserQuestion`. Without the tool, the model asks in plain text, which the user answers in the conversation; this was checked with the same CLI. The flag is removed by #2711. Repeating `--disallowedTools` adds to the list (checked), so a node's own `args` cannot bring the bug back. Pinned by `AgentPresetTest.claudeCodeConversation_disallowsAskUserQuestion`. |
 
-## Follow-up issues (to file once this ADR is accepted)
+## Follow-up issues (filed 2026-11-25, each says "Part of #2706")
 
 | # | Issue | Size |
 |---|---|---|
-| 1 | `plugin-api` and `core`: `InputOption.description`, `InputRequestSpec.multiSelect`/`allowText`, `AnswerShape` for `_selected`/`_text`, refresh the OpenAPI snapshots, docs of `answer_input` | M |
-| 2 | `agent-session`: `AgentQuestion`, `QuestionResponder` and `ClaudeQuestions` (preset `questionWhen`), grouped asks and one reply, D6 no-answer; remove the D10 flag; tests from the `claude-code` fixtures | M |
-| 3 | `agent-session`: `AcpElicitation`, declare `elicitation.form`, `accept`/`decline`/`cancel`; tests from the `elicitation-*` fixtures | S |
-| 4 | `ui`: the question form in the input card and the Agents tab (descriptions, multi-select, "Other" text); Playwright spec | M |
-| 5 | `cli`: `yukta-cli attach` and `inputs answer` for choices, multi-select and text | S |
-| 6 | `pty` (deferred): a `claude-tui` question parser over the settled screen, and the preset `questionKeys` responder (F2) | L |
-| 7 | Codex (deferred): record its question channel, then go or no-go | S |
+| #2710 | `plugin-api` and `core`: `InputOption.description`, `InputRequestSpec.multiSelect`/`allowText`, `AnswerShape` for `_selected`/`_text`, refresh the OpenAPI snapshots, docs of `answer_input` | M |
+| #2711 | `agent-session`: `AgentQuestion`, `QuestionResponder` and `ClaudeQuestions` (preset `questionWhen`), grouped asks and one reply, D6 no-answer; remove the D10 flag; tests from the `claude-code` fixtures | M |
+| #2712 | `agent-session`: `AcpElicitation`, declare `elicitation.form` (amends ADR 0004, D13), `accept`/`decline`/`cancel`; tests from the `elicitation-*` fixtures | S |
+| #2713 | `ui`: the question form in the input card and the Agents tab (descriptions, multi-select, "Other" text); Playwright spec | M |
+| #2714 | `cli`: `yukta-cli attach` and `inputs answer` for choices, multi-select and text | S |
+| #2715 | `pty` (deferred): a `claude-tui` question parser over the settled screen, and the preset `questionKeys` responder (F2) | L |
+| #2716 | Codex (deferred): record its question channel, then go or no-go | S |
 
 ## Consequences
 
 - A question from Claude Code or an ACP agent reaches the user with its options, and the answer reaches the model the way the model expects. This was shown with both agents.
 - `plugin-api` grows by three optional fields. Existing `CHOICE` and `APPROVAL` requests are unchanged. A new option id may not start with `_`.
-- Until follow-up 2 lands, Claude Code conversations cannot use `AskUserQuestion` (D10). The model asks in its text instead. That works in a `CONVERSATION` node; a `TASK` node ends with the question as its result.
+- Until #2711 lands, Claude Code conversations cannot use `AskUserQuestion` (D10). The model asks in its text instead. That works in a `CONVERSATION` node; a `TASK` node ends with the question as its result.
 - Still open: the `pty` tier and Codex (deferred), ACP `url` elicitation (not declared), and how a `rules` supervisor answers a choice (`then.answer` takes a decision today; `_selected` would need `data`).
