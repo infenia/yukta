@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-name: Postgres nightly
+name: E2E nightly (Java, PostgreSQL)
 
 # The whole e2e suite (REST and MCP, the e2e module) with every store on PostgreSQL, plus the cases
 # only a database can break: data surviving a second server on the same database, and the leader
@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   e2e-postgres:
-    name: E2E on PostgreSQL
+    name: Java e2e suite on PostgreSQL
     # a pull request only when it is labelled ci:e2e
     if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:e2e')
     runs-on: ubuntu-latest
