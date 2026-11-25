@@ -162,7 +162,7 @@ With option 1 the session is back and the history is empty. With option 2 the hi
 
 ## Variations that matter
 
-- **Trim what the log keeps.** The log keeps the newest `yukta.execution-log.retained-runs` runs and checkpoints the newest `yukta.restart.retained-executions`. The defaults and the other bounds are in [Configuration reference](/reference/configuration).
+- **Trim what the log keeps.** The log keeps the newest `yukta.execution-log.retained-runs` runs and checkpoints the newest `yukta.restart.retained-executions`. Set `yukta.execution-log.max-age` (for example `90d`) to also remove runs by age, so a busy server and a quiet one keep the same span of history. The defaults and the other bounds are in [Configuration reference](/reference/configuration).
 - **Delete a session.** A session stays until you delete it: `yukta-cli session delete <session-id>` (needs `ADMIN`), the **Delete** action in the web UI, or `DELETE /api/sessions/{id}`.
 - **Share state between servers.** That is [high availability](/guides/operate/run-highly-available), and it needs PostgreSQL.
 - **Back up.** Back up every table together: the log, the checkpoints and the definitions refer to each other.
