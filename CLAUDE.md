@@ -50,13 +50,13 @@ yk tool -C ui npx --no-install prettier --check .  # UI (ui/): pnpm/npx/node_mod
 Every run ends with one `RESULT status=… failed_node=…` line; read that and the `ERROR` lines before it, not logs.
 Run the smallest scope that covers your change (a test class, then a package, then a module's tasks).
 
-> Beyond the build commands, `yk` also offers `up|status|down`, `stats`, `heal report`, `report`, `throttle`, `ticket` and `pickup` (see the `yukta`
+> Beyond the build commands, `yk` also offers `up|status|down`, `stats`, `heal report`, `report`, `throttle` and `ticket` (see the `yukta`
 > skill and the yukta-dogfood README). The older `yk run issue|epic` commands and slash commands are switched off there while the loop is rebuilt.
 
 ## GitHub API budget
 
 The GraphQL quota is shared per user by every Claude session and tool on the machine. `gh project item-list` pages the whole board and is the
-heaviest call; the pickup tick runs it on every round.
+heaviest call.
 
 - Check `gh api rate_limit --jq .resources.graphql` before a batch of project-board calls. Never call `gh project item-list` in a loop or only to verify one item.
 - On "API rate limit exceeded": do not retry. Report the `reset` time (`date -d @<reset>`) and wait.
@@ -101,7 +101,7 @@ All commits follow **Conventional Commits** format. See `.gitmessage` template (
 `worktree.symlinkDirectories` to `ui/node_modules`, so each one links to the main checkout's copy (about 440 MB) instead of installing its
 own. `yk tool -C ui` (`tsc`, `vitest`) works through the link. Caveats: a `pnpm install` (Gradle's `ui` tasks run one) in such a worktree
 writes into the shared copy, so run it deliberately when a branch changes `ui/package.json` or `ui/pnpm-lock.yaml`; worktrees made with
-`git worktree add` (the pickup skill, `yk` runs) do not get the link.
+`git worktree add` (`yk` runs) do not get the link.
 
 `worktree.sparsePaths` is **not** set (measured 2026-10-31): the tracked tree is 16 MB and a full worktree is created in 0.2 s (0.1 s sparse),
 and a sparse tree breaks the build: Gradle fails with "Configuring project ':plugins:processors:internal' without an existing directory is not
