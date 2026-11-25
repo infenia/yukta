@@ -32,7 +32,7 @@ Other commands (`yk --help` lists all; the README has the detail):
 | `yk throttle` | the load supervisor: pauses runs while CPU/RAM are short (starts by itself; `YK_THROTTLE=off`) |
 | `yk bench` | the same Gradle work direct and through `yk`, as a wall-time ratio |
 | `yk new engine <name>` | scaffold a supervisor engine module |
-| `yk ticket ...`, `yk pickup ...` | the issue pipeline and the issue hand-over (see below) |
+| `yk ticket ...` | the ticket pipeline: file tickets, run one to a draft PR (see below) |
 
 ## Pick the smallest scope
 | Need | Command |
@@ -93,11 +93,11 @@ lines of that stage). Fix only what they report, then rerun the same command. If
 (`<failure` in `<module>/build/test-results/test/TEST-*.xml`); never read a report or log whole.
 Levels of output: a green run is a few lines ending in `RESULT`; a red run adds the `ERROR` lines (known noise such as `BUILD FAILED in ..`, the exit-code line and JVM `WARNING:` lines is dropped, so a failing compile is a few hundred bytes), then a `MORE yk detail <session> <execution>` line just above `RESULT`. That is the next level: `yk detail <session> <execution> [--grep P] [--tail N] [--head N]` prints the full output of the stage that failed, filtered; use it before opening a report file.
 
-## Fixers, pickup and tickets
+## Fixers and tickets
 - Headless fixers get a short failure digest and can read more through the dev server's read-only `fixer` MCP key (`YUKTA_FIXER_MCP=off` disables it).
-- `yk pickup session|on|off|now|status|list` hands assigned issues to open sessions; a `<channel source="yukta-pickup" ..>` event means: use the `pickup` skill.
-- `yk ticket new|edit|run|status|...` takes an issue to a draft PR: use the `ticket` skill to write one; never start `yk ticket run` on your own.
-- Details for all three: the yukta-dogfood README.
+- `yk ticket new "<text>"` / `yk ticket from-plan design/plans/<plan>.md` file tickets whose body is the whole spec; `yk ticket run|status|...` takes one to a draft PR: use the `ticket` skill; never start `yk ticket run` on your own.
+- Their questions are input requests (UI Agents and Inputs tabs, `yukta-cli inputs`, MCP `answer_input`): relay them to the person.
+- Details: the yukta-dogfood README.
 
 ## Update and repair the setup
 - **Newer `yk`**: `.dogfood-ref` is a branch (`main` follows the tip), tag or commit; run `scripts/dogfood-setup.sh` after changing it. A tag pins.
