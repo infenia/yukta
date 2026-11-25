@@ -108,10 +108,11 @@ export function runOnce(ctx) {
   const id = r.json('data.executionId');
   if (w.cancelAfterMs && Math.random() < 0.5) {
     sleep(w.cancelAfterMs / 1000);
-    http.post(`${BASE_URL}/api/executions/${id}/stop`, null, { headers, tags, responseCallback: STOP_OK });
+    http.post(`${BASE_URL}/api/executions/${id}/stop`, null, { headers, tags: { ...tags, name: 'stop' }, responseCallback: STOP_OK });
   }
   for (let i = 0; i < 100; i++) {
-    const s = http.get(`${BASE_URL}/api/executions/${id}`, { headers, tags, responseCallback: POLL_OK });
+    // one name for every run's URL: k6 keeps a time series per distinct name (400k in the weekly load)
+    const s = http.get(`${BASE_URL}/api/executions/${id}`, { headers, tags: { ...tags, name: 'poll' }, responseCallback: POLL_OK });
     if (s.status === 404) pollNotFound.add(1, tags);
     const res = s.status === 200 ? outcome(s.json('data')) : null;
     if (res) {
