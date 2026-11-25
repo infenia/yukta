@@ -33,6 +33,23 @@ class CallRateLimiterTest {
   }
 
   @Test
+  void testRefusedCallsDoNotKeepTheCallerLockedOut() {
+    final CallRateLimiter limiter = new CallRateLimiter(2, now::get);
+    limiter.tryAcquire(BOT);
+    limiter.tryAcquire(BOT);
+
+    // a client that keeps polling past the limit: the refusals must not extend the lockout
+    for (int i = 0; i < 100; i++) {
+      assertThat(limiter.tryAcquire(BOT)).isFalse();
+    }
+    now.addAndGet(Duration.ofSeconds(61).toNanos());
+    assertThat(limiter.tryAcquire(BOT)).isFalse();
+
+    now.addAndGet(Duration.ofSeconds(60).toNanos());
+    assertThat(limiter.tryAcquire(BOT)).isTrue();
+  }
+
+  @Test
   void testNoDoubleBudgetAcrossMinuteBoundary() {
     final CallRateLimiter limiter = new CallRateLimiter(2, now::get);
     limiter.tryAcquire(BOT);
