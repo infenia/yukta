@@ -64,4 +64,20 @@ class AudienceTest {
     assertThatThrownBy(() -> audience.selectors().add("role:OPERATOR"))
         .isInstanceOf(UnsupportedOperationException.class);
   }
+
+  @Test
+  void jsonRoundTripKeepsTheSelectorsAndIgnoresTheDerivedCurrentTier() {
+    final var mapper =
+        tools.jackson.databind.json.JsonMapper.builder()
+            .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .build();
+    final Audience audience = new Audience(List.of("external:ops"));
+
+    final String json = mapper.writeValueAsString(audience);
+
+    assertThat(json).contains("\"currentTier\":false");
+    assertThat(mapper.readValue(json, Audience.class)).isEqualTo(audience);
+    assertThat(mapper.readValue(mapper.writeValueAsString(Audience.CURRENT_TIER), Audience.class))
+        .isEqualTo(Audience.CURRENT_TIER);
+  }
 }

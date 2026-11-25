@@ -109,4 +109,18 @@ class CheckpointJsonTest {
 
     assertThat(restored.payload()).isEqualTo("not-a-uuid-object");
   }
+
+  @Test
+  void aMapperThatRejectsUnknownFieldsStillReadsTheLine() {
+    final ObjectMapper strict =
+        tools.jackson.databind.json.JsonMapper.builder()
+            .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .build();
+    final Message<Sample> message =
+        DefaultMessage.create(UUID.randomUUID(), new Sample("alpha", 3));
+
+    final Message<?> restored = CheckpointJson.read(strict, CheckpointJson.write(strict, message));
+
+    assertThat(restored.payload()).isEqualTo(new Sample("alpha", 3));
+  }
 }

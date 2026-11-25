@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.input;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -14,9 +15,13 @@ import java.util.regex.Pattern;
  * {@code role:ADMIN}, {@code key:<name>} or {@code external:<tier>}. {@code role:OPERATOR} matches
  * operators and admins.
  *
+ * <p>{@code currentTier} is in the JSON an audience is written as, for readers, and is ignored when
+ * one is read back (a store keeps the JSON).
+ *
  * @param selectors the selectors, in any order
  * @since 0.1.0-alpha.4
  */
+@JsonIgnoreProperties(value = "currentTier", allowGetters = true)
 public record Audience(List<String> selectors) {
 
   /** Most selectors an audience can list. */
