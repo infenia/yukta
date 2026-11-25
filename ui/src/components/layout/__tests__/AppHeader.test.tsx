@@ -42,7 +42,7 @@ describe('AppHeader', () => {
     ['/plugins', 'Plugins'],
     ['/supervisors', 'Supervisors'],
     ['/runs', 'Runs'],
-    ['/control', 'Control'],
+    ['/control', 'Dashboard'],
     ['/config', 'Config'],
   ])('marks the section of %s as current', (path, label) => {
     render(
@@ -115,7 +115,7 @@ describe('AppHeader', () => {
       ['Runs', '/runs'],
       ['Supervisors', '/supervisors'],
       ['Plugins', '/plugins'],
-      ['Control', '/control'],
+      ['Dashboard', '/control'],
       ['Config', '/config'],
     ]);
   });
@@ -185,7 +185,7 @@ describe('AppHeader', () => {
         <Sidebar />
       </>
     );
-    for (const label of ['Sessions', 'Runs', 'Plugins', 'Control']) {
+    for (const label of ['Sessions', 'Runs', 'Plugins', 'Dashboard']) {
       expect(
         screen.getByRole('link', { name: new RegExp(label) })
       ).toHaveAccessibleName(label);

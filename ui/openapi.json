@@ -9205,7 +9205,7 @@
           }
         },
         "summary" : "Send command to node in workflow",
-        "tags" : [ "Control Bus & Observability API" ]
+        "tags" : [ "Monitoring API" ]
       }
     },
     "/api/conversations" : {
@@ -13934,9 +13934,6 @@
     "description" : "Check a working directory before creating a session",
     "name" : "Session API"
   }, {
-    "description" : "Endpoints for control bus operations, node management, and execution observability",
-    "name" : "Control Bus & Observability API"
-  }, {
     "description" : "Pause, resume, step and stop nodes",
     "name" : "Execution Control API"
   }, {
@@ -13954,6 +13951,9 @@
   }, {
     "description" : "Workflow DAG graph with plugin metadata and per-workflow execution history",
     "name" : "Workflow Details API"
+  }, {
+    "description" : "Endpoints for control bus operations, node management, and execution observability",
+    "name" : "Monitoring API"
   }, {
     "description" : "List, read, answer and escalate input requests",
     "name" : "Input Requests API"

@@ -9,7 +9,7 @@ const SECTIONS = [
   { label: 'Runs', path: '/runs' },
   { label: 'Supervisors', path: '/supervisors' },
   { label: 'Plugins', path: '/plugins' },
-  { label: 'Control', path: '/control' },
+  { label: 'Dashboard', path: '/control' },
   { label: 'Config', path: '/config' },
 ];
 

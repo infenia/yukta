@@ -183,7 +183,7 @@ test.describe('Command palette - what it lists', () => {
     }
     await expect(
       palette(page).getByRole('group', { name: 'Pages' }).getByRole('option')
-    ).toHaveText([/Sessions/, /Runs/, /Plugins/, /Supervisors/, /Control/]);
+    ).toHaveText([/Sessions/, /Runs/, /Plugins/, /Supervisors/, /Dashboard/]);
     await expect(option(page, 'Go to supervisor release-guard')).toContainText(
       'Pauses bad releases'
     );
