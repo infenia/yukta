@@ -294,7 +294,7 @@ func TestNewRequest_allHTTPMethods(t *testing.T) {
 // TestNewClient_emptyURL_defaultsToLocalhost tests default URL with empty input.
 func TestNewClient_emptyURL_defaultsToLocalhost(t *testing.T) {
 	c := NewClient("")
-	if c.BaseURL != "http://localhost:9858" {
+	if c.BaseURL != "http://127.0.0.1:9858" {
 		t.Errorf("expected default URL, got %q", c.BaseURL)
 	}
 }

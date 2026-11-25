@@ -15,7 +15,7 @@ import (
 )
 
 // DefaultMCPURL is the MCP endpoint of a local server.
-const DefaultMCPURL = "http://localhost:9858/mcp"
+const DefaultMCPURL = "http://127.0.0.1:9858/mcp"
 
 const serverName = "yukta"
 
