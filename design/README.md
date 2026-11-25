@@ -37,5 +37,6 @@ How the code works, and how to use it, is not here: see the module guides in [`d
 | [0010](decisions/0010-ai-backend-and-agent-session.md) | Unified AI backend and `AGENT_SESSION` | Accepted; registry and plugin built, later phases open |
 | [0011](decisions/0011-test-tiers.md) | Integration and end-to-end test tiers | Accepted (plan kept while the epic is open) |
 | [0012](decisions/0012-workflow-test-runs.md) | Test runs from the workflow editor | Accepted; backend built, editor UI in progress (plan kept) |
+| [0013](decisions/0013-structured-agent-questions.md) | Structured agent questions (choice, text) from terminal agents | Proposed (#2706); recordings and a stop-gap fix built, prototype on a branch |
 
 Other files: [security/supervisor-threat-model.md](security/supervisor-threat-model.md), [research/competitive-analysis.md](research/competitive-analysis.md).

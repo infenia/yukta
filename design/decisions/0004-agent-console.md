@@ -36,7 +36,7 @@
 | D17 | Name of the resource | Conversation: REST `/api/conversations`, CLI `conversations` |
 | D18 | New UI dependencies | Only `@xterm/xterm` and `@xterm/addon-fit`, loaded on demand; messages are plain text |
 | D19 | Agent nodes on remote workers | Not in this epic. **Confirmed by AC0:** the worker stream carries no gateway calls (F3) |
-| D20 | Agent questions that are not approvals | v1 maps every request to `APPROVAL`; presets may map to `CHOICE` or `TEXT` later. ACP has `elicitation/create` for this (F7), recorded as the hook for that later phase |
+| D20 | Agent questions that are not approvals | v1 maps every request to `APPROVAL`; presets may map to `CHOICE` or `TEXT` later. ACP has `elicitation/create` for this (F7), recorded as the hook for that later phase. **Replaced by [ADR 0013](0013-structured-agent-questions.md)** (proposed) |
 
 ### Open questions of the plan (Q1 to Q4), settled
 
