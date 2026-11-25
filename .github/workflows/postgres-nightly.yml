@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+name: E2E nightly (Java, PostgreSQL)
+
+# The whole e2e suite (REST and MCP, the e2e module) with every store on PostgreSQL, plus the cases
+# only a database can break: data surviving a second server on the same database, and the leader
+# lease moving to a standby. The suite starts the app in the test JVM on a PostgreSQL Testcontainer
+# (-Pyukta.persistence=postgres). Nightly, on demand, and on a pull request that carries the
+# `ci:e2e` label. Failures open the nightly tracking issue (nightly-report.yml).
+on:
+  schedule:
+    - cron: '17 2 * * *' # daily, 7:47 AM IST (02:17 UTC)
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-postgres:
+    name: Java e2e suite on PostgreSQL
+    # a pull request only when it is labelled ci:e2e
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # The server jar embeds the UI, so the Gradle build of boot runs pnpm.
+      - uses: ./.github/actions/setup-build
+        with:
+          node: true
+
+      # Retries (-PretryFlakyTests) let the report tell flaky tests from broken ones; the build
+      # still fails on either. Docker is on the runner for the PostgreSQL Testcontainer.
+      - name: Run the e2e suite on PostgreSQL
+        run: ./gradlew -Pyukta.persistence=postgres -PretryFlakyTests :e2e:test :e2e:ownJvmTest --continue --console=plain
+
+      - name: Publish test result summary
+        if: always()
+        uses: mikepenz/action-junit-report@a16be3a69023e9bd7e748ede768b3282ea7b30ce # v6.7.1
+        with:
+          report_paths: 'e2e/build/test-results/*/TEST-*.xml'
+          annotate_only: true
+          require_tests: false
+          detailed_summary: true
+
+      # build-reports-* is the name nightly-report.sh reads the failed and flaky tests from.
+      - name: Upload build reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: build-reports-postgres
+          path: |
+            **/build/reports/
+            **/build/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

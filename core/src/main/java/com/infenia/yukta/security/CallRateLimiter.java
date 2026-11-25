@@ -11,8 +11,9 @@ import java.util.function.LongSupplier;
 /**
  * Counts requests per caller over a sliding minute (the previous minute counts for the part of it
  * that is still inside the window), so an agent stuck in a retry loop cannot start runs or read
- * logs without bound and cannot get twice the limit across a minute boundary. A limit of 0 turns it
- * off.
+ * logs without bound and cannot get twice the limit across a minute boundary. A refused request is
+ * not counted, so a caller that keeps polling past the limit gets back in as soon as its earlier
+ * requests age out, instead of staying locked out. A limit of 0 turns it off.
  */
 public final class CallRateLimiter {
 
@@ -72,12 +73,16 @@ public final class CallRateLimiter {
       return (long) Math.ceil(previous * (1 - outside)) + count;
     }
 
-    private long hit(final long now) {
+    /** Counts one request unless the window is full; a refused request does not count. */
+    private boolean hit(final long now, final int limit) {
       lock.lock();
       try {
         roll(now);
+        if (weighted(now) >= limit) {
+          return false;
+        }
         count++;
-        return weighted(now);
+        return true;
       } finally {
         lock.unlock();
       }
@@ -119,7 +124,7 @@ public final class CallRateLimiter {
       return true;
     }
     final long now = nanos.getAsLong();
-    return windows.get(caller, _ -> new Window(now)).hit(now) <= perMinute;
+    return windows.get(caller, _ -> new Window(now)).hit(now, perMinute);
   }
 
   /**

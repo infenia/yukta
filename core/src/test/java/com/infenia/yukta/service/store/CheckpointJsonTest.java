@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+@SuppressWarnings("PMD.TooManyMethods")
 class CheckpointJsonTest {
 
   private final ObjectMapper mapper = new ObjectMapper();
@@ -108,5 +109,25 @@ class CheckpointJsonTest {
         CheckpointJson.read(mapper, stored("not-a-uuid-object", "java.util.UUID"));
 
     assertThat(restored.payload()).isEqualTo("not-a-uuid-object");
+  }
+
+  @Test
+  void strictMapperStillReadsTheLine() {
+    final ObjectMapper strict =
+        tools.jackson.databind.json.JsonMapper.builder()
+            .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            .build();
+    final Message<Sample> message =
+        DefaultMessage.create(UUID.randomUUID(), new Sample("strict", 3));
+
+    final Message<?> restored = CheckpointJson.read(strict, CheckpointJson.write(strict, message));
+
+    assertThat(restored.payload()).isEqualTo(new Sample("strict", 3));
+  }
+
+  @Test
+  void lineThatIsNotAnObjectIsRefused() {
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> CheckpointJson.read(mapper, "[]"))
+        .isInstanceOf(RuntimeException.class);
   }
 }

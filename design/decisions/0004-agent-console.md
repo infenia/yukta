@@ -29,14 +29,14 @@
 | D10 | How message, interrupt and end reach the agent | As control commands (`AgentMessageCommand`, `AgentInterruptCommand`, `AgentEndCommand`) on the path `AnswerInputCommand` takes; terminal keystrokes go directly, with the same authorisation |
 | D11 | A message arrives while the agent works | Queued until the turn ends, unless the harness can take it mid-turn (`steer`); `interrupt: true` cancels the turn first. **Added by AC0:** the recorded Claude Code session takes a mid-turn message inside the same turn (F6), so the `claude-code` preset declares `steer: true`; ACP never steers |
 | D12 | ACP permission options | Only approve and reject: approve picks the first `allow_once` option (else `allow_always`), reject the first `reject_once` (else `reject_always`). The option kinds and the `selected` outcome are in the schema (F7) |
-| D13 | ACP client capabilities (`fs`, `terminal`) | None declared (`readTextFile: false`, `writeTextFile: false`, `terminal: false`). Checked: the real `agy acp` accepts this at `initialize` and runs a whole session with it |
+| D13 | ACP client capabilities (`fs`, `terminal`) | None declared (`readTextFile: false`, `writeTextFile: false`, `terminal: false`). Checked: the real `agy acp` accepts this at `initialize` and runs a whole session with it. **Amended by [ADR 0013](0013-structured-agent-questions.md):** `elicitation.form` is declared (#2712) |
 | D14 | Timeouts of a conversation | `timeout` per turn, `idleTimeout` per wait for the next message (default 900 s), `conversationTimeout` for the whole node (default 14400 s). **Added by AC0:** how the engine fits this, in F2 |
 | D15 | Is the terminal tier on by default | No: `yukta.agents.pty.enabled=false` |
 | D16 | The run log | Unchanged: agent text and tool names keep going to the log as `agent` lines |
 | D17 | Name of the resource | Conversation: REST `/api/conversations`, CLI `conversations` |
 | D18 | New UI dependencies | Only `@xterm/xterm` and `@xterm/addon-fit`, loaded on demand; messages are plain text |
 | D19 | Agent nodes on remote workers | Not in this epic. **Confirmed by AC0:** the worker stream carries no gateway calls (F3) |
-| D20 | Agent questions that are not approvals | v1 maps every request to `APPROVAL`; presets may map to `CHOICE` or `TEXT` later. ACP has `elicitation/create` for this (F7), recorded as the hook for that later phase |
+| D20 | Agent questions that are not approvals | v1 maps every request to `APPROVAL`; presets may map to `CHOICE` or `TEXT` later. ACP has `elicitation/create` for this (F7), recorded as the hook for that later phase. **Replaced by [ADR 0013](0013-structured-agent-questions.md)** |
 
 ### Open questions of the plan (Q1 to Q4), settled
 

@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-const url = "http://localhost:9858/mcp"
+const url = "http://127.0.0.1:9858/mcp"
 
 // machine is a fake PC: a home and config folder in a temp dir, the agent CLIs it "has", and a record of
 // the commands run against them.
