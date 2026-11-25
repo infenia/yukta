@@ -79,8 +79,12 @@ public class CheckpointJson {
    */
   public static Message<?> read(final ObjectMapper mapper, final String json) {
     final JsonNode tree = mapper.readTree(json);
-    final Message<?> message = mapper.treeToValue(tree, DefaultMessage.class);
     final String type = tree.path(TYPE).asString(null);
+    // not a field of the message: a mapper that rejects unknown fields would refuse the whole line
+    if (tree instanceof ObjectNode node) {
+      node.remove(TYPE);
+    }
+    final Message<?> message = mapper.treeToValue(tree, DefaultMessage.class);
     Message<?> result = message;
     if (type != null) {
       if (ALLOWED.stream().noneMatch(type::startsWith)

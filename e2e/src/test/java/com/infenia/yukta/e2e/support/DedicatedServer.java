@@ -27,17 +27,23 @@ public final class DedicatedServer implements AutoCloseable {
   private final String url;
   private final Map<ApiRole, String> keys;
   private final String scopedKey;
+  private final ConfigurableApplicationContext context;
 
   private DedicatedServer(
-      final String url, final Map<ApiRole, String> keys, final String scopedKey) {
+      final String url,
+      final Map<ApiRole, String> keys,
+      final String scopedKey,
+      final ConfigurableApplicationContext context) {
     this.url = url;
     this.keys = keys;
     this.scopedKey = scopedKey;
+    this.context = context;
   }
 
   /**
    * Starts the app in this JVM on a random port with every plugin, the commands {@code sh} and
-   * {@code echo} and in-memory stores.
+   * {@code echo} and in-memory stores (PostgreSQL ones with {@code -Pyukta.persistence=postgres},
+   * see {@link PostgresDatabase}).
    *
    * @param withKeys true for one key per role (each reaching every session) and an OPERATOR key
    *     limited to {@link #SCOPED_SESSION}; false for no keys at all
@@ -58,10 +64,12 @@ public final class DedicatedServer implements AutoCloseable {
       }
       scoped = addKey(args, "scoped", ApiRole.OPERATOR, SCOPED_SESSION);
     }
+    if (PostgresDatabase.enabled()) {
+      args.addAll(PostgresDatabase.args());
+    }
     for (final String property : properties) {
       args.add("--" + property);
     }
-    @SuppressWarnings("PMD.CloseResource") // stopped by its shutdown hook, see close()
     final ConfigurableApplicationContext context =
         new SpringApplicationBuilder(YuktaApplication.class)
             .properties("yukta.process.allowed-commands=sh,echo")
@@ -69,7 +77,8 @@ public final class DedicatedServer implements AutoCloseable {
     return new DedicatedServer(
         "http://127.0.0.1:" + context.getEnvironment().getProperty("local.server.port"),
         keys,
-        scoped);
+        scoped,
+        context);
   }
 
   /**
@@ -84,7 +93,7 @@ public final class DedicatedServer implements AutoCloseable {
     if (adminKey != null && !adminKey.isBlank()) {
       keys.put(ApiRole.ADMIN, adminKey);
     }
-    return new DedicatedServer(url.replaceAll("/+$", ""), keys, null);
+    return new DedicatedServer(url.replaceAll("/+$", ""), keys, null, null);
   }
 
   private static String addKey(
@@ -135,6 +144,18 @@ public final class DedicatedServer implements AutoCloseable {
       throw new IllegalStateException("No scoped key for " + url + "; annotate with @InJvmOnly");
     }
     return scopedKey;
+  }
+
+  /**
+   * Stops this server for good, for a test of a restart or of a standby taking over (the database
+   * and the other servers stay). Unlike {@link #close()} it really closes the application context,
+   * which also stops the HTTP of every other server in this JVM: only a test that runs in a JVM of
+   * its own (tag {@code own-jvm}) may call it.
+   */
+  public void stop() {
+    if (context != null) {
+      context.close();
+    }
   }
 
   /**

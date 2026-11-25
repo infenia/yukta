@@ -14,6 +14,9 @@ dependencies {
     testImplementation(testFixtures(project(":core")))
     testImplementation(project(":test-support"))
     testImplementation(libs.awaitility)
+    // the Postgres tier (-Pyukta.persistence=postgres): the database the server runs on
+    testImplementation(libs.testcontainers.postgresql)
+    testImplementation(libs.testcontainers.junit)
     testImplementation("org.junit.jupiter:junit-jupiter-params") // the Spring Boot BOM names the version
     testImplementation(libs.jackson.databind)
     testImplementation(libs.spring.boot.starter.webflux)
@@ -28,6 +31,8 @@ tasks.withType<Test>().configureEach {
     systemProperty("yukta.rate-limit-per-minute", "100000")
     // WebhookE2eTest: a webhook secret is read from the environment of the server process
     environment("YUKTA_SECRET_E2E_HOOK", "e2e-hook-secret")
+    // -Pyukta.persistence=postgres builds boot with the PostgreSQL stores; the suite then starts a database for them
+    providers.gradleProperty("yukta.persistence").orNull?.let { systemProperty("yukta.persistence", it) }
     providers.gradleProperty("yukta.e2e.url").orNull?.let { systemProperty("yukta.e2e.url", it) }
     providers.gradleProperty("yukta.e2e.key").orNull?.let { systemProperty("yukta.e2e.key", it) }
     // the address the server itself reaches its own endpoint at, when that differs (a container publishing a port)
@@ -38,6 +43,24 @@ tasks.withType<Test>().configureEach {
     // a failing scenario shows its assertion in the CI log
     testLogging { exceptionFormat = TestExceptionFormat.FULL }
 }
+
+// PostgresHaE2eTest closes a server, which also stops the HTTP of every other server in its JVM (the
+// Reactor resources are process-wide), so tests tagged own-jvm run in a JVM of their own.
+tasks.test {
+    useJUnitPlatform { excludeTags("own-jvm") }
+}
+
+val ownJvmTest =
+    tasks.register<Test>("ownJvmTest") {
+        group = "verification"
+        description = "Runs the tests tagged own-jvm in a JVM of their own."
+        testClassesDirs = sourceSets["test"].output.classesDirs
+        classpath = sourceSets["test"].runtimeClasspath
+        useJUnitPlatform { includeTags("own-jvm") }
+        shouldRunAfter(tasks.test)
+    }
+
+tasks.check { dependsOn(ownJvmTest) }
 
 coverageConfig {
     noTests("test-only module: it has no main classes")
