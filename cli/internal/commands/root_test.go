@@ -118,7 +118,7 @@ func TestRootCmd_defaultURLWithoutEnv(t *testing.T) {
 	cmd := RootCmd(c)
 
 	urlFlag := cmd.PersistentFlags().Lookup("url")
-	if urlFlag.Value.String() != "http://localhost:9858" {
+	if urlFlag.Value.String() != "http://127.0.0.1:9858" {
 		t.Errorf("expected default URL, got %q", urlFlag.Value.String())
 	}
 }
@@ -245,7 +245,7 @@ func TestRootCmd_withoutURL(t *testing.T) {
 	_ = cmd.Execute()
 
 	// Should use default from flag definition
-	if c.BaseURL != "http://localhost:9858" {
+	if c.BaseURL != "http://127.0.0.1:9858" {
 		t.Errorf("expected default URL to be set, got %q", c.BaseURL)
 	}
 }
