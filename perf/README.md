@@ -22,8 +22,8 @@ own status never turns final, so leave it off. Open problems found by these test
 
 ## PostgreSQL (`PERSISTENCE=postgres`)
 
-`PERSISTENCE=postgres perf/run.sh perf` runs the same workloads with the sessions, definitions, execution log and checkpoints in
-PostgreSQL, to show what the database costs per run. A `postgres:18-alpine` container (`PG_CPUS=2`, `PG_MEMORY=2g`, no swap) joins the
+`PERSISTENCE=postgres perf/run.sh perf` runs the same workloads with the sessions, definitions, execution log, checkpoints and input
+requests in PostgreSQL (`run.sh` sets `YUKTA_RESTART_STORE_TYPE` and `YUKTA_INPUT_STORE_TYPE`, which the profile leaves in memory), to show what the database costs per run. A `postgres:18-alpine` container (`PG_CPUS=2`, `PG_MEMORY=2g`, no swap) joins the
 server's compose project and the server starts on the `prod,postgres` profile. The binary must be the Plus flavour:
 `YUKTA_BUILD_FLAGS="-Pyukta.persistence=postgres -Pyukta.workers=true" NATIVE_QUICK=1 release/build-server.sh`, then
 `BINARY=dist/linux-amd64/yukta PERSISTENCE=postgres perf/run.sh perf`. Compare a run with `PERSISTENCE=memory` (the default) on the
