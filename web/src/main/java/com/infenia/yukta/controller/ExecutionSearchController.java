@@ -147,6 +147,9 @@ public class ExecutionSearchController {
     int queued = 0;
     int failed = 0;
     for (final WorkflowExecutionSummary run : runs) {
+      if (run.status() == null) {
+        continue; // a switch on null throws; such a run counts nowhere, as before
+      }
       switch (run.status()) {
         case RUNNING -> running++;
         case QUEUED -> queued++;

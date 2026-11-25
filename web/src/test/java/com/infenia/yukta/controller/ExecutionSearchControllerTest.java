@@ -228,6 +228,7 @@ class ExecutionSearchControllerTest {
             Mono.just(
                 List.of(
                     run("q1", "wf", TaskStatus.QUEUED, null),
+                    run("n1", "wf", null, now),
                     run("e1", "wf", TaskStatus.SUCCESS, now))));
 
     client
