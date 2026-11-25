@@ -3,10 +3,11 @@
 package com.infenia.yukta.console;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -14,7 +15,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.awaitility.Awaitility;
 import org.jline.terminal.Terminal;
-import org.jline.terminal.TerminalBuilder;
+import org.jline.terminal.impl.ExternalTerminal;
 import org.junit.jupiter.api.Test;
 
 /** Drives the real key loop through a fake terminal: no native build, no real tty. */
@@ -26,11 +27,7 @@ class ConsoleRunnerKeysTest {
   @Test
   void keysWorkWhileTheServerIsSlow() throws Exception {
     final PipedOutputStream keys = new PipedOutputStream();
-    try (Terminal term =
-        TerminalBuilder.builder()
-            .streams(new PipedInputStream(keys), new ByteArrayOutputStream())
-            .type("xterm-256color")
-            .build()) {
+    try (Terminal term = term(new PipedInputStream(keys), new ByteArrayOutputStream())) {
       final CompletableFuture<Void> run =
           CompletableFuture.runAsync(() -> {
             try {
@@ -58,11 +55,7 @@ class ConsoleRunnerKeysTest {
   @Test
   void keysStillWorkAfterMouseClick() throws Exception {
     final PipedOutputStream keys = new PipedOutputStream();
-    try (Terminal term =
-        TerminalBuilder.builder()
-            .streams(new PipedInputStream(keys), new ByteArrayOutputStream())
-            .type("xterm-256color")
-            .build()) {
+    try (Terminal term = term(new PipedInputStream(keys), new ByteArrayOutputStream())) {
       final CompletableFuture<Void> run =
           CompletableFuture.runAsync(() -> {
             try {
@@ -90,13 +83,7 @@ class ConsoleRunnerKeysTest {
   void mouseClickIsNotTakenForTheMouseKey() throws Exception {
     final PipedOutputStream keys = new PipedOutputStream();
     final ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (Terminal term =
-        TerminalBuilder.builder()
-            .streams(new PipedInputStream(keys), out)
-            .type("xterm-256color")
-            .build()) {
-      // CI images can lack the terminfo mouse entry; then the runner never turns tracking on
-      assumeTrue(term.hasMouseSupport(), "terminal reports no mouse support");
+    try (Terminal term = term(new PipedInputStream(keys), out)) {
       // press ends in M, release ends in m: a stray m would switch mouse tracking off
       send(keys, "\033[<0;5;5M\033[<0;5;5m\033[<64;5;5Mq");
       ConsoleRunner.loop(term, view, limit -> ConsoleView.Snapshot.NONE);
@@ -104,6 +91,15 @@ class ConsoleRunnerKeysTest {
     }
     final String screen = out.toString(StandardCharsets.UTF_8);
     assertThat(screen.split("\033\\[\\?1000l", -1).length - 1).isEqualTo(1);
+  }
+
+  /**
+   * Writes synchronously to {@code out}. TerminalBuilder would open a pty where a provider is
+   * available (CI) and copy its output on a pump thread, so the last bytes can arrive after the
+   * test reads them.
+   */
+  private static Terminal term(final InputStream in, final OutputStream out) throws IOException {
+    return new ExternalTerminal("test", "xterm-256color", in, out, StandardCharsets.UTF_8);
   }
 
   private static void send(final PipedOutputStream out, final String s) throws IOException {
