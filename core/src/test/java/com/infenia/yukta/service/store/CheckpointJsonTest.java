@@ -52,6 +52,16 @@ class CheckpointJsonTest {
   }
 
   @Test
+  void checkpointWrittenWithTheRemovedControlMessageFieldStillReads() {
+    final String json =
+        CheckpointJson.write(mapper, DefaultMessage.create(null, "text"))
+            .replaceFirst("\\{", "{\"controlMessage\":true,");
+
+    assertThat(json).contains("controlMessage");
+    assertThat(CheckpointJson.read(mapper, json).payload()).isEqualTo("text");
+  }
+
+  @Test
   void payloadOutsideTheAllowedPackagesComesBackAsJson() {
     final Message<String> message = DefaultMessage.create(UUID.randomUUID(), "text");
 

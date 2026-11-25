@@ -5,7 +5,6 @@ package com.infenia.yukta.plugin.core;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
@@ -55,7 +54,6 @@ class PluginInterfaceTest {
             0,
             0,
             0,
-            false,
             null,
             null,
             null,
@@ -111,10 +109,7 @@ class PluginInterfaceTest {
     Message<String> prioritized = lastSequenced.withPriority(10);
     assertEquals(10, prioritized.priority());
 
-    Message<String> controlled = prioritized.withControl(true);
-    assertTrue(controlled.controlMessage());
-
-    Message<String> failed = controlled.withFailure("error-port", "Bad Data", "Invalid format");
+    Message<String> failed = prioritized.withFailure("error-port", "Bad Data", "Invalid format");
     assertEquals("error-port", failed.origDest());
     assertEquals("Bad Data", failed.failureReason());
     assertEquals("Invalid format", failed.exceptionDetail());

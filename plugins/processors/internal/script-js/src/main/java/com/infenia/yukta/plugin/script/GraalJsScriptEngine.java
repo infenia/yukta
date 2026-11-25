@@ -232,7 +232,6 @@ public class GraalJsScriptEngine implements ScriptEngine {
     fields.put("sequenceNumber", message.sequenceNumber());
     fields.put("sequenceSize", message.sequenceSize());
     fields.put("priority", message.priority());
-    fields.put("controlMessage", message.controlMessage());
     fields.put("origDest", message.origDest());
     fields.put("failureReason", message.failureReason());
     fields.put("exceptionDetail", message.exceptionDetail());

@@ -60,7 +60,6 @@ class DefaultMessageTest {
             1,
             10,
             5,
-            true,
             "orig",
             "fail",
             "detail",
@@ -83,7 +82,6 @@ class DefaultMessageTest {
     assertThat(msg.sequenceNumber()).isEqualTo(1);
     assertThat(msg.sequenceSize()).isEqualTo(10);
     assertThat(msg.priority()).isEqualTo(5);
-    assertThat(msg.controlMessage()).isTrue();
     assertThat(msg.origDest()).isEqualTo("orig");
     assertThat(msg.failureReason()).isEqualTo("fail");
     assertThat(msg.exceptionDetail()).isEqualTo("detail");
@@ -109,7 +107,6 @@ class DefaultMessageTest {
     assertThat(msg.withFormatIndicator("fmt").formatIndicator()).isEqualTo("fmt");
     assertThat(msg.withAddedHistory("node").messageHistory()).contains("node");
     assertThat(msg.withPriority(9).priority()).isEqualTo(9);
-    assertThat(msg.withControl(true).controlMessage()).isTrue();
 
     final Message<String> failed = msg.withFailure("o", "r", "d");
     assertThat(failed.origDest()).isEqualTo("o");
@@ -148,8 +145,8 @@ class DefaultMessageTest {
   void testCompactConstructorDefaults() {
     final DefaultMessage<String> msg =
         new DefaultMessage<>(
-            "id", null, null, null, 0, null, null, null, null, 0, 0, 0, false, null, null, null, 0,
-            "p", null, null, null, null);
+            "id", null, null, null, 0, null, null, null, null, 0, 0, 0, null, null, null, 0, "p",
+            null, null, null, null);
     assertThat(msg.metadata()).isNotNull();
     assertThat(msg.messageHistory()).isNotNull();
   }
@@ -158,7 +155,7 @@ class DefaultMessageTest {
   void testCompactConstructorNullCoercion() {
     final DefaultMessage<String> msg =
         new DefaultMessage<>(
-            "id1", "trace1", "corr1", "reply1", 1000L, "format", null, null, "seq1", 1, 5, 2, false,
+            "id1", "trace1", "corr1", "reply1", 1000L, "format", null, null, "seq1", 1, 5, 2,
             "orig", "reason", "detail", 0, "payload", null, "port1", "node1", "wf1");
 
     assertThat(msg.metadata()).isEmpty();
@@ -197,7 +194,6 @@ class DefaultMessageTest {
             1,
             5,
             1,
-            false,
             null,
             null,
             null,
@@ -235,7 +231,6 @@ class DefaultMessageTest {
             0,
             0,
             0,
-            false,
             null,
             null,
             null,
@@ -275,7 +270,6 @@ class DefaultMessageTest {
             0,
             0,
             0,
-            false,
             null,
             null,
             null,
@@ -310,7 +304,6 @@ class DefaultMessageTest {
     assertThat(msg.metadata()).isEmpty();
     assertThat(msg.messageHistory()).isEmpty();
     assertThat(msg.priority()).isZero();
-    assertThat(msg.controlMessage()).isFalse();
   }
 
   @Test
@@ -445,7 +438,6 @@ class DefaultMessageTest {
         original,
         original.withFailure("dest", "why", "detail"),
         java.util.Set.of("origDest", "failureReason", "exceptionDetail"));
-    assertOnlyChanged(original, original.withControl(false), java.util.Set.of("controlMessage"));
     assertOnlyChanged(original, original.withHeader("extra", 1), java.util.Set.of("metadata"));
     assertOnlyChanged(
         original, original.withAddedHistory("node"), java.util.Set.of("messageHistory"));

@@ -179,9 +179,16 @@ public class StreamTopologyDecorator {
                   fromHandler(EngineOwned.reassert(msg), edge.sourceNodeId())
                       .withSourceNodeId(edge.sourceNodeId());
               // The run's workflow id, so a plugin cannot claim another workflow's.
-              return ctx.hasKey(ExecutionContextBuilder.CTX_WORKFLOW_ID)
-                  ? own.withWorkflowId(ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID))
-                  : own;
+              final Message<?> stamped =
+                  ctx.hasKey(ExecutionContextBuilder.CTX_WORKFLOW_ID)
+                      ? own.withWorkflowId(ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID))
+                      : own;
+              // A message no one traced yet (a trigger's) gets the run's id, which the logs and
+              // spans of the run also carry; plugins copy it from then on.
+              return stamped.traceId() == null
+                      && ctx.hasKey(ExecutionContextBuilder.CTX_EXECUTION_ID)
+                  ? stamped.withTraceId(ctx.get(ExecutionContextBuilder.CTX_EXECUTION_ID))
+                  : stamped;
             }));
 
     final String sourcePort = edge.sourcePort();

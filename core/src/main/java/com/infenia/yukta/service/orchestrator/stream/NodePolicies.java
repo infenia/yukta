@@ -85,7 +85,9 @@ public class NodePolicies {
     Flux<Message<?>> result =
         Flux.defer(() -> {
           onAttempt.run();
-          return processing.apply(message.withHeader(ATTEMPT_HEADER, attempts.incrementAndGet()));
+          final int attempt = attempts.incrementAndGet();
+          return processing.apply(
+              message.withRetryCount(attempt - 1).withHeader(ATTEMPT_HEADER, attempt));
         });
     if (policy.elementTimeout() != null) {
       result = result.timeout(policy.elementTimeout());
