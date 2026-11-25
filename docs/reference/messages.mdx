@@ -28,6 +28,8 @@ A message is a payload plus labels, the unit of data on an edge. Messages are im
 | `priority`, `replyTo`, `formatIndicator`, `retryCount`, `controlMessage` | various | Carried along; they change no behaviour except as stated for `controlMessage`. `replyTo` routes nothing. |
 | `origDest`, `failureReason`, `exceptionDetail` | string | Set by plugins such as `VALIDATE` and `BRANCH`, and by error routing. |
 
+Every field above except `payload`, `metadata`, `exceptionDetail` and `controlMessage` is read in config as `${message.<field>}`, for example `${message.traceId}` (see [Expressions](/reference/expressions)).
+
 Run priority is a different mechanism: `yukta.priority` in the start payload (needs the ADMIN role).
 
 ## Identity across nodes
