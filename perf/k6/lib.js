@@ -121,7 +121,9 @@ export function runOnce(ctx) {
     }
     sleep(0.05);
   }
-  success.add(false, tags); // never finished
+  // never finished: still a latency sample, at least the time waited, so slow runs raise the p95
+  e2e.add(Date.now() - start, tags);
+  success.add(false, tags);
 }
 
 export const thresholds = {
