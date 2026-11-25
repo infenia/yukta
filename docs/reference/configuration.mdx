@@ -142,7 +142,7 @@ State is durable only in PostgreSQL (`yukta.session.store-type=postgres`), which
 | `yukta.supervisor.max-commands-per-second` | int | `20` | Command rate per supervisor. |
 | `yukta.supervisor.max-attachments` | int | `200` | Assignments at once; one more is refused with `409`. |
 | `yukta.supervisor.buffer-size` | int | `10000` | Events a supervisor may have waiting; beyond that it receives `EventsMissed`. |
-| `yukta.supervisor.review-timeout` | duration | `5s` | Longest a review may take; a slower one refuses the command, except a stop. |
+| `yukta.supervisor.review-timeout` | duration | `5s` | Longest a review may take; a slower one refuses the command, except a stop or when the supervisor sets `onReviewTimeout: ALLOW`. |
 | `yukta.supervisor.dry-run` | boolean | `false` | Records commands without applying them. |
 | `yukta.supervisor.default.enabled` | boolean | `true` | Turns on Direct control: people and agents control what no supervisor owns. |
 | `yukta.supervisor.lock-holders` | list | `[]` | Keys that may change a locked assignment. |

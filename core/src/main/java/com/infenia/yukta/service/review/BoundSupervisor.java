@@ -24,6 +24,8 @@ import reactor.core.publisher.Mono;
  * @param observeInternal whether it also sees the events of the internal session its scope names
  * @param scope what it owns, as matched at run time: the attachment's scope with its {@code group:}
  *     selectors resolved to the nodes they name now
+ * @param allowOnReviewTimeout whether a person's command passes when it does not review it in time
+ *     ({@code onReviewTimeout: ALLOW})
  */
 public record BoundSupervisor(
     SupervisorAttachment attachment,
@@ -31,8 +33,29 @@ public record BoundSupervisor(
     boolean dryRun,
     SupervisorCapabilities capabilities,
     boolean observeInternal,
-    SupervisorScope scope)
+    SupervisorScope scope,
+    boolean allowOnReviewTimeout)
     implements ExecutionSupervisor {
+
+  /**
+   * A bound supervisor that refuses a command it does not review in time.
+   *
+   * @param attachment the attachment that attached it
+   * @param delegate the supervisor the factory made
+   * @param dryRun whether its commands are only recorded
+   * @param capabilities which commands it may send and whether it may answer input requests
+   * @param observeInternal whether it also sees the events of the internal session its scope names
+   * @param scope what it owns, as matched at run time
+   */
+  public BoundSupervisor(
+      final SupervisorAttachment attachment,
+      final ExecutionSupervisor delegate,
+      final boolean dryRun,
+      final SupervisorCapabilities capabilities,
+      final boolean observeInternal,
+      final SupervisorScope scope) {
+    this(attachment, delegate, dryRun, capabilities, observeInternal, scope, false);
+  }
 
   /**
    * A bound supervisor that owns its attachment's scope as written.

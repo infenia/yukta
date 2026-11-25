@@ -173,4 +173,17 @@ class SupervisorCapabilitiesTest {
         .containsExactly(
             ControlActor.Kind.SUPERVISOR, ControlActor.Kind.KEY, ControlActor.Kind.TOKEN);
   }
+
+  @Test
+  void onReviewTimeoutAllowsOnlyWhenSaidSo() {
+    assertThat(SupervisorCapabilities.allowsOnReviewTimeout(Map.of())).isFalse();
+    assertThat(SupervisorCapabilities.allowsOnReviewTimeout(Map.of("onReviewTimeout", "DENY")))
+        .isFalse();
+    assertThat(SupervisorCapabilities.allowsOnReviewTimeout(Map.of("onReviewTimeout", "ALLOW")))
+        .isTrue();
+    assertThatThrownBy(
+            () -> SupervisorCapabilities.allowsOnReviewTimeout(Map.of("onReviewTimeout", "maybe")))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("onReviewTimeout must be ALLOW or DENY; was 'maybe'");
+  }
 }
