@@ -1,0 +1,368 @@
+---
+title: "Configure the CLI and MCP clients"
+sidebarTitle: "Client configuration"
+description: "Step by step, for each client: where it keeps the Yukta server address and API key, the exact configuration, how to verify it and what its errors mean. Covers yukta-cli, Claude Code, Codex, Antigravity, Cursor, VS Code, Windsurf and OpenCode."
+keywords: ["configuration", "API key", "token", "Unauthorized", "401", "MCP", "Antigravity", "Codex", "Cursor", "Windsurf", "OpenCode", "VS Code", "yukta-cli", "serverUrl", "headers", "agents install"]
+---
+
+# Configure the CLI and MCP clients
+
+Every client needs the same two values: the **server address** and, when the server has API keys, a **key**. Where they go differs per client, and most clients have no key field in their settings screen: the key goes into a configuration file or a command line. Find your client below.
+
+| Client | Section |
+|---|---|
+| `yukta-cli` | [yukta-cli](#yukta-cli) |
+| Claude Code | [Claude Code](#claude-code) |
+| Codex | [Codex](#codex) |
+| Antigravity | [Antigravity](#antigravity) |
+| Cursor | [Cursor](#cursor) |
+| VS Code Copilot | [VS Code Copilot](#vs-code-copilot) |
+| Windsurf | [Windsurf](#windsurf) |
+| OpenCode | [OpenCode](#opencode) |
+| Anything else | [Any other MCP client](#any-other-mcp-client) |
+
+## Before you start
+
+### The address
+
+| Client kind | Address |
+|---|---|
+| `yukta-cli` | `http://127.0.0.1:9858` (the server) |
+| MCP clients | `http://127.0.0.1:9858/mcp` (the server plus `/mcp`, streamable HTTP, stateless) |
+
+<Info>
+Write `127.0.0.1`, not `localhost`. A client that resolves `localhost` to an address the server does not listen on fails with a DNS or connection error.
+</Info>
+
+### The key
+
+The server reads keys at start, from `YUKTA_API_KEYS_<n>_*` variables (the same keys serve REST, the CLI and `/mcp`):
+
+```bash
+YUKTA_API_KEYS_1_NAME=assistant \
+YUKTA_API_KEYS_1_KEY=change-me \
+YUKTA_API_KEYS_1_ROLE=OPERATOR \
+YUKTA_API_KEYS_1_SESSIONS=team-a,team-b \
+yukta
+```
+
+| Variable | Meaning |
+|---|---|
+| `YUKTA_API_KEYS_<n>_NAME` | The name shown in `whoami` and in the audit log (`key:<name>`). |
+| `YUKTA_API_KEYS_<n>_KEY` | The secret the client sends. |
+| `YUKTA_API_KEYS_<n>_ROLE` | `VIEWER`, `OPERATOR` or `ADMIN`. Give a client the lowest role that does its job; see [the roles](/guides/ai/connect-an-assistant). |
+| `YUKTA_API_KEYS_<n>_SESSIONS` | Optional comma-separated sessions the key is limited to. |
+
+A client sends the key as `Authorization: Bearer <key>` or as `X-API-Key: <key>`; both are accepted. **With no key configured the server accepts loopback callers only**, which means any process on the machine.
+
+### Verify any client
+
+Call `whoami`. It returns the key name, the role, the sessions and what the key may do. `authenticated: false` or a 401 means the key did not arrive or is wrong. In an assistant: "Call whoami on Yukta."
+
+## yukta-cli
+
+`yukta-cli` calls the REST API; it has no configuration file. Each setting is a flag or an environment variable, and a flag wins.
+
+| Setting | Flag | Environment | Default |
+|---|---|---|---|
+| Server address | `--url` | `YUKTA_SERVER_URL` | `http://localhost:9858` |
+| API key | `--token` | `YUKTA_TOKEN` | none |
+| API key from a file | `--token-file` | none | none |
+| Send the key over plain `http` to a host that is not loopback | `--insecure-token` | `YUKTA_INSECURE_TOKEN` | refused |
+
+`--token` and `--token-file` are mutually exclusive. A key on the command line is visible to other users in the process list; prefer the variable or a file.
+
+### Set it once for a shell
+
+```bash
+export YUKTA_SERVER_URL=http://127.0.0.1:9858
+export YUKTA_TOKEN=change-me
+yukta-cli whoami
+```
+
+Put the two `export` lines in `~/.bashrc` or `~/.zshrc` to keep them.
+
+### Keep the key in a file
+
+```bash
+umask 077 && printf '%s' 'change-me' > ~/.config/yukta.key
+yukta-cli --token-file ~/.config/yukta.key whoami
+```
+
+Surrounding whitespace in the file is trimmed.
+
+### A server on another machine
+
+Plain `http` to a host that is not loopback is refused with a token, because the key would cross the network in clear text. Put the server behind HTTPS and use an `https://` URL. Use `--insecure-token` only on a network you trust.
+
+### Timeouts and retries
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--timeout` | `30s` | Limit of each non-streaming request; `0` disables it. |
+| `--retries` | `0` | Extra attempts for reads and starts on network errors, `429` and `502` to `504`. |
+| `--retry-wait` | `1s` | First pause between retries; doubles each time; a longer `Retry-After` wins. |
+
+Environment-only: `YUKTA_STREAM_IDLE` (default `45s`, how long a followed stream may be silent) and `YUKTA_STREAM_RECONNECTS` (default `5`). The full list is in the [CLI reference](/reference/cli).
+
+### Errors
+
+| You see | Meaning | Fix |
+|---|---|---|
+| `401` | No key sent, or a wrong one | Set `YUKTA_TOKEN`, or pass `--token-file` |
+| `403` | The key's role or sessions do not allow the call | Use a key with a higher role |
+| `429` | Too many calls | Wait for `Retry-After`; add `--retries 3` |
+| `dial tcp: lookup localhost` or connection refused | Wrong address or server down | Use `--url http://127.0.0.1:9858`; check the server runs |
+
+## Claude Code
+
+Claude Code keeps MCP servers in its own configuration, managed with `claude mcp`.
+
+### Without a key
+
+```bash
+claude mcp add --scope user --transport http yukta http://127.0.0.1:9858/mcp
+```
+
+### With a key
+
+```bash
+claude mcp add --scope user --transport http yukta http://127.0.0.1:9858/mcp \
+  --header "Authorization: Bearer change-me"
+```
+
+`--scope user` makes the server available in every project; `--scope local` (the default) limits it to the current project and `--scope project` writes `.mcp.json` into the repository (do not commit a key).
+
+### Check, change and remove
+
+```bash
+claude mcp list              # yukta should show as connected
+claude mcp get yukta         # shows the URL and headers
+claude mcp remove --scope user yukta
+```
+
+To change the key, remove the server and add it again.
+
+### The plugin
+
+For the default address and no key, `yukta-cli agents install` installs the `yukta` plugin (MCP, skills and a live pane) instead of a bare MCP entry. Use `claude mcp add` as above for another address or a key.
+
+### Errors
+
+| You see | Fix |
+|---|---|
+| `yukta: failed to connect` or `401` in `claude mcp list` | Add or correct the `--header` |
+| The server is missing in a project | It was added at `local` scope in another directory; add it with `--scope user` |
+
+## Codex
+
+Codex reads MCP servers from `~/.codex/config.toml`, managed with `codex mcp`. Its safest key source is an environment variable.
+
+### With a key in an environment variable (recommended)
+
+```bash
+export YUKTA_TOKEN=change-me
+codex mcp add yukta --url http://127.0.0.1:9858/mcp --bearer-token-env-var YUKTA_TOKEN
+```
+
+Codex reads `YUKTA_TOKEN` each time it starts, so the key is not stored in a file. The variable must be set in the shell that starts Codex.
+
+### With a key in the file
+
+Edit `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.yukta]
+url = "http://127.0.0.1:9858/mcp"
+http_headers = { Authorization = "Bearer change-me" }
+```
+
+### Without a key
+
+```bash
+codex mcp add yukta --url http://127.0.0.1:9858/mcp
+```
+
+### Check and remove
+
+```bash
+codex mcp list
+codex mcp remove yukta
+```
+
+### Errors
+
+| You see | Fix |
+|---|---|
+| `401` with `--bearer-token-env-var` | The variable is empty in the shell that started Codex; export it and restart Codex |
+| The entry is ignored | The table must be named `[mcp_servers.yukta]`, with `mcp_servers` in the plural |
+
+## Antigravity
+
+Antigravity has no key field in its MCP settings screen. Put the key in the raw configuration file, `~/.gemini/config/mcp_config.json`.
+
+### The configuration
+
+```json
+{
+  "mcpServers": {
+    "yukta": {
+      "serverUrl": "http://127.0.0.1:9858/mcp",
+      "headers": { "Authorization": "Bearer change-me" }
+    }
+  }
+}
+```
+
+- Antigravity wants **`serverUrl`**, not `url`. With `url` the server is not found.
+- It does not expand environment variables in this file, so the key is written in plain text. Keep the file private: `chmod 600 ~/.gemini/config/mcp_config.json`.
+- Leave out `headers` when the server has no keys.
+
+### Apply it
+
+Save the file, then refresh the MCP servers in Antigravity or restart it. In the agent panel, the MCP servers list shows `yukta` and its tools when the connection works.
+
+### Let the CLI write it
+
+```bash
+yukta-cli agents install --agent antigravity --token-file ~/.config/yukta.key --url http://127.0.0.1:9858
+```
+
+### Errors
+
+| You see | Meaning | Fix |
+|---|---|---|
+| `calling "initialize": sending "initialize": Unauthorized` | The request reached the server without a valid key | Add the `headers` entry, or correct the key; restart the MCP server |
+| `calling "initialize": ... connection refused` | The server is down or the address is wrong | Check `yukta-cli --url http://127.0.0.1:9858 whoami` |
+| The server never appears | The file is not valid JSON, or the key is `url` | Validate the JSON; use `serverUrl` |
+
+## Cursor
+
+Cursor reads `~/.cursor/mcp.json` (all projects) or `.cursor/mcp.json` in a project.
+
+```json
+{
+  "mcpServers": {
+    "yukta": {
+      "url": "http://127.0.0.1:9858/mcp",
+      "headers": { "Authorization": "Bearer ${env:YUKTA_TOKEN}" }
+    }
+  }
+}
+```
+
+- Cursor expands `${env:NAME}`, so the key can stay in your environment (export `YUKTA_TOKEN` before starting Cursor). Write the key in place of `${env:YUKTA_TOKEN}` if you prefer.
+- Check it under Settings, then MCP: `yukta` shows a green dot and its tool count.
+- With the CLI: `yukta-cli agents install --agent cursor --token-env YUKTA_TOKEN`.
+
+| You see | Fix |
+|---|---|
+| A red dot, `401` | The variable is not set in the environment Cursor started in, or the key is wrong |
+| `yukta` is not listed | `mcp.json` is not valid JSON |
+
+## VS Code Copilot
+
+VS Code reads the user `mcp.json` (on Linux `~/.config/Code/User/mcp.json`; open it with the command **MCP: Open User Configuration**) or `.vscode/mcp.json` in a workspace. Its root key is `servers`, not `mcpServers`.
+
+```json
+{
+  "servers": {
+    "yukta": {
+      "type": "http",
+      "url": "http://127.0.0.1:9858/mcp",
+      "headers": { "Authorization": "Bearer ${env:YUKTA_TOKEN}" }
+    }
+  }
+}
+```
+
+- `type` must be `http`.
+- Start the server from the **MCP: List Servers** command; tools then appear in Copilot's agent mode.
+- With the CLI: `yukta-cli agents install --agent vscode --token-env YUKTA_TOKEN`.
+
+## Windsurf
+
+Windsurf reads `~/.codeium/windsurf/mcp_config.json`. Like Antigravity it wants **`serverUrl`**.
+
+```json
+{
+  "mcpServers": {
+    "yukta": {
+      "serverUrl": "http://127.0.0.1:9858/mcp",
+      "headers": { "Authorization": "Bearer ${env:YUKTA_TOKEN}" }
+    }
+  }
+}
+```
+
+- `${env:NAME}` is expanded, so the key can stay in your environment.
+- Refresh the servers from the MCP panel after saving.
+- With the CLI: `yukta-cli agents install --agent windsurf --token-env YUKTA_TOKEN`.
+
+## OpenCode
+
+OpenCode reads `~/.config/opencode/opencode.json` (or `opencode.jsonc`). Its root key is `mcp`, and a remote server has `"type": "remote"`.
+
+```json
+{
+  "mcp": {
+    "yukta": {
+      "type": "remote",
+      "url": "http://127.0.0.1:9858/mcp",
+      "enabled": true,
+      "headers": { "Authorization": "Bearer {env:YUKTA_TOKEN}" }
+    }
+  }
+}
+```
+
+- OpenCode spells an environment reference `{env:NAME}`, without the `$`.
+- With the CLI: `yukta-cli agents install --agent opencode --token-env YUKTA_TOKEN`. A file with comments (`.jsonc`) that the CLI cannot parse is left alone, and it prints the entry to add by hand.
+
+## Any other MCP client
+
+A client needs a URL and, with keys, one header:
+
+| Value | Setting |
+|---|---|
+| Transport | streamable HTTP (not standard input, not SSE) |
+| URL | `http://127.0.0.1:9858/mcp` |
+| Header | `Authorization: Bearer <key>` (or `X-API-Key: <key>`) |
+
+The names differ by client: `url`, `serverUrl` or `httpUrl` for the address, and `type: "http"` or `"remote"` for the transport. Use the ones your client documents for a streamable HTTP server. Test the endpoint without the client:
+
+```bash
+curl -i -H "Authorization: Bearer change-me" \
+     -H "Content-Type: application/json" \
+     -H "Accept: application/json, text/event-stream" \
+     -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}' \
+     http://127.0.0.1:9858/mcp
+```
+
+`200` means the key works. `401` means the key is missing or wrong, which is the same error a client reports as `Unauthorized`.
+
+## Let the CLI do it
+
+`yukta-cli agents install` finds the agents on your machine and writes the entries above for each, plus the Yukta skills.
+
+```bash
+yukta-cli agents list                                   # agents found, and which are connected
+yukta-cli agents install --dry-run                      # what would change, changing nothing
+yukta-cli agents install --agent cursor,codex --token-env YUKTA_TOKEN
+yukta-cli agents install --token-file ~/.config/yukta.key
+yukta-cli agents uninstall --all                        # removes exactly what install added
+```
+
+- `--token-env VAR` writes a reference to the variable for the clients that expand one (Cursor, VS Code, Windsurf, OpenCode, Codex, Claude Code). Antigravity cannot read the key from an environment variable, so with `--token-env` alone it fails and asks for `--token` or `--token-file`; the key is then written to its file.
+- It changes only the `yukta` entry, keeps the first original of each file as `<file>.yukta-bak`, and records what it did so `uninstall` can undo it. Files it creates are private (mode `0600`).
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Unauthorized`, `401` | No key sent, or a wrong one | Add the header (or `YUKTA_TOKEN`) and restart the client's MCP server |
+| `403`, or a tool is refused | The key's role is too low, or the call names a session the key does not own | Use a key with the role the tool needs |
+| `429` | Too many calls from one caller | Wait for `Retry-After`; stop other pollers |
+| Connection refused, DNS error | Server down, wrong port, or `localhost` resolves elsewhere | Use `127.0.0.1`; check the server runs |
+| Tools do not appear | Invalid JSON or TOML, wrong key name (`url` against `serverUrl`) | Validate the file; use the names in this page |
+| The key works in `curl` but not in the client | The client does not expand environment variables, or was started without the variable | Write the key in the file, or start the client from a shell that has it |
