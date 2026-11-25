@@ -21,6 +21,13 @@ import tools.jackson.databind.ObjectMapper;
 @SuppressWarnings({"PMD.ShortClassName", "PMD.AvoidFieldNameMatchingMethodName"})
 public final class Api {
 
+  /**
+   * How long a call waits for the answer: the default 5 s, but longer on PostgreSQL, where a shared
+   * CI runner answers the first calls (the OpenAPI document, a cold connection pool) slower.
+   */
+  private static final Duration RESPONSE_TIMEOUT =
+      PostgresDatabase.enabled() ? Duration.ofSeconds(30) : Duration.ofSeconds(5);
+
   private static final ObjectMapper JSON = new ObjectMapper();
 
   private final WebTestClient client;
@@ -48,7 +55,7 @@ public final class Api {
    */
   public static Api toServer(final String baseUrl, final String key) {
     final WebTestClient.Builder builder =
-        WebTestClient.bindToServer().baseUrl(baseUrl).responseTimeout(responseTimeout());
+        WebTestClient.bindToServer().baseUrl(baseUrl).responseTimeout(RESPONSE_TIMEOUT);
     return new Api(key == null ? builder.build() : builder.defaultHeader("X-API-Key", key).build());
   }
 
@@ -82,14 +89,6 @@ public final class Api {
   }
 
   /**
-   * How long a call waits for the answer: the default 5 s, but longer on PostgreSQL, where a shared
-   * CI runner answers the first calls (the OpenAPI document, a cold connection pool) slower.
-   */
-  private static Duration responseTimeout() {
-    return PostgresDatabase.enabled() ? Duration.ofSeconds(30) : Duration.ofSeconds(5);
-  }
-
-  /**
    * A client that authenticates with a bearer token (an agent credential) instead of an API key.
    *
    * @param baseUrl the server's base URL
@@ -100,7 +99,7 @@ public final class Api {
     return new Api(
         WebTestClient.bindToServer()
             .baseUrl(baseUrl)
-            .responseTimeout(responseTimeout())
+            .responseTimeout(RESPONSE_TIMEOUT)
             .defaultHeader("Authorization", "Bearer " + token)
             .build());
   }
