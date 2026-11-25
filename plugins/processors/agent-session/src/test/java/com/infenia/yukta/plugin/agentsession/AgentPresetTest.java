@@ -47,6 +47,13 @@ class AgentPresetTest {
   }
 
   @Test
+  void claudeCodeConversation_disallowsAskUserQuestion() throws IOException {
+    // an approval cannot carry the answer: allowed unchanged, the model reads "did not answer"
+    assertThat(AgentPreset.parse(claudeJson()).interactive().command())
+        .containsSubsequence("--disallowedTools", "AskUserQuestion");
+  }
+
+  @Test
   void theRecordsCopyWhatTheyAreGiven() throws IOException {
     final var output = AgentPreset.parse(claudeJson()).output();
 
