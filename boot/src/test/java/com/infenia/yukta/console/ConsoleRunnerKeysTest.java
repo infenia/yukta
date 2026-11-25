@@ -3,6 +3,7 @@
 package com.infenia.yukta.console;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -94,6 +95,8 @@ class ConsoleRunnerKeysTest {
             .streams(new PipedInputStream(keys), out)
             .type("xterm-256color")
             .build()) {
+      // CI images can lack the terminfo mouse entry; then the runner never turns tracking on
+      assumeTrue(term.hasMouseSupport(), "terminal reports no mouse support");
       // press ends in M, release ends in m: a stray m would switch mouse tracking off
       send(keys, "\033[<0;5;5M\033[<0;5;5m\033[<64;5;5Mq");
       ConsoleRunner.loop(term, view, limit -> ConsoleView.Snapshot.NONE);
