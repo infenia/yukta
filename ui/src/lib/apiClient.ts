@@ -61,6 +61,8 @@ export async function fetchApi<T>(
 export interface Page<T> {
   data: T;
   nextCursor: string | null;
+  /** The X-Total-Count header (matches before paging), when the server sent one. */
+  total: number | null;
 }
 
 /** Like fetchApi, but also returns the X-Next-Cursor header of a paged list. */
@@ -102,6 +104,9 @@ export async function fetchApiPage<T>(
   return {
     data: json?.data as T,
     nextCursor: response.headers.get('X-Next-Cursor'),
+    total: response.headers.has('X-Total-Count')
+      ? Number(response.headers.get('X-Total-Count'))
+      : null,
   };
 }
 

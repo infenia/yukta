@@ -34,25 +34,22 @@ class ExecutionSearchControllerTest {
   private final WebTestClient client =
       WebTestClient.bindToController(new ExecutionSearchController(sessions, controlBus)).build();
 
-  private static WorkflowExecutionSummary run(
-      final String runId, final String workflow, final TaskStatus status, final Instant start) {
-    return Fixtures.summary(runId, workflow, status, start, null);
-  }
-
   private void history() {
     when(sessions.getSessionIds(anyBoolean())).thenReturn(Flux.just("s1", "s2"));
     when(controlBus.getHistory("s1"))
         .thenReturn(
             Mono.just(
                 List.of(
-                    run("a1", "wf", TaskStatus.SUCCESS, NOON),
-                    run("a2", "wf", TaskStatus.FAILURE, NOON.minus(Duration.ofDays(1))))));
+                    Fixtures.summary("a1", "wf", TaskStatus.SUCCESS, NOON, null),
+                    Fixtures.summary(
+                        "a2", "wf", TaskStatus.FAILURE, NOON.minus(Duration.ofDays(1)), null))));
     when(controlBus.getHistory("s2"))
         .thenReturn(
             Mono.just(
                 List.of(
-                    run("b1", "other", TaskStatus.SUCCESS, NOON.plus(Duration.ofHours(1))),
-                    run("b2", "wf", TaskStatus.QUEUED, null))));
+                    Fixtures.summary(
+                        "b1", "other", TaskStatus.SUCCESS, NOON.plus(Duration.ofHours(1)), null),
+                    Fixtures.summary("b2", "wf", TaskStatus.QUEUED, null, null))));
   }
 
   @Test
@@ -114,10 +111,57 @@ class ExecutionSearchControllerTest {
   }
 
   @Test
+  void offsetPagesTheRunsAndTheTotalIsInHeader() {
+    history();
+
+    client
+        .get()
+        .uri("/api/executions?limit=2&offset=2")
+        .exchange()
+        .expectHeader()
+        .valueEquals("X-Total-Count", "4")
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(2)
+        .jsonPath("$.data[0].executionId")
+        .isEqualTo("a2");
+  }
+
+  @Test
+  void textFindsRunsByRunWorkflowOrSession_andStatusTakesSeveralValues() {
+    history();
+
+    client
+        .get()
+        .uri("/api/executions?text=OTHER")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(1)
+        .jsonPath("$.data[0].executionId")
+        .isEqualTo("b1");
+    client
+        .get()
+        .uri("/api/executions?text=s1")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(2);
+    client
+        .get()
+        .uri("/api/executions?status=failure,queued")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(2);
+  }
+
+  @Test
   void workflowFilter_isAskedOfTheTrackerPerSession() {
     when(sessions.getSessionIds(anyBoolean())).thenReturn(Flux.just("s1"));
     when(controlBus.getHistory("s1", "wf"))
-        .thenReturn(Mono.just(List.of(run("a1", "wf", TaskStatus.SUCCESS, NOON))));
+        .thenReturn(
+            Mono.just(List.of(Fixtures.summary("a1", "wf", TaskStatus.SUCCESS, NOON, null))));
 
     client
         .get()
@@ -209,16 +253,18 @@ class ExecutionSearchControllerTest {
         .thenReturn(
             Mono.just(
                 List.of(
-                    run("r1", "wf", TaskStatus.RUNNING, now),
-                    run("f1", "wf", TaskStatus.FAILURE, now.minus(Duration.ofHours(1))),
-                    run("f2", "wf", TaskStatus.FAILURE, now.minus(Duration.ofHours(30))),
-                    run("f3", "wf", TaskStatus.FAILURE, null))));
+                    Fixtures.summary("r1", "wf", TaskStatus.RUNNING, now, null),
+                    Fixtures.summary(
+                        "f1", "wf", TaskStatus.FAILURE, now.minus(Duration.ofHours(1)), null),
+                    Fixtures.summary(
+                        "f2", "wf", TaskStatus.FAILURE, now.minus(Duration.ofHours(30)), null),
+                    Fixtures.summary("f3", "wf", TaskStatus.FAILURE, null, null))));
     when(controlBus.getHistory("s2"))
         .thenReturn(
             Mono.just(
                 List.of(
-                    run("q1", "wf", TaskStatus.QUEUED, null),
-                    run("e1", "wf", TaskStatus.SUCCESS, now))));
+                    Fixtures.summary("q1", "wf", TaskStatus.QUEUED, null, null),
+                    Fixtures.summary("e1", "wf", TaskStatus.SUCCESS, now, null))));
 
     client
         .get()

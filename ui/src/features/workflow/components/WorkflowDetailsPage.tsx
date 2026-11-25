@@ -56,6 +56,8 @@ import {
   useSubWorkflowLinks,
 } from '../hooks/useSubWorkflowLinks';
 import { useQuery } from '@tanstack/react-query';
+import { getWorkflowDefinition } from '../api/getWorkflowDefinition';
+import { downloadText } from '../lib/downloadFile';
 import { getWorkflowProgress } from '../api/getWorkflowProgress';
 import type { TaskProgress } from '../types/workflow';
 import { NodeSheet, type SheetTab } from './NodeSheet';
@@ -327,6 +329,11 @@ export function WorkflowDetailsPage() {
             executions={executions}
             selectedExecutionId={selectedExecutionId}
             onSelect={selectExecution}
+            onViewAll={() =>
+              void navigate(
+                `/runs?session=${encodeURIComponent(sessionId)}&workflow=${encodeURIComponent(workflowId)}`
+              )
+            }
           />
         }
         controls={
@@ -403,6 +410,20 @@ export function WorkflowDetailsPage() {
                 onClick={() => setVersionsOpen((value) => !value)}
               >
                 {versionsOpen ? 'Hide versions' : 'Versions'}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  void getWorkflowDefinition(sessionId, workflowId).then(
+                    (definition) =>
+                      downloadText(
+                        `${workflowId}.json`,
+                        JSON.stringify(definition, null, 2),
+                        'application/json'
+                      )
+                  )
+                }
+              >
+                Download JSON
               </DropdownMenuItem>
               {selectedExecutionId && (
                 <DropdownMenuItem

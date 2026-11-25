@@ -37,9 +37,8 @@ import {
   formatDuration,
 } from '@/features/workflow/lib/timeFormat';
 import {
-  MAX_RUNS,
   getRunCounts,
-  searchExecutions,
+  searchRunPage,
   type RunCounts,
 } from '../api/searchExecutions';
 import {
@@ -75,8 +74,8 @@ function CopyRunId({ executionId }: { executionId: string }) {
   );
 }
 
-/** Runs fetched first, and added by each "Load more". */
-const PAGE = 100;
+/** Runs per page offered. */
+const PAGE_SIZES = [25, 50, 100];
 
 const RANGE_LABELS: [Range, string][] = [
   ['', 'Any time'],
@@ -114,14 +113,15 @@ function Runs() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const filters = parseFilters(params);
-  const [limit, setLimit] = useState(PAGE);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
   const sessions = useSessionSummaries();
   const sessionNames = new Map(
     sessions.data?.map((session) => [session.sessionId, session.name])
   );
   const runs = useQuery({
-    queryKey: ['runs', filters, limit],
-    queryFn: () => searchExecutions(filters, limit),
+    queryKey: ['runs', filters, page, pageSize],
+    queryFn: () => searchRunPage(filters, page, pageSize),
     placeholderData: (previous) => previous,
     ...LIVE_LIST,
   });
@@ -140,8 +140,12 @@ function Runs() {
 
   const set = (change: Partial<RunFilters>) => {
     setParams(toParams({ ...filters, ...change }), { replace: true });
-    setLimit(PAGE);
+    setPage(0);
   };
+
+  const total = runs.data?.total ?? 0;
+  const first = total === 0 ? 0 : page * pageSize + 1;
+  const last = page * pageSize + (runs.data?.runs.length ?? 0);
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
@@ -228,11 +232,11 @@ function Runs() {
           className="w-48"
         />
         <Input
-          aria-label="Run id contains"
-          placeholder="Run id contains…"
+          aria-label="Search runs"
+          placeholder="Search run, workflow or session…"
           value={filters.text}
           onChange={(event) => set({ text: event.target.value.trim() })}
-          className="w-48"
+          className="w-64"
         />
         <Select
           ariaLabel="Time range"
@@ -269,7 +273,7 @@ function Runs() {
         />
       ) : runs.isPending ? (
         <StateMessage tone="loading" title="Loading…" />
-      ) : runs.data.length === 0 ? (
+      ) : runs.data.runs.length === 0 ? (
         <StateMessage title="No runs found.">
           Change the filters, or run a workflow.
         </StateMessage>
@@ -292,7 +296,7 @@ function Runs() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {runs.data.map((run) => (
+                {runs.data.runs.map((run) => (
                   <TableRow
                     key={run.executionId}
                     tabIndex={0}
@@ -436,25 +440,39 @@ function Runs() {
           </TableFrame>
           <div className="text-body-sm text-on-surface-variant flex flex-wrap items-center gap-3">
             <span>
-              {runs.data.length} run{runs.data.length === 1 ? '' : 's'}
+              {first}–{last} of {total} run{total === 1 ? '' : 's'}
               {RANGE_PHRASE[filters.range]}
             </span>
-            {runs.data.length >= limit && limit < MAX_RUNS && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setLimit((n) => Math.min(n + PAGE, MAX_RUNS))}
-              >
-                Load more
-              </Button>
-            )}
+            <Select
+              ariaLabel="Runs per page"
+              value={String(pageSize)}
+              onValueChange={(size) => {
+                setPageSize(Number(size));
+                setPage(0);
+              }}
+              options={PAGE_SIZES.map((n) => ({
+                value: String(n),
+                label: `${n} per page`,
+              }))}
+              className="w-36"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={page === 0}
+              onClick={() => setPage((n) => n - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={last >= total}
+              onClick={() => setPage((n) => n + 1)}
+            >
+              Next
+            </Button>
             <span className="ml-auto flex flex-wrap items-center gap-x-3">
-              {runs.data.length >= MAX_RUNS && (
-                <span>
-                  Showing the newest {MAX_RUNS} · narrow the filters to see
-                  older runs
-                </span>
-              )}
               {connected && (
                 <span data-testid="runs-live">
                   Updates live · filters are kept in the URL

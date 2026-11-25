@@ -14,10 +14,13 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -38,6 +41,9 @@ public class ExecutionSearchController {
 
   /** Runs returned when no limit is given. */
   private static final int DEFAULT_LIMIT = 100;
+
+  /** Header with the number of runs that match, before paging. */
+  /* default */ static final String TOTAL_COUNT = "X-Total-Count";
 
   /** The sessions. */
   private final SessionService sessions;
@@ -81,8 +87,9 @@ public class ExecutionSearchController {
    *
    * @param sessionId only this session
    * @param limit most runs returned (default 100, at most 1000)
+   * @param offset how many matching runs to skip (default 0); the total is in X-Total-Count
    * @param includeInternal true to include the runs of internal sessions (supervisor workflows)
-   * @param filter narrows the runs by workflow, status, text in the execution id, and start range
+   * @param filter narrows the runs by workflow, status, text, and start range
    * @return the matching runs
    */
   @GetMapping("/executions")
@@ -90,14 +97,22 @@ public class ExecutionSearchController {
       summary = "Search runs across sessions",
       description =
           "Lists the runs of all sessions (or of sessionId), newest first, narrowed by workflowId,"
-              + " status, text (in the execution id) and since/until (start time, ISO date-time)."
-              + " The history of each session is bounded by yukta.execution-log.retained-runs.")
-  public Mono<ApiResponse<List<Hit>>> search(
+              + " status (one or several, comma separated), text (in the execution, workflow or"
+              + " session id) and since/until (start time, ISO date-time). Page with limit and"
+              + " offset; X-Total-Count has the number of matching runs. The history of each"
+              + " session is bounded by "
+              + "yukta.execution-log.retained-runs.")
+  public Mono<ResponseEntity<ApiResponse<List<Hit>>>> search(
       @RequestParam(required = false) final String sessionId,
       @RequestParam(required = false) final Integer limit,
+      @RequestParam(required = false) final Integer offset,
       @RequestParam(defaultValue = "false") final boolean includeInternal,
       final HistoryFilter filter) {
     final int max = limit == null ? DEFAULT_LIMIT : Math.clamp(limit, 1, MAX_LIMIT);
+    final int skip = offset == null ? 0 : Math.max(offset, 0);
+    final HistoryFilter base = filter.withoutText();
+    final String rawText = filter.text();
+    final String text = rawText == null ? null : rawText.toLowerCase(Locale.ROOT);
     return sessions
         .getSessionIds(includeInternal)
         .filter(id -> sessionId == null || sessionId.equals(id))
@@ -107,12 +122,22 @@ public class ExecutionSearchController {
                     // the tracker narrows by workflow before it builds and sorts summaries
                     : controlBus.getHistory(id, filter.workflowId()))
                 .flatMapIterable(history -> history)
-                .filter(filter::matches)
-                .map(run -> hit(id, run)))
+                .filter(base::matches)
+                .map(run -> hit(id, run))
+                .filter(hit -> text == null || contains(hit, text)))
         .sort(Comparator.comparing(Hit::startTime, Comparator.nullsLast(Comparator.reverseOrder())))
-        .take(max)
         .collectList()
-        .map(hits -> ApiResponse.success(200, "Executions found", hits));
+        .map(hits ->
+            ResponseEntity.ok()
+                .header(TOTAL_COUNT, String.valueOf(hits.size()))
+                .body(
+                    ApiResponse.success(
+                        200, "Executions found", hits.stream().skip(skip).limit(max).toList())));
+  }
+
+  private static boolean contains(final Hit hit, final String lowerText) {
+    return Stream.of(hit.executionId(), hit.workflowId(), hit.sessionId())
+        .anyMatch(v -> v.toLowerCase(Locale.ROOT).contains(lowerText));
   }
 
   /**

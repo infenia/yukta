@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { fetchApi } from '@/lib/apiClient';
+import { fetchApi, fetchApiPage } from '@/lib/apiClient';
 import { statusList, timeBounds, type RunFilters } from '../lib/filters';
 
 /** One run found by the search. */
@@ -27,45 +27,44 @@ export interface RunCounts {
 
 export const getRunCounts = () => fetchApi<RunCounts>('/api/executions/counts');
 
-/** The most runs the server returns for one search. */
-export const MAX_RUNS = 1000;
-
-/** The newest `limit` runs that match, across all sessions (or one). */
-export async function searchExecutions(
-  filters: RunFilters,
-  limit: number,
-  now = Date.now()
-): Promise<RunHit[]> {
-  const statuses = statusList(filters.status);
-  if (statuses.length < 2)
-    return searchOne(filters, statuses[0] ?? '', limit, now);
-  // The server takes one status per search: ask for each, then keep the newest of all.
-  // ponytail: one request per status (at most nine); repeat `status` on the server if that costs
-  const found = await Promise.all(
-    statuses.map((status) => searchOne(filters, status, limit, now))
-  );
-  return found
-    .flat()
-    .sort((a, b) => (b.startTime ?? '').localeCompare(a.startTime ?? ''))
-    .slice(0, limit);
+/** One page of runs, and how many runs match in all. */
+export interface RunPage {
+  runs: RunHit[];
+  total: number;
 }
 
-function searchOne(
+/** Page `page` (from 0) of the runs that match, newest first, across all sessions (or one). */
+export async function searchRunPage(
   filters: RunFilters,
-  status: string,
-  limit: number,
-  now: number
-): Promise<RunHit[]> {
-  const params = new URLSearchParams({ limit: String(limit) });
+  page: number,
+  pageSize: number,
+  now = Date.now()
+): Promise<RunPage> {
+  const params = new URLSearchParams({
+    limit: String(pageSize),
+    offset: String(page * pageSize),
+  });
   const wanted: Record<string, string> = {
     sessionId: filters.session,
     workflowId: filters.workflow,
-    status,
+    status: statusList(filters.status).join(','),
     text: filters.text,
     ...timeBounds(filters, now),
   };
   for (const [key, value] of Object.entries(wanted)) {
     if (value) params.set(key, value);
   }
-  return fetchApi<RunHit[]>(`/api/executions?${params}`);
+  const { data, total } = await fetchApiPage<RunHit[]>(
+    `/api/executions?${params}`
+  );
+  return { runs: data, total: total ?? data.length };
+}
+
+/** The newest `limit` runs that match (one page, no total). */
+export async function searchExecutions(
+  filters: RunFilters,
+  limit: number,
+  now = Date.now()
+): Promise<RunHit[]> {
+  return (await searchRunPage(filters, 0, limit, now)).runs;
 }
