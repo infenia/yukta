@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.e2e.support.Api;
 import com.infenia.yukta.e2e.support.E2eTest;
 import com.infenia.yukta.e2e.support.InJvmOnly;
+import com.infenia.yukta.e2e.support.PostgresDatabase;
 import com.infenia.yukta.security.ApiRole;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -18,13 +19,15 @@ import tools.jackson.databind.JsonNode;
 class EditionE2eTest {
 
   @Test
-  void theCommunityEditionIsReported() {
+  void theEditionIsReported() {
     final Api api = Api.forRole(ApiRole.ADMIN);
 
     final JsonNode edition = api.data(api.client().get().uri("/api/edition").exchange());
 
-    assertThat(edition.path("edition").asString()).isEqualTo("COMMUNITY");
-    assertThat(edition.path("license").asString()).isEqualTo("Apache-2.0");
+    // the PostgreSQL stores are the Plus build
+    final boolean plus = PostgresDatabase.enabled();
+    assertThat(edition.path("edition").asString()).isEqualTo(plus ? "PLUS" : "COMMUNITY");
+    assertThat(edition.path("license").asString()).isEqualTo(plus ? "AGPL-3.0-only" : "Apache-2.0");
     assertThat(edition.path("features").isArray()).isTrue();
   }
 

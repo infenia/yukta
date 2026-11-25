@@ -16,6 +16,10 @@ yk gradle :e2e:check                                  # the tests plus Checkstyl
 release/e2e-server.sh start                           # boot jar, free port, ADMIN and VIEWER keys; `url`, `key` print them
 yk gradle :e2e:test -Pyukta.e2e.url=http://127.0.0.1:<port> -Pyukta.e2e.key=<key>
 release/e2e-server.sh stop
+
+# the same suite with every store on PostgreSQL (needs Docker: a Testcontainer, postgres:18-alpine)
+yk gradle -Pyukta.persistence=postgres :e2e:test
+yk gradle -Pyukta.persistence=postgres :e2e:test --tests 'com.infenia.yukta.e2e.postgres.*'   # only the Postgres cases
 ```
 `./gradlew bootRun` on :9860 (see `boot/CLAUDE.md`) works as the external server too.
 
@@ -30,6 +34,13 @@ release/e2e-server.sh stop
 
 The in-JVM server has every plugin, the process commands `sh` and `echo`, in-memory stores and one key per role. Against a URL only
 the ADMIN key exists, so a test that needs another role is `@InJvmOnly`.
+
+## Postgres tier
+`-Pyukta.persistence=postgres` builds boot with the PostgreSQL stores; `PostgresDatabase` starts one container per test JVM and every
+in-JVM server (the shared one and each `DedicatedServer`) uses it, so a second server sees what the first wrote.
+`postgres/PostgresDurabilityE2eTest` (server A writes, server B reads) and `postgres/PostgresHaE2eTest` (leader lease and takeover) run only
+in this mode. `DedicatedServer.stop()` really closes a server, which also stops the HTTP of the other servers in the JVM (shared Reactor
+resources): read the effect through the database (`PostgresDatabase.lease()`), not through another server's API. Nightly: `postgres-nightly.yml`.
 
 ## Conventions
 - **Isolation**: every test creates `e2e-<test>-<short uuid>` resources and deletes them; no test relies on order or on another's data (the suite runs against one shared binary).

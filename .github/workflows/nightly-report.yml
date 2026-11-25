@@ -15,6 +15,7 @@ on:
       - "Mutation testing"
       - "Examples nightly"
       - "E2E nightly"
+      - "Postgres nightly"
       - "Perf nightly"
       - "Perf weekly"
       - "Native smoke"

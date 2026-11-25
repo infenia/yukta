@@ -300,6 +300,14 @@ Issues, issue types and the **Yukta Roadmap** project are described in
 
 ---
 
+### `postgres-nightly.yml` — Postgres nightly
+
+**Purpose**: Run the whole Java e2e suite (`e2e` module) with every store on PostgreSQL, and the cases only a database can break.
+**Triggered on**: daily schedule, manual, and pull requests that carry the `ci:e2e` label.
+**Behavior**: runs `./gradlew -Pyukta.persistence=postgres :e2e:test`; the suite starts the app in the test JVM on a PostgreSQL Testcontainer (Docker is on the runner). `PostgresDurabilityE2eTest` (a second server on the same database serves what the first wrote) and `PostgresHaE2eTest` (the leader lease moves to the standby) run only in this mode. A failing night is tracked by `nightly-report.yml` as `Nightly failure: Postgres nightly`, with one issue per failing test; test reports are uploaded as `build-reports-postgres`.
+
+---
+
 ### `examples-nightly.yml` — Examples nightly
 
 **Purpose**: Find a merge that breaks an example (and the docs that quote it) the same night.
