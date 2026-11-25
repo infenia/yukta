@@ -231,6 +231,7 @@
             "pages": [
               "reference/mcp-tools",
               "reference/cli",
+              "reference/client-configuration",
               "reference/client-parity"
             ]
           },
