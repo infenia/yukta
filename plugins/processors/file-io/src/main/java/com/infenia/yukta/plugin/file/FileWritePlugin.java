@@ -20,10 +20,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.ObjectMapper;
 
 /** Writes (or appends) the payload's text to a file inside a sandbox directory. */
 @Component
 public final class FileWritePlugin extends AbstractFilePlugin {
+
+  /** Writes structured content marked as JSON. */
+  private static final ObjectMapper JSON = new ObjectMapper();
 
   /** Default constructor without metrics. */
   public FileWritePlugin() {
@@ -48,7 +52,8 @@ public final class FileWritePlugin extends AbstractFilePlugin {
             + "- baseDir: sandbox directory (required); paths outside it are rejected.\n"
             + "- path: file relative to baseDir; defaults to the payload's 'path' field.\n"
             + "- contentField: payload field holding the text (default 'content'); a plain String"
-            + " payload is written as is.\n"
+            + " payload is written as is; other content is written as JSON when the message's"
+            + " formatIndicator is a JSON type.\n"
             + "- append: true to append a line instead of overwriting (default false).",
         Optional.of(new UiDesign("blue", "edit_document", "File Write", 140, 80)));
   }
@@ -93,6 +98,10 @@ public final class FileWritePlugin extends AbstractFilePlugin {
     });
   }
 
+  private static boolean isJson(final String mediaType) {
+    return mediaType != null && (mediaType.endsWith("/json") || mediaType.endsWith("+json"));
+  }
+
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     final boolean append = Boolean.TRUE.equals(config.get("append"));
@@ -108,18 +117,23 @@ public final class FileWritePlugin extends AbstractFilePlugin {
           if (content == null) {
             throw new IllegalArgumentException("no content in payload." + field);
           }
+          // structured content marked as JSON (an HTTP response body, say) is written as JSON
+          final String text =
+              content instanceof String || !isJson(message.formatIndicator())
+                  ? String.valueOf(content)
+                  : JSON.writeValueAsString(content);
           Files.createDirectories(java.util.Objects.requireNonNull(file.getParent()));
           if (append) {
             Files.writeString(
                 file,
-                content + System.lineSeparator(),
+                text + System.lineSeparator(),
                 StandardOpenOption.CREATE,
                 StandardOpenOption.APPEND,
                 LinkOption.NOFOLLOW_LINKS);
           } else {
             Files.writeString(
                 file,
-                String.valueOf(content),
+                text,
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING,
                 StandardOpenOption.WRITE,

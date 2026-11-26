@@ -38,7 +38,7 @@ Calls a chat model and emits its answer. The node is blocking.
 | `concurrency` | number | `16` | no | Model calls in flight at once. |
 
 - **Output ports:** `default`, or `success` and `failure` with `routeByStatus`.
-- **Payload:** `{success, content, actions, usage{inputTokens, outputTokens}, latencyMs, model, cost?}`. `actions` holds `{tool, arguments, id}` entries, also parsed from `<agent_action>` blocks. Metadata gains `llmSuccess=true`.
+- **Payload:** `{success, content, actions, usage{inputTokens, outputTokens}, latencyMs, model, cost?}`. `actions` holds `{tool, arguments, id}` entries, also parsed from `<agent_action>` blocks. Metadata gains `llmSuccess=true`; `formatIndicator` is `text/plain`.
 - **Budget:** the ledger is shared by every `LLM_CALL` and `MCP_TOOL_CALL` node of the run (a budget with `agent` counts that agent apart). The check runs before a call and usage is added after it, so one call can overshoot. When exhausted, the next call fails like a failed call and `failureMode` applies; with `hardStop: true` it ends the whole run instead, and nothing retries, drops or routes it.
 - **Default node timeout:** `(timeout + 1) * (retries + 1) + 5` seconds plus the backoff.
 - **Server settings:** `yukta.llm.deny-input-patterns`, `yukta.llm.deny-output-patterns` (lists of regular expressions; a match refuses the call) and `yukta.llm.rate-limit.<provider>` (requests per minute). See [Configuration](/reference/configuration).
