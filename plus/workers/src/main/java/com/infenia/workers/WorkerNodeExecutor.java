@@ -37,7 +37,10 @@ import tools.jackson.databind.ObjectMapper;
  * cancellation work end to end. A worker is chosen from the pool: it must be connected, allow the
  * plugin type and have a free slot; the one with the most free slots wins.
  */
-@SuppressWarnings("PMD.CouplingBetweenObjects") // picks, sends, traces and maps one attempt
+@SuppressWarnings({
+  "PMD.CouplingBetweenObjects",
+  "PMD.TooManyMethods"
+}) // picks, sends, traces, maps
 public class WorkerNodeExecutor implements RemoteNodeExecutor {
 
   /** Type of a message as plain JSON values. */
