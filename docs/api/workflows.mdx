@@ -205,17 +205,21 @@ Starts a run and returns its id at once. The run continues in the background; fo
 |---|---|
 | `Idempotency-Key` | Optional. A repeat with the same key for the same workflow returns the first run id. See [idempotent start](/api/overview#idempotent-start) |
 
+| Query parameter | Meaning |
+|---|---|
+| `wait` | Optional seconds to hold the call until the run's [`REPLY`](/reference/plugins/terminals#reply) node answers, capped by `yukta.reply.max-wait` (default 30). In time: `200` with the answer in `data.reply`. Otherwise `202`, as without it |
+
 **Request body**
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `sessionId` | string | yes | The session |
 | `workflowId` | string | yes | The workflow |
-| `payload` | object | no | Input for the trigger node. Treated as empty when omitted. The keys `yukta.initiator`, `yukta.priority` and `yukta.version` are reserved: the server drops any value you send (`yukta.initiator` is set from `initiator`, the others from `options`) |
+| `payload` | object | no | Input for the trigger node. Treated as empty when omitted. The keys `yukta.initiator`, `yukta.priority`, `yukta.version` and `yukta.replyTo` are reserved: the server drops any value you send (`yukta.initiator` is set from `initiator`, `yukta.replyTo` from `wait`, the others from `options`) |
 | `options` | object | no | `{ "priority": <int>, "version": "<saved version>" }`: queue priority (higher first) and a saved version to run. Answers `403` unless the key has the `ADMIN` role |
 | `initiator` | string | no | Who or what starts the run, at most 64 characters (for example `yk check` or `schedule`). Without it, the name of the API key that made the request is recorded, and nothing when no key is in use. The runs list shows it. Starts through MCP are recorded as `mcp` (`mcp · <key name>` with a named key), and webhook starts as `webhook` |
 
-**Response** `202 Accepted`. `data.executionId` is the run id.
+**Response** `202 Accepted`. `data.executionId` is the run id. With `wait` and an answer in time, `200 OK` with `data.reply` too.
 
 **Errors**: `404` unknown session or workflow, `400` a workflow that fails validation, `429` limit reached and no room to queue, `503` on a standby server.
 

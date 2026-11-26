@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 /** Webhook trigger plugin test. */
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @NoArgsConstructor
 class WebhookTriggerPluginTest {
 
@@ -29,6 +30,18 @@ class WebhookTriggerPluginTest {
   void withoutPayloadEmitsAnEmptyOne() {
     StepVerifier.create(plugin.start(Map.of()))
         .assertNext(message -> assertEquals(Map.of(), message.payload(), "payload"))
+        .verifyComplete();
+  }
+
+  @Test
+  void waitingCallersReplyKeyBecomesReplyTo() {
+    final Map<String, Object> payload = Map.of("yukta.replyTo", "k1");
+
+    StepVerifier.create(plugin.start(Map.of()).contextWrite(ctx -> ctx.put("payload", payload)))
+        .assertNext(message -> assertEquals("k1", message.replyTo(), "replyTo"))
+        .verifyComplete();
+    StepVerifier.create(plugin.start(Map.of()))
+        .assertNext(message -> assertEquals(null, message.replyTo(), "no replyTo"))
         .verifyComplete();
   }
 

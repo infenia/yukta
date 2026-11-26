@@ -21,14 +21,16 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
@@ -68,6 +70,9 @@ public class WebhookController {
   /** Resolves the signing secret. */
   private final SecretProvider secrets;
 
+  /** Holds a call with {@code ?wait=} until the run replies. */
+  private final ReplyWait replyWait;
+
   /**
    * Start the workflow behind a hook.
    *
@@ -75,32 +80,39 @@ public class WebhookController {
    * @param path the hook path set on the trigger node
    * @param headers the request headers
    * @param body the raw request body
-   * @return the execution id
+   * @param wait seconds to wait for the run's REPLY terminal, or null to answer at once
+   * @return the execution id, with the reply when one came in time
    */
   @PostMapping("/{sessionId}/{path}")
-  @ResponseStatus(HttpStatus.ACCEPTED)
   @Operation(
       summary = "Call a webhook",
       description =
           "Starts the workflow whose WEBHOOK_TRIGGER node has this path. 401 unless the body is"
-              + " signed with the node's secret; 404 for an unknown hook.")
-  public Mono<ApiResponse<WorkflowStartResponse>> call(
+              + " signed with the node's secret; 404 for an unknown hook. 202 with the execution"
+              + " id; with wait=<seconds>, 200 with the run's REPLY when it answers in time"
+              + " (capped by yukta.reply.max-wait).")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> call(
       @PathVariable final String sessionId,
       @PathVariable final String path,
       @RequestHeader final HttpHeaders headers,
-      @RequestBody(required = false) final byte[] body) {
+      @RequestBody(required = false) final byte[] body,
+      @RequestParam(required = false) @Nullable final Integer wait) {
     final byte[] raw = body == null ? new byte[0] : body;
     return sessionService
         .getSessionWorkflows(sessionId)
         .flatMap(workflows ->
             Mono.justOrEmpty(find(workflows, path))
                 .switchIfEmpty(Mono.error(() -> unknown(sessionId, path)))
-                .flatMap(hook -> start(sessionId, hook, headers, raw)))
+                .flatMap(hook -> start(sessionId, hook, headers, raw, wait)))
         .switchIfEmpty(Mono.error(() -> unknown(sessionId, path)));
   }
 
-  private Mono<ApiResponse<WorkflowStartResponse>> start(
-      final String sessionId, final Hook hook, final HttpHeaders headers, final byte[] raw) {
+  private Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> start(
+      final String sessionId,
+      final Hook hook,
+      final HttpHeaders headers,
+      final byte[] raw,
+      @Nullable final Integer wait) {
     return secret(sessionId, hook)
         .flatMap(secret -> Mono.fromCallable(() -> signed(secret, hook, headers, raw)))
         .filter(Boolean::booleanValue)
@@ -108,15 +120,18 @@ public class WebhookController {
             Mono.error(
                 () -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid signature")))
         .flatMap(_ ->
-            workflowService.start(
-                sessionId,
-                hook.workflowId(),
+            replyWait.start(
+                wait,
                 StartOptions.withInitiator(payload(hook, headers, raw), "webhook"),
-                text(hook.config(), "idempotencyHeader") == null
-                    ? null
-                    : headers.getFirst(text(hook.config(), "idempotencyHeader"))))
-        .map(executionId ->
-            ApiResponse.success(202, "Webhook accepted", new WorkflowStartResponse(executionId)));
+                payload ->
+                    workflowService.start(
+                        sessionId,
+                        hook.workflowId(),
+                        payload,
+                        text(hook.config(), "idempotencyHeader") == null
+                            ? null
+                            : headers.getFirst(text(hook.config(), "idempotencyHeader"))),
+                "Webhook accepted"));
   }
 
   private Mono<String> secret(final String sessionId, final Hook hook) {

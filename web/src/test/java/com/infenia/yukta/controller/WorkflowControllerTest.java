@@ -23,6 +23,7 @@ import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.control.gateway.WorkflowService;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.reply.InMemoryReplyRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
@@ -49,6 +50,10 @@ import reactor.core.publisher.Mono;
 })
 @ExpectedErrorLog("ERROR com.infenia.yukta.exception.GlobalExceptionHandler - ")
 class WorkflowControllerTest {
+
+  /** Holds calls made with ?wait=. */
+  private static final ReplyWait REPLY_WAIT =
+      new ReplyWait(new InMemoryReplyRegistry(), Duration.ofSeconds(30));
 
   /** The request body that starts workflow wf of session s1. */
   private static final String START_BODY = "{\"sessionId\":\"s1\",\"workflowId\":\"wf\"}";
@@ -81,7 +86,8 @@ class WorkflowControllerTest {
                     workflowService,
                     controlBus,
                     new SupervisedControl(controlBus, null, null, null),
-                    sessionService))
+                    sessionService,
+                    REPLY_WAIT))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
   }
@@ -157,7 +163,8 @@ class WorkflowControllerTest {
                 workflowService,
                 controlBus,
                 new SupervisedControl(controlBus, null, null, null),
-                sessionService))
+                sessionService,
+                REPLY_WAIT))
         .controllerAdvice(new GlobalExceptionHandler())
         .webFilter((exchange, chain) ->
             chain

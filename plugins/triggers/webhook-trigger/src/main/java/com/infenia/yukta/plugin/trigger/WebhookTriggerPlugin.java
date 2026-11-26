@@ -7,6 +7,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
+import com.infenia.yukta.plugin.gateway.ReplyGateway;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
 import java.util.List;
@@ -79,8 +80,14 @@ public class WebhookTriggerPlugin implements TriggerPlugin {
   @Override
   public Flux<Message<?>> start(final Map<String, Object> config) {
     return Flux.deferContextual(ctx -> {
-      final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
-      return Flux.just(DefaultMessage.create(null, payload).withSourcePort("default"));
+      final Map<String, Object> payload =
+          ctx.<Map<String, Object>>getOrEmpty("payload").orElse(Map.of());
+      // a caller waiting with ?wait= gets the reply of the REPLY terminal
+      final Object replyTo = payload.get(ReplyGateway.REPLY_TO_KEY);
+      return Flux.just(
+          DefaultMessage.create(null, payload)
+              .withReplyTo(replyTo == null ? null : String.valueOf(replyTo))
+              .withSourcePort("default"));
     });
   }
 }

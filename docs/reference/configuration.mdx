@@ -228,6 +228,7 @@ A tier name matches `[A-Za-z0-9._-]{1,64}`. A tier's `type` defaults to `AUTO` w
 | `yukta.spel.max-length` | int | `10000` | Longest expression. System property only. |
 | `yukta.spel.timeout-ms` | int | `1000` | Longest one expression runs. System property only. |
 | `yukta.messaging.max-payload-bytes` | long | `67108864` | Largest payload per node boundary; `0` off. |
+| `yukta.reply.max-wait` | duration | `30s` | Longest a start or webhook call with `?wait=` waits for the run's `REPLY`. |
 | `yukta.http.allowed-hosts` | list | empty (any) | Hosts `HTTP_REQUEST` may call. |
 | `yukta.mcp-client.allowed-hosts` | list | empty (any) | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call. |
 | `yukta.mcp-client.allowed-tools` | list | empty (any) | Tools `MCP_TOOL_CALL` may call. |

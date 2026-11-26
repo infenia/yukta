@@ -54,6 +54,14 @@ class ExecutionLogEventInitiatorTest {
   }
 
   @Test
+  void callersOwnReplyKeyIsDropped() {
+    assertThat(
+            StartOptions.withInitiator(
+                Map.of(com.infenia.yukta.plugin.gateway.ReplyGateway.REPLY_TO_KEY, "k"), "a"))
+        .doesNotContainKey(com.infenia.yukta.plugin.gateway.ReplyGateway.REPLY_TO_KEY);
+  }
+
+  @Test
   void anEntryWrittenWithoutAnInitiatorReadsAsNone() {
     final var event =
         new ExecutionLogEvent(

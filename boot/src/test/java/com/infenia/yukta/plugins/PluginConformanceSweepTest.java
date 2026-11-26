@@ -150,6 +150,7 @@ class PluginConformanceSweepTest {
     fixtures.put("SCHEDULE_TRIGGER", () -> Map.of("intervalMs", 50, "maxRuns", 2));
     fixtures.put("CONSOLE_TERMINAL", Map::of);
     fixtures.put("OUTCOME_TERMINAL", () -> Map.of("outcome", "SUCCESS"));
+    fixtures.put("REPLY", Map::of);
     fixtures.put("SUPERVISOR_DECISION", Map::of);
     fixtures.put("NOTIFY_TERMINAL", () -> Map.of("url", http.url() + "/hook", "text", "deployed"));
     fixtures.put("AGGREGATE", () -> Map.of("size", 1));

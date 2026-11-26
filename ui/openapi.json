@@ -8410,6 +8410,9 @@
             "description" : "The unique execution identifier",
             "example" : "550e8400-e29b-41d4-a716-446655440000",
             "type" : "string"
+          },
+          "reply" : {
+            "description" : "What the run's REPLY terminal answered, when the call was made with ?wait= and the reply came in time (status 200); absent otherwise"
           }
         },
         "type" : "object"
@@ -13789,7 +13792,7 @@
     },
     "/api/workflow/start" : {
       "post" : {
-        "description" : "Starts the execution of a DAG workflow for a session. Answers 404 for an unknown session or workflow and 429 when the execution limit is reached.",
+        "description" : "Starts the execution of a DAG workflow for a session. Answers 404 for an unknown session or workflow and 429 when the execution limit is reached. 202 with the execution id; with wait=<seconds>, 200 with the run's REPLY when it answers in time (capped by yukta.reply.max-wait).",
         "operationId" : "startWorkflow",
         "parameters" : [ {
           "in" : "header",
@@ -13797,6 +13800,14 @@
           "required" : false,
           "schema" : {
             "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "wait",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
           }
         } ],
         "requestBody" : {
@@ -13810,7 +13821,7 @@
           "required" : true
         },
         "responses" : {
-          "202" : {
+          "200" : {
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -13818,7 +13829,7 @@
                 }
               }
             },
-            "description" : "Accepted"
+            "description" : "OK"
           }
         },
         "summary" : "Start a workflow",
@@ -13925,7 +13936,7 @@
     },
     "/hooks/{sessionId}/{path}" : {
       "post" : {
-        "description" : "Starts the workflow whose WEBHOOK_TRIGGER node has this path. 401 unless the body is signed with the node's secret; 404 for an unknown hook.",
+        "description" : "Starts the workflow whose WEBHOOK_TRIGGER node has this path. 401 unless the body is signed with the node's secret; 404 for an unknown hook. 202 with the execution id; with wait=<seconds>, 200 with the run's REPLY when it answers in time (capped by yukta.reply.max-wait).",
         "operationId" : "call",
         "parameters" : [ {
           "in" : "path",
@@ -13941,6 +13952,14 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "in" : "query",
+          "name" : "wait",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : [ "integer", "null" ]
+          }
         } ],
         "requestBody" : {
           "content" : {
@@ -13953,7 +13972,7 @@
           }
         },
         "responses" : {
-          "202" : {
+          "200" : {
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -13961,7 +13980,7 @@
                 }
               }
             },
-            "description" : "Accepted"
+            "description" : "OK"
           }
         },
         "summary" : "Call a webhook",

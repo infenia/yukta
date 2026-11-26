@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,6 +16,7 @@ import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.plugin.store.SecretProvider;
 import com.infenia.yukta.service.control.gateway.WorkflowService;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.reply.InMemoryReplyRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.testing.Fixtures;
 import java.nio.charset.StandardCharsets;
@@ -32,8 +34,15 @@ import reactor.core.publisher.Mono;
 
 /** Tests for {@link WebhookController}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyStaticImports"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyStaticImports", "PMD.TooManyMethods"})
 class WebhookControllerTest {
+
+  /** The open waits. */
+  private static final InMemoryReplyRegistry REPLIES = new InMemoryReplyRegistry();
+
+  /** Holds calls made with ?wait=. */
+  private static final ReplyWait REPLY_WAIT =
+      new ReplyWait(REPLIES, java.time.Duration.ofSeconds(30));
 
   private static final String BODY = "{\"ref\":\"main\"}";
   private static final String URI = "/hooks/s1/push";
@@ -67,11 +76,41 @@ class WebhookControllerTest {
   @BeforeEach
   void setUp() {
     client =
-        WebTestClient.bindToController(new WebhookController(sessions, workflows, secrets))
+        WebTestClient.bindToController(
+                new WebhookController(sessions, workflows, secrets, REPLY_WAIT))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
     when(secrets.getSecret(eq("gh"), any())).thenReturn(Mono.just("s3cret"));
     when(workflows.start(eq("s1"), eq("wf"), anyMap(), any())).thenReturn(Mono.just("e1"));
+  }
+
+  @Test
+  void waitAnswers200WithTheRunsReply() {
+    hook(Map.of("secret", "decrypted:gh"));
+    when(workflows.start(eq("s1"), eq("wf"), anyMap(), any()))
+        .thenAnswer(call -> {
+          final Map<String, Object> payload = call.getArgument(2);
+          REPLIES.reply(
+              String.valueOf(
+                  payload.get(com.infenia.yukta.plugin.gateway.ReplyGateway.REPLY_TO_KEY)),
+              Map.of("verdict", "ok"));
+          return Mono.just("e1");
+        });
+
+    client
+        .post()
+        .uri(URI + "?wait=5")
+        .header("X-Hub-Signature-256", sign("s3cret", BODY))
+        .bodyValue(BODY)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.executionId")
+        .isEqualTo("e1")
+        .jsonPath("$.data.reply.verdict")
+        .isEqualTo("ok");
+    assertThat(REPLIES.waiting()).as("the wait is closed").isZero();
   }
 
   @Test

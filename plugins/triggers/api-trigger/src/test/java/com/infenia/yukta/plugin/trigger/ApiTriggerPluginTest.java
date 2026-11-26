@@ -26,6 +26,21 @@ class ApiTriggerPluginTest {
   }
 
   @Test
+  void waitingCallersReplyKeyBecomesReplyTo() {
+    final ApiTriggerPlugin plugin = new ApiTriggerPlugin();
+
+    StepVerifier.create(
+            plugin
+                .start(Map.of())
+                .contextWrite(ctx -> ctx.put("payload", Map.of("yukta.replyTo", "k1"))))
+        .assertNext(message -> assertEquals("k1", message.replyTo(), "replyTo"))
+        .verifyComplete();
+    StepVerifier.create(plugin.start(Map.of()))
+        .assertNext(message -> assertEquals(null, message.replyTo(), "no replyTo"))
+        .verifyComplete();
+  }
+
+  @Test
   void testGetType() {
     assertEquals("API_TRIGGER", new ApiTriggerPlugin().getType(), "Test get type");
   }
