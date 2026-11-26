@@ -19,8 +19,9 @@ import org.jspecify.annotations.Nullable;
  * @param nodeId the node (START only)
  * @param pluginType the plugin to run (START only)
  * @param config the node configuration (START only)
- * @param message a message as plain JSON values (MESSAGE), or the {@code stream}, {@code line} and
- *     {@code level} (empty when the engine rates it) of a log line (LOG)
+ * @param message a message as plain JSON values (MESSAGE), the {@code stream}, {@code line} and
+ *     {@code level} (empty when the engine rates it) of a log line (LOG), or the trace headers the
+ *     worker continues the run's trace from (START; absent or empty without a tracer)
  * @param errorClass the class name of the failure (ERROR only)
  * @param errorMessage the text of the failure (ERROR only)
  * @param errorTypes class names of the failure, its superclasses and its causes (ERROR only)
@@ -84,15 +85,18 @@ public record NodeFrame(
    * @param nodeId the node
    * @param pluginType the plugin to run
    * @param config the node configuration
+   * @param trace the trace headers of the attempt (W3C {@code traceparent} and the like), empty
+   *     without a tracer
    * @return the frame
    */
   public static NodeFrame start(
       final String executionId,
       final String nodeId,
       final String pluginType,
-      final Map<String, Object> config) {
+      final Map<String, Object> config,
+      final Map<String, String> trace) {
     return new NodeFrame(
-        Kind.START, executionId, nodeId, pluginType, config, null, null, null, null);
+        Kind.START, executionId, nodeId, pluginType, config, Map.copyOf(trace), null, null, null);
   }
 
   /**

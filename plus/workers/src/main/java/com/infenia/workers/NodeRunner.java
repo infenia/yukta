@@ -9,6 +9,10 @@ import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.observation.contextpropagation.ObservationThreadLocalAccessor;
+import io.micrometer.observation.transport.ReceiverContext;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +59,9 @@ public class NodeRunner {
   /** Attempts running now. */
   private final AtomicInteger active = new AtomicInteger();
 
+  /** Traces each attempt as a child of the control plane's span. */
+  private final ObservationRegistry observations;
+
   /** How many attempts this worker runs at once; one more is refused. */
   private final int capacity;
 
@@ -64,17 +71,20 @@ public class NodeRunner {
    * @param plugins finds the plugins of this server
    * @param allowed the plugin types this worker agreed to run
    * @param mapper converts messages to and from plain JSON values
+   * @param observations traces each attempt (a no-op registry traces nothing)
    * @param capacity how many attempts this worker runs at once
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // the mapper is a shared Spring bean
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the mapper and the registry are shared Spring beans
   public NodeRunner(
       final PluginRegistry plugins,
       final Set<String> allowed,
       final ObjectMapper mapper,
+      final ObservationRegistry observations,
       final int capacity) {
     this.plugins = plugins;
     this.allowed = Set.copyOf(allowed);
     this.mapper = mapper;
+    this.observations = observations;
     this.capacity = capacity;
   }
 
@@ -132,6 +142,7 @@ public class NodeRunner {
       final Runnable heartbeat = () -> send.accept(NodeFrame.heartbeat());
       final PluginLogSink logSink =
           (stream, line, level) -> send.accept(NodeFrame.log(stream, line, level));
+      final Observation attempt = attempt(start);
       final Flux<NodeFrame> work =
           plugin
               .initialize(config)
@@ -139,24 +150,56 @@ public class NodeRunner {
               .thenMany(Flux.defer(() -> plugin.process(input, config)))
               .map(message -> NodeFrame.message(mapper.convertValue(message, JSON_OBJECT)))
               .concatWith(Mono.just(NodeFrame.complete()))
-              .onErrorResume(error ->
-                  Flux.just(
-                      NodeFrame.error(
-                          error.getClass().getName(),
-                          String.valueOf(error.getMessage()),
-                          types(error))))
+              .onErrorResume(error -> {
+                attempt.error(error);
+                return Flux.just(
+                    NodeFrame.error(
+                        error.getClass().getName(),
+                        String.valueOf(error.getMessage()),
+                        types(error)));
+              })
               .contextWrite(ctx ->
                   ctx.put("executionId", String.valueOf(start.executionId()))
                       .put("nodeId", String.valueOf(start.nodeId()))
                       .put(WorkflowContext.HEARTBEAT_KEY, heartbeat)
-                      .put(WorkflowContext.LOG_SINK_KEY, logSink));
+                      .put(WorkflowContext.LOG_SINK_KEY, logSink)
+                      // the plugin's own observations nest under the attempt
+                      .put(ObservationThreadLocalAccessor.KEY, attempt));
       result =
-          work.mergeWith(beats.asFlux())
+          Flux.defer(
+                  () -> {
+                    attempt.start();
+                    return work.mergeWith(beats.asFlux());
+                  })
               .takeUntil(frame ->
                   frame.kind() == NodeFrame.Kind.COMPLETE || frame.kind() == NodeFrame.Kind.ERROR)
-              .doFinally(_ -> active.decrementAndGet());
+              .doFinally(_ -> {
+                attempt.stop();
+                active.decrementAndGet();
+              });
     }
     return result;
+  }
+
+  /**
+   * The attempt's observation, continuing the trace from the headers in START: a tracer's
+   * propagating handler makes its span a child of the control plane's. Without headers it starts a
+   * trace of its own.
+   */
+  private Observation attempt(final NodeFrame start) {
+    final Map<String, Object> trace = start.message() != null ? start.message() : Map.of();
+    final ReceiverContext<Map<String, Object>> received =
+        new ReceiverContext<>((carrier, key) -> {
+          final Object value = carrier.get(key);
+          return value == null ? null : String.valueOf(value);
+        });
+    received.setCarrier(trace);
+    final String nodeId = String.valueOf(start.nodeId());
+    return Observation.createNotStarted("yukta.worker.attempt", () -> received, observations)
+        .contextualName("attempt " + nodeId)
+        .lowCardinalityKeyValue("module", String.valueOf(start.pluginType()))
+        .highCardinalityKeyValue("executionId", String.valueOf(start.executionId()))
+        .highCardinalityKeyValue("nodeId", nodeId);
   }
 
   /** Why the attempt cannot run here, or empty if it can. */

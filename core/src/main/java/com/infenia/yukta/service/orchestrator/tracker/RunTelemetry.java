@@ -24,6 +24,7 @@ import org.jspecify.annotations.Nullable;
  * <p>Each run is one {@code yukta.run} observation and each node run a child {@code yukta.node}
  * observation; the meters are listed in the module guide.
  */
+@SuppressWarnings("PMD.TooManyMethods") // one facade for the run's meters and observations
 final class RunTelemetry {
 
   /** Tag of a run or node outcome. */
@@ -132,6 +133,13 @@ final class RunTelemetry {
     final Duration took = Duration.ofNanos(Math.max(0, now - since - held));
     meters.timer("yukta.engine.start").record(took);
     return took;
+  }
+
+  /** The node's open observation, else its run's, else null. */
+  /* default */ @Nullable Observation observation(final String executionId, final String nodeId) {
+    final Map<String, Observation> nodes = nodeSpans.get(executionId);
+    final Observation node = nodes == null ? null : nodes.get(nodeId);
+    return node != null ? node : runSpans.get(executionId);
   }
 
   /** Times what the engine added between a message taking its node's turn and the plugin call. */

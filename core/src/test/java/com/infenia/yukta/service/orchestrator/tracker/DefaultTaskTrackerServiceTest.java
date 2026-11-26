@@ -3470,6 +3470,7 @@ class DefaultTaskTrackerServiceTest {
     // an unknown run is timed in the meters but not published
     final int before = seen.size();
     timed.recordHandoff("nobody", Duration.ofMillis(1));
+    assertThat(timed.observation("nobody", "n")).isNull();
     // no start was taken for an unknown run, so there is nothing to time or publish
     timed.recordPluginStart("nobody");
     subscription.dispose();

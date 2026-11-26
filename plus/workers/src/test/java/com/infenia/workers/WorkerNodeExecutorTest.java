@@ -13,6 +13,8 @@ import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import com.infenia.yukta.service.worker.WorkerRegistryFixture;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -29,14 +31,20 @@ class WorkerNodeExecutorTest {
       new WorkerNodeExecutor(
           WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry()),
           new WorkerConnections(),
-          new ObjectMapper());
+          new ObjectMapper(),
+          (executionId, nodeId) -> null,
+          ObservationRegistry.NOOP);
 
   @Test
   void unexpectedFrameOnTheWayBack_failsTheAttempt() {
     final SynchronousSink<com.infenia.yukta.message.Message<?>> sink = mock(SynchronousSink.class);
 
     executor.answer(
-        "w1", NodeFrame.start("e", "n", "T", Map.of()), () -> {}, PluginLogSink.NOOP, sink);
+        "w1",
+        NodeFrame.start("e", "n", "T", Map.of(), Map.of()),
+        () -> {},
+        PluginLogSink.NOOP,
+        sink);
 
     final ArgumentCaptor<Throwable> error = ArgumentCaptor.forClass(Throwable.class);
     verify(sink).error(error.capture());
@@ -131,7 +139,12 @@ class WorkerNodeExecutorTest {
         WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry());
     final WorkerConnections connections = new WorkerConnections();
     final WorkerNodeExecutor picking =
-        new WorkerNodeExecutor(registry, connections, new ObjectMapper());
+        new WorkerNodeExecutor(
+            registry,
+            connections,
+            new ObjectMapper(),
+            (executionId, nodeId) -> null,
+            ObservationRegistry.NOOP);
     final org.springframework.messaging.rsocket.RSocketRequester requester =
         mock(org.springframework.messaging.rsocket.RSocketRequester.class);
     register(registry, "w2", 3);
@@ -149,12 +162,74 @@ class WorkerNodeExecutorTest {
   }
 
   @Test
+  void run_sendsTheTraceHeadersInStart_asChildOfTheNode_andEndsTheSpanWithTheAttempt() {
+    final RecordingHandler traced = new RecordingHandler();
+    final ObservationRegistry observations = traced.registry();
+    final Observation node = Observation.start("yukta.node", observations);
+    final WorkerRegistry registry =
+        WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry());
+    final WorkerConnections connections = new WorkerConnections();
+    register(registry, "w1", 2);
+    final org.springframework.messaging.rsocket.RSocketRequester requester =
+        mock(org.springframework.messaging.rsocket.RSocketRequester.class);
+    final org.springframework.messaging.rsocket.RSocketRequester.RequestSpec spec =
+        mock(org.springframework.messaging.rsocket.RSocketRequester.RequestSpec.class);
+    final org.springframework.messaging.rsocket.RSocketRequester.RetrieveSpec retrieve =
+        mock(org.springframework.messaging.rsocket.RSocketRequester.RetrieveSpec.class);
+    org.mockito.Mockito.when(requester.route("node.run")).thenReturn(spec);
+    org.mockito.Mockito.when(spec.data(org.mockito.ArgumentMatchers.any())).thenReturn(retrieve);
+    org.mockito.Mockito.when(retrieve.retrieveFlux(NodeFrame.class))
+        .thenReturn(reactor.core.publisher.Flux.just(NodeFrame.complete()))
+        .thenReturn(reactor.core.publisher.Flux.error(new IllegalStateException("gone")));
+    connections.put("w1", requester);
+    final WorkerNodeExecutor tracing =
+        new WorkerNodeExecutor(
+            registry,
+            connections,
+            new ObjectMapper(),
+            (executionId, nodeId) -> "e1".equals(executionId) ? node : null,
+            observations);
+    final reactor.util.context.Context context =
+        reactor.util.context.Context.of("executionId", "e1", "nodeId", "n1");
+
+    reactor.test.StepVerifier.create(
+            tracing
+                .run("T", "default", reactor.core.publisher.Flux.empty(), Map.of())
+                .contextWrite(context))
+        .verifyComplete();
+
+    final ArgumentCaptor<org.reactivestreams.Publisher<NodeFrame>> sent =
+        ArgumentCaptor.forClass(org.reactivestreams.Publisher.class);
+    verify(spec).data(sent.capture());
+    final NodeFrame start = reactor.core.publisher.Flux.from(sent.getValue()).blockFirst();
+    assertThat(start.kind()).isEqualTo(NodeFrame.Kind.START);
+    assertThat(start.message()).containsEntry("traceparent", RecordingHandler.TRACEPARENT);
+    final Observation.Context call = traced.started.get(1);
+    assertThat(call.getName()).isEqualTo("yukta.worker.call");
+    assertThat(call.getParentObservation()).isSameAs(node);
+    assertThat(traced.stopped).containsExactly(call);
+
+    reactor.test.StepVerifier.create(
+            tracing
+                .run("T", "default", reactor.core.publisher.Flux.empty(), Map.of())
+                .contextWrite(context))
+        .expectError(WorkflowExecutionException.class)
+        .verify(Duration.ofSeconds(5));
+    assertThat(traced.failed).hasSize(1);
+  }
+
+  @Test
   void pick_takesTheSlot_soPicksAtTheSameMomentNeverOverbookTheWorker() {
     final WorkerRegistry registry =
         WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry());
     final WorkerConnections connections = new WorkerConnections();
     final WorkerNodeExecutor picking =
-        new WorkerNodeExecutor(registry, connections, new ObjectMapper());
+        new WorkerNodeExecutor(
+            registry,
+            connections,
+            new ObjectMapper(),
+            (executionId, nodeId) -> null,
+            ObservationRegistry.NOOP);
     register(registry, "w1", 5);
     connections.put("w1", mock(org.springframework.messaging.rsocket.RSocketRequester.class));
 

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import io.micrometer.observation.transport.ReceiverContext;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,18 +20,24 @@ import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"unchecked", "PMD.AvoidDuplicateLiterals"})
 class NodeRunnerTest {
 
   private final TriggerPlugin trigger = mock(TriggerPlugin.class);
+  private final RecordingHandler traced = new RecordingHandler();
   private final NodeRunner runner = buildRunner();
 
   private NodeRunner buildRunner() {
     when(trigger.getType()).thenReturn("TRIGGER");
     return new NodeRunner(
-        new PluginRegistry(List.of(new FakePlugin("UPPER", new AtomicInteger()), trigger)),
-        Set.of("UPPER", "TRIGGER"),
+        new PluginRegistry(
+            List.of(
+                new FakePlugin("UPPER", new AtomicInteger()),
+                new FakePlugin("BOOM", new AtomicInteger()),
+                trigger)),
+        Set.of("UPPER", "BOOM", "TRIGGER"),
         new ObjectMapper(),
+        traced.registry(),
         1);
   }
 
@@ -53,15 +60,49 @@ class NodeRunnerTest {
   @Test
   void unagreedOrNonProcessorType_isRefused() {
     assertRefused(
-        answerTo(Flux.just(NodeFrame.start("e", "n", "PROCESS_EXECUTOR", Map.of()))),
+        answerTo(Flux.just(NodeFrame.start("e", "n", "PROCESS_EXECUTOR", Map.of(), Map.of()))),
         "does not run");
     assertRefused(
-        answerTo(Flux.just(NodeFrame.start("e", "n", "TRIGGER", Map.of()))), "not a processor");
+        answerTo(Flux.just(NodeFrame.start("e", "n", "TRIGGER", Map.of(), Map.of()))),
+        "not a processor");
+  }
+
+  @Test
+  void attempt_continuesTheTraceFromStart_andEndsWithIt() {
+    final NodeFrame start =
+        NodeFrame.start(
+            "e", "n", "UPPER", Map.of(), Map.of("traceparent", RecordingHandler.TRACEPARENT));
+
+    StepVerifier.create(runner.run(Flux.just(start, NodeFrame.complete())))
+        .assertNext(frame -> assertThat(frame.kind()).isEqualTo(NodeFrame.Kind.COMPLETE))
+        .verifyComplete();
+
+    assertThat(traced.started).hasSize(1);
+    final ReceiverContext<Object> received = (ReceiverContext<Object>) traced.started.getFirst();
+    assertThat(received.getName()).isEqualTo("yukta.worker.attempt");
+    assertThat(received.getGetter().get(received.getCarrier(), "traceparent"))
+        .isEqualTo(RecordingHandler.TRACEPARENT);
+    assertThat(received.getGetter().get(received.getCarrier(), "tracestate")).isNull();
+    assertThat(traced.stopped).containsExactly(received);
+    assertThat(traced.failed).isEmpty();
+  }
+
+  @Test
+  void failedAttempt_isRecordedOnItsObservation() {
+    StepVerifier.create(
+            runner.run(
+                Flux.just(
+                    NodeFrame.start("e", "n", "BOOM", Map.of(), Map.of()), NodeFrame.complete())))
+        .assertNext(frame -> assertThat(frame.kind()).isEqualTo(NodeFrame.Kind.ERROR))
+        .verifyComplete();
+
+    assertThat(traced.failed).hasSize(1);
+    assertThat(traced.failed.getFirst().getError()).hasMessage("boom");
   }
 
   @Test
   void attemptBeyondCapacity_isRefusedRetryably_untilOneSlotIsFree() {
-    final NodeFrame start = NodeFrame.start("e", "n", "UPPER", Map.of());
+    final NodeFrame start = NodeFrame.start("e", "n", "UPPER", Map.of(), Map.of());
     final reactor.core.Disposable first =
         runner.run(Flux.concat(Flux.just(start), Flux.never())).subscribe();
     assertThat(runner.running()).isEqualTo(1);

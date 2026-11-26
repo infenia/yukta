@@ -244,6 +244,19 @@ public interface TaskTrackerService extends ExecutionLog {
   }
 
   /**
+   * The open observation of a node, or of its run while the node's has not started yet, so work
+   * done elsewhere for the node (an attempt on a remote worker) can continue its trace.
+   *
+   * @param executionId the run
+   * @param nodeId the node
+   * @return the observation, or null when neither is open
+   */
+  default io.micrometer.observation.@Nullable Observation observation(
+      final String executionId, final String nodeId) {
+    return null;
+  }
+
+  /**
    * Records a message that an edge buffer dropped because the node could not keep up.
    *
    * @param module the node type
