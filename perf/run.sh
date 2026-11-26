@@ -129,7 +129,7 @@ K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$dir/dashboard.html" K6_WEB_DASHB
   -e BASE_URL=http://localhost:$PORT "${envs[@]}" \
   --summary-export "$dir/summary.json" \
   --summary-trend-stats 'avg,min,med,p(90),p(95),p(99),max' \
-  --out csv="$dir/metrics.csv" "$@" 2>&1 | tee "$dir/k6.log"
+  --out csv="$dir/metrics.csv.gz" "$@" 2>&1 | tee "$dir/k6.log"
 rc=${PIPESTATUS[0]}
 if [[ $type == notifications ]]; then
   sleep 5
@@ -139,5 +139,4 @@ if [[ $type == notifications ]]; then
   python3 perf/stream-lag.py "$dir" "$STREAMS" | tee -a "$dir/k6.log" || rc=1
   rm -f "$dir"/stream-*.out
 fi
-gzip -f "$dir/metrics.csv" 2>/dev/null
 exit "$rc"
