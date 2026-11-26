@@ -13,6 +13,15 @@ on:
   schedule:
     - cron: '23 20 * * *' # daily, 1:53 AM IST (20:23 UTC)
   workflow_dispatch:
+    inputs:
+      persistence:
+        description: 'memory, or postgres (Plus binary, every store in PostgreSQL; no baseline compare, no new baseline)'
+        type: choice
+        options: [memory, postgres]
+        default: memory
+
+env:
+  PERSISTENCE: ${{ inputs.persistence || 'memory' }}
 
 concurrency:
   group: ${{ github.workflow }}
@@ -65,6 +74,9 @@ jobs:
           NATIVE_QUICK: '1'
           NATIVE_HEAP: 12g
         run: |
+          if [ "$PERSISTENCE" = postgres ]; then
+            export YUKTA_BUILD_FLAGS='-Pyukta.persistence=postgres -Pyukta.workers=true'
+          fi
           release/build-server.sh
           echo "BINARY=$PWD/dist/linux-amd64/yukta" >> "$GITHUB_ENV"
 
@@ -72,8 +84,10 @@ jobs:
         run: |
           perf/run.sh perf
 
+      # The baseline is a memory run: a PostgreSQL report is compared by hand (perf/README.md).
       - name: Compare the perf test with the baseline
         id: compare-perf
+        if: env.PERSISTENCE == 'memory'
         continue-on-error: true
         run: |
           mkdir -p perf/.baseline
@@ -139,7 +153,7 @@ jobs:
 
       # Only a run that passed every step becomes the next baseline (the cache is saved by the post step).
       - name: Keep this run as the next baseline
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && env.PERSISTENCE == 'memory'
         run: mv perf/.baseline/baseline.new.json perf/.baseline/baseline.json
 
       - name: Upload the reports

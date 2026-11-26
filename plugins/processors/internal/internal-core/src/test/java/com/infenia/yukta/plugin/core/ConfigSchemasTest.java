@@ -93,7 +93,8 @@ class ConfigSchemasTest {
   @Test
   void aggregate() {
     final var plugin = new AggregateProcessor();
-    assertThat(names(plugin)).containsExactly("size", "timeoutMs");
-    assertThat(required(plugin)).containsExactly("size");
+    assertThat(names(plugin)).containsExactly("by", "size", "timeoutMs");
+    // size is needed by count and correlation only; validateConfig checks it per mode
+    assertThat(required(plugin)).isEmpty();
   }
 }

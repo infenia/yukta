@@ -21,6 +21,9 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.InOrder;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.ObjectProvider;
 
 @SuppressWarnings({
@@ -308,13 +311,33 @@ class RunAnalyticsTest {
   @Test
   void failedReadOfTheLogIsLoggedNotLost() {
     final ExecutionLogStore broken = mock(ExecutionLogStore.class);
-    when(broken.readAll())
+    when(broken.ofType(ArgumentMatchers.any(), ArgumentMatchers.any()))
         .thenReturn(reactor.core.publisher.Flux.error(new IllegalStateException("log unreadable")));
     final RunAnalytics seeded = new RunAnalytics(feed, Clock.systemUTC(), broken);
 
     seeded.seedSafely().block();
 
     assertThat(seeded.snapshot(RunAnalytics.GLOBAL)).isEmpty();
+  }
+
+  @Test
+  void seedReadsOnlyTheLastDay_startsFirst_neverTheWholeLog() {
+    final Instant now = Instant.parse("2026-01-02T12:00:00Z");
+    final Instant from = now.minus(Duration.ofHours(24));
+    final ExecutionLogStore store = mock(ExecutionLogStore.class);
+    when(store.ofType(ArgumentMatchers.any(), ArgumentMatchers.any()))
+        .thenReturn(reactor.core.publisher.Flux.empty());
+    final RunAnalytics seeded = new RunAnalytics(feed, Clock.fixed(now, ZoneOffset.UTC), store);
+
+    seeded.seedSafely().block();
+
+    final InOrder order = Mockito.inOrder(store);
+    order.verify(store).ofType(ExecutionLogEvent.Type.RUN_STARTED, from);
+    order.verify(store).ofType(ExecutionLogEvent.Type.RUN_FINISHED, from);
+    order.verify(store).ofType(ExecutionLogEvent.Type.RUN_ABORTED, from);
+    order.verify(store).ofType(ExecutionLogEvent.Type.CONTROL_APPLIED, from);
+    order.verify(store).ofType(ExecutionLogEvent.Type.CONTROL_REJECTED, from);
+    Mockito.verify(store, Mockito.never()).readAll();
   }
 
   private static ExecutionLogEvent control(final Instant at, final String command) {
@@ -755,7 +778,11 @@ class RunAnalyticsTest {
             Instant.now(),
             null);
     final ExecutionLogStore store = mock(ExecutionLogStore.class);
-    when(store.readAll()).thenReturn(reactor.core.publisher.Flux.just(finished));
+    when(store.ofType(ArgumentMatchers.any(), ArgumentMatchers.any()))
+        .thenAnswer(call ->
+            call.getArgument(0) == ExecutionLogEvent.Type.RUN_FINISHED
+                ? reactor.core.publisher.Flux.just(finished)
+                : reactor.core.publisher.Flux.empty());
     @SuppressWarnings("unchecked")
     final ObjectProvider<ExecutionLogStore> provider = mock(ObjectProvider.class);
     when(provider.getIfAvailable()).thenReturn(store);
