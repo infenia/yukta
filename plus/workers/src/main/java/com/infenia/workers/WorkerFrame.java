@@ -37,7 +37,7 @@ public record WorkerFrame(
    * The wire protocol version of this build. Raise it whenever a frame changes in a way an older
    * peer cannot read; a control plane refuses a worker with another version.
    */
-  public static final int PROTOCOL = 1;
+  public static final int PROTOCOL = 2;
 
   /** Kind of frame. */
   public enum Type {

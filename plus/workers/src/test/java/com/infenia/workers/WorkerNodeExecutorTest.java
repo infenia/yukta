@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import com.infenia.yukta.plugin.core.LogLevel;
+import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.exception.RemoteFailureException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.WorkerRegistry;
@@ -20,7 +22,7 @@ import reactor.core.publisher.SynchronousSink;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.GuardLogStatement", "unchecked"})
+@SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidDuplicateLiterals", "unchecked"})
 class WorkerNodeExecutorTest {
 
   private final WorkerNodeExecutor executor =
@@ -33,13 +35,50 @@ class WorkerNodeExecutorTest {
   void unexpectedFrameOnTheWayBack_failsTheAttempt() {
     final SynchronousSink<com.infenia.yukta.message.Message<?>> sink = mock(SynchronousSink.class);
 
-    executor.answer("w1", NodeFrame.start("e", "n", "T", Map.of()), () -> {}, sink);
+    executor.answer(
+        "w1", NodeFrame.start("e", "n", "T", Map.of()), () -> {}, PluginLogSink.NOOP, sink);
 
     final ArgumentCaptor<Throwable> error = ArgumentCaptor.forClass(Throwable.class);
     verify(sink).error(error.capture());
     assertThat(error.getValue())
         .isInstanceOf(WorkflowExecutionException.class)
         .hasMessageContaining("Unexpected frame from w1");
+  }
+
+  @Test
+  void logFrame_goesToTheNodesLogSink_withItsLevelWhenKnown() {
+    final SynchronousSink<com.infenia.yukta.message.Message<?>> sink = mock(SynchronousSink.class);
+    final PluginLogSink logSink = mock(PluginLogSink.class);
+
+    executor.answer("w1", NodeFrame.log("stderr", "boom", LogLevel.ERROR), () -> {}, logSink, sink);
+    executor.answer("w1", NodeFrame.log("stdout", "plain", null), () -> {}, logSink, sink);
+    executor.answer(
+        "w1",
+        new NodeFrame(
+            NodeFrame.Kind.LOG,
+            null,
+            null,
+            null,
+            null,
+            Map.of("stream", "stdout", "line", "newer", "level", "TRACE_PLUS"),
+            null,
+            null,
+            null),
+        () -> {},
+        logSink,
+        sink);
+    executor.answer(
+        "w1",
+        new NodeFrame(NodeFrame.Kind.LOG, null, null, null, null, null, null, null, null),
+        () -> {},
+        logSink,
+        sink);
+
+    verify(logSink).line("stderr", "boom", LogLevel.ERROR);
+    verify(logSink).line("stdout", "plain", null);
+    verify(logSink).line("stdout", "newer", null);
+    verify(logSink).line("stdout", "", null);
+    org.mockito.Mockito.verifyNoInteractions(sink);
   }
 
   @Test
@@ -54,7 +93,7 @@ class WorkerNodeExecutorTest {
                 "java.io.InterruptedIOException",
                 "java.io.IOException"));
 
-    executor.answer("w1", frame, () -> {}, sink);
+    executor.answer("w1", frame, () -> {}, PluginLogSink.NOOP, sink);
 
     final ArgumentCaptor<Throwable> error = ArgumentCaptor.forClass(Throwable.class);
     verify(sink).error(error.capture());
@@ -75,7 +114,7 @@ class WorkerNodeExecutorTest {
     final NodeFrame frame =
         new NodeFrame(NodeFrame.Kind.ERROR, null, null, null, null, null, "a.Old", "x", null);
 
-    executor.answer("w1", frame, () -> {}, sink);
+    executor.answer("w1", frame, () -> {}, PluginLogSink.NOOP, sink);
 
     final ArgumentCaptor<Throwable> error = ArgumentCaptor.forClass(Throwable.class);
     verify(sink).error(error.capture());
