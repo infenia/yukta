@@ -61,6 +61,43 @@ class FileIoPluginsTest {
   }
 
   @Test
+  void read_marksTheContentWithTheFilesMediaType() throws Exception {
+    Files.writeString(dir.resolve("a.txt"), "hi");
+    StepVerifier.create(
+            reader.process(messages(Map.of()), Map.of(BASE_DIR, dir.toString(), PATH, "a.txt")))
+        .assertNext(m -> assertThat(m.formatIndicator()).isNotBlank())
+        .verifyComplete();
+  }
+
+  @Test
+  void write_structuredContentMarkedAsJsonIsWrittenAsJson() throws Exception {
+    final Map<String, Object> config = Map.of(BASE_DIR, dir.toString());
+    final Map<String, Object> content = Map.of("a", 1);
+    for (final String type : List.of("application/json", "application/problem+json")) {
+      StepVerifier.create(
+              writer.process(
+                  Flux.just(
+                      DefaultMessage.create(null, Map.of(PATH, "j.json", CONTENT, content))
+                          .withFormatIndicator(type)),
+                  config))
+          .expectNextCount(1)
+          .verifyComplete();
+      assertThat(Files.readString(dir.resolve("j.json"))).isEqualTo("{\"a\":1}");
+    }
+    for (final String type : java.util.Arrays.asList("text/plain", null)) {
+      StepVerifier.create(
+              writer.process(
+                  Flux.just(
+                      DefaultMessage.create(null, Map.of(PATH, "m.txt", CONTENT, content))
+                          .withFormatIndicator(type)),
+                  config))
+          .expectNextCount(1)
+          .verifyComplete();
+      assertThat(Files.readString(dir.resolve("m.txt"))).isEqualTo("{a=1}");
+    }
+  }
+
+  @Test
   void write_append_andStringPayloadAndPayloadPath() throws Exception {
     final Map<String, Object> config = Map.of(BASE_DIR, dir.toString(), "append", true);
     StepVerifier.create(writer.process(messages(Map.of(PATH, "l.log", CONTENT, "one")), config))
