@@ -24,6 +24,7 @@ import org.jspecify.annotations.Nullable;
  * @param edges the list of edges connecting the nodes
  * @param supervisors the supervisors declared for this workflow, attached when it is saved
  * @param groupColors the palette color of a group (by group name), for display only
+ * @param admission how runs are admitted on top of the server's limits, or null for nothing more
  */
 @Schema(description = "Definition of a reactive workflow DAG")
 public record WorkflowDefinition(
@@ -60,7 +61,10 @@ public record WorkflowDefinition(
             nullable = true)
         @Size(max = 500, message = "At most 500 group colors")
         Map<@NotBlank String, @Pattern(regexp = Palette.REGEX, message = Palette.MESSAGE) String>
-            groupColors) {
+            groupColors,
+    @Schema(description = "How runs are admitted on top of the server's limits", nullable = true)
+        @Valid
+        @Nullable WorkflowAdmission admission) {
 
   /** Compact constructor to ensure immutability. */
   public WorkflowDefinition {
@@ -68,6 +72,26 @@ public record WorkflowDefinition(
     edges = edges != null ? List.copyOf(edges) : List.of();
     supervisors = supervisors != null ? List.copyOf(supervisors) : List.of();
     groupColors = groupColors != null ? Map.copyOf(groupColors) : Map.of();
+  }
+
+  /**
+   * A definition without admission settings.
+   *
+   * @param workflowId unique identifier for the workflow
+   * @param description a human-readable description of the workflow
+   * @param nodes the list of nodes in the DAG
+   * @param edges the list of edges connecting the nodes
+   * @param supervisors the supervisors declared for this workflow
+   * @param groupColors the palette color of a group (by group name), for display only
+   */
+  public WorkflowDefinition(
+      final String workflowId,
+      final String description,
+      final List<Node> nodes,
+      final List<Edge> edges,
+      final List<SupervisorRef> supervisors,
+      final Map<String, String> groupColors) {
+    this(workflowId, description, nodes, edges, supervisors, groupColors, null);
   }
 
   /** The display colors a node or a group may take: named, so no workflow meaning is implied. */

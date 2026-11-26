@@ -107,6 +107,12 @@ public class ExecutionScheduler implements SmartLifecycle {
   /** Running executions per session. */
   private final Map<String, Integer> runningPerSession = new ConcurrentHashMap<>();
 
+  /**
+   * Running executions per concurrency key of a workflow ({@code admission.concurrency}). A key
+   * leaves the map when its last run ends, so it holds at most one entry per running execution.
+   */
+  private final Map<ClaimKey, Integer> runningPerClaim = new ConcurrentHashMap<>();
+
   /** Signals that the last running execution has finished; replaced on each {@link #start()}. */
   private Sinks.Empty<Void> drained = Sinks.empty();
 
@@ -229,7 +235,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       final String workflowId,
       final int priority,
       @Nullable final String executionId) {
-    return admit(sessionId, workflowId, priority, executionId, false);
+    return admit(sessionId, workflowId, priority, executionId, false, null);
   }
 
   /**
@@ -248,7 +254,26 @@ public class ExecutionScheduler implements SmartLifecycle {
       final String workflowId,
       final int priority,
       final String executionId) {
-    return admit(sessionId, workflowId, priority, executionId, true);
+    return acquireStart(sessionId, workflowId, priority, executionId, null);
+  }
+
+  /**
+   * The same, for a start that also claims its workflow's concurrency key.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param priority higher is admitted first when starts have to wait
+   * @param executionId the execution asking
+   * @param claim the key and its limit, or null when the workflow has none
+   * @return the slot at once if there is room, otherwise a Mono that waits for one
+   */
+  public Admission acquireStart(
+      final String sessionId,
+      final String workflowId,
+      final int priority,
+      final String executionId,
+      @Nullable final KeyClaim claim) {
+    return admit(sessionId, workflowId, priority, executionId, true, claim);
   }
 
   private Admission admit(
@@ -256,7 +281,8 @@ public class ExecutionScheduler implements SmartLifecycle {
       final String workflowId,
       final int priority,
       @Nullable final String executionId,
-      final boolean countsAgainstRate) {
+      final boolean countsAgainstRate,
+      @Nullable final KeyClaim claim) {
     assertLeader();
     final WorkflowKey key = new WorkflowKey(sessionId, workflowId);
     synchronized (lock) {
@@ -264,21 +290,31 @@ public class ExecutionScheduler implements SmartLifecycle {
       if (unavailable != null) {
         return refused(unavailable);
       }
-      final boolean fits = fits(key);
-      final RejectReason reason = fits ? null : cannotQueue(key);
+      final boolean fits = fits(key, claim);
+      final RejectReason reason = fits ? null : cannotQueue(key, claim);
       if (reason != null) {
-        return refused(refusal(reason, "Execution limit reached"));
+        return refused(
+            refusal(
+                reason,
+                reason == RejectReason.KEY_LIMIT
+                    ? "Concurrency limit of this key reached"
+                    : "Execution limit reached"));
       }
       if (countsAgainstRate && !startRate.tryAcquire(key)) {
         return refused(
             refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute"));
       }
       if (fits) {
-        return new Admission(true, Mono.just(take(key)));
+        return new Admission(true, Mono.just(take(key, claim)));
       }
       final Waiter waiter =
           new Waiter(
-              key, executionId, new AtomicInteger(priority), Sinks.one(), new AtomicReference<>());
+              key,
+              executionId,
+              new AtomicInteger(priority),
+              Sinks.one(),
+              new AtomicReference<>(),
+              claim);
       queue.add(waiter);
       final Mono<Permit> grant = waiter.grant().asMono().doOnCancel(() -> abandon(waiter));
       return new Admission(
@@ -315,7 +351,26 @@ public class ExecutionScheduler implements SmartLifecycle {
       final String workflowId,
       final int priority,
       final String executionId) {
-    return admit(sessionId, workflowId, priority, executionId, true);
+    return acquireRerun(sessionId, workflowId, priority, executionId, null);
+  }
+
+  /**
+   * The same, for a restart or resume that also claims its workflow's concurrency key.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param priority higher is admitted first when starts have to wait
+   * @param executionId the execution asking
+   * @param claim the key and its limit, or null when the workflow has none
+   * @return the slot at once if there is room, otherwise a Mono that waits for one
+   */
+  public Admission acquireRerun(
+      final String sessionId,
+      final String workflowId,
+      final int priority,
+      final String executionId,
+      @Nullable final KeyClaim claim) {
+    return admit(sessionId, workflowId, priority, executionId, true, claim);
   }
 
   /**
@@ -379,7 +434,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       liveChildren.decrementAndGet();
       return refused(refusal(RejectReason.LIMIT, "Child run limit reached"));
     }
-    return new Admission(true, Mono.just(new Permit(null, maxChildren > 0)));
+    return new Admission(true, Mono.just(new Permit(null, maxChildren > 0, null)));
   }
 
   /**
@@ -513,9 +568,24 @@ public class ExecutionScheduler implements SmartLifecycle {
    */
   @Nullable
   private RejectReason cannotQueue(final WorkflowKey key) {
-    if (onLimit == OnLimit.REJECT) {
-      return RejectReason.LIMIT;
+    return onLimit == OnLimit.REJECT ? RejectReason.LIMIT : noRoomToWait(key);
+  }
+
+  /**
+   * The same for a start that may also be held back by its key: one held back only by its key waits
+   * or is refused as the key's {@code overflow} says, not as {@code on-limit} does.
+   */
+  @Nullable
+  private RejectReason cannotQueue(final WorkflowKey key, @Nullable final KeyClaim claim) {
+    if (claim != null && fits(key)) {
+      return claim.overflow() == OnLimit.REJECT ? RejectReason.KEY_LIMIT : noRoomToWait(key);
     }
+    return cannotQueue(key);
+  }
+
+  /** Why a start cannot join the queue, or null if there is room for it. */
+  @Nullable
+  private RejectReason noRoomToWait(final WorkflowKey key) {
     if (queue.size() >= queueCapacity) {
       return RejectReason.QUEUE_FULL;
     }
@@ -543,20 +613,34 @@ public class ExecutionScheduler implements SmartLifecycle {
             || runningPerSession.getOrDefault(key.sessionId(), 0) < maxPerSession);
   }
 
-  private Permit take(final WorkflowKey key) {
+  /** Whether a start fits the server's limits and, if it claims one, its key's. */
+  private boolean fits(final WorkflowKey key, @Nullable final KeyClaim claim) {
+    return fits(key)
+        && (claim == null
+            || runningPerClaim.getOrDefault(new ClaimKey(key, claim.key()), 0) < claim.limit());
+  }
+
+  private Permit take(final WorkflowKey key, @Nullable final KeyClaim claim) {
     runningTotal++;
     runningPerKey.merge(key, 1, Integer::sum);
     runningPerSession.merge(key.sessionId(), 1, Integer::sum);
-    return new Permit(key);
+    final ClaimKey claimed = claim == null ? null : new ClaimKey(key, claim.key());
+    if (claimed != null) {
+      runningPerClaim.merge(claimed, 1, Integer::sum);
+    }
+    return new Permit(key, false, claimed);
   }
 
-  private void free(final WorkflowKey key) {
+  private void free(final WorkflowKey key, @Nullable final ClaimKey claimed) {
     final List<Waiter> admitted;
     synchronized (lock) {
       runningTotal--;
       runningPerKey.computeIfPresent(key, (_, count) -> count > 1 ? count - 1 : null);
       runningPerSession.computeIfPresent(
           key.sessionId(), (_, count) -> count > 1 ? count - 1 : null);
+      if (claimed != null) {
+        runningPerClaim.computeIfPresent(claimed, (_, count) -> count > 1 ? count - 1 : null);
+      }
       admitted = admitWaiting();
       if (closed && runningTotal == 0) {
         drained.tryEmitEmpty();
@@ -578,7 +662,7 @@ public class ExecutionScheduler implements SmartLifecycle {
     Waiter next = nextToAdmit();
     while (next != null) {
       queue.remove(next);
-      next.granted().set(take(next.key()));
+      next.granted().set(take(next.key(), next.claim()));
       admitted.add(next);
       next = nextToAdmit();
     }
@@ -600,7 +684,7 @@ public class ExecutionScheduler implements SmartLifecycle {
     int bestRunning = 0;
     for (final var group : queue.groups()) {
       for (final Waiter waiter : group) {
-        if (!fits(waiter.key())) {
+        if (!fits(waiter.key(), waiter.claim())) {
           continue;
         }
         final int running = runningPerSession.getOrDefault(waiter.key().sessionId(), 0);
@@ -706,8 +790,22 @@ public class ExecutionScheduler implements SmartLifecycle {
     NOT_LEADER,
     RATE_LIMIT,
     DRAINING,
-    RECOVERING
+    RECOVERING,
+    /** The start's concurrency key was at its limit and its overflow is {@code REJECT}. */
+    KEY_LIMIT
   }
+
+  /**
+   * A start's claim on its workflow's concurrency key ({@code admission.concurrency}).
+   *
+   * @param key the key the start's payload resolved to
+   * @param limit how many runs with the key may run at once
+   * @param overflow what the start does when the key is at its limit
+   */
+  public record KeyClaim(String key, int limit, OnLimit overflow) {}
+
+  /** A concurrency key of one workflow. */
+  private record ClaimKey(WorkflowKey workflow, String key) {}
 
   /** A claim on one execution slot; release it when the execution ends. */
   public final class Permit {
@@ -720,13 +818,13 @@ public class ExecutionScheduler implements SmartLifecycle {
     /** True for a counted child run. */
     private final boolean child;
 
-    private Permit(final WorkflowKey key) {
-      this(key, false);
-    }
+    /** The concurrency key the slot was taken under, or null for none. */
+    private final @Nullable ClaimKey claimed;
 
-    private Permit(final WorkflowKey key, final boolean child) {
+    private Permit(final WorkflowKey key, final boolean child, final ClaimKey claimed) {
       this.key = key;
       this.child = child;
+      this.claimed = claimed;
     }
 
     /** Gives the slot back and admits the next waiting start that fits. */
@@ -735,7 +833,7 @@ public class ExecutionScheduler implements SmartLifecycle {
         if (child) {
           liveChildren.decrementAndGet();
         } else if (key != null) {
-          free(key);
+          free(key, claimed);
         }
       }
     }

@@ -8,6 +8,7 @@ import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
+import com.infenia.yukta.service.runtime.AdmissionKeys;
 import com.infenia.yukta.service.runtime.ExecutionControl;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
@@ -51,6 +52,9 @@ public class RestartCommandProcessor {
   /** Refuses a restart of a finished run that could neither run nor be queued. */
   private final ExecutionScheduler scheduler;
 
+  /** Works out which concurrency key a restarted run claims. */
+  private final AdmissionKeys admissionKeys;
+
   /** Reports the outcome of a restart back to the awaiting gateway caller. */
   private final RestartCompletionSink completionSink;
 
@@ -83,6 +87,17 @@ public class RestartCommandProcessor {
 
   private Mono<Void> performAtomicHandoff(
       final ArchivedExecution archived, final RestartCommand restart) {
+    return admissionKeys
+        .claim(archived.sessionId(), archived.workflowId(), archived.payload())
+        .map(Optional::of)
+        .defaultIfEmpty(Optional.empty())
+        .flatMap(claim -> performAtomicHandoff(archived, restart, claim.orElse(null)));
+  }
+
+  private Mono<Void> performAtomicHandoff(
+      final ArchivedExecution archived,
+      final RestartCommand restart,
+      final ExecutionScheduler.@Nullable KeyClaim claim) {
     return Mono.defer(() -> {
       final Optional<ExecutionControl> running = registry.findByExecutionId(restart.executionId());
       ExecutionScheduler.Admission admission = null;
@@ -94,7 +109,8 @@ public class RestartCommandProcessor {
                 archived.sessionId(),
                 archived.workflowId(),
                 ExecutionScheduler.priorityOf(archived.payload()),
-                restart.newExecutionId());
+                restart.newExecutionId(),
+                claim);
         if (admission.refused()) {
           return admission.permit().then();
         }

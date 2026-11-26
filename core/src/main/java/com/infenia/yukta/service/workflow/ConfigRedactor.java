@@ -74,7 +74,8 @@ public class ConfigRedactor {
             .toList(),
         workflow.edges(),
         workflow.supervisors(),
-        workflow.groupColors());
+        workflow.groupColors(),
+        workflow.admission());
   }
 
   /**

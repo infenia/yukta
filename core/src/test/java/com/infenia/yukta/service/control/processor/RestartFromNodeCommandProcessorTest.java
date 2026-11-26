@@ -57,6 +57,10 @@ import reactor.test.StepVerifier;
     "ERROR com.infenia.yukta.service.control.processor.RestartFromNodeCommandProcessor - ")
 class RestartFromNodeCommandProcessorTest {
 
+  /** Admission keys that never claim one. */
+  private static final com.infenia.yukta.service.runtime.AdmissionKeys NO_KEYS =
+      mock(com.infenia.yukta.service.runtime.AdmissionKeys.class, invocation -> Mono.empty());
+
   private static final String EXEC = "exec-1";
 
   private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
@@ -111,7 +115,7 @@ class RestartFromNodeCommandProcessorTest {
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     processor =
         new RestartFromNodeCommandProcessor(
-            registry, archive, orchestrator, checkpoints, scheduler, completionSink);
+            registry, archive, orchestrator, checkpoints, scheduler, NO_KEYS, completionSink);
     archive.put(new ArchivedExecution(EXEC, "s1", "w1", graph(), "v1", Map.of()));
     when(orchestrator.restartFromNode(any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(Mono.never());
@@ -159,7 +163,7 @@ class RestartFromNodeCommandProcessorTest {
     scheduler.acquire("s1", "w1", 0, null);
     processor =
         new RestartFromNodeCommandProcessor(
-            registry, archive, orchestrator, checkpoints, scheduler, completionSink);
+            registry, archive, orchestrator, checkpoints, scheduler, NO_KEYS, completionSink);
 
     StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "mid", "new-1")))
         .verifyError(ExecutionRejectedException.class);

@@ -128,7 +128,27 @@ curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" "$YUKTA_SERVER_URL/actuato
 curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" "$YUKTA_SERVER_URL/actuator/metrics/yukta.executions.queued"
 ```
 
-`running` stays at your cap. With `QUEUE`, `queued` rises and then drains. With `REJECT`, or a full queue, clients see `429` and `yukta.executions.rejected` rises with a `reason` tag: `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `rate_limit`, `shutdown`, `not_leader`, `draining` or `recovering`. If a run you started stays `QUEUED`, see [Troubleshoot](/guides/operate/troubleshoot#a-run-stays-queued).
+`running` stays at your cap. With `QUEUE`, `queued` rises and then drains. With `REJECT`, or a full queue, clients see `429` and `yukta.executions.rejected` rises with a `reason` tag: `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `rate_limit`, `key_limit`, `shutdown`, `not_leader`, `draining` or `recovering`. If a run you started stays `QUEUED`, see [Troubleshoot](/guides/operate/troubleshoot#a-run-stays-queued).
+
+## Limit runs per key
+
+The limits above count runs of a whole workflow. To allow at most so many runs at once that share a value of the start payload (one deploy per environment, one agent run per ticket), give the workflow an `admission` block:
+
+```json
+{
+  "workflowId": "deploy",
+  "admission": {
+    "concurrency": { "key": "${payload.environment}", "limit": 1, "overflow": "QUEUE" }
+  },
+  "nodes": [ ... ],
+  "edges": [ ... ]
+}
+```
+
+- `key` is an expression over the start payload, in the same sandbox as node configuration (`deploy-${payload.env}` works too). A start whose key resolves to nothing is refused with `400`, so a missing field cannot slip past the limit.
+- `limit` is how many runs with the same key may run at once.
+- `overflow` is what a start does when its key is at the limit: `QUEUE` (the default) waits as `QUEUED`, in priority order, within `queue-capacity`; `REJECT` answers `429` and counts `yukta.executions.rejected{reason=key_limit}`. It applies only when the key is what holds the start back: a start held back by `max-concurrent` follows `on-limit` as before.
+- Restarts and resumes claim the key of their payload too, with the limit the stored workflow has now.
 
 ## Variations that matter
 

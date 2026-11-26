@@ -477,7 +477,8 @@ Grants a slot to each run, or queues or refuses it. The caller receives an execu
 - The slot is taken after preparation and before the id is handed out. Restarting a finished run, restart-from-node and resume take their slot the same way. Restarting a run that is still going keeps the old behaviour: the old run holds its slot until it ends.
 - **Shutdown:** nothing new is admitted, queued starts are refused, running ones get `shutdown-timeout` to finish.
 - `yukta.execution.max-starts-per-minute` limits new starts (not restarts or resumes) per workflow and minute, whoever asks. The bucket is the session and workflow together, since workflow ids are per session. Off at 0, the default.
-- Refusals are counted by reason in `yukta.executions.rejected{reason=shutdown|limit|queue_full|workflow_queue_full|queue_timeout|not_leader|recovering}`.
+- **Concurrency keys:** a workflow's `admission.concurrency {key, limit, overflow}` (`WorkflowAdmission`) allows at most `limit` runs at once per value of `key`, an expression over the start payload (`AdmissionKeys`; a key that resolves to nothing is HTTP 400). Checked with the other caps under the scheduler lock; a start held back only by its key waits or is refused per `overflow` (default QUEUE), not `on-limit`. Starts, restarts, restart-from-node and resume all claim it.
+- Refusals are counted by reason in `yukta.executions.rejected{reason=shutdown|limit|queue_full|workflow_queue_full|queue_timeout|key_limit|not_leader|recovering}`.
 
 **Configure:** `yukta.execution.max-concurrent` · `…max-concurrent-per-workflow` · `…max-concurrent-per-session` · `…on-limit` (QUEUE\|REJECT) · `…queue-capacity` (100) · `…queue-capacity-per-workflow` · `…queue-timeout` · `…shutdown-timeout` (30s) · `…max-starts-per-minute` (0)
 

@@ -8,6 +8,7 @@ import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.StartOptions;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
+import com.infenia.yukta.service.runtime.AdmissionKeys;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -17,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.UnaryOperator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import reactor.core.Disposable;
 import reactor.core.publisher.Mono;
 
@@ -40,6 +42,9 @@ class WorkflowStarter {
 
   /** Refuses starts that could neither run nor be queued. */
   private final ExecutionScheduler scheduler;
+
+  /** Works out which concurrency key a start claims; none without it (tests, no Spring). */
+  @Nullable private AdmissionKeys admissionKeys;
 
   /** Makes starts safe to retry. */
   private final StartIdempotency idempotency;
@@ -91,12 +96,6 @@ class WorkflowStarter {
     });
   }
 
-  /** The version a start asks for with the payload key {@code yukta.version}, or null. */
-  private static String pinnedVersion(final Map<String, Object> payload) {
-    final Object version = payload == null ? null : payload.get(StartOptions.VERSION_KEY);
-    return version instanceof final String text && !text.isBlank() ? text : null;
-  }
-
   private Mono<String> startOnce(
       final String sessionId, final String workflowId, final Map<String, Object> payload) {
     log.atDebug()
@@ -109,7 +108,9 @@ class WorkflowStarter {
           new ConflictException(
               "Workflow " + workflowId + " in session " + sessionId + " is being deleted"));
     }
-    final String pinned = pinnedVersion(payload);
+    // The version a start asks for with the payload key {@code yukta.version}, or null.
+    final Object version = payload == null ? null : payload.get(StartOptions.VERSION_KEY);
+    final String pinned = version instanceof final String text && !text.isBlank() ? text : null;
     return (pinned == null
             ? definitions.find(sessionId, workflowId)
             : definitions.findRevision(sessionId, workflowId, pinned))
@@ -192,6 +193,25 @@ class WorkflowStarter {
       final String executionId,
       final Map<String, Object> payload,
       final boolean useCache) {
+    // the key is resolved first, so a start whose key resolves to nothing is refused before any
+    // preparation (HTTP 400)
+    final AdmissionKeys keys = admissionKeys;
+    return (keys == null ? Mono.<ExecutionScheduler.KeyClaim>empty() : keys.claim(def, payload))
+        .map(java.util.Optional::of)
+        .defaultIfEmpty(java.util.Optional.empty())
+        .flatMap(claim ->
+            prepareAndExecute(
+                sessionId, workflowId, def, executionId, payload, useCache, claim.orElse(null)));
+  }
+
+  private Mono<String> prepareAndExecute(
+      final String sessionId,
+      final String workflowId,
+      final WorkflowDefinition def,
+      final String executionId,
+      final Map<String, Object> payload,
+      final boolean useCache,
+      final ExecutionScheduler.@Nullable KeyClaim claim) {
     return Mono.defer(
             () -> {
               log.atDebug()
@@ -219,7 +239,11 @@ class WorkflowStarter {
           // as an error and no execution id is handed out for a run that cannot start.
           final ExecutionScheduler.Admission admission =
               scheduler.acquireStart(
-                  sessionId, workflowId, ExecutionScheduler.priorityOf(payload), executionId);
+                  sessionId,
+                  workflowId,
+                  ExecutionScheduler.priorityOf(payload),
+                  executionId,
+                  claim);
           if (admission.refused()) {
             return admission.permit().thenReturn(executionId);
           }
@@ -250,6 +274,15 @@ class WorkflowStarter {
           }
           return Mono.just(executionId);
         });
+  }
+
+  /**
+   * Lets starts claim their workflow's concurrency key ({@code admission.concurrency}).
+   *
+   * @param keys resolves the key of a start
+   */
+  /* default */ void setAdmissionKeys(final AdmissionKeys keys) {
+    this.admissionKeys = keys;
   }
 
   /** Cancels every run started here that is still going (shutdown timeout, loss of leadership). */

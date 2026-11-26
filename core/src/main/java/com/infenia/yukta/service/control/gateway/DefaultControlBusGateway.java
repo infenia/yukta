@@ -684,6 +684,16 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   /**
+   * Lets starts claim their workflow's concurrency key; without it no start claims one.
+   *
+   * @param keys resolves the key of a start
+   */
+  @Autowired(required = false)
+  public void setAdmissionKeys(final com.infenia.yukta.service.runtime.AdmissionKeys keys) {
+    starter.setAdmissionKeys(keys);
+  }
+
+  /**
    * Lets supervisors refuse limit and priority changes; without one they are applied unreviewed.
    *
    * @param controlReviewer the reviewer, if supervisors are enabled

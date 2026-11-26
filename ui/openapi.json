@@ -4084,6 +4084,33 @@
         },
         "type" : "object"
       },
+      "Concurrency" : {
+        "description" : "At most `limit` runs at once that share a key",
+        "properties" : {
+          "key" : {
+            "description" : "Expression over the start payload that names the key",
+            "example" : "${payload.customerId}",
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "limit" : {
+            "description" : "Runs with the same key that may run at once",
+            "example" : 1,
+            "format" : "int32",
+            "maximum" : 10000,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "overflow" : {
+            "description" : "What a start does when its key is at the limit (default QUEUE)",
+            "enum" : [ "QUEUE", "REJECT" ],
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "key" ],
+        "type" : "object"
+      },
       "ConfigField" : {
         "properties" : {
           "defaultValue" : { },
@@ -7947,9 +7974,25 @@
         },
         "type" : "object"
       },
+      "WorkflowAdmission" : {
+        "description" : "How runs of this workflow are admitted, on top of the server's limits",
+        "properties" : {
+          "concurrency" : {
+            "$ref" : "#/components/schemas/Concurrency",
+            "description" : "At most so many runs at once per key",
+            "type" : "null"
+          }
+        },
+        "type" : "object"
+      },
       "WorkflowDefinition" : {
         "description" : "Definition of a reactive workflow DAG",
         "properties" : {
+          "admission" : {
+            "$ref" : "#/components/schemas/WorkflowAdmission",
+            "description" : "How runs are admitted on top of the server's limits",
+            "type" : "null"
+          },
           "assignments" : {
             "description" : "What supervisors own in this workflow; assigned when it is saved",
             "items" : {
@@ -8003,6 +8046,11 @@
       "WorkflowDefinitionRequest" : {
         "description" : "Definition of a reactive workflow DAG",
         "properties" : {
+          "admission" : {
+            "$ref" : "#/components/schemas/WorkflowAdmission",
+            "description" : "How runs are admitted on top of the server's limits",
+            "type" : "null"
+          },
           "assignments" : {
             "description" : "What supervisors own in this workflow; assigned when it is saved",
             "items" : {
