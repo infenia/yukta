@@ -4,6 +4,8 @@ package com.infenia.yukta.service.orchestrator.tracker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.event.TaskStatusEvent;
+import com.infenia.yukta.model.execution.TaskStatus;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationHandler;
@@ -70,5 +72,27 @@ class RunTelemetryTraceTest {
   @Test
   void runStartedReturnsNullWhenTheTraceIdIsEmpty() {
     assertThat(new RunTelemetry(meters, tracedBy("")).runStarted("e1", "s", "w")).isNull();
+  }
+
+  @Test
+  void observation_isTheNodesWhileItRuns_elseTheRunsWhileItRuns() {
+    // traced, so every observation is a real one and not the shared no-op
+    final RunTelemetry telemetry = new RunTelemetry(meters, tracedBy("t1"));
+    assertThat(telemetry.observation("e1", "n")).isNull();
+    telemetry.runStarted("e1", "s", "w");
+    final Observation run = telemetry.observation("e1", "n");
+    assertThat(run).isNotNull();
+
+    telemetry.traceNode(
+        TaskStatusEvent.create("e1", "n", "MOD", TaskStatus.RUNNING, java.util.Map.of()), false);
+    assertThat(telemetry.observation("e1", "n")).isNotNull().isNotSameAs(run);
+    assertThat(telemetry.observation("e1", "other")).isSameAs(run);
+
+    telemetry.traceNode(
+        TaskStatusEvent.create("e1", "n", "MOD", TaskStatus.SUCCESS, java.util.Map.of()), true);
+    assertThat(telemetry.observation("e1", "n")).isSameAs(run);
+    final java.time.Instant now = java.time.Instant.now();
+    telemetry.runStatus("e1", TaskStatus.SUCCESS, true, now.minusSeconds(1), now);
+    assertThat(telemetry.observation("e1", "n")).isNull();
   }
 }

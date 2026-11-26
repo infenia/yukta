@@ -68,6 +68,7 @@ import reactor.core.scheduler.Schedulers;
   "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
   "PMD.CouplingBetweenObjects",
+  "PMD.CyclomaticComplexity",
   "PMD.AvoidDuplicateLiterals"
 })
 public class DefaultTaskTrackerService implements TaskTrackerService {
@@ -522,6 +523,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
     telemetry.handedOff(latency);
     // ponytail: one feed event per message; sample here if a hot workflow makes this a cost
     publishLatency(executionId, EngineLatency.Stage.HANDOFF, latency);
+  }
+
+  @Override
+  public io.micrometer.observation.@Nullable Observation observation(
+      final String executionId, final String nodeId) {
+    return telemetry.observation(executionId, nodeId);
   }
 
   private void publishLatency(

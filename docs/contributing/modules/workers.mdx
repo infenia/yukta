@@ -97,7 +97,7 @@ A worker checks in, a placed node is sent to it, results come back, and then the
 
 **Why it works this way.** The plugin runs exactly as it would locally, with the execution id, node id and heartbeat in the Reactor context.
 
-**Can go wrong.** The trace context is not passed, so spans on a worker do not join the run's trace. Live log lines are sent back as `LOG` frames.
+**Can go wrong.** A plugin's meters (for example token counters) are recorded in the worker's own registry, so scrape each worker as well as the control plane. Spans and live log lines do come back: START carries the trace headers and log lines return as `LOG` frames.
 
 </Step>
 <Step title="Worker dies">
@@ -260,7 +260,7 @@ Runs one node attempt on the chosen worker and splices the worker's output back 
 Runs on a worker: receives a node attempt, runs the local plugin on the incoming messages and sends the output back.
 
 - It is a Spring `@Controller` with the route `node.run`. The first frame must be `START`; the plugin type must be in `yukta.workers.plugin-types` and must be a processor, else an `IllegalArgumentException` error frame comes back.
-- For each attempt it calls the plugin's `initialize` and `prepare` with the node config, then `process` on the incoming messages. It puts the execution id, node id, a heartbeat callback and a log sink into the Reactor context, as the local assembler does; each log line goes back to the control plane as a `LOG` frame, which hands it to the node's own sink. It does not put the run's trace into the context.
+- For each attempt it calls the plugin's `initialize` and `prepare` with the node config, then `process` on the incoming messages. It puts the execution id, node id, a heartbeat callback and a log sink into the Reactor context, as the local assembler does; each log line goes back to the control plane as a `LOG` frame, which hands it to the node's own sink. It also opens a `yukta.worker.attempt` observation from the trace headers in START and puts it into the context, so with a tracer the attempt's span, and the plugin's own spans under it, join the run's trace as children of the control plane's `yukta.worker.call` span (itself a child of the node's `yukta.node` span, or the run's while that has not started).
 - Output messages go back as `MESSAGE` frames, then `COMPLETE`; any error becomes one `ERROR` frame with the class name and message. Plugin heartbeats become `HEARTBEAT` frames.
 - A counter of running attempts feeds the lease frames and the drain. The runner itself enforces no capacity: it runs whatever the control plane sends.
 
@@ -279,7 +279,7 @@ Defines what crosses the wire: two small record types, one for the worker sessio
 
 - `WorkerFrame` has the types REGISTER, LEASE, ACK and REJECT and fields for token, worker id, pools, plugin types, capacity, used slots, draining and a message.
 - `NodeFrame` has the kinds START, MESSAGE, HEARTBEAT, COMPLETE and ERROR and fields for execution id, node id, plugin type, config, message (a JSON map), error class and error message.
-- Both are serialised as JSON by Spring's RSocket codecs. Neither carries a version. The design document also planned a SIGNAL frame, trace context, an attempt number and deadlines in START; none of these exists.
+- Both are serialised as JSON by Spring's RSocket codecs. Neither carries a version. START's `message` carries the trace headers (empty without a tracer). The design document also planned a SIGNAL frame, an attempt number and deadlines in START. The attempt number reaches the plugin in each message's `attempt` header, as on the control plane, and the node's deadline is enforced by the control plane, which cancels the channel and with it the plugin; neither is in START.
 - The records, and `DefaultMessage`, are registered for reflection so a native image can read them.
 
 - **Guarantees.** A frame is a plain value; once built it is not changed.
@@ -506,7 +506,7 @@ A placed node is wrapped by the same engine policies as a local one; these table
 | Side effects | \*\*Partly.\*\* At-least-once. An attempt may run twice if a worker dies after the effect and before COMPLETE. |
 | Error type and class | \*\*Partly.\*\* Only IllegalArgumentException is rebuilt as itself. Every other class becomes a WorkflowExecutionException with the class in its text, so class-based retry rules and the hard-stop abort do not see the original. |
 | Payload types | \*\*Partly.\*\* Messages cross as plain JSON values; Java types are lost. |
-| Live logs and traces | Live logs: yes, as `LOG` frames (wire protocol 2). Traces: \*\*no\*\*, the run's trace is not passed to the worker. |
+| Live logs and traces | Live logs: yes, as `LOG` frames (wire protocol 2). Traces: yes, the attempt's span joins the run's trace (`yukta.worker.call` on the control plane, `yukta.worker.attempt` on the worker). Plugin meters stay on the worker. |
 | Run budgets and rate limits | \*\*Partly.\*\* Counted in the worker's JVM, not for the run as a whole. |
 
 ### What can run on a worker

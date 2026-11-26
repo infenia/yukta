@@ -61,4 +61,11 @@ class TaskTrackerServiceDefaultsTest {
     verify(tracker).recordHandoff(EXECUTION, java.time.Duration.ofMillis(1));
     verifyNoMoreInteractions(tracker);
   }
+
+  @Test
+  void observationDefaultIsNone() {
+    final TaskTrackerService tracker = mock(TaskTrackerService.class, CALLS_REAL_METHODS);
+
+    assertThat(tracker.observation(EXECUTION, "n1")).isNull();
+  }
 }

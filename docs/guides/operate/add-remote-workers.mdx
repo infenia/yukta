@@ -136,7 +136,7 @@ If no worker qualifies, the attempt fails at once with "No connected worker in p
 - **Make placed steps safe to repeat.** Delivery is at least once. If a worker dies after an effect and before the attempt completes, the effect can happen twice. Use the message id as an idempotency key.
 - **Configure workers like the server.** A plugin runs inside the worker process, so the worker's own allow-lists apply (commands, hosts, variables, secrets). See [Secure the server](/guides/operate/secure-the-server).
 
-What works differently on a worker: run budgets and rate limits (for example for `LLM_CALL`) are counted inside each worker, not for the whole run. Live log lines written on the worker reach the run's log stream as on the control plane. Messages cross as plain JSON values.
+What works differently on a worker: run budgets and rate limits (for example for `LLM_CALL`) are counted inside each worker, not for the whole run. Live log lines written on the worker reach the run's log stream as on the control plane, and with tracing on the attempt's spans join the run's trace. A plugin's meters (for example `LLM_CALL` token counts) stay in the worker's own metrics, so collect each worker's metrics too (`/actuator/metrics`, or `/actuator/prometheus` once it is exposed, see [Observe runs](/guides/operate/observe-runs)). Messages cross as plain JSON values.
 
 ## Related
 

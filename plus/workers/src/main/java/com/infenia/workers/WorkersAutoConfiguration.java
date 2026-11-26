@@ -4,10 +4,12 @@ package com.infenia.workers;
 
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import com.infenia.yukta.startup.DefaultsAutoConfiguration;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -42,6 +44,7 @@ import tools.jackson.databind.ObjectMapper;
   NodeFrame.class,
   com.infenia.yukta.message.DefaultMessage.class
 })
+@SuppressWarnings("PMD.CouplingBetweenObjects") // wires both roles of the module
 public class WorkersAutoConfiguration {
 
   /** Default constructor. */
@@ -99,6 +102,8 @@ public class WorkersAutoConfiguration {
    * @param registry the workers that are connected
    * @param connections the way back into each connected worker
    * @param mapper converts messages to and from plain JSON values
+   * @param tracker finds the observation of the node an attempt belongs to, when there is one
+   * @param observations traces each attempt, when the application has a registry
    * @return the executor
    */
   @Bean
@@ -107,8 +112,16 @@ public class WorkersAutoConfiguration {
   public WorkerNodeExecutor remoteNodeExecutor(
       final WorkerRegistry registry,
       final WorkerConnections connections,
-      final ObjectMapper mapper) {
-    return new WorkerNodeExecutor(registry, connections, mapper);
+      final ObjectMapper mapper,
+      final ObjectProvider<TaskTrackerService> tracker,
+      final ObjectProvider<ObservationRegistry> observations) {
+    final TaskTrackerService runs = tracker.getIfAvailable();
+    return new WorkerNodeExecutor(
+        registry,
+        connections,
+        mapper,
+        runs == null ? (executionId, nodeId) -> null : runs::observation,
+        observations.getIfAvailable(() -> ObservationRegistry.NOOP));
   }
 
   /**
@@ -117,6 +130,8 @@ public class WorkersAutoConfiguration {
    * @param plugins the plugins of this server
    * @param pluginTypes the plugin types this worker agreed to run, comma separated
    * @param mapper converts messages to and from plain JSON values
+   * @param observations traces each attempt as a child of the control plane's span, when the
+   *     application has a registry
    * @return the runner
    */
   @Bean
@@ -124,8 +139,13 @@ public class WorkersAutoConfiguration {
   public NodeRunner nodeRunner(
       final PluginRegistry plugins,
       @Value("${yukta.workers.plugin-types:}") final String pluginTypes,
-      final ObjectMapper mapper) {
-    return new NodeRunner(plugins, WorkerTransport.split(pluginTypes), mapper);
+      final ObjectMapper mapper,
+      final ObjectProvider<ObservationRegistry> observations) {
+    return new NodeRunner(
+        plugins,
+        WorkerTransport.split(pluginTypes),
+        mapper,
+        observations.getIfAvailable(() -> ObservationRegistry.NOOP));
   }
 
   /**
