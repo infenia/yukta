@@ -48,7 +48,6 @@
             "pages": [
               "index",
               "get-started/install",
-              "learn/your-first-workflow",
               "examples"
             ]
           }
