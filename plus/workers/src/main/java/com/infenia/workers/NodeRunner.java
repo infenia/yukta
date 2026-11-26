@@ -50,19 +50,27 @@ public class NodeRunner {
   /** Attempts running now. */
   private final AtomicInteger active = new AtomicInteger();
 
+  /** How many attempts this worker runs at once; one more is refused. */
+  private final int capacity;
+
   /**
    * Creates the runner.
    *
    * @param plugins finds the plugins of this server
    * @param allowed the plugin types this worker agreed to run
    * @param mapper converts messages to and from plain JSON values
+   * @param capacity how many attempts this worker runs at once
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2") // the mapper is a shared Spring bean
   public NodeRunner(
-      final PluginRegistry plugins, final Set<String> allowed, final ObjectMapper mapper) {
+      final PluginRegistry plugins,
+      final Set<String> allowed,
+      final ObjectMapper mapper,
+      final int capacity) {
     this.plugins = plugins;
     this.allowed = Set.copyOf(allowed);
     this.mapper = mapper;
+    this.capacity = capacity;
   }
 
   /**
@@ -96,8 +104,16 @@ public class NodeRunner {
                 IllegalArgumentException.class.getName(),
                 problem.orElse(""),
                 types(new IllegalArgumentException())));
-    if (problem.isEmpty()) {
-      active.incrementAndGet();
+    if (problem.isEmpty() && active.incrementAndGet() > capacity) {
+      active.decrementAndGet();
+      // not bad input, so the engine may retry it, and a retry picks a worker again
+      result =
+          Flux.just(
+              NodeFrame.error(
+                  IllegalStateException.class.getName(),
+                  "this worker is full: it runs " + capacity + " attempts at once",
+                  types(new IllegalStateException())));
+    } else if (problem.isEmpty()) {
       final ProcessorPlugin plugin = (ProcessorPlugin) plugins.get(start.pluginType());
       final Map<String, Object> config = start.config() != null ? start.config() : Map.of();
       final Flux<Message<?>> input =
