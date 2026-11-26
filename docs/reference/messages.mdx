@@ -25,8 +25,9 @@ A message is a payload plus labels, the unit of data on an edge. Messages are im
 | `messageHistory` | list of string | Ids of the last 64 nodes it passed through (`MAX_HISTORY`, not configurable). |
 | `sequenceId`, `sequenceNumber`, `sequenceSize` | string, int, int | Position in a group produced by a splitter. |
 | `expiration` | long | The engine drops an inbound message once this time has passed, and counts it in `yukta.messages.expired`. `MAPPER` sets it with `envelope.ttlMs`. |
+| `formatIndicator` | string | Media type of the content the message carries, such as `application/json`. Set by `HTTP_REQUEST`, `FILE_READ`, `PROCESS_EXECUTOR` and `LLM_CALL`; read by `HTTP_REQUEST` (request `Content-Type`) and `FILE_WRITE` (JSON output). `MAPPER` sets it with `envelope`. |
 | `retryCount` | int | How many times the current node has retried this message (`engine.retry`); `0` on the first attempt. |
-| `priority`, `formatIndicator`, `controlMessage` | various | Carried along; they change no behaviour except as stated for `controlMessage`. `MAPPER` sets `priority`, `formatIndicator`, `replyTo` and `correlationId` with its `envelope` option. |
+| `priority`, `controlMessage` | various | Carried along; they change no behaviour except as stated for `controlMessage`. `MAPPER` sets `priority`, `replyTo` and `correlationId` with its `envelope` option. |
 | `replyTo` | string | The reply key of a caller waiting with `?wait=`; the `REPLY` terminal answers it. `MAPPER` can set it with `envelope`. |
 | `origDest`, `failureReason`, `exceptionDetail` | string | Set by plugins such as `VALIDATE` and `BRANCH`, and by error routing. |
 
