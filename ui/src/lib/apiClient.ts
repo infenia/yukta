@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { knownRole } from '@/lib/identity';
-import { authHeaders, requireApiKey } from './apiKey';
+import { apiKeyLockedOut, apiKeyRefused, authHeaders } from './apiKey';
 
 const forbiddenMessage = () => {
   const role = knownRole();
@@ -84,7 +84,11 @@ export async function fetchApiPage<T>(
 
   // Only a missing or wrong key (401) asks for a key; a valid key that may not do this (403) is an error
   if (response.status === 401) {
-    requireApiKey();
+    apiKeyRefused();
+  }
+  // the server's lockout after too many wrong keys (not the per-key "slow down" limit)
+  if (response.status === 429 && json?.message === 'Too many failed attempts') {
+    apiKeyLockedOut(response.headers.get('Retry-After'));
   }
   if (!response.ok) {
     throw new ApiError(

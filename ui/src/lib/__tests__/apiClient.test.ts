@@ -10,7 +10,12 @@ import {
   ApiError,
   type ApiResponse,
 } from '../apiClient';
-import { API_KEY_REQUIRED_EVENT } from '../apiKey';
+import {
+  API_KEY_REQUIRED_EVENT,
+  dismissApiKey,
+  getApiKeyNotice,
+  setApiKey,
+} from '../apiKey';
 import { setMe, type Me } from '../identity';
 
 const ME: Me = {
@@ -170,6 +175,40 @@ describe('fetchApi', () => {
     mockFetch({ ok: false, status: 403, body: {} });
     await expect(fetchApi('/api/x')).rejects.toThrow("Your key can't do this");
     window.removeEventListener(API_KEY_REQUIRED_EVENT, required);
+  });
+
+  it('opens the gate with a notice for a refused key and for the address lockout, not for "slow down"', async () => {
+    mockFetch({ ok: false, status: 401, body: { message: 'bad key' } });
+    await fetchApi('/api/x').catch(() => undefined);
+    expect(getApiKeyNotice()).toBeNull();
+
+    setApiKey('old');
+    mockFetch({ ok: false, status: 401, body: { message: 'bad key' } });
+    await fetchApi('/api/x').catch(() => undefined);
+    expect(getApiKeyNotice()).toBe(
+      'The key in use was not accepted. Enter another one.'
+    );
+
+    mockFetch({
+      ok: false,
+      status: 429,
+      headers: { 'Retry-After': '30' },
+      body: { message: 'Too many failed attempts' },
+    });
+    await expect(fetchApi('/api/x')).rejects.toMatchObject({ status: 429 });
+    expect(getApiKeyNotice()).toBe(
+      'Too many failed attempts from this address. Try again in 30 seconds.'
+    );
+
+    dismissApiKey();
+    mockFetch({
+      ok: false,
+      status: 429,
+      body: { message: 'Too many requests, slow down' },
+    });
+    await fetchApi('/api/x').catch(() => undefined);
+    expect(getApiKeyNotice()).toBeNull();
+    setApiKey(null);
   });
 });
 

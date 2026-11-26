@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { authHeaders, getApiKey, requireApiKey } from './apiKey';
+import { authHeaders, getApiKey, apiKeyRefused } from './apiKey';
 
 /**
  * The part of EventSource the app uses, over fetch so it can send the Authorization header
@@ -45,7 +45,7 @@ export class KeyedEventSource {
         signal: this.abort.signal,
       });
       if (response.status === 401) {
-        requireApiKey();
+        apiKeyRefused();
       }
       if (!response.ok || !response.body) {
         throw new Error(`stream failed: ${response.status}`);
