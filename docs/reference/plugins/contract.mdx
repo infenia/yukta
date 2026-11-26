@@ -93,6 +93,7 @@ Every operation has a default; override only what the plugin needs.
 | `shutdown(config)` | Deprecated, will be removed. Releases resources. The engine does not call it, because instances are shared | does nothing |
 | `isBlocking()` | The plugin does blocking I/O or long synchronous work and needs a dedicated thread pool | `false` |
 | `requiresControlPlane()` | The plugin keeps state in the server process or calls back into it, so a node of this type cannot be placed on a worker | `false` |
+| `requiresControlPlane(config)` | The same for one node's configuration, for state or accounting only one server can keep (`LLM_CALL`, `MCP_TOOL_CALL` and the decision plugins return true when the node has a `budget`) | `requiresControlPlane()` |
 | `onControlSignal(message)` | Handles a control-bus command addressed to this node; returns `Mono<Message<?>>` | empty |
 | `isComputationallyHeavy(config)` | Deprecated, will be removed. No validator reads it | `false` |
 | `suppressOptimizationHint(config)` | Deprecated, will be removed. No validator reads it | `false` |

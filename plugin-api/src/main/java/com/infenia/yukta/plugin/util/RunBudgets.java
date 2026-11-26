@@ -164,6 +164,17 @@ public final class RunBudgets {
   }
 
   /**
+   * Whether a node has a run budget. The ledger is in the memory of the server that runs the node,
+   * so such a node must stay on the control plane: on workers, each would count its own share.
+   *
+   * @param config the node configuration
+   * @return true if it sets {@code budget}
+   */
+  public static boolean budgeted(final Map<String, Object> config) {
+    return config.get("budget") != null;
+  }
+
+  /**
    * Checks a node's configuration.
    *
    * @param config the node configuration

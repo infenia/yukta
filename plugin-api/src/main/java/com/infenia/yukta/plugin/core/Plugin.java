@@ -277,4 +277,16 @@ public interface Plugin {
   default boolean requiresControlPlane() {
     return false;
   }
+
+  /**
+   * Whether a node with this configuration must run on the control plane, for state or accounting
+   * that only one server can keep (a run budget, for example). Defaults to {@link
+   * #requiresControlPlane()}.
+   *
+   * @param config the node configuration
+   * @return true if the node must run on the control plane, false otherwise
+   */
+  default boolean requiresControlPlane(final Map<String, Object> config) {
+    return requiresControlPlane();
+  }
 }

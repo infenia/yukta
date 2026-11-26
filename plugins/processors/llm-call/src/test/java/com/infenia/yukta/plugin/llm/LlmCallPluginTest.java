@@ -102,6 +102,13 @@ class LlmCallPluginTest {
   }
 
   @Test
+  void budgetedNodeStaysOnTheControlPlane() {
+    assertThat(plugin.requiresControlPlane(Map.<String, Object>of("budget", Map.of("maxCalls", 1))))
+        .isTrue();
+    assertThat(plugin.requiresControlPlane(Map.of())).isFalse();
+  }
+
+  @Test
   void handlesAtMostTheConfiguredNumberOfCallsAtOnce() {
     assertThat(peakConcurrency(config("concurrency", 3), 20)).isBetween(2, 3);
   }
