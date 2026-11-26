@@ -43,7 +43,7 @@ public final class SplitterProcessor implements ProcessorPlugin {
   private static final String TYPE = "SPLITTER";
 
   /** Header naming the message a child was split from. */
-  private static final String PARENT_ID = "parentId";
+  /* default */ static final String PARENT_ID = "parentId";
 
   /** Cfg items. */
   private static final String CFG_ITEMS = "itemsPath";

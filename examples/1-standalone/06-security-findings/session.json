@@ -43,7 +43,7 @@
             }
           }
         },
-        { "nodeId": "collect", "type": "AGGREGATE", "color": "sky", "config": { "size": 100, "timeoutMs": 60000 } },
+        { "nodeId": "collect", "type": "AGGREGATE", "color": "sky", "config": { "by": "sequence", "timeoutMs": 60000 } },
         {
           "nodeId": "summarise",
           "type": "MAPPER",
