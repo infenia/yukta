@@ -36,6 +36,9 @@ public final class ClassifyPlugin extends DecisionPlugin {
   /** Config key: route by label. */
   private static final String ROUTE_BY_LABEL = "routeByLabel";
 
+  /** Config key: the message priority each label sets. */
+  private static final String PRIORITY_BY_LABEL = "priorityByLabel";
+
   /** Name of the question asked. */
   private static final String QUESTION = "label";
 
@@ -63,8 +66,10 @@ public final class ClassifyPlugin extends DecisionPlugin {
         "Classifies the message with a decision model (Ollama System One or any chat model) into"
             + " one of the labels. The label, its probability and all probabilities go to the"
             + " metadata key 'into' (default 'classification'). With routeByLabel the message"
-            + " leaves on the port named like its label, or 'uncertain' below minProbability.",
-        "labels: {label: when it applies}, question, minProbability (default 0.6), routeByLabel."
+            + " leaves on the port named like its label, or 'uncertain' below minProbability."
+            + " With priorityByLabel a certain answer sets the message priority.",
+        "labels: {label: when it applies}, question, minProbability (default 0.6), routeByLabel,"
+            + " priorityByLabel: {label: priority}."
             + " Describe each label well; a small model needs it.",
         Optional.empty());
   }
@@ -84,6 +89,12 @@ public final class ClassifyPlugin extends DecisionPlugin {
     fields.add(
         ConfigField.optional(
             ROUTE_BY_LABEL, ConfigField.Type.BOOLEAN, false, "Emit on a port per label"));
+    fields.add(
+        ConfigField.optional(
+            PRIORITY_BY_LABEL,
+            ConfigField.Type.MAP,
+            null,
+            "Label to the message priority it sets (higher goes first)"));
     fields.addAll(commonFields("classification"));
     return fields;
   }
@@ -105,6 +116,13 @@ public final class ClassifyPlugin extends DecisionPlugin {
     if (labels(config).size() < 2) {
       throw new IllegalArgumentException("labels needs at least two labels");
     }
+    priorities(config).keySet().stream()
+        .filter(label -> !labels(config).containsKey(label))
+        .findFirst()
+        .ifPresent(label -> {
+          throw new IllegalArgumentException(
+              "priorityByLabel names '" + label + "', which is not one of the labels");
+        });
   }
 
   @Override
@@ -123,12 +141,35 @@ public final class ClassifyPlugin extends DecisionPlugin {
           result.put(PORT_UNCERTAIN, uncertain);
           final String port =
               !routeByLabel(config) ? PORT_DEFAULT : uncertain ? PORT_UNCERTAIN : choice.choice();
-          return emit(message, config, "classification", result, port);
+          final Integer priority = uncertain ? null : priorities(config).get(choice.choice());
+          final Message<?> out = emit(message, config, "classification", result, port);
+          return priority == null ? out : out.withPriority(priority);
         });
   }
 
   private static boolean routeByLabel(final Map<String, Object> config) {
     return Boolean.parseBoolean(string(config, ROUTE_BY_LABEL, "false"));
+  }
+
+  /** The priority each label sets; none when the option is absent. */
+  private static Map<String, Integer> priorities(final Map<String, Object> config) {
+    final Map<String, Integer> priorities = new LinkedHashMap<>();
+    if (config.get(PRIORITY_BY_LABEL) != null) {
+      map(config, PRIORITY_BY_LABEL)
+          .forEach((label, priority) -> priorities.put(label, priority(label, priority)));
+    }
+    return priorities;
+  }
+
+  private static int priority(final String label, final Object value) {
+    try {
+      return value instanceof Number n
+          ? n.intValue()
+          : Integer.parseInt(String.valueOf(value).strip());
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(
+          "priorityByLabel." + label + " must be a whole number; was '" + value + "'", e);
+    }
   }
 
   private static Map<String, String> labels(final Map<String, Object> config) {

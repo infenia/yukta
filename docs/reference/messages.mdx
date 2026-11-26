@@ -27,7 +27,7 @@ A message is a payload plus labels, the unit of data on an edge. Messages are im
 | `expiration` | long | The engine drops an inbound message once this time has passed, and counts it in `yukta.messages.expired`. `MAPPER` sets it with `envelope.ttlMs`. |
 | `formatIndicator` | string | Media type of the content the message carries, such as `application/json`. Set by `HTTP_REQUEST`, `FILE_READ`, `PROCESS_EXECUTOR` and `LLM_CALL`; read by `HTTP_REQUEST` (request `Content-Type`) and `FILE_WRITE` (JSON output). `MAPPER` sets it with `envelope`. |
 | `retryCount` | int | How many times the current node has retried this message (`engine.retry`); `0` on the first attempt. |
-| `priority`, `replyTo`, `controlMessage` | various | Carried along; they change no behaviour except as stated for `controlMessage`. `replyTo` routes nothing. `MAPPER` sets `priority`, `replyTo` and `correlationId` with its `envelope` option. |
+| `priority`, `replyTo`, `controlMessage` | various | Carried along; they change no behaviour except as stated for `controlMessage`. `replyTo` routes nothing. `priority` orders a node's `engine.edgeBuffer` with `order: PRIORITY`; `CLASSIFY` `priorityByLabel` sets it. `MAPPER` sets `priority`, `replyTo` and `correlationId` with its `envelope` option. |
 | `origDest`, `failureReason`, `exceptionDetail` | string | Set by plugins such as `VALIDATE` and `BRANCH`, and by error routing. |
 
 Every field above except `payload`, `metadata`, `exceptionDetail` and `controlMessage` is read in config as `${message.<field>}`, for example `${message.traceId}` (see [Expressions](/reference/expressions)).

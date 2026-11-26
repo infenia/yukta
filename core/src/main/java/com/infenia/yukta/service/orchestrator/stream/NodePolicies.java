@@ -172,7 +172,7 @@ public class NodePolicies {
   /**
    * Puts a node's {@code engine.edgeBuffer}, if any, in front of its input: when the node is slower
    * than its parents the buffer drops messages (counted by the tracker) instead of holding the
-   * parents.
+   * parents. With {@code order: PRIORITY} the node gets the highest priority first.
    *
    * @param buffer the node's buffer, or null for none
    * @param input the node's input
@@ -187,6 +187,13 @@ public class NodePolicies {
       final TaskTrackerService tracker,
       final String module,
       final String nodeId) {
+    if (buffer != null && buffer.order() == NodePolicy.Order.PRIORITY) {
+      return PriorityEdgeBuffer.buffered(
+          input,
+          buffer.size(),
+          buffer.overflow() == NodePolicy.Overflow.DROP_OLDEST,
+          _ -> tracker.recordEdgeDropped(module, nodeId));
+    }
     return buffer == null
         ? input
         : input.onBackpressureBuffer(

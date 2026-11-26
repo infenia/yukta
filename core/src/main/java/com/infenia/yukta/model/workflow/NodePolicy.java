@@ -121,7 +121,7 @@ public record NodePolicy(
   public static final String DEFAULT_POOL = "default";
 
   /** Options accepted in the {@code edgeBuffer} object. */
-  private static final Set<String> EDGE_BUFFER_KEYS = Set.of("size", "overflow");
+  private static final Set<String> EDGE_BUFFER_KEYS = Set.of("size", "overflow", "order");
 
   /** Largest accepted edge buffer. */
   private static final int MAX_EDGE_BUFFER = 100_000;
@@ -264,14 +264,37 @@ public record NodePolicy(
     DROP_NEWEST
   }
 
+  /** The order an edge buffer hands its messages to the node in. */
+  public enum Order {
+    /** In arrival order. */
+    FIFO,
+    /**
+     * Highest {@code priority} first, ties in arrival order; overflow drops the lowest priority.
+     */
+    PRIORITY
+  }
+
   /**
    * A bounded buffer in front of a node: a slow node then drops messages instead of slowing its
    * parents (without it the slowest child paces the fan-out).
    *
    * @param size most messages waiting
-   * @param overflow what to drop when it is full
+   * @param overflow what to drop when it is full: with {@link Order#PRIORITY}, the oldest or newest
+   *     of the lowest priority
+   * @param order the order the node gets the waiting messages in
    */
-  public record EdgeBuffer(int size, Overflow overflow) {}
+  public record EdgeBuffer(int size, Overflow overflow, Order order) {
+
+    /**
+     * A buffer in arrival order.
+     *
+     * @param size most messages waiting
+     * @param overflow what to drop when it is full
+     */
+    public EdgeBuffer(final int size, final Overflow overflow) {
+      this(size, overflow, Order.FIFO);
+    }
+  }
 
   /**
    * Reads the optional {@code engine.placement} of a node config: the node then runs on a worker of
@@ -320,7 +343,8 @@ public record NodePolicy(
     }
     return new EdgeBuffer(
         (int) size,
-        parseEnum(buffer.get("overflow"), Overflow.class, "overflow", Overflow.DROP_OLDEST));
+        parseEnum(buffer.get("overflow"), Overflow.class, "overflow", Overflow.DROP_OLDEST),
+        parseEnum(buffer.get("order"), Order.class, "edgeBuffer.order", Order.FIFO));
   }
 
   /**
