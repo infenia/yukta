@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class CheckpointJsonTest {
 
   private final ObjectMapper mapper = new ObjectMapper();
@@ -49,6 +49,16 @@ class CheckpointJsonTest {
     assertThat(json).contains("payloadType").contains(Sample.class.getName());
     assertThat(restored.payload()).isEqualTo(new Sample("alpha", 3));
     assertThat(restored.id()).isEqualTo(message.id());
+  }
+
+  @Test
+  void checkpointWrittenWithTheRemovedControlMessageFieldStillReads() {
+    final String json =
+        CheckpointJson.write(mapper, DefaultMessage.create(null, "text"))
+            .replaceFirst("\\{", "{\"controlMessage\":true,");
+
+    assertThat(json).contains("controlMessage");
+    assertThat(CheckpointJson.read(mapper, json).payload()).isEqualTo("text");
   }
 
   @Test

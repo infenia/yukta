@@ -9,6 +9,8 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.SecretProvider;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
@@ -418,5 +420,63 @@ class VariableResolverTest {
                 .contextWrite(ctx -> ctx.put("beat", (Runnable) () -> {})))
         .expectComplete()
         .verify();
+  }
+
+  @Test
+  void resolvesEveryEnvelopeFieldOfTheMessage() {
+    final Message<?> message =
+        DefaultMessage.builder()
+            .id("m1")
+            .traceId("t1")
+            .correlationId("c1")
+            .replyTo("r1")
+            .timestamp(Instant.parse("2026-01-02T03:04:05Z"))
+            .expiration(99L)
+            .formatIndicator("text/plain")
+            .sourceNodeId("n1")
+            .sourcePort("out")
+            .workflowId("w1")
+            .messageHistory(List.of("a", "b"))
+            .sequenceId("s1")
+            .sequenceNumber(2)
+            .sequenceSize(3)
+            .priority(7)
+            .retryCount(1)
+            .origDest("d1")
+            .failureReason("why")
+            .metadata(Map.of())
+            .build();
+    // untyped results are text, as for every other key
+    final Map<String, Object> expected =
+        Map.ofEntries(
+            Map.entry("id", "m1"),
+            Map.entry("traceId", "t1"),
+            Map.entry("correlationId", "c1"),
+            Map.entry("replyTo", "r1"),
+            Map.entry("timestamp", "2026-01-02T03:04:05Z"),
+            Map.entry("expiration", "99"),
+            Map.entry("formatIndicator", "text/plain"),
+            Map.entry("sourceNodeId", "n1"),
+            Map.entry("sourcePort", "out"),
+            Map.entry("workflowId", "w1"),
+            Map.entry("messageHistory", "[a, b]"),
+            Map.entry("sequenceId", "s1"),
+            Map.entry("sequenceNumber", "2"),
+            Map.entry("sequenceSize", "3"),
+            Map.entry("priority", "7"),
+            Map.entry("retryCount", "1"),
+            Map.entry("origDest", "d1"),
+            Map.entry("failureReason", "why"));
+    expected.forEach((field, value) ->
+        assertThat(resolver.resolve("${message." + field + "}", message).block())
+            .as(field)
+            .isEqualTo(value));
+    assertThat(resolver.resolve("key-${message.id}-${message.retryCount}", message).block())
+        .isEqualTo("key-m1-1");
+    assertThat(resolver.resolve("${message.priority:int}", message).block()).isEqualTo(7);
+    // an unknown field stays literal, like any unknown key; a null field resolves to nothing
+    assertThat(resolver.resolve("${message.nope}", message).block()).isEqualTo("message.nope");
+    StepVerifier.create(resolver.resolve("${message.traceId}", DefaultMessage.create(null, "x")))
+        .verifyComplete();
   }
 }

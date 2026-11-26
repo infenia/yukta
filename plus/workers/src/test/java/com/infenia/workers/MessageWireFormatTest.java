@@ -42,7 +42,6 @@ class MessageWireFormatTest {
             .sequenceNumber(2)
             .sequenceSize(5)
             .priority(4)
-            .controlMessage(true)
             .origDest("dest")
             .failureReason("why")
             .exceptionDetail("detail")

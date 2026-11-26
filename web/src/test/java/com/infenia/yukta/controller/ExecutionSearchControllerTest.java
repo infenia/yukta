@@ -101,6 +101,16 @@ class ExecutionSearchControllerTest {
         .expectBody()
         .jsonPath("$.data.length()")
         .isEqualTo(2);
+    // each session gives at most limit runs, and the newest of all still wins
+    client
+        .get()
+        .uri("/api/executions?limit=1")
+        .exchange()
+        .expectBody()
+        .jsonPath("$.data.length()")
+        .isEqualTo(1)
+        .jsonPath("$.data[0].executionId")
+        .isEqualTo("b1");
     client
         .get()
         .uri("/api/executions?limit=0")
@@ -264,6 +274,7 @@ class ExecutionSearchControllerTest {
             Mono.just(
                 List.of(
                     Fixtures.summary("q1", "wf", TaskStatus.QUEUED, null, null),
+                    Fixtures.summary("n1", "wf", null, now, null),
                     Fixtures.summary("e1", "wf", TaskStatus.SUCCESS, now, null))));
 
     client
