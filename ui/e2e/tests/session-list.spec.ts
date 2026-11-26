@@ -184,11 +184,8 @@ test.describe('Session List Page - Mocked API', () => {
   });
 
   test.describe('Loading States', () => {
-    test('should show loading state during initial load', async ({
-      context,
-    }) => {
-      const freshPage = await context.newPage();
-      await freshPage.route('**/api/sessions/summaries*', async (route) => {
+    test('should show loading state during initial load', async ({ page }) => {
+      await page.route('**/api/sessions/summaries*', async (route) => {
         await new Promise((resolve) => setTimeout(resolve, 500));
         await route.fulfill({
           status: 200,
@@ -203,14 +200,12 @@ test.describe('Session List Page - Mocked API', () => {
         });
       });
 
-      const navigation = freshPage.goto('/sessions', { waitUntil: 'commit' });
-      await expect(freshPage.getByText('Loading sessions...')).toBeVisible();
+      const navigation = page.goto('/sessions', { waitUntil: 'commit' });
+      await expect(page.getByText('Loading sessions...')).toBeVisible();
       await navigation;
-      await waitForLoadingComplete(freshPage);
-      await expect(
-        freshPage.getByText('Loading sessions...')
-      ).not.toBeVisible();
-      await freshPage.close();
+      await waitForLoadingComplete(page);
+      await expect(page.getByText('Loading sessions...')).not.toBeVisible();
+      await page.close();
     });
   });
 

@@ -136,7 +136,7 @@ The sampling default is `0.1`, which records one run in ten; `1.0` records every
 
 ## Variations that matter
 
-- **A log line is missing.** Node log lines stay in memory for 30 minutes by default (`yukta.logs.store.retention.default-period-minutes`, from 1 minute to 24 hours) and are lost on restart. When more than 10,000 lines wait to be recorded, the extra ones are dropped and counted in `yukta.tracker.dropped{type=log}`. A node that wrote no live logs has its output logged cut to 2,048 characters. Lines a plugin writes on a [remote worker](/guides/operate/add-remote-workers) do not reach the stream.
+- **A log line is missing.** Node log lines stay in memory for 30 minutes by default (`yukta.logs.store.retention.default-period-minutes`, from 1 minute to 24 hours) and are lost on restart. When more than 10,000 lines wait to be recorded, the extra ones are dropped and counted in `yukta.tracker.dropped{type=log}`. A node that wrote no live logs has its output logged cut to 2,048 characters.
 - **An event stream disconnects.** A restart or takeover drops every open stream. Reconnect with the `Last-Event-ID` header. Streams send a keep-alive comment every 15 seconds, so a proxy idle timeout above that keeps them open. A client that connects late catches up from a history kept for 5 minutes.
 - **Keep ended runs in memory longer.** Live state of ended runs is kept 10 minutes (`yukta.tracker.cleanup-ttl`). See [Tune capacity and limits](/guides/operate/tune-capacity-and-limits).
 - **Who steered it.** `GET /api/control/audit` lists control commands newest first, with the sender. See [Secure the server](/guides/operate/secure-the-server).

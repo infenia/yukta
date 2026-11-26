@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.service.worker.WorkerRegistry;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -127,11 +128,11 @@ class WorkersTlsTest {
     };
   }
 
-  private static ConfigurableApplicationContext controlPlane(final Path dir) {
+  private static ConfigurableApplicationContext controlPlane(final Path dir, final int port) {
     final List<String> properties =
         new java.util.ArrayList<>(
             List.of(
-                "spring.rsocket.server.port=0",
+                "spring.rsocket.server.port=" + port,
                 "spring.rsocket.server.ssl.bundle=server",
                 "spring.rsocket.server.ssl.client-auth=need",
                 "yukta.workers.token=secret",
@@ -176,7 +177,7 @@ class WorkersTlsTest {
     trust(dir, "client-trusts", "client");
     trust(dir, "server-trusts", "server");
 
-    try (ConfigurableApplicationContext controlPlane = controlPlane(dir)) {
+    try (ConfigurableApplicationContext controlPlane = controlPlane(dir, 0)) {
       final String port = controlPlane.getEnvironment().getProperty("local.rsocket.server.port");
       final WorkerRegistry registry = controlPlane.getBean(WorkerRegistry.class);
 
@@ -192,6 +193,32 @@ class WorkersTlsTest {
         assertThat(registry.find("w-plain")).isEmpty();
         assertThat(registry.list()).extracting("workerId").containsExactly("w-good");
         assertThat(good.isRunning() && rogue.isRunning() && plain.isRunning()).isTrue();
+      }
+    }
+  }
+
+  @Test
+  @ExpectedErrorLog(sometimes = "dropped error: .*Connection refused")
+  void workerStartedBeforeTheControlPlane_keepsRetrying_untilItIsUp(@TempDir final Path dir)
+      throws IOException, InterruptedException {
+    identity(dir, "server");
+    identity(dir, "client");
+    trust(dir, "client-trusts", "client");
+    trust(dir, "server-trusts", "server");
+    final int port;
+    try (java.net.ServerSocket free = new java.net.ServerSocket(0)) {
+      port = free.getLocalPort();
+    }
+
+    try (ConfigurableApplicationContext worker =
+        worker(dir, String.valueOf(port), "w-early", "client", "client")) {
+      // refused a few times while nothing listens
+      await().pollDelay(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(6)).until(() -> true);
+      assertThat(worker.isRunning()).isTrue();
+
+      try (ConfigurableApplicationContext controlPlane = controlPlane(dir, port)) {
+        final WorkerRegistry registry = controlPlane.getBean(WorkerRegistry.class);
+        await().atMost(Duration.ofSeconds(30)).until(() -> registry.find("w-early").isPresent());
       }
     }
   }

@@ -594,7 +594,7 @@ export interface paths {
         };
         /**
          * Search runs across sessions
-         * @description Lists the runs of all sessions (or of sessionId), newest first, narrowed by workflowId, status, text (in the execution id) and since/until (start time, ISO date-time). The history of each session is bounded by yukta.execution-log.retained-runs.
+         * @description Lists the runs of all sessions (or of sessionId), newest first, narrowed by workflowId, status (one or several, comma separated), text (in the execution, workflow or session id) and since/until (start time, ISO date-time). Page with limit and offset; X-Total-Count has the number of matching runs. The history of each session is bounded by yukta.execution-log.retained-runs.
          */
         get: operations["search"];
         put?: never;
@@ -8154,6 +8154,7 @@ export interface operations {
             query: {
                 sessionId?: string;
                 limit?: number;
+                offset?: number;
                 includeInternal?: boolean;
                 filter: components["schemas"]["HistoryFilter"];
             };

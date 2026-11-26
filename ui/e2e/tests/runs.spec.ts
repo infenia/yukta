@@ -24,19 +24,19 @@ test.describe('Runs page', () => {
       const url = new URL(route.request().url());
       const status = url.searchParams.get('status');
       const limit = Number(url.searchParams.get('limit'));
+      const offset = Number(url.searchParams.get('offset') ?? 0);
       const all = Array.from({ length: 150 }, (_, i) =>
         run(i, i % 2 ? 'FAILURE' : 'SUCCESS')
       );
-      return route.fulfill(
-        envelope(
-          '/executions',
-          all.filter((r) => !status || r.status === status).slice(0, limit)
-        )
-      );
+      const found = all.filter((r) => !status || r.status === status);
+      return route.fulfill({
+        ...envelope('/executions', found.slice(offset, offset + limit)),
+        headers: { 'X-Total-Count': String(found.length) },
+      });
     });
   });
 
-  test('filters by status, loads more and opens a run', async ({
+  test('filters by status, pages and opens a run', async ({
     page,
     mockWorkflowApi,
   }) => {
@@ -51,9 +51,11 @@ test.describe('Runs page', () => {
     await expect(runs.run('0000abcd')).toHaveCount(0);
 
     await page.getByLabel('Clear Status').click();
-    await expect(runs.rows).toHaveCount(101);
-    await runs.loadMore.click();
-    await expect(runs.rows).toHaveCount(151);
+    await expect(runs.rows).toHaveCount(26);
+    await runs.next.click();
+    await expect(runs.rows).toHaveCount(26);
+    await expect(page.getByText(/26–50 of 150 runs/)).toBeVisible();
+    await runs.previous.click();
 
     await runs.run('0000abcd').click();
     await expect(page).toHaveURL(/\/workflow\/wf-982-xk-11\?exec=0000abcd-run/);

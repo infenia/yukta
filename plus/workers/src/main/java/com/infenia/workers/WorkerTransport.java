@@ -84,10 +84,25 @@ class WorkerTransport {
                 .acceptor(responder.responder())
                 .fragment(FRAGMENT_BYTES)
                 .maxInboundPayloadSize(maxInbound));
-    return bundle == null
-        ? configured.connectTcp(host, port)
-        : Mono.fromCallable(() -> secure(host, port, bundle))
-            .flatMap(client -> configured.connect(TcpClientTransport.create(client)));
+    return Mono.fromCallable(() ->
+            configured.transport(
+                bundle == null
+                    ? TcpClientTransport.create(host, port)
+                    : TcpClientTransport.create(secure(host, port, bundle))))
+        .flatMap(WorkerTransport::opened);
+  }
+
+  /**
+   * Opens the requester's connection now, so a refused or failed connection fails this attempt (and
+   * the agent retries it) instead of the first request. A requester from {@code transport} connects
+   * lazily; its {@code rsocketClient().source()} connects and caches the connection that the
+   * requests then use.
+   *
+   * @param requester a requester that has not connected yet
+   * @return the requester, once its connection is open
+   */
+  private static Mono<RSocketRequester> opened(final RSocketRequester requester) {
+    return requester.rsocketClient().source().thenReturn(requester);
   }
 
   /**
