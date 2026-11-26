@@ -16,6 +16,7 @@ import com.infenia.yukta.plugin.input.InputGateway;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.MapUtils;
+import com.infenia.yukta.plugin.util.RunBudgets;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -205,6 +206,12 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
             ConfigField.Type.NUMBER,
             DEFAULT_CONCURRENCY,
             "Tool calls in flight at once"));
+  }
+
+  /** A node with a run budget stays on the control plane, which keeps the run's one ledger. */
+  @Override
+  public boolean requiresControlPlane(final Map<String, Object> config) {
+    return RunBudgets.budgeted(config);
   }
 
   @Override

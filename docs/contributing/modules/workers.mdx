@@ -507,7 +507,7 @@ A placed node is wrapped by the same engine policies as a local one; these table
 | Error type and class | \*\*Partly.\*\* Only IllegalArgumentException is rebuilt as itself. Every other class becomes a WorkflowExecutionException with the class in its text, so class-based retry rules and the hard-stop abort do not see the original. |
 | Payload types | \*\*Partly.\*\* Messages cross as plain JSON values; Java types are lost. |
 | Live logs and traces | Live logs: yes, as `LOG` frames (wire protocol 2). Traces: yes, the attempt's span joins the run's trace (`yukta.worker.call` on the control plane, `yukta.worker.attempt` on the worker). Plugin meters stay on the worker. |
-| Run budgets and rate limits | \*\*Partly.\*\* Counted in the worker's JVM, not for the run as a whole. |
+| Run budgets and rate limits | Budgets: a node with a `budget` cannot be placed (`requiresControlPlane(config)`), so the run's one ledger on the control plane counts it. Rate limits (`yukta.llm.rate-limit.<provider>`): \*\*per server\*\*, each worker spaces its own calls. |
 
 ### What can run on a worker
 
