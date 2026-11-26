@@ -13,6 +13,14 @@ yukta:
   # Conversations with AI agents survive a restart (those still open are ended as failed).
   agents:
     store-type: postgres
+  # Runs are durable: node outputs are checkpointed, and a run cut off by a restart or a takeover
+  # is resumed on its own (finished nodes replay, the rest run again). Set
+  # YUKTA_RESTART_AUTO_RESUME=false to resume by hand, or YUKTA_RESTART_STORE_TYPE=memory to keep
+  # checkpoints in memory (nothing to resume from after a restart). Input requests stay in memory
+  # unless yukta.input.store-type=postgres.
+  restart:
+    store-type: postgres
+    auto-resume: true
 
 # The connection pool (r2dbc-pool) and the database's own statement timeout. Override any of them
 # through the environment, for example SPRING_R2DBC_POOL_MAX_SIZE=40.

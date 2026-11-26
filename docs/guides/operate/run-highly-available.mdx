@@ -38,16 +38,13 @@ For how the lease and fencing work, read [How durability and high availability w
     Use the PostgreSQL settings from [Persist sessions](/guides/operate/persist-sessions), then add:
 
     ```properties
-    yukta.session.store-type=postgres
-    yukta.restart.store-type=postgres
     yukta.ha.mode=postgres
     yukta.ha.lease=15s
-    yukta.restart.auto-resume=true
     ```
 
     Start each server with `--spring.profiles.active=prod,postgres`. Give each its own name with `yukta.ha.instance-id` if you want stable names in the lease row; the default is a random id per start.
 
-    Checkpoints must be in PostgreSQL (`yukta.restart.store-type=postgres`) so that a new leader can read what the old one recorded. `auto-resume` is optional: leave it `false` if you prefer to resume interrupted runs by hand.
+    The `postgres` profile already keeps checkpoints in PostgreSQL, so a new leader can read what the old one recorded, and resumes interrupted runs on its own. Set `yukta.restart.auto-resume=false` if you prefer to resume them by hand.
   </Step>
   <Step title="Start the servers">
     Start the first one, then the second. The first to take the lease becomes the leader and runs recovery once. The other waits as a standby.
