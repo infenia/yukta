@@ -19,10 +19,10 @@ class WorkerAgentTest {
 
   @Test
   void session_rejectFrame_failsOnceWithTheControlPlanesReason_andClosesTheConnection() {
-    final io.rsocket.RSocket socket = mock(io.rsocket.RSocket.class);
+    final RSocketRequester requester = mockRequester();
     final WorkerAgent agent =
         sessionAgent(
-            socket,
+            requester,
             reactor.core.publisher.Flux.just(
                 WorkerFrame.ack(), WorkerFrame.reject("token refused")));
 
@@ -31,31 +31,32 @@ class WorkerAgentTest {
         .expectNextMatches(frame -> frame.type() == WorkerFrame.Type.ACK)
         .expectErrorMessage("Refused by the control plane: token refused")
         .verify(Duration.ofSeconds(5));
-    org.mockito.Mockito.verify(socket).dispose();
+    org.mockito.Mockito.verify(requester).dispose();
   }
 
   @Test
   void session_endedByTheControlPlane_failsAndClosesTheConnection() {
-    final io.rsocket.RSocket socket = mock(io.rsocket.RSocket.class);
-    final WorkerAgent agent = sessionAgent(socket, reactor.core.publisher.Flux.empty());
+    final RSocketRequester requester = mockRequester();
+    final WorkerAgent agent = sessionAgent(requester, reactor.core.publisher.Flux.empty());
 
     reactor.test.StepVerifier.create(agent.session())
         .expectErrorMessage("The control plane closed the connection")
         .verify(Duration.ofSeconds(5));
-    org.mockito.Mockito.verify(socket).dispose();
+    org.mockito.Mockito.verify(requester).dispose();
+  }
+
+  private static RSocketRequester mockRequester() {
+    return mock(RSocketRequester.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
   }
 
   private static WorkerAgent sessionAgent(
-      final io.rsocket.RSocket socket, final reactor.core.publisher.Flux<WorkerFrame> answers) {
-    final RSocketRequester requester =
-        mock(RSocketRequester.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
+      final RSocketRequester requester, final reactor.core.publisher.Flux<WorkerFrame> answers) {
     org.mockito.Mockito.when(
             requester
                 .route("worker.session")
                 .data(org.mockito.ArgumentMatchers.any())
                 .retrieveFlux(WorkerFrame.class))
         .thenReturn(answers);
-    org.mockito.Mockito.when(requester.rsocket()).thenReturn(socket);
     return new WorkerAgent(
         reactor.core.publisher.Mono.just(requester),
         "secret",

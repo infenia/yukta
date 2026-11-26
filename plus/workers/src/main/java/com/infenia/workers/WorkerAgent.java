@@ -201,10 +201,7 @@ public class WorkerAgent implements SmartLifecycle {
   private Mono<Void> disconnected(final RSocketRequester requester) {
     return Mono.fromRunnable(() -> {
       current.compareAndSet(requester, null);
-      final RSocket socket = requester.rsocket();
-      if (socket != null) {
-        socket.dispose();
-      }
+      requester.dispose();
     });
   }
 
