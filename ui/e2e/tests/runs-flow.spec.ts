@@ -189,7 +189,9 @@ test.describe('Runs - the table', () => {
 
     mock.set([run(1), run(2)]);
     await page.goto('/runs');
-    await expect(page.getByText('1–2 of 2 runs', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('1–2 of 2 runs', { exact: true })
+    ).toBeVisible();
   });
 
   test('says so when nothing matches, and when the search fails it offers a retry', async ({
