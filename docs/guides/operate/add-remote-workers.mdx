@@ -24,7 +24,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 - A long random token.
 
 <Note>
-  A native binary fixes its role when you build it. Build it with `-Pyukta.workers.native=control-plane` or `-Pyukta.workers.native=worker`. With the archive (jar) build, the settings choose the role.
+  A native binary fixes its role when you build it. Build it with `-Pyukta.workers.native=control-plane` or `-Pyukta.workers.native=worker`. A native binary built for another role, or for none, refuses to start with worker settings and names the flag to build it with. With the archive (jar) build, the settings choose the role.
 </Note>
 
 <Diagram

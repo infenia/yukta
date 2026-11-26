@@ -328,13 +328,13 @@ Shows the behaviour with a real control plane and real workers, not mocks.
 Makes the control plane and the worker usable as native binaries.
 
 - Spring decides property-conditioned beans when a native image is built, so a native image has to be built as the role it will have: `-Pyukta.workers=true -Pyukta.workers.native=control-plane` or `worker`. The real token, address and id are read when it starts.
-- A native image built without that switch starts but takes no workers.
-- Status in the module's notes: both roles build and start, and a control plane reports no workers; a native worker did not register because the frame records had no reflection hints. The hints are added but not yet verified in a native image, because the rebuild was stopped for lack of memory.
+- A native image built without that switch can be neither role. The build warns, and the image refuses to start (`NativeRole`) when it is given worker settings (`yukta.workers.control-plane`) or control-plane settings (`yukta.workers.token`) it was not built for; without them it starts as a plain server.
+- Status: `native-plus-smoke.yml` (weekly, and on demand) builds both roles and runs `release/workers-smoke.sh`: the native worker must register with the native control plane and run a placed MAPPER node, which crosses both frame records. The script passes against two JVM jars; its first native run is the check of the reflection hints (`@RegisterReflectionForBinding` for `WorkerFrame`, `NodeFrame`, `DefaultMessage`).
 
-- **Guarantees.** A JVM build is the verified path; the native path is not yet verified end to end.
+- **Guarantees.** A JVM build is verified by the module's tests; the native path by the weekly native Plus smoke.
 - **State.** None.
 - **Ceiling.** A native image is fixed to one role.
-- **On failure.** A native worker may start and not register.
+- **On failure.** A native image of the wrong role, or of none, refuses to start with the flag to build it with; a native worker that does not register fails the weekly smoke.
 
 ## Scenarios
 

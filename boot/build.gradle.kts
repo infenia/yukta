@@ -156,6 +156,23 @@ tasks.withType<org.springframework.boot.gradle.tasks.aot.ProcessAot>().configure
             )
     }
 }
+// Built with the workers module but no role, the image takes no workers and runs no placed node; it
+// refuses to start if given worker settings (NativeRole). A warning, not a failure: the Plus smoke
+// and perf builds use this image without workers.
+val workersNativeRoleMissing =
+    providers.gradleProperty("yukta.workers").orNull == "true" &&
+        providers.gradleProperty("yukta.workers.native").orNull == null
+tasks.matching { it.name == "nativeCompile" }.configureEach {
+    val roleMissing = workersNativeRoleMissing
+    doFirst {
+        if (roleMissing) {
+            logger.warn(
+                "-Pyukta.workers=true without -Pyukta.workers.native=control-plane|worker: this native" +
+                    " image can be neither a control plane nor a worker",
+            )
+        }
+    }
+}
 
 // The same for PostgreSQL: a native image built with -Pyukta.persistence=postgres keeps every store in
 // PostgreSQL (the jar can still choose at start). The postgres profile un-excludes R2DBC and Flyway
