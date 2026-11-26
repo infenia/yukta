@@ -2,11 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plus.architecture;
 
-import com.infenia.yukta.architecture.DeprecationRules;
 import com.infenia.yukta.architecture.ReactiveRules;
-import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.library.GeneralCodingRules;
 import java.util.Map;
 
 /** Rules about the code inside the Plus modules; they run over the Plus classes only. */
@@ -18,27 +17,15 @@ public final class PlusCodeRules {
           "com.infenia.workers.WorkerAgent",
           "polls for running attempts while draining, on the agent's own thread");
 
-  /** Classes that use deprecated API, with the reason. */
-  private static final Map<String, String> MAY_USE_DEPRECATED =
-      Map.of(
-          "com.infenia.workers.WorkerTransport",
-          "connects eagerly with RSocketRequester.Builder.connect/connectTcp (deprecated since"
-              + " 5.3); the lazy replacements change how a failed attempt is retried, so moving"
-              + " needs the workers acceptance tests");
-
   @ArchTest
   public static final ArchRule NO_BLOCKING_CALLS = ReactiveRules.noBlockingCalls(MAY_BLOCK);
 
-  /**
-   * No class uses deprecated API, except the listed ones.
-   *
-   * @param classes the imported classes
-   */
+  /** No class uses deprecated API. */
   @ArchTest
-  @SuppressWarnings("PMD.LooseCoupling")
-  public static void noDeprecatedApi(final JavaClasses classes) {
-    DeprecationRules.check(classes, MAY_USE_DEPRECATED);
-  }
+  public static final ArchRule NO_DEPRECATED_API =
+      GeneralCodingRules.DEPRECATED_API_SHOULD_NOT_BE_USED
+          .because("deprecated calls break on the next upgrade")
+          .allowEmptyShould(true);
 
   private PlusCodeRules() {}
 }

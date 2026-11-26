@@ -3,7 +3,6 @@
 package com.infenia.workers;
 
 import com.infenia.yukta.service.worker.WorkerRegistration;
-import io.rsocket.RSocket;
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -139,9 +138,8 @@ public class WorkerAgent implements SmartLifecycle {
       connection.dispose();
     }
     final RSocketRequester open = current.get();
-    final RSocket socket = open == null ? null : open.rsocket();
-    if (socket != null) {
-      socket.dispose();
+    if (open != null) {
+      open.dispose();
     }
   }
 
