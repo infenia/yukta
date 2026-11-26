@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { knownRole } from '@/lib/identity';
-import { authHeaders, requireApiKey } from './apiKey';
+import { apiKeyLockedOut, apiKeyRefused, authHeaders } from './apiKey';
 
 const forbiddenMessage = () => {
   const role = knownRole();
@@ -61,6 +61,8 @@ export async function fetchApi<T>(
 export interface Page<T> {
   data: T;
   nextCursor: string | null;
+  /** The X-Total-Count header (matches before paging), when the server sent one. */
+  total: number | null;
 }
 
 /** Like fetchApi, but also returns the X-Next-Cursor header of a paged list. */
@@ -84,7 +86,11 @@ export async function fetchApiPage<T>(
 
   // Only a missing or wrong key (401) asks for a key; a valid key that may not do this (403) is an error
   if (response.status === 401) {
-    requireApiKey();
+    apiKeyRefused();
+  }
+  // the server's lockout after too many wrong keys (not the per-key "slow down" limit)
+  if (response.status === 429 && json?.message === 'Too many failed attempts') {
+    apiKeyLockedOut(response.headers.get('Retry-After'));
   }
   if (!response.ok) {
     throw new ApiError(
@@ -102,6 +108,9 @@ export async function fetchApiPage<T>(
   return {
     data: json?.data as T,
     nextCursor: response.headers.get('X-Next-Cursor'),
+    total: response.headers.has('X-Total-Count')
+      ? Number(response.headers.get('X-Total-Count'))
+      : null,
   };
 }
 

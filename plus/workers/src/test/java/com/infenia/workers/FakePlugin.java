@@ -43,6 +43,12 @@ final class FakePlugin implements ProcessorPlugin {
       case "ABORT" ->
           Flux.error(new com.infenia.yukta.plugin.exception.RunAbortedException("budget"));
       case "BAD" -> Flux.error(new IllegalArgumentException("bad input"));
+      case "LOGS" ->
+          Flux.deferContextual(ctx -> {
+            ((com.infenia.yukta.plugin.core.PluginLogSink) ctx.get(WorkflowContext.LOG_SINK_KEY))
+                .line("stderr", "from the worker", com.infenia.yukta.plugin.core.LogLevel.WARN);
+            return input;
+          });
       case "HEART" ->
           Flux.deferContextual(ctx -> {
             ((Runnable) ctx.get(WorkflowContext.HEARTBEAT_KEY)).run();

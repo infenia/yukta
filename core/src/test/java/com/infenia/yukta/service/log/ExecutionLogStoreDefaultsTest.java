@@ -85,6 +85,17 @@ class ExecutionLogStoreDefaultsTest {
   }
 
   @Test
+  void purgeEndedBefore_defaultRemovesNothing() {
+    final List<ExecutionLogEvent> events = new ArrayList<>();
+    final ExecutionLogStore store = listBacked(events);
+    store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));
+    store.append(ExecutionLogEvent.finished("e1", "s1", "w1", SUCCESS, Map.of()));
+
+    assertThat(store.purgeEndedBefore(Instant.now().plusSeconds(60)).block()).isEmpty();
+    assertThat(events).hasSize(2);
+  }
+
+  @Test
   void newest_returnsTheNewestOfTheTypesFirstUpToTheLimit() {
     final var store = listBacked(new ArrayList<>());
     store.append(ExecutionLogEvent.started("e1", "s1", "w1", "v1"));

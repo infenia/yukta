@@ -16,6 +16,7 @@ import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.SpelUtils;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -35,6 +36,7 @@ import reactor.core.publisher.Mono;
   "PMD.TooManyMethods",
   "PMD.AvoidCatchingGenericException",
   "PMD.GodClass",
+  "PMD.CyclomaticComplexity",
   "PMD.CollapsibleIfStatements",
   "PMD.GuardLogStatement"
 })
@@ -67,6 +69,9 @@ public class MapperProcessor implements ProcessorPlugin {
   /** Strict. */
   private static final String STRICT = "strictMode";
 
+  /** Config envelope: envelope fields to set on the output, each value may be an expression. */
+  private static final String ENVELOPE = "envelope";
+
   /** Err prefix. */
   private static final String ERR_PREFIX = "WorkflowExecutionException: ";
 
@@ -93,19 +98,26 @@ public class MapperProcessor implements ProcessorPlugin {
   /** Script engines. */
   private final ObjectProvider<ScriptEngine> scriptEngines;
 
-  /** Constructor without a script engine: SCRIPT mode is rejected. */
+  /** Resolves the expressions of {@code envelope}; without one its values are used as written. */
+  private final ObjectProvider<VariableResolver> resolver;
+
+  /** Constructor without a script engine or resolver: SCRIPT mode is rejected. */
   public MapperProcessor() {
-    this.scriptEngines = null;
+    this(null, null);
   }
 
   /**
    * Spring constructor.
    *
    * @param scriptEngines the optional script engine
+   * @param resolver the optional resolver of {@code envelope} expressions
    */
   @Autowired
-  public MapperProcessor(final ObjectProvider<ScriptEngine> scriptEngines) {
+  public MapperProcessor(
+      final ObjectProvider<ScriptEngine> scriptEngines,
+      final ObjectProvider<VariableResolver> resolver) {
     this.scriptEngines = scriptEngines;
+    this.resolver = resolver;
   }
 
   private Handlebars getHandlebars() {
@@ -133,7 +145,10 @@ public class MapperProcessor implements ProcessorPlugin {
             + "    - For SCRIPT: A JavaScript string returning the new payload.\n"
             + "- dropOriginal: Boolean. If true (default), original payload is discarded.\n"
             + "- strictMode: Boolean. If true (default), throws exception on transformation"
-            + " errors.",
+            + " errors.\n"
+            + "- envelope: Map setting fields of the output message, each value a literal or a"
+            + " ${...} expression read from the input message: priority, ttlMs (expires that"
+            + " many ms from now), formatIndicator, replyTo, correlationId.",
         Optional.of(new UiDesign("slate", "swap_horiz", "Mapper", 140, 80)));
   }
 
@@ -152,7 +167,12 @@ public class MapperProcessor implements ProcessorPlugin {
             "mapping", ConfigField.Type.EXPRESSION, "Field to SpEL map, Handlebars template or JS"),
         ConfigField.optional(
             "dropOriginal", ConfigField.Type.BOOLEAN, true, "Drop the input payload"),
-        ConfigField.optional("strictMode", ConfigField.Type.BOOLEAN, true, "Fail on eval errors"));
+        ConfigField.optional("strictMode", ConfigField.Type.BOOLEAN, true, "Fail on eval errors"),
+        ConfigField.optional(
+            ENVELOPE,
+            ConfigField.Type.MAP,
+            null,
+            "Output envelope: priority, ttlMs, formatIndicator, replyTo, correlationId"));
   }
 
   @Override
@@ -214,19 +234,25 @@ public class MapperProcessor implements ProcessorPlugin {
     final Object mapping = config.get(CONFIG_MAPPING);
     final boolean dropOriginal = (Boolean) config.getOrDefault(DROP_ORIG, true);
     final boolean strictMode = (Boolean) config.getOrDefault(STRICT, true);
+    final Map<String, Object> envelope =
+        (Map<String, Object>) config.getOrDefault(ENVELOPE, Map.of());
 
-    return input.flatMap(message -> {
+    return input.concatMap(message -> {
       try {
-        final Object resultPayload =
-            executeInternal(mode, mapping, message, dropOriginal, strictMode);
-
-        return Flux.just(DefaultMessage.from(message, resultPayload));
+        final Message<?> mapped =
+            DefaultMessage.from(
+                message, executeInternal(mode, mapping, message, dropOriginal, strictMode));
+        return MapperEnvelope.apply(mapped, message, envelope, resolver)
+            .onErrorMap(e -> failed(message, e));
       } catch (RuntimeException e) {
-        log.error("Mapping failed for message {}: {}", message.id(), e.getMessage());
-        return Flux.error(
-            new WorkflowExecutionException(ERR_PREFIX + "Mapping failed: " + e.getMessage(), e));
+        return Mono.error(failed(message, e));
       }
     });
+  }
+
+  private static WorkflowExecutionException failed(final Message<?> message, final Throwable e) {
+    log.error("Mapping failed for message {}: {}", message.id(), e.getMessage());
+    return new WorkflowExecutionException(ERR_PREFIX + "Mapping failed: " + e.getMessage(), e);
   }
 
   @SuppressWarnings(UNCHECKED)
@@ -387,7 +413,7 @@ public class MapperProcessor implements ProcessorPlugin {
     if (config.get(CONFIG_MAPPING) == null) {
       return Mono.error(new IllegalArgumentException("mapping is mandatory"));
     }
-    return Mono.empty();
+    return MapperEnvelope.validate(config.get(ENVELOPE));
   }
 
   @Override

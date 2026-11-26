@@ -15,6 +15,7 @@ import com.github.jknack.handlebars.Template;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.util.HashMap;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 @SuppressWarnings({
@@ -42,7 +44,7 @@ class MapperProcessorTest {
 
   private final ScriptEngine engine = mock(ScriptEngine.class);
   private final ObjectProvider<ScriptEngine> provider = mock(ObjectProvider.class);
-  private final MapperProcessor withEngine = new MapperProcessor(provider);
+  private final MapperProcessor withEngine = new MapperProcessor(provider, null);
 
   private static Message<?> msg(final Object payload) {
     return DefaultMessage.create(UUID.randomUUID(), payload);
@@ -374,5 +376,99 @@ class MapperProcessorTest {
     final var schema = withEngine.getConfigSchema();
     org.junit.jupiter.api.Assertions.assertTrue(
         schema.stream().anyMatch(f -> f.required() && "mapping".equals(f.name())));
+  }
+
+  // ---- envelope ----
+
+  private static Message<?> mapped(final MapperProcessor p, final Map<String, Object> envelope) {
+    return p.process(
+            Flux.just(msg(Map.of("x", 1))),
+            cfg("mode", "PROJECTION", "mapping", Map.of("y", "payload.x"), "envelope", envelope))
+        .blockFirst();
+  }
+
+  @Test
+  void envelopeSetsTheFieldsOfTheOutput() {
+    final long before = System.currentTimeMillis();
+    final Message<?> out =
+        mapped(
+            new MapperProcessor(),
+            Map.of(
+                "priority", "7",
+                "ttlMs", 60_000,
+                "formatIndicator", "application/json",
+                "replyTo", "reply-1",
+                "correlationId", "order-9"));
+
+    assertThat(out.payload()).isEqualTo(Map.of("y", 1));
+    assertThat(out.priority()).isEqualTo(7);
+    assertThat(out.expiration()).isBetween(before + 60_000, System.currentTimeMillis() + 60_000);
+    assertThat(out.formatIndicator()).isEqualTo("application/json");
+    assertThat(out.replyTo()).isEqualTo("reply-1");
+    assertThat(out.correlationId()).isEqualTo("order-9");
+  }
+
+  @Test
+  void envelopeValuesAreResolvedAgainstTheInputMessage() {
+    final VariableResolver variables = mock(VariableResolver.class);
+    when(variables.resolve(any(), any())).thenReturn(Mono.just("order-1"));
+    final ObjectProvider<VariableResolver> resolvers = mock(ObjectProvider.class);
+    when(resolvers.getIfAvailable()).thenReturn(variables);
+
+    final Message<?> out =
+        mapped(
+            new MapperProcessor(provider, resolvers),
+            Map.of("correlationId", "${payload.orderId}"));
+
+    assertThat(out.correlationId()).isEqualTo("order-1");
+  }
+
+  @Test
+  void envelopeNumberThatIsNotNumericFailsTheMessage() {
+    StepVerifier.create(
+            new MapperProcessor()
+                .process(
+                    Flux.just(msg(Map.of("x", 1))),
+                    cfg(
+                        "mode",
+                        "PROJECTION",
+                        "mapping",
+                        Map.of("y", "payload.x"),
+                        "envelope",
+                        Map.of("priority", "high"))))
+        .expectErrorMatches(
+            e -> e.getMessage().contains("envelope.priority must be a whole number"))
+        .verify();
+  }
+
+  @Test
+  void envelopeWithAnUnknownKeyOrNoMapIsRefused() {
+    StepVerifier.create(
+            withEngine.validateConfig(
+                cfg("mode", "PROJECTION", "mapping", Map.of(), "envelope", Map.of("ttl", 5))))
+        .expectErrorMatches(e -> e.getMessage().contains("got 'ttl'"))
+        .verify();
+    StepVerifier.create(
+            withEngine.validateConfig(
+                cfg("mode", "PROJECTION", "mapping", Map.of(), "envelope", "x")))
+        .expectErrorMatches(e -> e.getMessage().contains("envelope must be a map"))
+        .verify();
+    final Map<String, Object> nullValue = new HashMap<>();
+    nullValue.put("replyTo", null);
+    StepVerifier.create(
+            withEngine.validateConfig(
+                cfg("mode", "PROJECTION", "mapping", Map.of(), "envelope", nullValue)))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(
+            withEngine.validateConfig(
+                cfg("mode", "PROJECTION", "mapping", Map.of(), "envelope", Map.of("ttlMs", 5))))
+        .verifyComplete();
+  }
+
+  @Test
+  void unknownEnvelopeFieldThatSkippedValidationFailsTheMessage() {
+    assertThatThrownBy(() -> mapped(new MapperProcessor(), Map.of("ttl", 5)))
+        .hasMessageContaining("Unknown envelope field: ttl");
   }
 }

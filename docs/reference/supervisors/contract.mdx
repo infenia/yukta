@@ -157,7 +157,7 @@ Run-level commands apply to the supervisor's run units, node commands to its nod
 
 - Event delivery is best effort with a visible gap (`EventsMissed`).
 - Commands for one run are applied in order.
-- A `Review` is answered within `yukta.supervisor.review-timeout` (default `5s`). On a timeout a stop is allowed and any other command is refused.
+- A `Review` is answered within `yukta.supervisor.review-timeout` (default `5s`). On a timeout a stop is allowed and any other command is refused, unless the supervisor sets `onReviewTimeout: ALLOW`.
 - An engine that fails is resubscribed with backoff and never touches a run.
 - A supervisor never sees the outcomes of its own commands; internal sessions are hidden.
 

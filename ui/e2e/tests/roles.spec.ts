@@ -67,6 +67,8 @@ test.describe('A VIEWER key', () => {
     );
     await page.goto('/sessions');
 
-    await expect(page.getByRole('alertdialog')).toHaveCount(0);
+    await expect(
+      page.getByRole('dialog', { name: 'Enter your API key' })
+    ).toHaveCount(0);
   });
 });

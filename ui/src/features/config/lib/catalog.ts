@@ -277,6 +277,12 @@ export const CATALOG: ConfigOption[] = [
       purpose: 'Bytes kept per node in a checkpoint.',
     },
     {
+      key: 'yukta.restart.max-bytes-per-run',
+      default: '1073741824',
+      purpose:
+        'PostgreSQL checkpoints: most output one run records; a node over it is marked incomplete and runs again on resume.',
+    },
+    {
       key: 'yukta.restart.payload-packages',
       default: '[]',
       purpose: 'Java packages whose types may appear in a checkpoint.',
@@ -290,6 +296,12 @@ export const CATALOG: ConfigOption[] = [
       key: 'yukta.execution-log.min-runs-per-session',
       default: '10',
       purpose: 'Runs kept per session when the log is trimmed.',
+    },
+    {
+      key: 'yukta.execution-log.max-age',
+      default: 'unset',
+      purpose:
+        'Runs that ended longer ago than this are removed by an hourly job on the leader. Unset keeps runs by count only.',
     },
   ]),
   ...group('Scheduler and engine', [

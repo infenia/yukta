@@ -6,12 +6,14 @@ import type { Locator, Page } from '@playwright/test';
 /** The runs of all sessions: /runs (live) and /history (finished, filterable). */
 export class RunsPage {
   readonly status: Locator;
-  readonly loadMore: Locator;
+  readonly next: Locator;
+  readonly previous: Locator;
   readonly rows: Locator;
 
   constructor(private readonly page: Page) {
     this.status = page.getByLabel('Status', { exact: true });
-    this.loadMore = page.getByRole('button', { name: 'Load more' });
+    this.next = page.getByRole('button', { name: 'Next' });
+    this.previous = page.getByRole('button', { name: 'Previous' });
     this.rows = page.getByRole('row');
   }
 

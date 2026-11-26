@@ -157,6 +157,24 @@ tasks.withType<org.springframework.boot.gradle.tasks.aot.ProcessAot>().configure
     }
 }
 
+// The same for PostgreSQL: a native image built with -Pyukta.persistence=postgres keeps every store in
+// PostgreSQL (the jar can still choose at start). The postgres profile un-excludes R2DBC and Flyway
+// (application.yaml); the URLs only make AOT keep the R2DBC connection and Flyway (and so leave out the
+// JDBC DataSource); the real ones are read at start, where the postgres profile must be active too.
+tasks.withType<org.springframework.boot.gradle.tasks.aot.ProcessAot>().configureEach {
+    if (providers.gradleProperty("yukta.persistence").orNull == "postgres") {
+        args(
+            "--spring.profiles.active=postgres",
+            "--yukta.session.store-type=postgres",
+            "--yukta.restart.store-type=postgres",
+            "--yukta.input.store-type=postgres",
+            "--yukta.agents.store-type=postgres",
+            "--spring.r2dbc.url=r2dbc:postgresql://set-at-start/yukta",
+            "--spring.flyway.url=jdbc:postgresql://set-at-start/yukta",
+        )
+    }
+}
+
 // Software bill of materials (CycloneDX) of the runtime classpath, written as yukta.sbom.json next to the
 // native binary after every nativeCompile; the release attaches and attests it. (GraalVM CE and Liberica NIK have no
 // --enable-sbom; that option is Oracle GraalVM only.)

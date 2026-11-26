@@ -4,6 +4,7 @@ package com.infenia.workers;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Controller;
 import reactor.core.publisher.Flux;
@@ -37,6 +39,9 @@ public class NodeRunner {
 
   /** How many causes of a failure are sent to the control plane. */
   private static final int MAX_CAUSES = 10;
+
+  /** Longest a frame waits while another thread sends one on the same attempt. */
+  private static final java.time.Duration EMIT_WAIT = java.time.Duration.ofSeconds(1);
 
   /** Finds the plugins of this server. */
   private final PluginRegistry plugins;
@@ -120,8 +125,13 @@ public class NodeRunner {
           all.skip(1)
               .takeWhile(frame -> frame.kind() == NodeFrame.Kind.MESSAGE)
               .map(frame -> mapper.convertValue(frame.message(), DefaultMessage.class));
+      // heartbeats and live log lines, which a plugin may send from several threads at once
       final Sinks.Many<NodeFrame> beats = Sinks.many().unicast().onBackpressureBuffer();
-      final Runnable heartbeat = () -> beats.tryEmitNext(NodeFrame.heartbeat());
+      final Consumer<NodeFrame> send =
+          frame -> beats.emitNext(frame, Sinks.EmitFailureHandler.busyLooping(EMIT_WAIT));
+      final Runnable heartbeat = () -> send.accept(NodeFrame.heartbeat());
+      final PluginLogSink logSink =
+          (stream, line, level) -> send.accept(NodeFrame.log(stream, line, level));
       final Flux<NodeFrame> work =
           plugin
               .initialize(config)
@@ -138,7 +148,8 @@ public class NodeRunner {
               .contextWrite(ctx ->
                   ctx.put("executionId", String.valueOf(start.executionId()))
                       .put("nodeId", String.valueOf(start.nodeId()))
-                      .put(WorkflowContext.HEARTBEAT_KEY, heartbeat));
+                      .put(WorkflowContext.HEARTBEAT_KEY, heartbeat)
+                      .put(WorkflowContext.LOG_SINK_KEY, logSink));
       result =
           work.mergeWith(beats.asFlux())
               .takeUntil(frame ->

@@ -89,16 +89,12 @@ class WorkerAgentTest {
             Duration.ofSeconds(1),
             () -> 0,
             Duration.ofSeconds(1));
-    final RSocketRequester withSocket = mock(RSocketRequester.class);
-    final io.rsocket.RSocket socket = mock(io.rsocket.RSocket.class);
-    org.mockito.Mockito.when(withSocket.rsocket()).thenReturn(socket);
+    final RSocketRequester open = mock(RSocketRequester.class);
 
-    agent.connected(mock(RSocketRequester.class));
-    assertThatCode(agent::stop).doesNotThrowAnyException();
-    agent.connected(withSocket);
+    agent.connected(open);
     agent.stop();
 
-    org.mockito.Mockito.verify(socket).dispose();
+    org.mockito.Mockito.verify(open).dispose();
   }
 
   @Test
@@ -125,6 +121,27 @@ class WorkerAgentTest {
     org.awaitility.Awaitility.await()
         .atMost(Duration.ofSeconds(5))
         .until(() -> late.getCount() == 0);
+  }
+
+  @Test
+  void stopCalledAgainWhileDraining_doesNotWaitForTheRunningAttemptsAgain() {
+    final java.util.concurrent.atomic.AtomicInteger running =
+        new java.util.concurrent.atomic.AtomicInteger(2);
+    final WorkerAgent agent = agent(running::get, Duration.ofSeconds(5));
+    agent.connected(mock(RSocketRequester.class));
+    final java.util.concurrent.CountDownLatch first = new java.util.concurrent.CountDownLatch(1);
+    final java.util.concurrent.CountDownLatch second = new java.util.concurrent.CountDownLatch(1);
+
+    agent.stop(first::countDown);
+    agent.stop(second::countDown);
+
+    // the second stop finds the drain under way and returns at once, while the first still waits
+    assertThat(second.getCount()).isZero();
+    assertThat(first.getCount()).isEqualTo(1);
+    running.set(0);
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .until(() -> first.getCount() == 0);
   }
 
   @Test

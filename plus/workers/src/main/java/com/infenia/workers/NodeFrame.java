@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.workers;
 
+import com.infenia.yukta.plugin.core.LogLevel;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
@@ -10,14 +11,16 @@ import org.jspecify.annotations.Nullable;
 /**
  * One message on the stream of a node attempt. The control plane sends {@code START}, the node's
  * input as {@code MESSAGE} frames and {@code COMPLETE}; the worker answers with the output as
- * {@code MESSAGE} frames, {@code HEARTBEAT}s while it works, and {@code COMPLETE} or {@code ERROR}.
+ * {@code MESSAGE} frames, {@code HEARTBEAT}s and live {@code LOG} lines while it works, and {@code
+ * COMPLETE} or {@code ERROR}.
  *
  * @param kind what the frame is
  * @param executionId the run (START only)
  * @param nodeId the node (START only)
  * @param pluginType the plugin to run (START only)
  * @param config the node configuration (START only)
- * @param message a message as plain JSON values (MESSAGE only)
+ * @param message a message as plain JSON values (MESSAGE), or the {@code stream}, {@code line} and
+ *     {@code level} (empty when the engine rates it) of a log line (LOG)
  * @param errorClass the class name of the failure (ERROR only)
  * @param errorMessage the text of the failure (ERROR only)
  * @param errorTypes class names of the failure, its superclasses and its causes (ERROR only)
@@ -47,7 +50,31 @@ public record NodeFrame(
     /** Either way: no more messages. */
     COMPLETE,
     /** Worker to control plane: the attempt failed. */
-    ERROR
+    ERROR,
+    /** Worker to control plane: a log line the plugin wrote while it runs. */
+    LOG
+  }
+
+  /**
+   * A live log line of the plugin.
+   *
+   * @param stream {@code stdout} or {@code stderr}
+   * @param line the line
+   * @param level its level, or null to let the control plane rate it
+   * @return the frame
+   */
+  public static NodeFrame log(
+      final String stream, final String line, final @Nullable LogLevel level) {
+    return new NodeFrame(
+        Kind.LOG,
+        null,
+        null,
+        null,
+        null,
+        Map.of("stream", stream, "line", line, "level", level == null ? "" : level.name()),
+        null,
+        null,
+        null);
   }
 
   /**

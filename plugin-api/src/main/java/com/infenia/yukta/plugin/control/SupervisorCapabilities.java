@@ -57,6 +57,18 @@ public record SupervisorCapabilities(
   /** Setting: whether the supervisor sees the events of internal sessions its scope names. */
   public static final String OBSERVE_INTERNAL = "observeInternal";
 
+  /**
+   * Setting: what a person's command gets when the supervisor does not answer its review in time:
+   * {@code DENY} (default) or {@code ALLOW}. A stop is always allowed.
+   */
+  public static final String ON_REVIEW_TIMEOUT = "onReviewTimeout";
+
+  /** {@value #ON_REVIEW_TIMEOUT} value that lets the command through. */
+  private static final String ALLOW = "ALLOW";
+
+  /** {@value #ON_REVIEW_TIMEOUT} value that refuses the command (the default). */
+  private static final String DENY = "DENY";
+
   /** The fewest commands without a triggering signal a minute that may be allowed. */
   private static final int LEAST_INITIATIVE_PER_MINUTE = 1;
 
@@ -205,6 +217,27 @@ public record SupervisorCapabilities(
         operators(settings.get(OPERATOR_ACCESS)),
         operators(settings.get(INITIATIVE)),
         perMinute(settings.get(MAX_INITIATIVE_PER_MINUTE)));
+  }
+
+  /**
+   * Whether a command passes when the supervisor does not answer its review in time ({@value
+   * #ON_REVIEW_TIMEOUT}). For a supervisor that never refuses a person, so a slow or stopped one
+   * does not keep people from working.
+   *
+   * @param settings the supervisor's settings
+   * @return true for {@code ALLOW}, false for {@code DENY} or no setting
+   * @throws IllegalArgumentException for any other value
+   */
+  public static boolean allowsOnReviewTimeout(final Map<String, Object> settings) {
+    final Object value = settings.get(ON_REVIEW_TIMEOUT);
+    if (value == null || DENY.equals(value)) {
+      return false;
+    }
+    if (ALLOW.equals(value)) {
+      return true;
+    }
+    throw new IllegalArgumentException(
+        ON_REVIEW_TIMEOUT + " must be ALLOW or DENY; was '" + value + "'");
   }
 
   private static int perMinute(final @Nullable Object value) {

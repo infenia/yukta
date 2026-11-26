@@ -4,6 +4,7 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Locale;
 import org.jspecify.annotations.Nullable;
 
@@ -31,10 +32,25 @@ public record HistoryFilter(
    */
   public boolean matches(final WorkflowExecutionSummary run) {
     return (workflowId == null || workflowId.equals(run.workflowId()))
-        && (status == null || status.equalsIgnoreCase(run.status().name()))
+        && (status == null || hasStatus(run))
         && (text == null
             || run.executionId().toLowerCase(Locale.ROOT).contains(text.toLowerCase(Locale.ROOT)))
         && (since == null || (run.startTime() != null && !run.startTime().isBefore(since)))
         && (until == null || (run.startTime() != null && !run.startTime().isAfter(until)));
+  }
+
+  /** Status may list several values, comma separated. */
+  private boolean hasStatus(final WorkflowExecutionSummary run) {
+    return Arrays.stream(status.split(","))
+        .anyMatch(s -> s.trim().equalsIgnoreCase(run.status().name()));
+  }
+
+  /**
+   * The same filter without the text, for callers that match the text themselves.
+   *
+   * @return a filter that ignores text
+   */
+  public HistoryFilter withoutText() {
+    return new HistoryFilter(workflowId, status, null, since, until);
   }
 }
