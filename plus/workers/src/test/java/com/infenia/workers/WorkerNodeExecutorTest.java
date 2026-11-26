@@ -218,6 +218,30 @@ class WorkerNodeExecutorTest {
     assertThat(traced.failed).hasSize(1);
   }
 
+  @Test
+  void pick_takesTheSlot_soPicksAtTheSameMomentNeverOverbookTheWorker() {
+    final WorkerRegistry registry =
+        WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry());
+    final WorkerConnections connections = new WorkerConnections();
+    final WorkerNodeExecutor picking =
+        new WorkerNodeExecutor(
+            registry,
+            connections,
+            new ObjectMapper(),
+            (executionId, nodeId) -> null,
+            ObservationRegistry.NOOP);
+    register(registry, "w1", 5);
+    connections.put("w1", mock(org.springframework.messaging.rsocket.RSocketRequester.class));
+
+    final long taken =
+        java.util.stream.IntStream.range(0, 200)
+            .parallel()
+            .filter(_ -> picking.pick("default", "T").isPresent())
+            .count();
+
+    assertThat(taken).isEqualTo(5);
+  }
+
   private static void register(
       final WorkerRegistry registry, final String name, final int capacity) {
     registry.register(

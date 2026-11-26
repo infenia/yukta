@@ -57,7 +57,8 @@ public final class FileReadPlugin extends AbstractFilePlugin {
             + "- path: file relative to baseDir; defaults to the payload's 'path' field.\n"
             + "- maxBytes: largest readable file (default 10 MiB).\n"
             + "- failureMode: ERROR (default) or CONTINUE (routes to the error port).\n"
-            + "Emits {path, content}.",
+            + "Emits {path, content}; formatIndicator is the file's media type (text/plain when"
+            + " unknown).",
         Optional.of(new UiDesign("blue", "description", "File Read", 140, 80)));
   }
 
@@ -111,8 +112,14 @@ public final class FileReadPlugin extends AbstractFilePlugin {
           final var file = FileSandbox.resolve(config, message.payload());
           return message
               .withPayload(Map.of("path", file.toString(), "content", readBounded(file, maxBytes)))
+              .withFormatIndicator(mediaType(file))
               .withSourcePort("default");
         });
+  }
+
+  /** The file's media type as the platform guesses it, else text: the content is read as text. */
+  private static String mediaType(final Path file) throws IOException {
+    return java.util.Objects.requireNonNullElse(Files.probeContentType(file), "text/plain");
   }
 
   /** Reads at most maxBytes + 1 bytes, so a file that grows mid-read still can't exceed the cap. */

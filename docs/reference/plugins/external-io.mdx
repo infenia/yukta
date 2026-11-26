@@ -29,6 +29,7 @@ Module `http-request`. Performs one HTTP request per message.
 
 - **Output ports:** `default`, or `success` and `failure` with `routeByStatus`.
 - **Payload:** `{status, success, headers, body}`; `body` is parsed when the response is JSON. Metadata gains `status`.
+- **Format:** `formatIndicator` is the response's media type (`Content-Type` without parameters), none when it names none. A text `body` is sent with the incoming message's `formatIndicator` as `Content-Type` unless `headers` sets one.
 - **Default node timeout:** `timeout` plus 5 seconds.
 - **Egress:** the URL is checked against `yukta.egress.allowed-hosts`, `yukta.egress.by-workflow.<id>` and `yukta.egress.by-session.<id>`.
 - **Errors:** `url is mandatory`; `timeout must be positive, got: <n>`; `routeByStatus requires failureMode: CONTINUE`; `HTTP request failed with status <n>: <body>`.
@@ -75,6 +76,7 @@ Module `process-executor`. Runs an external process per message.
 | `PASSTHROUGH` | the input payload, unchanged |
 
 - **Output ports:** `default`, or `success` and `failure` with `routeByExitCode`.
+- **Format:** `formatIndicator` is `application/json` for `outputFormat: JSON`, `text/plain` for `RAW` and `STRUCTURED`; `PASSTHROUGH` keeps the incoming one.
 - **Metadata:** `exitCode` (`-1` on timeout). `reports` adds `failures` (at most 50 of `{kind, file, line, rule, message, test?}`) and `totalFailures` to `STRUCTURED` and `JSON` payloads, and writes each failure to the node's log as one line (`TestFailure: <class#test> | <file:line> | <message>`, or `LintFailure: <rule> | <file:line> | <message>`), which `get_failure_digest` and `search_logs` read. Output past the caps is discarded and `outputTruncated` is set.
 - **Default node timeout:** `timeout` plus the larger of 5 seconds and a tenth of `timeout`.
 - **Server settings:** execution is off until `yukta.process.allowed-commands` lists executables or `yukta.process.allow-any` is `true` (default `false`). While `allowed-commands` is set, `useShell` is refused, the executable must be listed and environment names such as `PATH` or `LD_*` need `yukta.process.allowed-env`. `yukta.process.working-dir-root` confines `workingDir`. A process does not inherit the server's environment: it starts with `PATH` only, plus the names in `yukta.process.pass-env` (`*` passes everything, for a trusted local server). It also gets `YUKTA_EXECUTION_ID` and `YUKTA_SESSION_ID`, the ids of its run, so a script can steer its own run; an `env` entry with the same name wins. See [Configuration](/reference/configuration).
@@ -119,7 +121,7 @@ Module `file-io`. Reads a UTF-8 text file from a sandbox directory. The node is 
 | `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `CONTINUE` routes a failure to the `error` port. |
 
 - **Output ports:** `default`; plus `error` with `failureMode: CONTINUE`.
-- **Payload:** `{path, content}`.
+- **Payload:** `{path, content}`. `formatIndicator` is the file's media type as the platform guesses it from the name, `text/plain` when unknown.
 - **Server setting:** `yukta.files.allowed-root` confines `baseDir`; a `baseDir` or path that reaches outside it through a symbolic link is refused.
 - **Errors:** `file larger than maxBytes (<n>): <file>`; `baseDir <dir> is outside the operator's root (yukta.files.allowed-root)`.
 
@@ -135,7 +137,7 @@ Module `file-io`. Writes or appends text to a file in a sandbox directory and pa
 |---|---|---|---|---|
 | `baseDir` | string | none | yes | Sandbox directory; paths outside it are rejected. |
 | `path` | string | `payload.path` | no | File relative to `baseDir`. |
-| `contentField` | string | `content` | no | Payload field that holds the text; a string payload is written as is. |
+| `contentField` | string | `content` | no | Payload field that holds the text; a string payload is written as is. Other content is written as JSON when the message's `formatIndicator` is a JSON type (`application/json`, `…+json`), otherwise as its plain text form. |
 | `append` | boolean | `false` | no | Append a line instead of overwriting. |
 | `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `CONTINUE` routes a failure to the `error` port. |
 

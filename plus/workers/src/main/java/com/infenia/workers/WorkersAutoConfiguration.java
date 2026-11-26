@@ -132,6 +132,7 @@ public class WorkersAutoConfiguration {
    * @param mapper converts messages to and from plain JSON values
    * @param observations traces each attempt as a child of the control plane's span, when the
    *     application has a registry
+   * @param capacity how many node attempts it runs at once (the same value the worker registers)
    * @return the runner
    */
   @Bean
@@ -140,12 +141,14 @@ public class WorkersAutoConfiguration {
       final PluginRegistry plugins,
       @Value("${yukta.workers.plugin-types:}") final String pluginTypes,
       final ObjectMapper mapper,
-      final ObjectProvider<ObservationRegistry> observations) {
+      final ObjectProvider<ObservationRegistry> observations,
+      @Value("${yukta.workers.capacity:4}") final int capacity) {
     return new NodeRunner(
         plugins,
         WorkerTransport.split(pluginTypes),
         mapper,
-        observations.getIfAvailable(() -> ObservationRegistry.NOOP));
+        observations.getIfAvailable(() -> ObservationRegistry.NOOP),
+        capacity);
   }
 
   /**

@@ -96,6 +96,47 @@ class HttpRequestPluginTest {
   }
 
   @Test
+  void responseMediaTypeBecomesTheFormatIndicator() {
+    when(gateway.execute(any()))
+        .thenReturn(
+            Mono.just(
+                new HttpRequestResult(
+                    200, Map.of("content-type", "application/json; charset=utf-8"), true, "{}")));
+    StepVerifier.create(run(Map.of("url", "http://x/y")))
+        .assertNext(m -> assertThat(m.formatIndicator()).isEqualTo("application/json"))
+        .verifyComplete();
+
+    when(gateway.execute(any())).thenReturn(Mono.just(okResult("x", false)));
+    StepVerifier.create(run(Map.of("url", "http://x/y")))
+        .assertNext(m -> assertThat(m.formatIndicator()).isNull())
+        .verifyComplete();
+  }
+
+  /** The request headers sent for a body, from a message with the given formatIndicator. */
+  private Map<String, String> sentHeaders(
+      final Object body, final String format, final Map<String, Object> headers) {
+    final ArgumentCaptor<HttpRequestSpec> spec = ArgumentCaptor.forClass(HttpRequestSpec.class);
+    when(gateway.execute(spec.capture())).thenReturn(Mono.just(okResult("x", false)));
+    StepVerifier.create(
+            plugin.process(
+                Flux.just(input().withFormatIndicator(format)),
+                Map.of("url", "http://x/y", "method", "POST", "body", body, "headers", headers)))
+        .expectNextCount(1)
+        .verifyComplete();
+    return spec.getValue().headers();
+  }
+
+  @Test
+  void textBodyIsSentWithTheMessagesFormatUnlessContentTypeIsSet() {
+    assertThat(sentHeaders("{}", "application/json", Map.of()))
+        .containsEntry("Content-Type", "application/json");
+    assertThat(sentHeaders("{}", "application/json", Map.of("content-type", "text/csv")))
+        .containsExactly(Map.entry("content-type", "text/csv"));
+    assertThat(sentHeaders(Map.of("a", 1), "text/plain", Map.of())).isEmpty();
+    assertThat(sentHeaders("{}", null, Map.of())).isEmpty();
+  }
+
+  @Test
   void metadataDescribesPlugin() {
     assertThat(plugin.getType()).isEqualTo("HTTP_REQUEST");
     assertThat(plugin.describe().description()).isNotBlank();

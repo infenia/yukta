@@ -54,6 +54,10 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
   private static final String URL = "url";
   private static final String METHOD = "method";
   private static final String HEADERS = "headers";
+
+  /** The header that names a body's media type. */
+  private static final String CONTENT_TYPE = "Content-Type";
+
   private static final String BODY = "body";
   private static final String TIMEOUT = "timeout";
 
@@ -245,11 +249,39 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
     payload.put(BODY, parseBody(result));
     final Map<String, Object> metadata = new HashMap<>(original.metadata());
     metadata.put(STATUS_KEY, result.status());
-    final Message<?> output = DefaultMessage.from(original, payload).withMetadata(metadata);
+    final Message<?> output =
+        DefaultMessage.from(original, payload)
+            .withMetadata(metadata)
+            .withFormatIndicator(mediaType(result.headers()));
     // from() inherits the upstream port, so always stamp one explicitly
     final String port =
         routeByStatus(config) ? (result.isSuccess() ? PORT_SUCCESS : PORT_FAILURE) : PORT_DEFAULT;
     return Flux.just(output.withSourcePort(port));
+  }
+
+  /** The media type of a response, without its parameters, or null when it names none. */
+  private static String mediaType(final Map<String, String> headers) {
+    return headers.entrySet().stream()
+        .filter(header -> CONTENT_TYPE.equalsIgnoreCase(header.getKey()))
+        .map(header -> header.getValue().split(";", 2)[0].strip())
+        .findFirst()
+        .orElse(null);
+  }
+
+  /**
+   * The headers, plus the message's formatIndicator as Content-Type when a text body is sent and
+   * none is configured (a JSON file read as text then goes out as application/json).
+   */
+  private static Map<String, String> withContentType(
+      final Map<String, String> headers, final Object body, final String formatIndicator) {
+    if (!(body instanceof String)
+        || formatIndicator == null
+        || headers.keySet().stream().anyMatch(CONTENT_TYPE::equalsIgnoreCase)) {
+      return headers;
+    }
+    final Map<String, String> copy = new LinkedHashMap<>(headers);
+    copy.put(CONTENT_TYPE, formatIndicator);
+    return copy;
   }
 
   private Object parseBody(final HttpRequestResult result) {
@@ -283,7 +315,7 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
           return new HttpRequestSpec(
               tuple.getT2().toUpperCase(Locale.ROOT),
               tuple.getT1(),
-              tuple.getT3(),
+              withContentType(tuple.getT3(), body, message.formatIndicator()),
               body,
               Duration.ofSeconds(timeout));
         });

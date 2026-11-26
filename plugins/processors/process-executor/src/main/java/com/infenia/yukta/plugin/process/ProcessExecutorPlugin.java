@@ -541,7 +541,15 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
     if (!lifted.isEmpty()) {
       newMetadata.put(Message.NODE_METADATA_KEY, lifted);
     }
-    final Message<?> output = DefaultMessage.from(original, payload).withMetadata(newMetadata);
+    final Message<?> output =
+        DefaultMessage.from(original, payload)
+            .withMetadata(newMetadata)
+            .withFormatIndicator(
+                switch (config.outputFormat()) {
+                  case JSON -> "application/json";
+                  case PASSTHROUGH -> original.formatIndicator();
+                  case RAW, STRUCTURED -> "text/plain";
+                });
     if (config.routeByExitCode()) {
       final String port = result.isSuccess() ? PORT_SUCCESS : PORT_FAILURE;
       log.atDebug().log("Routing message to output port: {}", port);

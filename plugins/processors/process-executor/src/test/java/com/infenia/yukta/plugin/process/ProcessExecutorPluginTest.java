@@ -653,6 +653,26 @@ class ProcessExecutorPluginTest {
         .verifyComplete();
   }
 
+  @Test
+  void process_formatIndicatorFollowsTheOutputFormat() {
+    gatewayReturns(successResult("{}"));
+    final Map<String, String> expected =
+        Map.of("RAW", "text/plain", "STRUCTURED", "text/plain", "JSON", "application/json");
+    expected.forEach((format, type) ->
+        StepVerifier.create(
+                plugin.process(
+                    Flux.just(message("in")),
+                    Map.of("command", List.of("echo"), "outputFormat", format)))
+            .assertNext(msg -> assertThat(msg.formatIndicator()).as(format).isEqualTo(type))
+            .verifyComplete());
+    StepVerifier.create(
+            plugin.process(
+                Flux.just(message("in").withFormatIndicator("text/csv")),
+                Map.of("command", List.of("echo"), "outputFormat", "PASSTHROUGH")))
+        .assertNext(msg -> assertThat(msg.formatIndicator()).isEqualTo("text/csv"))
+        .verifyComplete();
+  }
+
   // --- json format ---
 
   @Test

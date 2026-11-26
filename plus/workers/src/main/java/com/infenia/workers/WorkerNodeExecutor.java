@@ -104,8 +104,7 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
                 "No connected worker in pool '" + pool + "' can run " + pluginType + " right now"));
       }
       final String workerId = chosen.get().info().workerId();
-      final AtomicInteger load = inFlight.computeIfAbsent(workerId, _ -> new AtomicInteger());
-      load.incrementAndGet();
+      final AtomicInteger load = load(workerId);
       final Runnable heartbeat =
           ctx.hasKey(WorkflowContext.HEARTBEAT_KEY)
               ? ctx.get(WorkflowContext.HEARTBEAT_KEY)
@@ -163,24 +162,47 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
   /** A worker that may run the attempt, with the way into it. */
   /* default */ record Chosen(WorkerInfo info, RSocketRequester requester) {}
 
-  /** Picks the connected worker of the pool with the most free slots that may run the type. */
+  /**
+   * Picks the connected worker of the pool with the most free slots that may run the type, and
+   * takes one of its slots: two attempts picked at the same moment cannot both take the last one,
+   * the one that loses moves on to the next worker. The caller gives the slot back.
+   */
   /* default */ Optional<Chosen> pick(final String pool, final String pluginType) {
     return registry.list().stream()
         .filter(info -> info.pools().contains(pool) && info.pluginTypes().contains(pluginType))
-        .filter(info -> !info.draining() && free(info) > 0)
+        .filter(info -> !info.draining())
         .flatMap(info ->
             connections
                 .find(info.workerId())
                 .map(requester -> new Chosen(info, requester))
                 .stream())
-        .max(
-            Comparator.comparingInt((Chosen chosen) -> free(chosen.info()))
-                .thenComparing(chosen -> chosen.info().workerId(), Comparator.reverseOrder()));
+        .sorted(
+            Comparator.comparingInt(
+                    (Chosen chosen) -> free(chosen.info(), load(chosen.info().workerId()).get()))
+                .reversed()
+                .thenComparing(chosen -> chosen.info().workerId()))
+        .filter(chosen -> reserve(chosen.info()))
+        .findFirst();
+  }
+
+  /** Takes a free slot of the worker, unless another attempt has just taken the last one. */
+  private boolean reserve(final WorkerInfo info) {
+    final AtomicInteger load = load(info.workerId());
+    boolean taken = false;
+    int sent = load.get();
+    while (!taken && free(info, sent) > 0) {
+      taken = load.compareAndSet(sent, sent + 1);
+      sent = load.get();
+    }
+    return taken;
+  }
+
+  private AtomicInteger load(final String workerId) {
+    return inFlight.computeIfAbsent(workerId, _ -> new AtomicInteger());
   }
 
   /** Free slots, counting both what the worker reported and what this server has sent it. */
-  private int free(final WorkerInfo info) {
-    final int sent = inFlight.getOrDefault(info.workerId(), new AtomicInteger()).get();
+  private static int free(final WorkerInfo info, final int sent) {
     return info.capacity() - Math.max(info.usedSlots(), sent);
   }
 
