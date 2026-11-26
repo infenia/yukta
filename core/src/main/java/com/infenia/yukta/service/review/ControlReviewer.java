@@ -489,16 +489,21 @@ public class ControlReviewer {
     return Decision.ALLOW;
   }
 
-  /** The answer when a supervisor times out: a stop is allowed, anything else refused. */
+  /**
+   * The answer when a supervisor times out: a stop is allowed, and so is anything else when the
+   * supervisor says so ({@code onReviewTimeout: ALLOW}); otherwise the command is refused.
+   */
   private Decision fallback(
       final ExecutionSupervisor supervisor, final ControlRequest request, final String why) {
-    final boolean stop = ReviewVerdicts.isStop(request);
+    final boolean allow =
+        ReviewVerdicts.isStop(request)
+            || supervisor instanceof BoundSupervisor bound && bound.allowOnReviewTimeout();
     log.atWarn()
         .addKeyValue("supervisor", supervisor.id())
         .addKeyValue("timeout", timeout)
         .log(
-            stop ? "Supervisor: {}; allowing the stop" : "Supervisor: {}; refusing the command",
+            allow ? "Supervisor: {}; allowing the command" : "Supervisor: {}; refusing the command",
             why);
-    return stop ? Decision.ALLOW : Decision.deny(why);
+    return allow ? Decision.ALLOW : Decision.deny(why);
   }
 }
