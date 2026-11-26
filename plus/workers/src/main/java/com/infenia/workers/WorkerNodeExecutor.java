@@ -4,6 +4,8 @@ package com.infenia.workers;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.LogLevel;
+import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.RemoteFailureException;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
@@ -91,6 +93,8 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
           ctx.hasKey(WorkflowContext.HEARTBEAT_KEY)
               ? ctx.get(WorkflowContext.HEARTBEAT_KEY)
               : () -> {};
+      final PluginLogSink logSink =
+          ctx.getOrDefault(WorkflowContext.LOG_SINK_KEY, PluginLogSink.NOOP);
       final Flux<NodeFrame> out =
           Flux.concat(
               Mono.just(
@@ -107,7 +111,7 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
           .route("node.run")
           .data(out)
           .retrieveFlux(NodeFrame.class)
-          .<Message<?>>handle((frame, sink) -> answer(workerId, frame, heartbeat, sink))
+          .<Message<?>>handle((frame, sink) -> answer(workerId, frame, heartbeat, logSink, sink))
           .onErrorMap(WorkerNodeExecutor::isTransport, error -> lost(workerId, error))
           .doFinally(_ -> load.decrementAndGet());
     });
@@ -160,14 +164,31 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       final String workerId,
       final NodeFrame frame,
       final Runnable heartbeat,
+      final PluginLogSink logSink,
       final reactor.core.publisher.SynchronousSink<Message<?>> sink) {
     switch (frame.kind()) {
       case MESSAGE -> sink.next(mapper.convertValue(frame.message(), DefaultMessage.class));
       case HEARTBEAT -> heartbeat.run();
+      case LOG -> log(frame, logSink);
       case COMPLETE -> sink.complete();
       case ERROR -> sink.error(failure(workerId, frame));
       default -> sink.error(new WorkflowExecutionException("Unexpected frame from " + workerId));
     }
+  }
+
+  /** Hands a worker's live log line to the node's sink, as a local plugin would have. */
+  private static void log(final NodeFrame frame, final PluginLogSink logSink) {
+    final Map<String, Object> sent = frame.message();
+    final Map<String, Object> fields = sent != null ? sent : Map.of();
+    final String level = String.valueOf(fields.getOrDefault("level", ""));
+    logSink.line(
+        String.valueOf(fields.getOrDefault("stream", "stdout")),
+        String.valueOf(fields.getOrDefault("line", "")),
+        // a level this build does not know is rated by the engine
+        java.util.Arrays.stream(LogLevel.values())
+            .filter(known -> known.name().equals(level))
+            .findFirst()
+            .orElse(null));
   }
 
   private static RuntimeException failure(final String workerId, final NodeFrame frame) {

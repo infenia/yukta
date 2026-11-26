@@ -85,7 +85,7 @@ class RemoteNodeTest {
                 "yukta.workers.allow-insecure=true",
                 "yukta.workers.id=w1",
                 "yukta.workers.pools=default",
-                "yukta.workers.plugin-types=UPPER,BOOM,BAD,ABORT,HEART,CTX,HOLD,NOT_PROCESSOR",
+                "yukta.workers.plugin-types=UPPER,BOOM,BAD,ABORT,HEART,LOGS,CTX,HOLD,NOT_PROCESSOR",
                 "yukta.workers.capacity=1",
                 "yukta.workers.lease=3s")
             .run();
@@ -174,6 +174,29 @@ class RemoteNodeTest {
     StepVerifier.create(run("HEART", Flux.just(message("x")))).expectNextCount(1).verifyComplete();
 
     assertThat(BEATS.get()).isGreaterThan(before);
+  }
+
+  @Test
+  void pluginLogLines_reachTheControlPlanesLogSinkLive() {
+    final java.util.List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final com.infenia.yukta.plugin.core.PluginLogSink logSink =
+        (stream, line, level) -> lines.add(stream + " " + level + " " + line);
+
+    StepVerifier.create(
+            executor
+                .run("LOGS", "default", Flux.just(message("x")), Map.of())
+                .contextWrite(
+                    Context.of(
+                        "executionId",
+                        "e1",
+                        "nodeId",
+                        "n1",
+                        WorkflowContext.LOG_SINK_KEY,
+                        logSink)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(lines).containsExactly("stderr WARN from the worker");
   }
 
   @Test
