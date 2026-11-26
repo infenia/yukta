@@ -87,6 +87,9 @@ public class VariableResolver {
   /** Prefix for keys into the message metadata. */
   private static final String METADATA_PREFIX = "metadata.";
 
+  /** Prefix for the message's envelope fields ({@code ${message.traceId}}). */
+  private static final String MESSAGE_PREFIX = "message.";
+
   /** Provider for retrieving encrypted secrets. */
   private final SecretProvider secretProvider;
 
@@ -119,10 +122,12 @@ public class VariableResolver {
    *
    * <p>In addition to the message-independent sources, expressions may reference the message via
    * {@code ${payload}}, {@code ${payload.some.field}} (nested map access), and {@code
-   * ${metadata.someKey}}. When {@code message} is null, such expressions fall back to the default
-   * behavior of returning the key literally. {@code ${start.some.field}} reads the start payload of
-   * the run (what the run, or a parent's SUB_WORKFLOW, was started with), which every node can see
-   * however many nodes lie in between; the engine's own {@code yukta.*} entries stay hidden.
+   * ${metadata.someKey}}, and the envelope via {@code ${message.id}}, {@code ${message.traceId}},
+   * {@code ${message.sequenceNumber}} and the other fields of {@link Message}. When {@code message}
+   * is null, such expressions fall back to the default behavior of returning the key literally.
+   * {@code ${start.some.field}} reads the start payload of the run (what the run, or a parent's
+   * SUB_WORKFLOW, was started with), which every node can see however many nodes lie in between;
+   * the engine's own {@code yukta.*} entries stay hidden.
    *
    * @param value the value to resolve
    * @param message the message being processed, or null when no message context is available
@@ -236,7 +241,10 @@ public class VariableResolver {
   }
 
   private boolean isMessageKey(final String key) {
-    return PAYLOAD.equals(key) || key.startsWith(PAYLOAD_PREFIX) || key.startsWith(METADATA_PREFIX);
+    return PAYLOAD.equals(key)
+        || key.startsWith(PAYLOAD_PREFIX)
+        || key.startsWith(METADATA_PREFIX)
+        || key.startsWith(MESSAGE_PREFIX);
   }
 
   private Mono<Object> resolveMessageValue(final String key, final Message<?> message) {
@@ -246,7 +254,38 @@ public class VariableResolver {
     if (key.startsWith(PAYLOAD_PREFIX)) {
       return Mono.justOrEmpty(getNested(message.payload(), key.substring(PAYLOAD_PREFIX.length())));
     }
+    if (key.startsWith(MESSAGE_PREFIX)) {
+      return envelopeField(key, message);
+    }
     return Mono.justOrEmpty(message.metadata().get(key.substring(METADATA_PREFIX.length())));
+  }
+
+  /** A field of the message envelope; an unknown name stays literal, like any unknown key. */
+  @SuppressWarnings("PMD.CyclomaticComplexity") // one arm per field
+  private static Mono<Object> envelopeField(final String key, final Message<?> message) {
+    final Object value =
+        switch (key.substring(MESSAGE_PREFIX.length())) {
+          case "id" -> message.id();
+          case "traceId" -> message.traceId();
+          case "correlationId" -> message.correlationId();
+          case "replyTo" -> message.replyTo();
+          case "timestamp" -> String.valueOf(message.timestamp());
+          case "expiration" -> message.expiration();
+          case "formatIndicator" -> message.formatIndicator();
+          case "sourceNodeId" -> message.sourceNodeId();
+          case "sourcePort" -> message.sourcePort();
+          case "workflowId" -> message.workflowId();
+          case "messageHistory" -> message.messageHistory();
+          case "sequenceId" -> message.sequenceId();
+          case "sequenceNumber" -> message.sequenceNumber();
+          case "sequenceSize" -> message.sequenceSize();
+          case "priority" -> message.priority();
+          case "retryCount" -> message.retryCount();
+          case "origDest" -> message.origDest();
+          case "failureReason" -> message.failureReason();
+          default -> key;
+        };
+    return Mono.justOrEmpty(value);
   }
 
   private Object getNested(final Object obj, final String path) {
