@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.service.worker.WorkerRegistry;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
@@ -197,6 +198,7 @@ class WorkersTlsTest {
   }
 
   @Test
+  @ExpectedErrorLog(sometimes = "dropped error: .*Connection refused")
   void workerStartedBeforeTheControlPlane_keepsRetrying_untilItIsUp(@TempDir final Path dir)
       throws IOException, InterruptedException {
     identity(dir, "server");
