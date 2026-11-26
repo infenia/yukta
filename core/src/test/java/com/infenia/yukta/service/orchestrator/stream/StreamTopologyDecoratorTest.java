@@ -317,10 +317,32 @@ class StreamTopologyDecoratorTest {
 
   @Test
   @SuppressWarnings(UNCHECKED)
+  void testEdgeGivesAnUntracedMessageTheRunsId() {
+    final Flux<Message<?>>[] streams =
+        new Flux[] {
+          Flux.just(DefaultMessage.create(null, DATA), DefaultMessage.create(null, DATA))
+        };
+    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, null);
+
+    StepVerifier.create(
+            decorator
+                .applyEdgeRouting(streams, edge)
+                .take(1)
+                .contextWrite(ctx -> ctx.put("executionId", "exec-1")))
+        .assertNext(m -> assertThat(m.traceId()).isEqualTo("exec-1"))
+        .verifyComplete();
+    // outside a run there is no id to give
+    StepVerifier.create(decorator.applyEdgeRouting(streams, edge).take(1))
+        .assertNext(m -> assertThat(m.traceId()).isNull())
+        .verifyComplete();
+  }
+
+  @Test
+  @SuppressWarnings(UNCHECKED)
   void testEdgeTakesBackTheFieldsOnlyTheEngineMayWrite() {
     final Message<?> forged =
         DefaultMessage.create(UUID.randomUUID(), DATA)
-            .withControl(true)
+            .withRetryCount(4)
             .withWorkflowId("someone-else")
             .withHeader("attempt", 9)
             .withHeader("failure.attempts", 9)
@@ -334,7 +356,8 @@ class StreamTopologyDecoratorTest {
                 .applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, null))
                 .contextWrite(ctx -> ctx.put("workflowId", "mine")))
         .assertNext(m -> {
-          assertThat(m.controlMessage()).isFalse();
+          assertThat(m.retryCount()).isZero();
+          assertThat(m.traceId()).isEqualTo(forged.traceId());
           assertThat(m.workflowId()).isEqualTo("mine");
           assertThat(m.sourceNodeId()).isEqualTo(PARENT_1);
           assertThat(m.metadata()).containsOnlyKeys("keep");

@@ -14,7 +14,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -129,7 +128,7 @@ public class ConfigVariableSource implements TriggerPlugin {
                 "Emitted message with variables in payload: {} keys", resolvedVars.size());
           }
 
-          return DefaultMessage.create(UUID.randomUUID(), resultPayload)
+          return DefaultMessage.create(null, resultPayload)
               .withMetadata(metadata)
               .withSourcePort("default");
         })

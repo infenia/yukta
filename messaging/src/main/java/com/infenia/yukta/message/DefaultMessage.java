@@ -30,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
  * @param sequenceNumber index of this message in a sequence
  * @param sequenceSize total number of messages in the sequence
  * @param priority message priority
- * @param controlMessage indicates if this is a control message
  * @param origDest destination before failure
  * @param failureReason reason for failure
  * @param exceptionDetail detailed exception info
@@ -57,7 +56,6 @@ public record DefaultMessage<T>(
     @With int sequenceNumber,
     @With int sequenceSize,
     @With int priority,
-    @With boolean controlMessage,
     @With String origDest,
     @With String failureReason,
     @With String exceptionDetail,
@@ -100,11 +98,6 @@ public record DefaultMessage<T>(
   @Override
   public Message<T> withSequence(final String sid, final int pos, final int total) {
     return toBuilder().sequenceId(sid).sequenceNumber(pos).sequenceSize(total).build();
-  }
-
-  @Override
-  public Message<T> withControl(final boolean control) {
-    return withControlMessage(control);
   }
 
   @Override
@@ -204,7 +197,6 @@ public record DefaultMessage<T>(
         .sequenceNumber(original.sequenceNumber())
         .sequenceSize(original.sequenceSize())
         .priority(original.priority())
-        .controlMessage(original.controlMessage())
         .origDest(original.origDest())
         .failureReason(original.failureReason())
         .exceptionDetail(original.exceptionDetail())
@@ -239,7 +231,6 @@ public record DefaultMessage<T>(
         0,
         0,
         0,
-        false,
         null,
         null,
         null,
