@@ -185,11 +185,11 @@ test.describe('Runs - the table', () => {
   test('the footer counts the runs', async ({ page }) => {
     const mock = await mockRuns(page, [run(1)]);
     await page.goto('/runs');
-    await expect(page.getByText('1 run', { exact: true })).toBeVisible();
+    await expect(page.getByText('1–1 of 1 run', { exact: true })).toBeVisible();
 
     mock.set([run(1), run(2)]);
     await page.goto('/runs');
-    await expect(page.getByText('2 runs', { exact: true })).toBeVisible();
+    await expect(page.getByText('1–2 of 2 runs', { exact: true })).toBeVisible();
   });
 
   test('says so when nothing matches, and when the search fails it offers a retry', async ({
