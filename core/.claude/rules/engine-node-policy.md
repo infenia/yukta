@@ -42,7 +42,7 @@ Any node's config may carry a reserved `engine` object; plugins never see these 
 - `failureBudget {maxFailures, windowMs}` (needs `onError` CONTINUE or ROUTE): when more than
   `maxFailures` messages fail within the window, the node fails instead of dropping or routing the
   next one. Counted per run (`FailureLedger`).
-- `edgeBuffer {size, overflow}` (any node with a processor; `DROP_OLDEST` default or `DROP_NEWEST`): a bounded buffer in front of the node. When the node is slower than its parents it drops messages (counted in `yukta.edge.dropped{type=<node type>}`) instead of pacing the fan-out. Opt-in; the default stays lossless.
+- `edgeBuffer {size, overflow, order}` (any node with a processor; `DROP_OLDEST` default or `DROP_NEWEST`; `order` `FIFO` default or `PRIORITY`): a bounded buffer in front of the node. When the node is slower than its parents it drops messages (counted in `yukta.edge.dropped{type=<node type>}`) instead of pacing the fan-out. `PRIORITY` (`PriorityEdgeBuffer`) hands out the highest message `priority` first and drops the oldest or newest of the lowest priority. Opt-in; the default stays lossless.
 - `trigger` (nodes with several parents): `ALL_SUCCESS` (default, fail with a failing parent),
   `ALL_DONE` (continue on the other parents) or `ONE_SUCCESS` (continue, but fail if every parent
   failed).

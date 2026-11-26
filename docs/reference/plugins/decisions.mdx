@@ -52,6 +52,7 @@ Picks one label.
 | `question` | string | `Which label fits this?` | no | What is asked. |
 | `minProbability` | number | `0.6` | no | Below this the answer is uncertain. |
 | `routeByLabel` | boolean | `false` | no | Emit on a port per label. |
+| `priorityByLabel` | map | none | no | Label to the message `priority` it sets, for example `{"urgent": 10}`. Only a certain answer sets it; an `uncertain` one, or a label not listed, keeps the priority. With `engine.edgeBuffer.order: PRIORITY` on a later node, higher priorities go first. |
 
 - **Output ports:** `default`; with `routeByLabel`, one port per label plus `uncertain`.
 - **Result** (`into` default `classification`): `{choice, probability, probabilities, label, uncertain}`.

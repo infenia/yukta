@@ -113,6 +113,46 @@ class ClassifyPluginTest {
   }
 
   @Test
+  void process_priorityByLabel_setsThePriorityOfCertainAnswersOnly() {
+    final Map<String, Object> priorities = Map.of("bug", 10, "billing", "2");
+
+    final Message<?> certain =
+        run(
+            plugin(FakeModel.always(Map.of("label", choice("billing", 0.9)))),
+            config("priorityByLabel", priorities),
+            "x");
+    final Message<?> unsure =
+        run(
+            plugin(FakeModel.always(Map.of("label", choice("bug", 0.3)))),
+            config("priorityByLabel", priorities),
+            "x");
+    final Message<?> unlisted =
+        run(
+            plugin(FakeModel.always(Map.of("label", choice("bug", 0.9)))),
+            config("priorityByLabel", Map.of("billing", 2)),
+            "x");
+
+    assertThat(certain.priority()).isEqualTo(2);
+    assertThat(unsure.priority()).isZero();
+    assertThat(unlisted.priority()).isZero();
+  }
+
+  @Test
+  void validateConfig_priorityByLabel_mustNameLabelsWithWholeNumbers() {
+    final ClassifyPlugin plugin = plugin(FakeModel.always(Map.of()));
+
+    StepVerifier.create(plugin.validateConfig(config("priorityByLabel", Map.of("spam", 1))))
+        .expectErrorMessage("priorityByLabel names 'spam', which is not one of the labels")
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("priorityByLabel", Map.of("bug", "high"))))
+        .expectErrorMatches(
+            e -> e.getMessage().contains("priorityByLabel.bug must be a whole number"))
+        .verify();
+    StepVerifier.create(plugin.validateConfig(config("priorityByLabel", Map.of("bug", 3))))
+        .verifyComplete();
+  }
+
+  @Test
   void process_lowProbability_isUncertain() {
     final Message<?> out =
         run(
@@ -166,6 +206,7 @@ class ClassifyPluginTest {
             "question",
             "minProbability",
             "routeByLabel",
+            "priorityByLabel",
             "backend",
             "provider",
             "model",

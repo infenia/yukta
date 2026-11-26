@@ -117,6 +117,7 @@ public class WorkersAutoConfiguration {
    * @param plugins the plugins of this server
    * @param pluginTypes the plugin types this worker agreed to run, comma separated
    * @param mapper converts messages to and from plain JSON values
+   * @param capacity how many node attempts it runs at once (the same value the worker registers)
    * @return the runner
    */
   @Bean
@@ -124,8 +125,9 @@ public class WorkersAutoConfiguration {
   public NodeRunner nodeRunner(
       final PluginRegistry plugins,
       @Value("${yukta.workers.plugin-types:}") final String pluginTypes,
-      final ObjectMapper mapper) {
-    return new NodeRunner(plugins, WorkerTransport.split(pluginTypes), mapper);
+      final ObjectMapper mapper,
+      @Value("${yukta.workers.capacity:4}") final int capacity) {
+    return new NodeRunner(plugins, WorkerTransport.split(pluginTypes), mapper, capacity);
   }
 
   /**

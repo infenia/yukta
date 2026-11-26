@@ -259,6 +259,24 @@ class NodePolicyTest {
   }
 
   @Test
+  void edgeBufferOrderIsParsedAndDefaultsToFifo() {
+    assertThat(
+            NodePolicy.edgeBuffer(
+                Map.of("engine", Map.of("edgeBuffer", Map.of("size", 5, "order", "priority")))))
+        .isEqualTo(
+            new NodePolicy.EdgeBuffer(
+                5, NodePolicy.Overflow.DROP_OLDEST, NodePolicy.Order.PRIORITY));
+    assertThat(
+            NodePolicy.edgeBuffer(Map.of("engine", Map.of("edgeBuffer", Map.of("size", 5))))
+                .order())
+        .isEqualTo(NodePolicy.Order.FIFO);
+    assertThatThrownBy(() ->
+            NodePolicy.edgeBuffer(
+                Map.of("engine", Map.of("edgeBuffer", Map.of("size", 5, "order", "LIFO")))))
+        .hasMessageContaining("edgeBuffer.order");
+  }
+
+  @Test
   void edgeBuffer_branches() {
     assertThat(NodePolicy.edgeBuffer(null)).isNull();
     assertThat(NodePolicy.edgeBuffer(Map.of("engine", Map.of("onError", "CONTINUE")))).isNull();
