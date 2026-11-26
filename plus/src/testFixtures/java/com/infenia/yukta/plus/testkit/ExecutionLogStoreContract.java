@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
  * What every {@link ExecutionLogStore} must do. Extend it in the test of an implementation and
  * return a store that starts empty from {@link #create()}.
  */
+@SuppressWarnings("PMD.AvoidDuplicateLiterals") // run ids and statuses read better inline
 public abstract class ExecutionLogStoreContract {
 
   /** Creates the contract. */
