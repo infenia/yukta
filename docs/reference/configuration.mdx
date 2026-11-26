@@ -126,8 +126,8 @@ State is durable only in PostgreSQL (`yukta.session.store-type=postgres`), which
 | `yukta.restart.messages-per-node` | int | `200` | In-memory cap: messages per node and run. |
 | `yukta.restart.bytes-per-node` | long | `4194304` | In-memory cap: bytes per node and run. |
 | `yukta.restart.max-bytes-per-run` | long | `1073741824` | PostgreSQL checkpoints: most output (JSON text, counted by each server) one run records. A node whose output goes over it is marked incomplete, so a resume runs it again; what was recorded stays. |
-| `yukta.restart.auto-resume` | boolean | `false` | Resumes each interrupted run after recovery or takeover, one after another. |
-| `yukta.restart.store-type` | enum | `memory` | `memory` or `postgres` (PostgreSQL; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
+| `yukta.restart.auto-resume` | boolean | `false` (`true` in the `postgres` profile) | Resumes each interrupted run after recovery or takeover, one after another. |
+| `yukta.restart.store-type` | enum | `memory` (`postgres` in the `postgres` profile) | `memory` or `postgres` (PostgreSQL; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
 | `yukta.session.store-type` | enum | `in-memory` | `in-memory` or `postgres` (sessions, workflow definitions and the execution log in PostgreSQL); any other value stops start-up. The log line `Stores in use` names the store of each kind of data. |
 | `yukta.input.store-type` | enum | `memory` | `memory` or `postgres` (keeps input requests; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
 | `yukta.agents.store-type` | enum | `memory` | `postgres` keeps the conversations with AI agents across a restart (Plus; the `postgres` profile sets it). A conversation a restart left open is ended as `failure`, reason "server restarted"; terminal output is not stored, only the last screen; `memory` or `postgres` (needs `yukta.session.store-type=postgres`), any other value or combination stops start-up. |

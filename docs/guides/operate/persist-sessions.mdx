@@ -117,14 +117,13 @@ A file that cannot be read, is invalid or cannot be applied is logged and skippe
     The database owner's password is used only for this one-off setup. Keep it in your secret manager, not in the server's environment; the server needs only the two account passwords. Keep the host and database name in both URLs identical.
   </Step>
   <Step title="Move the other data you need">
-    Sessions, workflows and the execution log move with the profile. Each of these is a separate switch:
+    Sessions, workflows, the execution log, agent conversations and node checkpoints move with the profile, and interrupted runs are resumed on their own (`yukta.restart.auto-resume=true`). Input requests are a separate switch:
 
     ```properties
-    yukta.restart.store-type=postgres        # checkpoints, needed to resume runs
     yukta.input.store-type=postgres          # open input requests and their deliveries
     ```
 
-    A half-durable setup is allowed, so check each switch: a PostgreSQL log with in-memory checkpoints keeps run history but leaves nothing to resume from.
+    Each default of the profile can be turned off: `yukta.restart.auto-resume=false` to resume by hand, `yukta.restart.store-type=memory` to keep checkpoints in memory. A PostgreSQL log with in-memory checkpoints keeps run history but leaves nothing to resume from.
   </Step>
   <Step title="Size the connection pool">
     The profile keeps 4 to 20 connections, waits at most 5 s for one, and has the database stop any statement after 30 s. Change them through the environment, for example `SPRING_R2DBC_POOL_MAX_SIZE=40` when several busy servers share a large database. The `r2dbc.pool.*` metrics show how many connections are in use and how many callers wait.
@@ -135,7 +134,7 @@ A file that cannot be read, is invalid or cannot be applied is logged and skippe
 
 A restart marks every run that was in flight `ABORTED` at the next start, when the execution log is durable. Resume continues such a run as a new run: nodes that finished are not run again, and the others get the recorded outputs and run.
 
-You need the PostgreSQL execution log and PostgreSQL checkpoints (`yukta.restart.store-type=postgres`). Then:
+The `postgres` profile resumes them on its own. To resume one by hand (with `yukta.restart.auto-resume=false`, or a run that was skipped):
 
 ```bash
 yukta-cli workflow executions recover <execution-id>
@@ -143,7 +142,7 @@ yukta-cli workflow executions recover <execution-id>
 
 In the web UI, open the aborted run and select **Recover**. Over REST, call `POST /api/executions/{id}/recover`; the answer holds the new execution id.
 
-To resume interrupted runs on their own, set `yukta.restart.auto-resume=true`. Each recovery then resumes them one after another, and a run that cannot be resumed is logged and skipped.
+With auto-resume, each recovery resumes the interrupted runs one after another, and a run that cannot be resumed is logged and skipped.
 
 A run resumes once, and only if its workflow definition is unchanged. A node that waited for an approval when the server stopped asks again.
 
