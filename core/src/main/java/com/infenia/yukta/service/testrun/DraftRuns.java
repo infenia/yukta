@@ -107,7 +107,13 @@ public class DraftRuns {
       final List<WorkflowDefinition.Node> nodes,
       final List<WorkflowDefinition.Edge> edges) {
     return new WorkflowDefinition(
-        workflowId, draft.description(), nodes, edges, List.of(), draft.groupColors());
+        workflowId,
+        draft.description(),
+        nodes,
+        edges,
+        List.of(),
+        draft.groupColors(),
+        draft.admission());
   }
 
   /** The node and every node with a path to it. */

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -28,6 +29,8 @@ import reactor.test.StepVerifier;
 
 @SuppressWarnings("PMD.TooManyStaticImports")
 class WorkflowStarterTest {
+
+  private static final String DRAFT_ID = "__test__.x";
 
   @Test
   void startWithoutGuardIsRefusedWhenTheWorkflowIsUnknown() {
@@ -55,13 +58,12 @@ class WorkflowStarterTest {
     final ExecutionScheduler scheduler = mock(ExecutionScheduler.class);
     final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
     final WorkflowDefinition draft =
-        new WorkflowDefinition(
-            "__test__.x", "d", java.util.List.of(), java.util.List.of(), null, null);
+        new WorkflowDefinition(DRAFT_ID, "d", java.util.List.of(), java.util.List.of(), null, null);
     when(orchestrator.prepareWorkflow(draft)).thenReturn(Mono.just(prepared));
-    when(definitions.find("s", "__test__.x")).thenReturn(Mono.empty());
+    when(definitions.find("s", DRAFT_ID)).thenReturn(Mono.empty());
     final ExecutionScheduler.Admission admission =
         new ExecutionScheduler.Admission(true, Mono.empty());
-    when(scheduler.acquireStart(anyString(), anyString(), anyInt(), anyString()))
+    when(scheduler.acquireStart(anyString(), anyString(), anyInt(), anyString(), isNull()))
         .thenReturn(admission);
     when(orchestrator.execute(anyString(), anyString(), anyString(), any(), any(), any()))
         .thenReturn(Mono.empty());
@@ -78,7 +80,54 @@ class WorkflowStarterTest {
         .assertNext(id -> assertThat(id).isNotBlank())
         .verifyComplete();
 
-    verify(scheduler).assertCanAccept("s", "__test__.x");
+    verify(scheduler).assertCanAccept("s", DRAFT_ID);
     verify(cache, never()).put(any(), any(), any(), any());
+  }
+
+  @Test
+  void startClaimsItsConcurrencyKeyAndUnresolvableKeyStopsItBeforePreparing() {
+    final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
+    final ExecutionScheduler scheduler = mock(ExecutionScheduler.class);
+    final WorkflowDefinition draft =
+        new WorkflowDefinition(DRAFT_ID, "d", java.util.List.of(), java.util.List.of(), null, null);
+    final ExecutionScheduler.KeyClaim claim =
+        new ExecutionScheduler.KeyClaim("c1", 1, com.infenia.yukta.model.control.OnLimit.QUEUE);
+    final com.infenia.yukta.service.runtime.AdmissionKeys keys =
+        mock(com.infenia.yukta.service.runtime.AdmissionKeys.class);
+    when(keys.claim(draft, Map.of("customer", "c1"))).thenReturn(Mono.just(claim));
+    when(keys.claim(draft, Map.of()))
+        .thenReturn(Mono.error(new IllegalArgumentException("resolves to nothing")));
+    when(orchestrator.prepareWorkflow(draft)).thenReturn(Mono.just(mock(PreparedWorkflow.class)));
+    when(scheduler.acquireStart(anyString(), anyString(), anyInt(), anyString(), any()))
+        .thenReturn(new ExecutionScheduler.Admission(true, Mono.empty()));
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), any(), any()))
+        .thenReturn(Mono.empty());
+    final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);
+    when(definitions.find("s", DRAFT_ID)).thenReturn(Mono.empty());
+    final WorkflowStarter starter =
+        new WorkflowStarter(
+            definitions,
+            mock(PreparedWorkflowCache.class),
+            orchestrator,
+            scheduler,
+            new StartIdempotency(
+                Duration.ofMinutes(1), Ticker.systemTicker(), mock(ExecutionLogStore.class), 10));
+    starter.setAdmissionKeys(keys);
+
+    StepVerifier.create(starter.startDraft("s", draft, Map.of("customer", "c1")))
+        .expectNextCount(1)
+        .verifyComplete();
+    verify(scheduler)
+        .acquireStart(
+            org.mockito.ArgumentMatchers.eq("s"),
+            org.mockito.ArgumentMatchers.eq(DRAFT_ID),
+            anyInt(),
+            anyString(),
+            org.mockito.ArgumentMatchers.eq(claim));
+
+    StepVerifier.create(starter.startDraft("s", draft, Map.of()))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    verify(orchestrator, org.mockito.Mockito.times(1)).prepareWorkflow(draft);
   }
 }

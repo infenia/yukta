@@ -27,6 +27,7 @@ Reference for the scheduler, `Idempotency-Key`, control commands, stop modes and
   (`yukta.session.store-type=postgres`) the keys are written to it (`IDEMPOTENCY_KEY`) and reloaded on startup,
   so a client retrying after a restart still gets the first execution; the window restarts at the
   reload. `yukta.start.idempotency-max-keys` (default 100000) caps the cache; a key evicted before its TTL lets a repeat start again.
+- Concurrency keys: a workflow's optional `admission.concurrency {key, limit, overflow}` (`WorkflowAdmission`) allows at most `limit` runs at once per value of `key`, an expression over the start payload resolved by `AdmissionKeys` (`VariableResolver`; nothing resolved is `IllegalArgumentException`, HTTP 400). The claim (`ExecutionScheduler.KeyClaim`) is checked in `fits` under the scheduler lock and counted per (workflow, key) until the permit is released; a start held back only by its key waits or is refused as `overflow` says (`RejectReason.KEY_LIMIT`), not as `on-limit`. Starts (`WorkflowStarter`, set on the gateway by `setAdmissionKeys`), restarts, restarts from a node and resumes claim it (the latter three from the stored definition). Throttle and debounce (#849) are not built yet.
 - Waiting starts are admitted by priority: a start payload key `yukta.priority` (number, higher
   first, default 0), then arrival order. `ExecutionScheduler.setLimits` changes the limits at run time; through the gateway
   (`changeLimits`) the change is recorded in the log under run id `scheduler` (the newest

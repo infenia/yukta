@@ -11,6 +11,7 @@ import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.orchestrator.RestartPlan;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
+import com.infenia.yukta.service.runtime.AdmissionKeys;
 import com.infenia.yukta.service.runtime.ExecutionControl;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
@@ -52,6 +53,9 @@ public class RestartFromNodeCommandProcessor {
 
   /** Refuses a restart of a finished run that could neither run nor be queued. */
   private final ExecutionScheduler scheduler;
+
+  /** Works out which concurrency key a restarted run claims. */
+  private final AdmissionKeys admissionKeys;
 
   /** Receives the outcome of the restart. */
   private final RestartCompletionSink completionSink;
@@ -135,6 +139,18 @@ public class RestartFromNodeCommandProcessor {
       final RestartFromNodeCommand restart,
       final ArchivedExecution archived,
       final Map<String, List<Message<?>>> outputs) {
+    return admissionKeys
+        .claim(archived.sessionId(), archived.workflowId(), archived.payload())
+        .map(Optional::of)
+        .defaultIfEmpty(Optional.empty())
+        .flatMap(claim -> start(restart, archived, outputs, claim.orElse(null)));
+  }
+
+  private Mono<Void> start(
+      final RestartFromNodeCommand restart,
+      final ArchivedExecution archived,
+      final Map<String, List<Message<?>>> outputs,
+      final ExecutionScheduler.@Nullable KeyClaim claim) {
     final Optional<ExecutionControl> running = registry.findByExecutionId(restart.executionId());
     // The slot is taken before the new id is reported, so two restarts cannot both use the last
     // one. A running run gives up its slot when stopped, so it is not asked.
@@ -144,7 +160,8 @@ public class RestartFromNodeCommandProcessor {
                 archived.sessionId(),
                 archived.workflowId(),
                 ExecutionScheduler.priorityOf(archived.payload()),
-                restart.newExecutionId())
+                restart.newExecutionId(),
+                claim)
             : null;
     return admission != null && admission.refused()
         ? admission.permit().then()

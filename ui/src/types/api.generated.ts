@@ -5483,6 +5483,25 @@ export interface components {
             name?: string;
             passed?: boolean;
         };
+        /** @description At most `limit` runs at once that share a key */
+        Concurrency: {
+            /**
+             * @description Expression over the start payload that names the key
+             * @example ${payload.customerId}
+             */
+            key: string;
+            /**
+             * Format: int32
+             * @description Runs with the same key that may run at once
+             * @example 1
+             */
+            limit?: number;
+            /**
+             * @description What a start does when its key is at the limit (default QUEUE)
+             * @enum {string|null}
+             */
+            overflow?: "QUEUE" | "REJECT" | null;
+        };
         ConfigField: {
             defaultValue?: unknown;
             description?: string;
@@ -7090,8 +7109,15 @@ export interface components {
             usedSlots?: number;
             workerId?: string;
         };
+        /** @description How runs of this workflow are admitted, on top of the server's limits */
+        WorkflowAdmission: {
+            /** @description At most so many runs at once per key */
+            concurrency?: components["schemas"]["Concurrency"];
+        };
         /** @description Definition of a reactive workflow DAG */
         WorkflowDefinition: {
+            /** @description How runs are admitted on top of the server's limits */
+            admission?: components["schemas"]["WorkflowAdmission"];
             /** @description What supervisors own in this workflow; assigned when it is saved */
             assignments?: components["schemas"]["SupervisorRef"][];
             /**
@@ -7112,6 +7138,8 @@ export interface components {
         };
         /** @description Definition of a reactive workflow DAG */
         WorkflowDefinitionRequest: {
+            /** @description How runs are admitted on top of the server's limits */
+            admission?: components["schemas"]["WorkflowAdmission"];
             /** @description What supervisors own in this workflow; assigned when it is saved */
             assignments?: components["schemas"]["SupervisorRef"][];
             /**

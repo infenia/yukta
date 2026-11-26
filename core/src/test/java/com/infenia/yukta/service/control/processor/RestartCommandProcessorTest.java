@@ -46,6 +46,10 @@ import reactor.test.StepVerifier;
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.processor.RestartCommandProcessor - ")
 class RestartCommandProcessorTest {
 
+  /** Admission keys that never claim one. */
+  private static final com.infenia.yukta.service.runtime.AdmissionKeys NO_KEYS =
+      mock(com.infenia.yukta.service.runtime.AdmissionKeys.class, invocation -> Mono.empty());
+
   private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final RestartCompletionSink completionSink =
@@ -63,7 +67,8 @@ class RestartCommandProcessorTest {
     when(registry.findByExecutionId(argThat((String id) -> id != null && id.startsWith("new-"))))
         .thenReturn(Optional.of(mock(ExecutionControl.class)));
     processor =
-        new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
+        new RestartCommandProcessor(
+            registry, archive, orchestrator, scheduler, NO_KEYS, completionSink);
     archive.put(new ArchivedExecution("exec-1", "s1", "w1", prepared, "v1", Map.of("k", "v")));
   }
 
@@ -102,7 +107,8 @@ class RestartCommandProcessorTest {
     scheduler = ExecutionSchedulerFixture.create(1, 0, 0, OnLimit.REJECT, java.time.Duration.ZERO);
     scheduler.acquire("s1", "w1", 0, null);
     processor =
-        new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
+        new RestartCommandProcessor(
+            registry, archive, orchestrator, scheduler, NO_KEYS, completionSink);
 
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1")))
         .verifyError(ExecutionRejectedException.class);
@@ -116,7 +122,8 @@ class RestartCommandProcessorTest {
   void twoRestartsForTheLastSlot_onlyOneProceeds() {
     scheduler = ExecutionSchedulerFixture.create(1, 0, 0, OnLimit.REJECT, java.time.Duration.ZERO);
     processor =
-        new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
+        new RestartCommandProcessor(
+            registry, archive, orchestrator, scheduler, NO_KEYS, completionSink);
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
     when(orchestrator.execute(any(), any(), any(), any(), any(), any())).thenReturn(Mono.never());
 

@@ -43,6 +43,7 @@ import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.service.runtime.AdmissionKeys;
 import com.infenia.yukta.service.runtime.ExecutionControl;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import com.infenia.yukta.service.runtime.ExecutionSchedulerFixture;
@@ -3024,5 +3025,22 @@ class DefaultControlBusGatewayTest {
     when(control.executionId()).thenReturn(executionId);
     when(executionControlStore.findAllActiveByWorkflow(sessionId, workflowId))
         .thenReturn(List.of(control));
+  }
+
+  @Test
+  void startWhoseConcurrencyKeyResolvesToNothing_isRefusedBeforeAnyRunIsStarted() {
+    final WorkflowDefinition def =
+        new WorkflowDefinition("w", "d", List.of(), List.of(), null, null);
+    when(workflowDefinitionStore.find("s", "w")).thenReturn(Mono.just(def));
+    final AdmissionKeys keys = mock(AdmissionKeys.class);
+    when(keys.claim(eq(def), anyMap()))
+        .thenReturn(Mono.error(new IllegalArgumentException("no key")));
+    gateway.setAdmissionKeys(keys);
+
+    StepVerifier.create(gateway.startWorkflow("s", "w", Map.of(), null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+
+    verify(keys).claim(eq(def), anyMap());
   }
 }

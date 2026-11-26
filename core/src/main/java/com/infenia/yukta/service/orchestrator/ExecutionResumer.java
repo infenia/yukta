@@ -11,6 +11,7 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.DefinitionVersion;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.runtime.AdmissionKeys;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.util.List;
@@ -22,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -56,6 +58,9 @@ public class ExecutionResumer {
 
   /** Admits the resumed execution like any other start. */
   private final ExecutionScheduler scheduler;
+
+  /** Works out which concurrency key a resumed run claims. */
+  private final AdmissionKeys admissionKeys;
 
   /** Runs being resumed or already resumed by this process; a claim is kept once it succeeded. */
   private final Set<String> resuming = ConcurrentHashMap.newKeySet();
@@ -119,12 +124,22 @@ public class ExecutionResumer {
                               + started.sessionId()
                               + "/"
                               + started.workflowId())))
-              .flatMap(orchestrator::prepareWorkflow)
-              .flatMap(prepared -> start(started, prepared));
+              .flatMap(def ->
+                  admissionKeys
+                      .claim(def, Objects.requireNonNull(started.payload()))
+                      .map(java.util.Optional::of)
+                      .defaultIfEmpty(java.util.Optional.empty())
+                      .flatMap(claim ->
+                          orchestrator
+                              .prepareWorkflow(def)
+                              .flatMap(prepared -> start(started, prepared, claim.orElse(null)))));
         });
   }
 
-  private Mono<String> start(final ExecutionLogEvent started, final PreparedWorkflow prepared) {
+  private Mono<String> start(
+      final ExecutionLogEvent started,
+      final PreparedWorkflow prepared,
+      final ExecutionScheduler.@Nullable KeyClaim claim) {
     if (!DefinitionVersion.of(prepared).equals(started.definitionVersion())) {
       return Mono.error(
           new ConflictException(
@@ -136,13 +151,14 @@ public class ExecutionResumer {
         .map(WorkflowNode::nodeId)
         .filterWhen(node -> checkpointStore.finishedAsync(started.executionId(), node))
         .collect(Collectors.toSet())
-        .flatMap(finished -> resumeFrom(started, prepared, finished));
+        .flatMap(finished -> resumeFrom(started, prepared, finished, claim));
   }
 
   private Mono<String> resumeFrom(
       final ExecutionLogEvent started,
       final PreparedWorkflow prepared,
-      final Set<String> finished) {
+      final Set<String> finished,
+      final ExecutionScheduler.@Nullable KeyClaim claim) {
     final RestartPlan plan = RestartPlan.resuming(prepared, finished);
     if (plan.rerun().isEmpty()) {
       return Mono.error(
@@ -165,7 +181,8 @@ public class ExecutionResumer {
                   started.sessionId(),
                   started.workflowId(),
                   ExecutionScheduler.priorityOf(payload),
-                  newId);
+                  newId,
+                  claim);
           if (admission.refused()) {
             return admission.permit().then();
           }

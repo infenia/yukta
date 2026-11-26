@@ -22,7 +22,7 @@ class WaitQueueTest {
   private static Waiter waiter(
       final WorkflowKey key, final String executionId, final int priority) {
     return new Waiter(
-        key, executionId, new AtomicInteger(priority), Sinks.one(), new AtomicReference<>());
+        key, executionId, new AtomicInteger(priority), Sinks.one(), new AtomicReference<>(), null);
   }
 
   @Test

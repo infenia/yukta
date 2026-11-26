@@ -5,6 +5,7 @@ package com.infenia.yukta.dto.request;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
+import com.infenia.yukta.model.workflow.WorkflowAdmission;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Palette;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -30,6 +31,7 @@ import org.jspecify.annotations.Nullable;
  * @param edges the list of edges connecting the nodes
  * @param supervisors the supervisors declared for this workflow, attached when it is saved
  * @param groupColors the palette color of a group (by group name), for display only
+ * @param admission how runs are admitted on top of the server's limits, or null for nothing more
  */
 @Schema(description = "Definition of a reactive workflow DAG")
 public record WorkflowDefinitionRequest(
@@ -60,7 +62,30 @@ public record WorkflowDefinitionRequest(
             nullable = true)
         @Size(max = 500, message = "At most 500 group colors")
         Map<@NotBlank String, @Pattern(regexp = Palette.REGEX, message = Palette.MESSAGE) String>
-            groupColors) {
+            groupColors,
+    @Schema(description = "How runs are admitted on top of the server's limits", nullable = true)
+        @Valid
+        @Nullable WorkflowAdmission admission) {
+
+  /**
+   * A workflow without admission settings.
+   *
+   * @param workflowId unique identifier for the workflow
+   * @param description a human-readable description of the workflow
+   * @param nodes the list of nodes in the DAG
+   * @param edges the list of edges connecting the nodes
+   * @param supervisors the supervisors declared for this workflow
+   * @param groupColors the palette color of a group (by group name), for display only
+   */
+  public WorkflowDefinitionRequest(
+      final String workflowId,
+      final String description,
+      final List<NodeRequest> nodes,
+      final List<EdgeRequest> edges,
+      final List<SupervisorRef> supervisors,
+      final Map<String, String> groupColors) {
+    this(workflowId, description, nodes, edges, supervisors, groupColors, null);
+  }
 
   /**
    * A workflow without group colors.

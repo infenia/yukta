@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +51,10 @@ import reactor.test.StepVerifier;
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.ExecutionResumer - ")
 class ExecutionResumerTest {
 
+  /** Admission keys that never claim one. */
+  private static final com.infenia.yukta.service.runtime.AdmissionKeys NO_KEYS =
+      mock(com.infenia.yukta.service.runtime.AdmissionKeys.class, invocation -> Mono.empty());
+
   private static final Map<String, Object> PAYLOAD = Map.of("k", "v");
 
   private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
@@ -60,7 +65,7 @@ class ExecutionResumerTest {
       ExecutionSchedulerFixture.create(0, 0, 100, OnLimit.QUEUE, Duration.ofSeconds(30));
   private final PreparedWorkflow prepared = chain();
   private final ExecutionResumer resumer =
-      new ExecutionResumer(log, checkpoints, definitions, orchestrator, scheduler);
+      new ExecutionResumer(log, checkpoints, definitions, orchestrator, scheduler, NO_KEYS);
 
   private static WorkflowNode node(final String nodeId) {
     return new WorkflowNode(nodeId, "t", Map.of());
@@ -144,7 +149,7 @@ class ExecutionResumerTest {
         ExecutionSchedulerFixture.create(1, 0, 100, OnLimit.QUEUE, Duration.ofSeconds(30));
 
     StepVerifier.create(
-            new ExecutionResumer(failing, checkpoints, definitions, orchestrator, limited)
+            new ExecutionResumer(failing, checkpoints, definitions, orchestrator, limited, NO_KEYS)
                 .resume("old"))
         .expectErrorMessage("disk full")
         .verify();
@@ -197,7 +202,7 @@ class ExecutionResumerTest {
   void finishedNodeWhoseOutputWasTruncated_runsAgain() {
     final InMemoryNodeCheckpointStore small = new InMemoryNodeCheckpointStore(1);
     final ExecutionResumer strict =
-        new ExecutionResumer(log, small, definitions, orchestrator, scheduler);
+        new ExecutionResumer(log, small, definitions, orchestrator, scheduler, NO_KEYS);
     abortedRun(DefinitionVersion.of(prepared));
     log.append(ExecutionLogEvent.nodeFinished("old", "s", "w", "a"));
     small.save("old", "a", DefaultMessage.create(UUID.randomUUID(), 1)).block();
@@ -323,7 +328,7 @@ class ExecutionResumerTest {
 
     StepVerifier.create(resumer.resume("old")).expectNextCount(1).verifyComplete();
 
-    verify(orchestrator, org.mockito.Mockito.timeout(2000))
+    verify(orchestrator, timeout(2000))
         .rerun(
             anyString(),
             anyString(),
@@ -362,7 +367,7 @@ class ExecutionResumerTest {
         ExecutionSchedulerFixture.create(1, 0, 0, OnLimit.REJECT, Duration.ZERO);
     full.acquire("s", "w", 0, null);
     final ExecutionResumer limited =
-        new ExecutionResumer(log, checkpoints, definitions, orchestrator, full);
+        new ExecutionResumer(log, checkpoints, definitions, orchestrator, full, NO_KEYS);
 
     StepVerifier.create(limited.resume("old")).verifyError(ExecutionRejectedException.class);
 
