@@ -24,7 +24,8 @@ class SupervisorCommonSettingsTest {
             "observeInternal",
             "operatorAccess",
             "initiative",
-            "maxInitiativePerMinute");
+            "maxInitiativePerMinute",
+            "onReviewTimeout");
   }
 
   @Test

@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.hibernate.validator.constraints.time.DurationMin;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.boot.context.properties.bind.Name;
@@ -118,11 +119,22 @@ public record YuktaProperties(
    * @param compactAfter appended events after which the log is trimmed
    * @param minRunsPerSession newest runs each session keeps even when a busier one pushes them out
    *     of {@code retainedRuns} (at most half of it)
+   * @param maxAge runs that ended longer ago than this are removed, with their checkpoints, by an
+   *     hourly job on the leader; null (the default) keeps runs by count only
    */
   public record ExecutionLog(
       @Min(1) @DefaultValue("500") int retainedRuns,
       @Min(1) @DefaultValue("10000") int compactAfter,
-      @Min(0) @DefaultValue("10") int minRunsPerSession) {}
+      @Min(0) @DefaultValue("10") int minRunsPerSession,
+      @Nullable Duration maxAge) {
+
+    /** Checks that a maximum age, when set, is positive. */
+    public ExecutionLog {
+      if (maxAge != null && (maxAge.isZero() || maxAge.isNegative())) {
+        throw new IllegalArgumentException("yukta.execution-log.max-age must be positive");
+      }
+    }
+  }
 
   /**
    * Checkpoints kept for restarts.

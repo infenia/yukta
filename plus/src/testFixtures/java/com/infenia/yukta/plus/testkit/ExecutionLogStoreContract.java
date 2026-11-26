@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
  * What every {@link ExecutionLogStore} must do. Extend it in the test of an implementation and
  * return a store that starts empty from {@link #create()}.
  */
+@SuppressWarnings("PMD.AvoidDuplicateLiterals") // run ids and statuses read better inline
 public abstract class ExecutionLogStoreContract {
 
   /** Creates the contract. */
@@ -56,6 +57,54 @@ public abstract class ExecutionLogStoreContract {
     assertThat(store.readAll().collectList().block())
         .extracting(ExecutionLogEvent::initiator)
         .containsExactly("yk check", null);
+  }
+
+  @Test
+  void purgeEndedBefore_removesEndedRunsOnly() {
+    final ExecutionLogStore store = create();
+    final ExecutionLogEvent open = ExecutionLogEvent.started("open", "s", "w", "v");
+    final ExecutionLogEvent aborted = ExecutionLogEvent.started("aborted", "s", "w", "v");
+    store.append(ExecutionLogEvent.started("done", "s", "w", "v"));
+    store.append(ExecutionLogEvent.finished("done", "s", "w", "SUCCESS", Map.of()));
+    store.append(aborted);
+    store.append(ExecutionLogEvent.aborted(aborted));
+    store.append(open);
+    store.append(ExecutionLogEvent.limitsChanged(1, 1));
+
+    final List<String> gone =
+        store.purgeEndedBefore(java.time.Instant.now().plusSeconds(60)).block();
+
+    assertThat(gone).containsExactlyInAnyOrder("done", "aborted");
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("open", ExecutionLogEvent.SCHEDULER);
+  }
+
+  @Test
+  void purgeEndedBefore_removesEveryEndedRunEvenWhenThereAreMoreThanOneBatch() {
+    final ExecutionLogStore store = create();
+    final int runs = 250;
+    for (int i = 0; i < runs; i++) {
+      final String id = "run-" + i;
+      store.append(ExecutionLogEvent.started(id, "s", "w", "v"));
+      store.append(ExecutionLogEvent.finished(id, "s", "w", "SUCCESS", Map.of()));
+    }
+
+    final List<String> gone =
+        store.purgeEndedBefore(java.time.Instant.now().plusSeconds(60)).block();
+
+    assertThat(gone).hasSize(runs).doesNotHaveDuplicates();
+    assertThat(store.readAll().collectList().block()).isEmpty();
+  }
+
+  @Test
+  void purgeEndedBefore_keepsRunsThatEndedAfterTheCutoff() {
+    final ExecutionLogStore store = create();
+    store.append(ExecutionLogEvent.started("done", "s", "w", "v"));
+    store.append(ExecutionLogEvent.finished("done", "s", "w", "SUCCESS", Map.of()));
+
+    assertThat(store.purgeEndedBefore(java.time.Instant.now().minusSeconds(60)).block()).isEmpty();
+    assertThat(store.readAll().collectList().block()).hasSize(2);
   }
 
   @Test

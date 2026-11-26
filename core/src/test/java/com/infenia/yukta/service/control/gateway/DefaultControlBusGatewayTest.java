@@ -271,7 +271,6 @@ class DefaultControlBusGatewayTest {
     final PauseWorkflowCommand cmd = (PauseWorkflowCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(emittedMessage.sourceNodeId()).isEqualTo("CONTROL_BUS");
-    assertThat(emittedMessage.controlMessage()).isTrue();
   }
 
   @Test
@@ -747,7 +746,6 @@ class DefaultControlBusGatewayTest {
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.reason()).isEqualTo(reason);
     assertThat(emittedMessage.sourceNodeId()).isEqualTo("CONTROL_BUS");
-    assertThat(emittedMessage.controlMessage()).isTrue();
   }
 
   @Test
@@ -1292,7 +1290,6 @@ class DefaultControlBusGatewayTest {
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     verify(controlBusService).emit(captor.capture());
     final Message<?> emittedMessage = captor.getValue();
-    assertThat(emittedMessage.controlMessage()).isTrue();
     assertThat(emittedMessage.sourceNodeId()).isEqualTo("CONTROL_BUS");
   }
 

@@ -49,8 +49,11 @@ def pump(until, seconds):
 def plain():
     return re.sub(rb"\x1b\[[0-9;?$]*[a-zA-Z]", b"", buf)  # the dashboard is styled: match the text
 
-pump(lambda: b"health UP" in plain(), 60)
-if b"health UP" not in plain():
+def up():
+    return re.search("[\u25cf\u25c9] UP", plain().decode(errors="replace"))  # header: "● UP", the dot blinks to ◉
+
+pump(up, 60)
+if not up():
     text = plain().decode(errors="replace")
     sys.exit("console smoke: no dashboard on the terminal:\n" + text[:1200])
 # keys (normal and application keypad arrows, PgUp, Home) and a resize must not break the loop

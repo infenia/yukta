@@ -1031,6 +1031,7 @@ public class SupervisorService {
 
   /** What the supervisor lets its supervisor do; an unknown command name is refused. */
   private SupervisorCapabilities capabilities(final Supervisor supervisor) {
+    SupervisorCapabilities.allowsOnReviewTimeout(supervisor.settings()); // refuses a bad value
     final SupervisorFactory factory = factory(supervisor);
     return SupervisorCapabilities.from(supervisor, factory.defaultAllowedCommands(supervisor));
   }
@@ -1065,7 +1066,8 @@ public class SupervisorService {
             supervisor.dryRun(),
             capabilities(supervisor),
             Boolean.TRUE.equals(supervisor.settings().get(SupervisorCapabilities.OBSERVE_INTERNAL)),
-            owned));
+            owned,
+            SupervisorCapabilities.allowsOnReviewTimeout(supervisor.settings())));
   }
 
   /**

@@ -4,14 +4,32 @@ package com.infenia.yukta.service.log;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class InMemoryExecutionLogStoreTest {
+
+  /** Copies an event with the given timestamp. */
+  private static final BiFunction<ExecutionLogEvent, Instant, ExecutionLogEvent> WITH_TIME =
+      (event, time) ->
+          new ExecutionLogEvent(
+              event.type(),
+              event.executionId(),
+              event.sessionId(),
+              event.workflowId(),
+              event.definitionVersion(),
+              event.status(),
+              event.nodeStatuses(),
+              event.nodeId(),
+              event.payload(),
+              time,
+              event.initiator());
 
   @Test
   void eventFactories_fillTheRightFields() {
@@ -179,5 +197,30 @@ class InMemoryExecutionLogStoreTest {
                 .block())
         .containsExactly("e1");
     assertThat(store.newest(started, "none", 5).collectList().block()).isEmpty();
+  }
+
+  @Test
+  void purgeEndedBefore_goesByTheLastStartOrEnd_andKeepsOpenRunsAndTheScheduler() {
+    final InMemoryExecutionLogStore store = new InMemoryExecutionLogStore();
+    final Instant old = Instant.parse("2026-01-01T00:00:00Z");
+    final Instant recent = Instant.parse("2026-06-01T00:00:00Z");
+    final ExecutionLogEvent oldStart = ExecutionLogEvent.started("old", "s", "w", "v");
+    store.append(WITH_TIME.apply(oldStart, old.plusSeconds(5)));
+    store.append(
+        WITH_TIME.apply(ExecutionLogEvent.finished("old", "s", "w", "SUCCESS", Map.of()), old));
+    store.append(WITH_TIME.apply(ExecutionLogEvent.nodeFinished("old", "s", "w", "n"), recent));
+    store.append(WITH_TIME.apply(ExecutionLogEvent.started("late", "s", "w", "v"), old));
+    store.append(
+        WITH_TIME.apply(ExecutionLogEvent.finished("late", "s", "w", "SUCCESS", Map.of()), recent));
+    store.append(WITH_TIME.apply(ExecutionLogEvent.started("open", "s", "w", "v"), old));
+    store.append(WITH_TIME.apply(ExecutionLogEvent.limitsChanged(1, 1), old));
+
+    assertThat(store.purgeEndedBefore(Instant.parse("2026-03-01T00:00:00Z")).block())
+        .containsExactly("old");
+    assertThat(store.forExecution("old").collectList().block()).isEmpty();
+    assertThat(store.readAll().collectList().block())
+        .extracting(ExecutionLogEvent::executionId)
+        .containsExactly("late", "late", "open", ExecutionLogEvent.SCHEDULER);
+    assertThat(store.purgeEndedBefore(Instant.parse("2026-03-01T00:00:00Z")).block()).isEmpty();
   }
 }

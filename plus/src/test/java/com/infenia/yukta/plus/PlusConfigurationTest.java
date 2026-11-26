@@ -33,6 +33,7 @@ class PlusConfigurationTest {
     runner.run(context -> {
       final EditionInfo edition = context.getBean(EditionInfo.class);
       assertThat(edition.edition()).isEqualTo(Edition.PLUS);
+      assertThat(edition.license()).isEqualTo(Edition.PLUS.getLicense());
       assertThat(edition.features()).isEmpty();
       final Info.Builder info = new Info.Builder();
       context.getBean(InfoContributor.class).contribute(info);
@@ -70,6 +71,7 @@ class PlusConfigurationTest {
         .run(context -> {
           final EditionInfo edition = context.getBean(EditionInfo.class);
           assertThat(edition.edition()).isEqualTo(Edition.ENTERPRISE);
+          assertThat(edition.license()).isEqualTo(Edition.ENTERPRISE.getLicense());
           assertThat(edition.features()).containsExactly("sso");
         });
   }
@@ -82,5 +84,11 @@ class PlusConfigurationTest {
     assertThat(PlusConfiguration.features(name -> false, none)).isEmpty();
     assertThat(PlusConfiguration.features(name -> true, none))
         .containsExactly("postgres", "high-availability", "remote-workers");
+  }
+
+  @Test
+  void present_tellsWhetherTheClassIsOnTheClasspath() {
+    assertThat(PlusConfiguration.present("java.lang.String")).isTrue();
+    assertThat(PlusConfiguration.present("com.infenia.NoSuchClass")).isFalse();
   }
 }

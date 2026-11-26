@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.log;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +20,13 @@ import reactor.core.publisher.Mono;
  * appended events; a run without an end is never dropped.
  */
 public class InMemoryExecutionLogStore implements ExecutionLogStore {
+
+  /** The events that start and end a run: the age of a run is the time of the last of them. */
+  private static final Set<ExecutionLogEvent.Type> EDGES =
+      Set.of(
+          ExecutionLogEvent.Type.RUN_STARTED,
+          ExecutionLogEvent.Type.RUN_FINISHED,
+          ExecutionLogEvent.Type.RUN_ABORTED);
 
   /** Runs that survive a trim. */
   private final int retainedRuns;
@@ -114,6 +122,48 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
         lock.unlock();
       }
     });
+  }
+
+  @Override
+  public Mono<List<String>> purgeEndedBefore(final Instant cutoff) {
+    return Mono.fromSupplier(() -> {
+      lock.lock();
+      try {
+        final List<String> gone = new ArrayList<>();
+        for (final Map.Entry<String, List<ExecutionLogEvent>> run : byRun.entrySet()) {
+          if (!ExecutionLogEvent.SCHEDULER.equals(run.getKey())
+              && endedBefore(run.getValue(), cutoff)) {
+            gone.add(run.getKey());
+          }
+        }
+        if (!gone.isEmpty()) {
+          final Set<String> drop = Set.copyOf(gone);
+          events =
+              new ArrayList<>(
+                  events.stream().filter(e -> !drop.contains(e.executionId())).toList());
+          reindex();
+        }
+        return gone;
+      } finally {
+        lock.unlock();
+      }
+    });
+  }
+
+  /** Whether the run has an end and its last start or end is older than {@code cutoff}. */
+  private static boolean endedBefore(final List<ExecutionLogEvent> run, final Instant cutoff) {
+    boolean ended = false;
+    Instant last = Instant.MIN;
+    for (final ExecutionLogEvent event : run) {
+      final ExecutionLogEvent.Type type = event.type();
+      if (EDGES.contains(type)) {
+        ended |= type != ExecutionLogEvent.Type.RUN_STARTED;
+        if (event.timestamp().isAfter(last)) {
+          last = event.timestamp();
+        }
+      }
+    }
+    return ended && last.isBefore(cutoff);
   }
 
   @Override

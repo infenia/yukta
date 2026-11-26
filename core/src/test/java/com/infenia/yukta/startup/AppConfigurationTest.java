@@ -126,7 +126,7 @@ class AppConfigurationTest {
   @Test
   void applyLogRetentionFloor_handsTheSettingToTheLogRetention() {
     final YuktaProperties properties = mock(YuktaProperties.class);
-    when(properties.executionLog()).thenReturn(new YuktaProperties.ExecutionLog(20, 100, 1));
+    when(properties.executionLog()).thenReturn(new YuktaProperties.ExecutionLog(20, 100, 1, null));
     final List<String> runs = new java.util.ArrayList<>(List.of("quiet-1", "quiet-2"));
     for (int i = 0; i < 50; i++) {
       runs.add("busy-" + i);
