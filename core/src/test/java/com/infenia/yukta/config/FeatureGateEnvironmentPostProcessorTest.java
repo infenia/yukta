@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -160,5 +161,13 @@ class FeatureGateEnvironmentPostProcessorTest {
             hook.postProcessEnvironment(
                 new MockEnvironment().withProperty(RESTART_DIR, "/tmp/r"), null))
         .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void providers_nameEachGatedModuleOnce() {
+    assertThat(FeatureGateEnvironmentPostProcessor.providers())
+        .containsExactlyInAnyOrder(
+            "com.infenia.yukta.persistence.postgres.PostgresPersistenceAutoConfiguration",
+            "com.infenia.workers.WorkersAutoConfiguration");
   }
 }
