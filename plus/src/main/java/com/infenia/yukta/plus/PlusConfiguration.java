@@ -61,13 +61,19 @@ public class PlusConfiguration {
   public EditionInfo editionInfo(
       final EnterpriseModuleRegistry registry,
       @Value("${yukta.plus.source-url:https://github.com/infenia/yukta}") final String source) {
-    final List<String> features = features(name -> ClassUtils.isPresent(name, null), registry);
-    final boolean enterprise = !registry.installed().isEmpty();
+    final Edition edition = registry.installed().isEmpty() ? Edition.PLUS : Edition.ENTERPRISE;
     return new EditionInfo(
-        enterprise ? Edition.ENTERPRISE : Edition.PLUS,
-        enterprise ? Edition.ENTERPRISE.getLicense() : Edition.PLUS.getLicense(),
-        features,
-        source);
+        edition, edition.getLicense(), features(PlusConfiguration::present, registry), source);
+  }
+
+  /**
+   * Whether a class is on the classpath.
+   *
+   * @param name the class name
+   * @return true if it can be loaded
+   */
+  /* default */ static boolean present(final String name) {
+    return ClassUtils.isPresent(name, null);
   }
 
   /**

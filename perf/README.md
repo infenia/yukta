@@ -7,8 +7,8 @@ per workflow from `k6/workflows.js`, then picks one in turn (round-robin), `POST
 `trigger-terminal,mapper,filter,chain10,fanout`. Also available: `process` (spawns `echo`, heavy). To cover
 another plugin, add an entry to `CATALOG`.
 
-Metrics (each also tagged `wf:<name>`, with a threshold per workflow): `workflow_e2e` (start to end),
-`workflow_success`, `workflow_rejected` (share of starts refused with HTTP 429; limit via `-e MAX_REJECTED=0.05`,
+Metrics (each also tagged `wf:<name>`, with a threshold per workflow): `workflow_e2e` (start to end;
+a run not final after the 100 polls counts with the time waited), `workflow_success`, `workflow_rejected` (share of starts refused with HTTP 429; limit via `-e MAX_REJECTED=0.05`,
 default 0.01), `poll_not_found` (status read 404 right after the 202, see KNOWN-ISSUES #5).
 
 Two checks catch what a pass on latency hides, both must be 0:
@@ -22,8 +22,8 @@ own status never turns final, so leave it off. Open problems found by these test
 
 ## PostgreSQL (`PERSISTENCE=postgres`)
 
-`PERSISTENCE=postgres perf/run.sh perf` runs the same workloads with the sessions, definitions, execution log and checkpoints in
-PostgreSQL, to show what the database costs per run. A `postgres:18-alpine` container (`PG_CPUS=2`, `PG_MEMORY=2g`, no swap) joins the
+`PERSISTENCE=postgres perf/run.sh perf` runs the same workloads with the sessions, definitions, execution log, checkpoints and input
+requests in PostgreSQL (`run.sh` sets `YUKTA_RESTART_STORE_TYPE` and `YUKTA_INPUT_STORE_TYPE`, which the profile leaves in memory), to show what the database costs per run. A `postgres:18-alpine` container (`PG_CPUS=2`, `PG_MEMORY=2g`, no swap) joins the
 server's compose project and the server starts on the `prod,postgres` profile. The binary must be the Plus flavour:
 `YUKTA_BUILD_FLAGS="-Pyukta.persistence=postgres -Pyukta.workers=true" NATIVE_QUICK=1 release/build-server.sh`, then
 `BINARY=dist/linux-amd64/yukta PERSISTENCE=postgres perf/run.sh perf`. Compare a run with `PERSISTENCE=memory` (the default) on the
@@ -147,6 +147,9 @@ Env: `BASE_URL` (default `http://localhost:9858`), `API_KEY` (if `yukta.api-keys
 
 `jvm_memory_used`, `jvm_threads_live` and `process_cpu_usage` are sampled every 30s from
 `/actuator/metrics`. Use `--out json=soak.json` to see the trend over time: heap and thread
-count should plateau; steady growth means a leak. Bound server memory with
+count should plateau; steady growth means a leak. The soak fails when, at its end, used JVM memory
+has grown more than `SOAK_MAX_HEAP_GROWTH_MB` (default 512) or live threads more than
+`SOAK_MAX_THREAD_GROWTH` (default 50) since the first sample after `SOAK_WARMUP_S` (default 300 s)
+(`jvm_memory_growth_mb`, `jvm_threads_growth`). Bound server memory with
 `yukta.tracker.cleanup-ttl`, `yukta.execution-log.retained-runs`; throttle with
 `yukta.execution.max-concurrent` / `queue-capacity` (HTTP 429 shows up as `workflow_rejected`).

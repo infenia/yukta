@@ -8,8 +8,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 @NoArgsConstructor
+@ExtendWith(OutputCaptureExtension.class)
 class EnterpriseModuleRegistryTest {
 
   private static EnterpriseModule module(final int api, final String... features) {
@@ -105,5 +109,21 @@ class EnterpriseModuleRegistryTest {
         });
 
     assertThat(asked[0]).isEqualTo(1);
+  }
+
+  @Test
+  void verifierThatRefuses_isLoggedAsWarning(final CapturedOutput output) {
+    new EnterpriseModuleRegistry(
+        List.of(module(PlusApi.VERSION)), modules -> new LicenseVerifier.Status(false, "expired"));
+
+    assertThat(output).contains("licence check says: expired");
+  }
+
+  @Test
+  void verifierThatAccepts_logsNoWarning(final CapturedOutput output) {
+    new EnterpriseModuleRegistry(
+        List.of(module(PlusApi.VERSION)), modules -> new LicenseVerifier.Status(true, "ok"));
+
+    assertThat(output).doesNotContain("licence check says");
   }
 }
