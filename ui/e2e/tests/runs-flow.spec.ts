@@ -103,12 +103,22 @@ async function mockRuns(
       .filter(
         (r) => !q.get('workflowId') || r.workflowId === q.get('workflowId')
       )
-      .filter((r) => !q.get('status') || r.status === q.get('status'))
+      .filter(
+        (r) =>
+          !q.get('status') ||
+          (q.get('status') ?? '').split(',').includes(r.status)
+      )
       .filter(
         (r) => !q.get('text') || r.executionId.includes(q.get('text') ?? '')
-      )
-      .slice(0, Number(q.get('limit') ?? 100));
-    return route.fulfill(envelope('/executions', found));
+      );
+    const offset = Number(q.get('offset') ?? 0);
+    return route.fulfill({
+      ...envelope(
+        '/executions',
+        found.slice(offset, offset + Number(q.get('limit') ?? 100))
+      ),
+      headers: { 'X-Total-Count': String(found.length) },
+    });
   });
   return { searches, set: (next) => (runs = next) };
 }
@@ -175,11 +185,13 @@ test.describe('Runs - the table', () => {
   test('the footer counts the runs', async ({ page }) => {
     const mock = await mockRuns(page, [run(1)]);
     await page.goto('/runs');
-    await expect(page.getByText('1 run', { exact: true })).toBeVisible();
+    await expect(page.getByText('1–1 of 1 run', { exact: true })).toBeVisible();
 
     mock.set([run(1), run(2)]);
     await page.goto('/runs');
-    await expect(page.getByText('2 runs', { exact: true })).toBeVisible();
+    await expect(
+      page.getByText('1–2 of 2 runs', { exact: true })
+    ).toBeVisible();
   });
 
   test('says so when nothing matches, and when the search fails it offers a retry', async ({
@@ -402,7 +414,7 @@ test.describe('Runs - the filters', () => {
     const mock = await mockRuns(page, [run(1), run(2)]);
     await page.goto('/runs');
 
-    await page.getByLabel('Run id contains').fill('  0002  ');
+    await page.getByLabel('Search runs').fill('  0002  ');
 
     await expect(page).toHaveURL(/text=0002/);
     await expect(rows(page)).toHaveCount(1);
@@ -462,7 +474,7 @@ test.describe('Runs - the filters', () => {
       'data-value',
       'SUCCESS'
     );
-    await expect(page.getByLabel('Run id contains')).toHaveValue('0001');
+    await expect(page.getByLabel('Search runs')).toHaveValue('0001');
     await expect(page.getByLabel('Time range')).toHaveAttribute(
       'data-value',
       '7d'
@@ -500,46 +512,41 @@ test.describe('Runs - the filters', () => {
 test.describe('Runs - paging', () => {
   const many = Array.from({ length: 150 }, (_, i) => run(i));
 
-  test('Load more adds 100 runs until the list is complete', async ({
-    page,
-  }) => {
+  test('pages 25 runs at a time with the total shown', async ({ page }) => {
     const mock = await mockRuns(page, many);
     await page.goto('/runs');
-    await expect(rows(page)).toHaveCount(100);
-    expect(lastSearch(mock).searchParams.get('limit')).toBe('100');
+    await expect(rows(page)).toHaveCount(25);
+    expect(lastSearch(mock).searchParams.get('limit')).toBe('25');
+    await expect(page.getByText(/1–25 of 150 runs/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Previous' })).toBeDisabled();
 
-    await page.getByRole('button', { name: 'Load more' }).click();
+    await page.getByRole('button', { name: 'Next' }).click();
 
-    await expect(rows(page)).toHaveCount(150);
-    await expect(page.getByText('150 runs')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Load more' })).toHaveCount(
-      0
-    );
+    await expect(page.getByText(/26–50 of 150 runs/)).toBeVisible();
+    expect(lastSearch(mock).searchParams.get('offset')).toBe('25');
   });
 
   test('a new filter starts again from the first page', async ({ page }) => {
     const mock = await mockRuns(page, many);
     await page.goto('/runs');
-    await page.getByRole('button', { name: 'Load more' }).click();
-    await expect(rows(page)).toHaveCount(150);
+    await page.getByRole('button', { name: 'Next' }).click();
+    await expect(page.getByText(/26–50 of 150 runs/)).toBeVisible();
 
     await toggleOptions(page.getByLabel('Status', { exact: true }), [
       'SUCCESS',
     ]);
 
     await expect
-      .poll(() => lastSearch(mock).searchParams.get('limit'))
-      .toBe('100');
+      .poll(() => lastSearch(mock).searchParams.get('offset'))
+      .toBe('0');
   });
 
-  test('a short list has no Load more', async ({ page }) => {
+  test('a short list has no next page', async ({ page }) => {
     await mockRuns(page, many.slice(0, 5));
     await page.goto('/runs');
 
     await expect(rows(page)).toHaveCount(5);
-    await expect(page.getByRole('button', { name: 'Load more' })).toHaveCount(
-      0
-    );
+    await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
   });
 });
 

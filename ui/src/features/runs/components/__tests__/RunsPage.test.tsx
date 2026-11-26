@@ -30,6 +30,12 @@ import { RunsPage } from '../RunsPage';
 import { parseFilters, timeBounds, toParams } from '../../lib/filters';
 import type { RunHit } from '../../api/searchExecutions';
 
+const withTotal = (data: unknown) =>
+  HttpResponse.json(
+    { timestamp: 't', status: 200, message: 'ok', data, path: '/' },
+    { headers: { 'X-Total-Count': String(total) } }
+  );
+
 const ok = (data: unknown) =>
   HttpResponse.json({
     timestamp: 't',
@@ -69,16 +75,21 @@ const server = setupServer(
     requests.push(params);
     if (fail) return HttpResponse.json({ message: 'down' }, { status: 500 });
     const limit = Number(params.get('limit'));
-    return ok(
-      Array.from({ length: Math.min(limit, total) }, (_, i) =>
-        hit(
-          i,
-          aborted && i === 0
-            ? { status: 'ABORTED' }
-            : i === 0
-              ? { nodes: { done: 11, total: 100, failed: 'spotbugs' } }
-              : {}
-        )
+    const offset = Number(params.get('offset') ?? 0);
+    return withTotal(
+      Array.from(
+        { length: Math.max(0, Math.min(limit, total - offset)) },
+        (_, n) => {
+          const i = offset + n;
+          return hit(
+            i,
+            aborted && i === 0
+              ? { status: 'ABORTED' }
+              : i === 0
+                ? { nodes: { done: 11, total: 100, failed: 'spotbugs' } }
+                : {}
+          );
+        }
       )
     );
   }),
@@ -165,14 +176,15 @@ describe('RunsPage', () => {
       'href',
       '/sessions/s1/workflow/wf?exec=0000xyz-abcdef'
     );
-    expect(requests[0].get('limit')).toBe('100');
+    expect(requests[0].get('limit')).toBe('25');
+    expect(requests[0].get('offset')).toBe('0');
     expect(screen.getAllByText('9s')).toHaveLength(2);
     // the session by its name, then the workflow; and how many runs
     const cell = screen
       .getAllByRole('cell')
       .find((c) => c.dataset.label === 'Session / workflow');
     expect(cell).toHaveTextContent('One / wf');
-    expect(screen.getByText(/^2 runs/)).toBeInTheDocument();
+    expect(screen.getByText(/1–2 of 2 runs/)).toBeInTheDocument();
   });
 
   it('names a session without a name by its ID, and counts one run', async () => {
@@ -186,7 +198,9 @@ describe('RunsPage', () => {
         .getAllByRole('cell')
         .find((c) => c.dataset.label === 'Session / workflow')
     ).toHaveTextContent('s2 / wf');
-    expect(screen.getByText('1 run in the last 24 hours')).toBeInTheDocument();
+    expect(
+      screen.getByText('1–1 of 1 run in the last 24 hours')
+    ).toBeInTheDocument();
   });
 
   it('recovers an aborted run after confirmation and opens the new run', async () => {
@@ -437,7 +451,7 @@ describe('RunsPage', () => {
       'wf'
     );
     await choose(user, screen.getByLabelText('Status'), 'FAILURE');
-    await user.type(screen.getByLabelText('Run id contains'), 'ab');
+    await user.type(screen.getByLabelText('Search runs'), 'ab');
     await choose(user, screen.getByLabelText('Time range'), '1h');
 
     await waitFor(() => {
@@ -501,11 +515,7 @@ describe('RunsPage', () => {
     // the popup stays open to pick the next one
     await user.click(screen.getByRole('option', { name: 'Failed' }));
     await waitFor(() => {
-      const statuses = requests
-        .slice(-4)
-        .map((r) => r.get('status'))
-        .filter(Boolean);
-      expect(statuses).toEqual(expect.arrayContaining(['RUNNING', 'FAILURE']));
+      expect(requests.at(-1)?.get('status')).toBe('RUNNING,FAILURE');
     });
     expect(screen.getByTestId('where')).toHaveTextContent(
       'status=RUNNING%2CFAILURE'
@@ -538,36 +548,34 @@ describe('RunsPage', () => {
     );
   });
 
-  it('loads more until the server has no more, and resets on a filter change', async () => {
-    total = 150;
+  it('pages the runs, shows the total, and goes back to page 1 on a filter change', async () => {
+    total = 60;
     const user = userEvent.setup();
     renderAt('/runs');
-    // ByText: a role query over 100+ rows can time out under coverage
-    expect(await screen.findAllByText(/xyz-/)).toHaveLength(100);
+    // ByText: a role query over 25+ rows can time out under coverage
+    expect(await screen.findAllByText(/xyz-/)).toHaveLength(25);
+    expect(screen.getByText(/1–25 of 60 runs/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
 
-    await user.click(screen.getByText('Load more'));
-    await waitFor(() => expect(screen.getAllByText(/xyz-/)).toHaveLength(150));
-    expect(requests.at(-1)?.get('limit')).toBe('200');
-    expect(screen.queryByText('Load more')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(requests.at(-1)?.get('offset')).toBe('25'));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(requests.at(-1)?.get('offset')).toBe('50'));
+    expect(await screen.findByText(/51–60 of 60 runs/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
 
     await choose(user, screen.getByLabelText('Status'), 'ERROR');
-    await waitFor(() => expect(requests.at(-1)?.get('limit')).toBe('100'));
+    await waitFor(() => expect(requests.at(-1)?.get('offset')).toBe('0'));
   });
 
-  it('stops offering more at the server maximum', async () => {
-    total = 5000;
+  it('changes the page size', async () => {
+    total = 60;
     const user = userEvent.setup();
     renderAt('/runs');
-    for (let n = 100; n < 1000; n += 100) {
-      await user.click(await screen.findByText('Load more'));
-      await waitFor(() =>
-        expect(requests.at(-1)?.get('limit')).toBe(String(n + 100))
-      );
-    }
-    await waitFor(() =>
-      expect(screen.queryByText('Load more')).not.toBeInTheDocument()
-    );
-  }, 60_000);
+    await screen.findAllByText(/xyz-/);
+    await choose(user, screen.getByLabelText('Runs per page'), '50');
+    await waitFor(() => expect(requests.at(-1)?.get('limit')).toBe('50'));
+  });
 
   it('says so when nothing matches, and when the search fails', async () => {
     renderAt('/runs');

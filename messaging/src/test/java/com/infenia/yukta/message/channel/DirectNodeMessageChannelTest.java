@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,9 +39,16 @@ class DirectNodeMessageChannelTest {
         DefaultMessage.create(null, "b").withExpiration(System.currentTimeMillis() + 60_000);
     final Message<?> none = DefaultMessage.create(null, "c");
 
-    StepVerifier.create(channel.inbound("n", "e", Flux.just(expired, live, none)))
-        .expectNext(live, none)
-        .verifyComplete();
+    final SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    Metrics.addRegistry(registry);
+    try {
+      StepVerifier.create(channel.inbound("n", "e", Flux.just(expired, live, none)))
+          .expectNext(live, none)
+          .verifyComplete();
+      assertThat(registry.counter("yukta.messages.expired").count()).isEqualTo(1);
+    } finally {
+      Metrics.removeRegistry(registry);
+    }
   }
 
   @Test

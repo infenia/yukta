@@ -56,6 +56,7 @@ Values of the `reason` tag on `yukta.executions.rejected`, from `ExecutionSchedu
 | `yukta.node.executions` | counter | `module`, `status` | Nodes that reached a terminal status; `module` is the plugin type |
 | `yukta.node.duration` | timer | `module` | Node run time |
 | `yukta.node.retries` | counter | `module` | Messages retried |
+| `yukta.messages.expired` | counter | none | Messages dropped before a node because their `expiration` had passed |
 | `yukta.edge.dropped` | counter | `type` | Messages dropped by an edge buffer; `type` is the node's plugin type |
 | `yukta.plugin.events` | counter | `plugin`, `outcome` | Counts reported by plugins through `PluginMetricsReporter`; `plugin` carries the metric name (for example `mcp_tool_call`, `llm.budget.exceeded`) |
 | `yukta.workflow.cache.size` | gauge | none | Prepared workflows held in memory |

@@ -110,6 +110,36 @@ class WorkersTransportTest {
   }
 
   @Test
+  void workerStartedBeforeTheControlPlane_keepsRetrying_untilItIsUp() throws java.io.IOException {
+    final int port;
+    try (java.net.ServerSocket free = new java.net.ServerSocket(0)) {
+      port = free.getLocalPort();
+    }
+    try (ConfigurableApplicationContext worker =
+        start(
+            Worker.class,
+            "yukta.workers.control-plane=localhost:" + port,
+            "yukta.workers.token=secret",
+            "yukta.workers.id=w-early",
+            "yukta.workers.lease=3s")) {
+      // refused a few times while nothing listens
+      await().pollDelay(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(6)).until(() -> true);
+      assertThat(worker.isRunning()).isTrue();
+
+      try (ConfigurableApplicationContext controlPlane =
+          start(
+              ControlPlane.class,
+              "spring.rsocket.server.port=" + port,
+              "yukta.workers.token=secret",
+              "yukta.workers.allow-insecure=true",
+              "yukta.workers.lease=3s")) {
+        final WorkerRegistry registry = controlPlane.getBean(WorkerRegistry.class);
+        await().atMost(Duration.ofSeconds(30)).until(() -> registry.find("w-early").isPresent());
+      }
+    }
+  }
+
+  @Test
   void workerWithWrongToken_isNeverRegistered() {
     try (ConfigurableApplicationContext controlPlane =
         start(

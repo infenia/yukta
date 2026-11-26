@@ -600,6 +600,30 @@ test.describe('Workflow Details Page', () => {
     expect(copied).toContain('-H "Authorization: Bearer $YUKTA_TOKEN"');
   });
 
+  test('downloads the workflow definition as <workflow>.json', async ({
+    page,
+  }) => {
+    await page.route(/\/api\/sessions\/[^/]+\/workflows\/[^/]+$/, (route) =>
+      route.fulfill(
+        envelope('/workflow', {
+          workflowId: 'wf-982-xk-11',
+          nodes: [{ nodeId: 'load', type: 'noop' }],
+        })
+      )
+    );
+    await page.goto(WORKFLOW_URL);
+    await page.getByRole('button', { name: 'Workflow actions' }).click();
+    const download = page.waitForEvent('download');
+    await page.getByRole('menuitem', { name: 'Download JSON' }).click();
+
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/\.json$/);
+    const { readFileSync } = await import('node:fs');
+    expect(JSON.parse(readFileSync(await file.path(), 'utf8')).nodes).toEqual([
+      { nodeId: 'load', type: 'noop' },
+    ]);
+  });
+
   test('downloads the visible log lines as <session>-<execution>.log', async ({
     page,
   }) => {
