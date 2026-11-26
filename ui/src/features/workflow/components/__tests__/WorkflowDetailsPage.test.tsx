@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import * as downloadFile from '../../lib/downloadFile';
 import { expectTooltip } from '@/test/utils/testUtils';
 import {
   describe,
@@ -618,6 +619,34 @@ describe('WorkflowDetailsPage', () => {
       await screen.findByRole('menuitem', { name: 'Hide versions' })
     );
     expect(screen.queryByText('0001-a')).not.toBeInTheDocument();
+  });
+
+  it('downloads the workflow definition as JSON from the actions menu', async () => {
+    const saved: { name: string; text: string }[] = [];
+    vi.spyOn(downloadFile, 'downloadText').mockImplementation((name, text) => {
+      saved.push({ name, text });
+    });
+    server.use(
+      http.get('/api/sessions/:sessionId/workflows/:workflowId', () =>
+        HttpResponse.json({
+          timestamp: 't',
+          status: 200,
+          message: 'ok',
+          data: { workflowId: 'wf-1', nodes: [{ nodeId: 'a', type: 't' }] },
+          path: '/',
+        })
+      )
+    );
+    renderPage();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Workflow actions' })
+    );
+    await userEvent.click(
+      await screen.findByRole('menuitem', { name: 'Download JSON' })
+    );
+    await waitFor(() => expect(saved).toHaveLength(1));
+    expect(saved[0].name).toMatch(/\.json$/);
+    expect(JSON.parse(saved[0].text).nodes[0].nodeId).toBe('a');
   });
 
   describe('rollback while another run is going', () => {

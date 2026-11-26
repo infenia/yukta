@@ -101,4 +101,33 @@ describe('RunHistoryDropdown', () => {
 
     expect(onSelect).toHaveBeenCalledWith('exec-old-1');
   });
+
+  it('lists every running run but only the newest 25 finished ones, and links to all runs', async () => {
+    const user = userEvent.setup();
+    const onViewAll = vi.fn();
+    const finished = Array.from({ length: 30 }, (_, n) =>
+      createMockExecution({ executionId: `done-${n}`, status: 'SUCCESS' })
+    );
+    // the running run is oldest, at the end of a newest-first list
+    const runs = [
+      ...finished,
+      createMockExecution({ executionId: 'live-1', status: 'RUNNING' }),
+    ];
+    render(
+      <RunHistoryDropdown
+        executions={runs}
+        selectedExecutionId={null}
+        onSelect={vi.fn()}
+        onViewAll={onViewAll}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: /run history/i }));
+    expect(await screen.findAllByRole('menuitem')).toHaveLength(25 + 1 + 1);
+    expect(screen.getByText('live-1')).toBeInTheDocument();
+    expect(screen.queryByText('done-25')).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole('menuitem', { name: /View all runs \(5 older/ })
+    );
+    expect(onViewAll).toHaveBeenCalled();
+  });
 });

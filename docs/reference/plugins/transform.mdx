@@ -19,6 +19,7 @@ Builds a new payload from the message.
 | `mapping` | expression | none | yes | See the table below. |
 | `dropOriginal` | boolean | `true` | no | Discard the input data; when `false` the mapped fields are set on a copy of the original message data (`PROJECTION`, and the map form of `TEMPLATE`). |
 | `strictMode` | boolean | `true` | no | Fail on an evaluation error; when `false`, a `PROJECTION` field that evaluates to `null` is skipped. |
+| `envelope` | map | none | no | Fields to set on the output message: `priority`, `ttlMs` (the message expires that many milliseconds from now and is dropped before any later node), `formatIndicator`, `replyTo`, `correlationId`. Each value is a literal or a `${...}` expression, read from the input message. |
 
 | Mode | `mapping` |
 |---|---|
@@ -29,13 +30,27 @@ Builds a new payload from the message.
 - **Output port:** `default`.
 - **SCRIPT bindings:** `message`, `payload` and `metadata`, as plain-data copies. A script cannot change the message or call Java methods. An object literal result needs parentheses.
 - **SCRIPT limits (JVM system properties):** `yukta.script.timeout-ms` (default `10000`), `yukta.script.max-statements` (default `50000000`), `yukta.script.max-heap-bytes` (default `0`, no limit).
-- **Errors:** `Invalid or missing mode. Must be PROJECTION, TEMPLATE, or SCRIPT`; `mapping is mandatory`; `Invalid mapping for TEMPLATE mode`; `Failed to compile Handlebars template`; `Template application failed`. A `SCRIPT` node is rejected at validation when `script-js` is not in the build.
+- **Errors:** `Invalid or missing mode. Must be PROJECTION, TEMPLATE, or SCRIPT`; `mapping is mandatory`; `Invalid mapping for TEMPLATE mode`; `Failed to compile Handlebars template`; `Template application failed`; `envelope takes priority, ttlMs, formatIndicator, replyTo and correlationId, each with a value; got '<key>'`; `envelope.<key> must be a whole number`. A `SCRIPT` node is rejected at validation when `script-js` is not in the build.
 
 ```json
 {
   "nodeId": "shape",
   "type": "MAPPER",
   "config": { "mode": "PROJECTION", "mapping": { "summary.status": "payload.exitCode == 0 ? 'ok' : 'failed'" } }
+}
+```
+
+An alert older than five minutes is dropped instead of reaching a slow node, and messages of one order are tagged for `AGGREGATE` `by: correlation`:
+
+```json
+{
+  "nodeId": "tag",
+  "type": "MAPPER",
+  "config": {
+    "mode": "PROJECTION",
+    "mapping": { "alert": "payload" },
+    "envelope": { "ttlMs": 300000, "correlationId": "${payload.orderId}" }
+  }
 }
 ```
 

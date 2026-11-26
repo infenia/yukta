@@ -93,9 +93,12 @@ test.describe('Header', () => {
 
     await chip.click();
     await page.getByRole('menuitem', { name: 'Change API key' }).click();
-    await expect(
-      page.getByRole('alertdialog', { name: 'API key required' })
-    ).toBeVisible();
+    const gate = page.getByRole('dialog', { name: 'Enter your API key' });
+    await expect(gate).toBeVisible();
+    // the key in use still works, so the gate can be closed without a new one
+    await gate.getByRole('button', { name: 'Keep the current key' }).click();
+    await expect(gate).toHaveCount(0);
+    await expect(chip).toBeVisible();
   });
 
   test('Sign out forgets the key and reloads', async ({ page }) => {
