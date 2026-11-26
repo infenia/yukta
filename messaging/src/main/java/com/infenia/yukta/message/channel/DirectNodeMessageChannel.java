@@ -3,14 +3,15 @@
 package com.infenia.yukta.message.channel;
 
 import com.infenia.yukta.message.Message;
+import io.micrometer.core.instrument.Metrics;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 
 /**
- * Passthrough channel. Inbound it drops a message whose {@link Message#expiration()} has passed.
- * With no size limit both sides otherwise return the Flux unchanged; with one, a message whose
- * payload is larger fails the stream with a {@link PayloadTooLargeException}, whether a plugin
- * produced it or is about to receive it.
+ * Passthrough channel. Inbound it drops a message whose {@link Message#expiration()} has passed,
+ * counted in {@code yukta.messages.expired}. With no size limit both sides otherwise return the
+ * Flux unchanged; with one, a message whose payload is larger fails the stream with a {@link
+ * PayloadTooLargeException}, whether a plugin produced it or is about to receive it.
  */
 @Slf4j
 public class DirectNodeMessageChannel implements NodeMessageChannel {
@@ -39,7 +40,11 @@ public class DirectNodeMessageChannel implements NodeMessageChannel {
   }
 
   private static boolean notExpired(final Message<?> msg) {
-    return msg.expiration() <= 0 || System.currentTimeMillis() < msg.expiration();
+    final boolean live = msg.expiration() <= 0 || System.currentTimeMillis() < msg.expiration();
+    if (!live) {
+      Metrics.counter("yukta.messages.expired").increment();
+    }
+    return live;
   }
 
   @Override
