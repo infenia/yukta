@@ -120,6 +120,7 @@ State is durable only in PostgreSQL (`yukta.session.store-type=postgres`), which
 | `yukta.execution-log.retained-runs` | int | `500` | Newest runs kept and restored at start. |
 | `yukta.execution-log.compact-after` | int | `10000` | Log trimmed after this many appended events. |
 | `yukta.execution-log.min-runs-per-session` | int | `10` | Newest runs each session keeps in the log even when a busier session pushes them out of `retained-runs` (at most half of it; 0 turns the floor off). |
+| `yukta.execution-log.max-age` | duration | unset | Runs that ended longer ago than this are removed, with their checkpoints, every hour by the leader; a run without an end is kept. Unset keeps runs by count only; positive when set. |
 | `yukta.restart.retained-executions` | int | `10` | Finished runs kept restartable. |
 | `yukta.restart.payload-packages` | list | empty | Extra class name prefixes (for example `com.acme.plugin.`) whose payloads a resume restores with their Java type; other classes come back as JSON. |
 | `yukta.restart.messages-per-node` | int | `200` | In-memory cap: messages per node and run. |
