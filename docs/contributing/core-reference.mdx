@@ -2,14 +2,14 @@
 title: "Core module reference: architecture and features"
 sidebarTitle: "Core module reference"
 description: "Architecture, feature catalog and reference for the Yukta core module: the execution engine, admission, control plane, observability, durability and security."
-verifiedCommit: "d2fd431ad"
-verifiedDate: "2026-11-24"
+verifiedCommit: "5aea8194d"
+verifiedDate: "2026-11-26"
 keywords: ["core module", "architecture", "feature catalog"]
 ---
 
 The `core` module is the engine and control plane of Yukta. It takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and records enough to explain or resume it afterwards.
 
-Last verified against commit `d2fd431ad` on 2026-11-24.
+Last verified against commit `5aea8194d` on 2026-11-26.
 
 <CardGroup cols={2}>
   <Card title="Reactive">
@@ -891,7 +891,7 @@ Sessions, definitions with versions, the execution log, node checkpoints, KV sta
 **Behaviour**
 
 - R2DBC at run time (`spring.r2dbc.url`); Flyway migrations applied over JDBC (`spring.flyway.url`) from `plus/persistence-postgres/src/main/resources/db/migration`. Profile `postgres`; build with `-Pyukta.persistence=postgres`.
-- Stores: `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (newest 20 versions, notes), `R2dbcExecutionLogStore` (one writer thread; trims to `retained-runs`; never drops a run without an end), `R2dbcNodeCheckpointStore` (one JSONB row per message plus a state row per node with the end marker; migration V3). Leader lease is V4.
+- Stores: `R2dbcSessionConfigStore`, `R2dbcWorkflowDefinitionStore` (newest 20 versions, notes), `R2dbcExecutionLogStore` (one writer thread; trims to `retained-runs`; never drops a run without an end), `R2dbcNodeCheckpointStore` (one JSONB row per message plus a state row per node with the end marker; migration V3; `max-bytes-per-run` caps one run's output, counted by this server, and marks a node over it incomplete). Leader lease is V4.
 - The in-memory and file defaults step aside when the type is `postgres`.
 
 - The single-server defaults (`InMemoryExecutionLogStore`, `InMemoryNodeCheckpointStore`, `SingleServerLeader`) are registered by `DefaultsAutoConfiguration` with `@ConditionalOnMissingBean`; an extension module replaces one by declaring `@AutoConfiguration(before = DefaultsAutoConfiguration.class)`. `FeatureGateEnvironmentPostProcessor` refuses a store, leader or worker setting whose module is not in the build, a store-switch value no store answers to (`STORE_VALUES`), and a PostgreSQL-only switch without `yukta.session.store-type=postgres` (`POSTGRES_ONLY`); `StoreSummary` logs one `Stores in use` line naming the store of each kind of data at start-up; at startup and on takeover `ExecutionRecovery` asks a checkpoint store that implements `RunOutputSweep` to drop the output of runs no longer in the log, and `EditionInfo` (`GET /api/edition`) reports the edition.
@@ -1150,6 +1150,7 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.restart.payload-packages` | empty | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Extra class name prefixes whose payloads a resume restores with their type |
 | `yukta.restart.messages-per-node` | 200 | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Memory cap per node |
 | `yukta.restart.bytes-per-node` | 4194304 (4 MiB) | [DUR-02](#dur-02-checkpoints-and-durable-end-markers) | Memory cap per node, bytes |
+| `yukta.restart.max-bytes-per-run` | 1073741824 (1 GiB) | [DUR-04](#dur-04-postgresql-stores) | PostgreSQL cap per run (JSON text); a node over it is marked incomplete |
 | `yukta.restart.auto-resume` | false | [DUR-03](#dur-03-resume-and-recovery), [SCL-02](#scl-02-active/standby-high-availability) | Resume interrupted runs after recovery |
 | `yukta.session.store-type` | `in-memory` | [DEF-01](#def-01-definition-store-and-versions), [DUR-05](#dur-05-session-configuration) | `in-memory` \| `postgres` |
 | `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.restart.spill-dir` | removed | [DUR-04](#dur-04-postgresql-stores) | Switches of the removed on-disk stores; setting one (or `yukta.session.store-type=file`) stops start-up |
