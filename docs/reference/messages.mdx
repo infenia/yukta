@@ -16,7 +16,7 @@ A message is a payload plus labels, the unit of data on an edge. Messages are im
 | `payload` | any JSON-like value | The data moved. No fixed schema. Read in config as `${payload.field}`. |
 | `metadata` | map | Free key-value labels set by plugins. Read as `${metadata.key}`. |
 | `id` | string | Identifier of one logical message; kept by retries and derived messages. |
-| `traceId` | string | Shared by every message derived from one request. |
+| `traceId` | string | Shared by every message derived from one request. A trigger leaves it empty and the engine sets it to the run's execution id, so it matches the `executionId` on the run's log lines and spans. |
 | `correlationId` | string | A splitter sets it to the parent's id on each child. |
 | `timestamp` | instant | When the message was created. |
 | `sourceNodeId` | string | Node that emitted it. Set by the engine on every edge. |
@@ -25,8 +25,12 @@ A message is a payload plus labels, the unit of data on an edge. Messages are im
 | `messageHistory` | list of string | Ids of the last 64 nodes it passed through (`MAX_HISTORY`, not configurable). |
 | `sequenceId`, `sequenceNumber`, `sequenceSize` | string, int, int | Position in a group produced by a splitter. |
 | `expiration` | long | The engine drops an inbound message once this time has passed. |
-| `priority`, `replyTo`, `formatIndicator`, `retryCount`, `controlMessage` | various | Carried along; they change no behaviour except as stated for `controlMessage`. `replyTo` holds the reply key of a caller waiting with `?wait=`; the `REPLY` terminal answers it. |
+| `retryCount` | int | How many times the current node has retried this message (`engine.retry`); `0` on the first attempt. |
+| `priority`, `formatIndicator`, `controlMessage` | various | Carried along; they change no behaviour except as stated for `controlMessage`. |
+| `replyTo` | string | The reply key of a caller waiting with `?wait=`; the `REPLY` terminal answers it. |
 | `origDest`, `failureReason`, `exceptionDetail` | string | Set by plugins such as `VALIDATE` and `BRANCH`, and by error routing. |
+
+Every field above except `payload`, `metadata`, `exceptionDetail` and `controlMessage` is read in config as `${message.<field>}`, for example `${message.traceId}` (see [Expressions](/reference/expressions)).
 
 Run priority is a different mechanism: `yukta.priority` in the start payload (needs the ADMIN role).
 
@@ -37,7 +41,7 @@ Run priority is a different mechanism: `yukta.priority` in the start payload (ne
 | A processor transforms a message | Same `id` and `traceId`, new payload. |
 | A splitter turns one message into several | New ids; each child keeps the parent's `traceId` and carries the parent's id as `correlationId` and its position in the group. |
 | An aggregator merges several messages | One new message with the `traceId` of the first. |
-| A trigger creates a message | New `id`, `traceId` and `timestamp`. |
+| A trigger creates a message | New `id` and `timestamp`; `traceId` is the run's execution id. |
 
 A message may be delivered more than once after a retry or resume; side-effecting plugins de-duplicate on `id`.
 
@@ -60,7 +64,7 @@ On every edge the engine resets these, whatever a plugin put on its output.
 |---|---|
 | `sourceNodeId` | The node the edge comes from. |
 | `workflowId` | The id of the running workflow. |
-| `controlMessage` | `false`. |
+| `retryCount` | `0`; the retry loop sets it before each call. |
 | `attempt` | Removed; the retry loop sets it before each call. |
 | `failure.*` | Removed unless the message is on the `error` port. |
 

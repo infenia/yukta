@@ -13,7 +13,6 @@ import com.infenia.yukta.plugin.util.ConfigValidation;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -81,12 +80,11 @@ public class WebhookTriggerPlugin implements TriggerPlugin {
   @Override
   public Flux<Message<?>> start(final Map<String, Object> config) {
     return Flux.deferContextual(ctx -> {
-      final Map<String, Object> payload =
-          ctx.<Map<String, Object>>getOrEmpty("payload").orElse(Map.of());
+      final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
       // a caller waiting with ?wait= gets the reply of the REPLY terminal
       final Object replyTo = payload.get(ReplyGateway.REPLY_TO_KEY);
       return Flux.just(
-          DefaultMessage.create(UUID.randomUUID(), payload)
+          DefaultMessage.create(null, payload)
               .withReplyTo(replyTo == null ? null : String.valueOf(replyTo))
               .withSourcePort("default"));
     });

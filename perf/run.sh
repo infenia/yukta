@@ -77,6 +77,8 @@ if [[ $type == notifications || $PERSISTENCE == postgres ]]; then
 fi
 if [[ $PERSISTENCE == postgres ]]; then
   printf 'SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/yukta\nSPRING_R2DBC_USERNAME=yukta\nSPRING_R2DBC_PASSWORD=perf-only\nSPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/yukta\nSPRING_FLYWAY_USER=yukta\nSPRING_FLYWAY_PASSWORD=perf-only\n' >> "$KEYS_ENV"
+  # the postgres profile keeps only sessions, definitions, the log and agents there: checkpoints and input requests too
+  printf 'YUKTA_RESTART_STORE_TYPE=postgres\nYUKTA_INPUT_STORE_TYPE=postgres\n' >> "$KEYS_ENV"
 fi
 if [[ $type == notifications ]]; then
   for i in $(seq 1 $(( (STREAMS + 7) / 8 ))); do
@@ -129,7 +131,7 @@ K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$dir/dashboard.html" K6_WEB_DASHB
   -e BASE_URL=http://localhost:$PORT "${envs[@]}" \
   --summary-export "$dir/summary.json" \
   --summary-trend-stats 'avg,min,med,p(90),p(95),p(99),max' \
-  --out csv="$dir/metrics.csv" "$@" 2>&1 | tee "$dir/k6.log"
+  --out csv="$dir/metrics.csv.gz" "$@" 2>&1 | tee "$dir/k6.log"
 rc=${PIPESTATUS[0]}
 if [[ $type == notifications ]]; then
   sleep 5
@@ -139,5 +141,4 @@ if [[ $type == notifications ]]; then
   python3 perf/stream-lag.py "$dir" "$STREAMS" | tee -a "$dir/k6.log" || rc=1
   rm -f "$dir"/stream-*.out
 fi
-gzip -f "$dir/metrics.csv" 2>/dev/null
 exit "$rc"

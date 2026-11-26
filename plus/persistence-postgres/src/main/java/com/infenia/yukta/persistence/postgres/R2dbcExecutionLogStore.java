@@ -86,6 +86,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
   /** Longest one statement may take. */
   private static final Duration STATEMENT_TIMEOUT = Duration.ofSeconds(30);
 
+  /** Runs one age purge statement removes at most; a run is many rows, so far fewer than rows. */
+  private static final int RUNS_PER_PURGE = 200;
+
   /** Longest the rewrite of the whole log may take. */
   private static final Duration REWRITE_TIMEOUT = Duration.ofMinutes(2);
 
@@ -752,6 +755,46 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
           }
           return events;
         });
+  }
+
+  /**
+   * Removes the ended runs whose last start or end is older than {@code cutoff}, {@link
+   * #RUNS_PER_PURGE} runs per statement (a run has many rows), until a statement finds none. Only
+   * the run starts and ends are read to choose them (index {@code execution_log_run_edge}).
+   */
+  @Override
+  public Mono<List<String>> purgeEndedBefore(final java.time.Instant cutoff) {
+    final List<String> gone = new ArrayList<>();
+    // after the events queued before it, like a read, so a run's end cannot arrive after its purge
+    return serial(drainAll().thenReturn(Boolean.TRUE))
+        .flatMap(_ -> purgeBatch(cutoff))
+        .expand(batch -> batch.isEmpty() ? Mono.empty() : purgeBatch(cutoff))
+        .doOnNext(gone::addAll)
+        .then(Mono.fromSupplier(() -> List.copyOf(gone)));
+  }
+
+  private Mono<List<String>> purgeBatch(final java.time.Instant cutoff) {
+    return client
+        .sql(
+            """
+            WITH old AS (
+              SELECT execution_id FROM execution_log
+              WHERE type IN ('RUN_STARTED', 'RUN_FINISHED', 'RUN_ABORTED')
+                AND execution_id <> :scheduler
+              GROUP BY execution_id
+              HAVING bool_or(type <> 'RUN_STARTED') AND max(ts) < :cutoff
+              LIMIT :runs),
+            gone AS (
+              DELETE FROM execution_log WHERE execution_id IN (SELECT execution_id FROM old))
+            SELECT execution_id FROM old
+            """)
+        .bind("scheduler", SCHEDULER)
+        .bind("cutoff", cutoff)
+        .bind("runs", RUNS_PER_PURGE)
+        .map(row -> Objects.requireNonNull(row.get("execution_id", String.class)))
+        .all()
+        .collectList()
+        .timeout(STATEMENT_TIMEOUT);
   }
 
   /**

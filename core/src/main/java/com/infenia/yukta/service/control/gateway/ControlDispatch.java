@@ -32,9 +32,7 @@ class ControlDispatch {
 
   /* default */ static <T extends ExecutionControlCommand> Message<T> buildCommand(
       final T command) {
-    return DefaultMessage.create(null, command)
-        .withSourceNodeId(CONTROL_BUS_SOURCE)
-        .withControl(true);
+    return DefaultMessage.create(null, command).withSourceNodeId(CONTROL_BUS_SOURCE);
   }
 
   /* default */ <T extends ExecutionControlCommand> Mono<Void> executeCommand(

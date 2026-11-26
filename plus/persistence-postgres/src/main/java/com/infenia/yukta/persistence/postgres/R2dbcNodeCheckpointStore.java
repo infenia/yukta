@@ -28,15 +28,23 @@ import tools.jackson.databind.ObjectMapper;
  * <p>One row per message (JSONB; PostgreSQL stores large values out of line, so output is not
  * capped) and one state row per node with the end marker. Like the file store, a message that
  * cannot be written marks the node incomplete, so a restart that needs it is refused instead of
- * replaying part of it. {@link #finishedAsync} and {@link #completeAsync} do not block (the
- * deprecated blocking ones wait for them). A database that does not answer reads as "not finished",
- * so a resume runs the node again.
+ * replaying part of it. The output of one run is capped at {@code yukta.restart.max-bytes-per-run}
+ * (JSON text, counted by this server): a node whose output goes over it is marked incomplete the
+ * same way, so a resume runs it again and a large streaming run cannot fill the database. {@link
+ * #finishedAsync} and {@link #completeAsync} do not block (the deprecated blocking ones wait for
+ * them). A database that does not answer reads as "not finished", so a resume runs the node again.
  */
 @Slf4j
 public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounted, RunOutputSweep {
 
+  /** The default of {@code yukta.restart.max-bytes-per-run}: 1 GiB. */
+  public static final long DEFAULT_MAX_BYTES_PER_RUN = 1L << 30;
+
   /** The table of messages. */
   private static final String MESSAGES = "node_checkpoint";
+
+  /** The log key of the run id. */
+  private static final String EXECUTION_ID = "executionId";
 
   /** Longest the sweep of gone runs at recovery may take; the rest waits for the next one. */
   private static final java.time.Duration SWEEP_TIMEOUT = java.time.Duration.ofMinutes(5);
@@ -55,6 +63,9 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
 
   /** The statements that write messages and the node state flags. */
   private final CheckpointRows rows;
+
+  /** The cap on the JSON text one run may record. */
+  private final RunByteCap cap;
 
   /**
    * Creates the store.
@@ -75,12 +86,31 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
    * @param meters where refused writes are counted
    * @param fencingToken this server's fencing number, null when no election runs
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // client and mapper are shared Spring beans
   public R2dbcNodeCheckpointStore(
       final DatabaseClient client,
       final ObjectMapper mapper,
       final io.micrometer.core.instrument.MeterRegistry meters,
       final LongSupplier fencingToken) {
+    this(client, mapper, meters, fencingToken, DEFAULT_MAX_BYTES_PER_RUN);
+  }
+
+  /**
+   * Creates the store with a cap on the output of one run.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes messages
+   * @param meters where refused writes are counted
+   * @param fencingToken this server's fencing number, null when no election runs
+   * @param maxBytesPerRun most JSON text one run may record, at least 1
+   */
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // client and mapper are shared Spring beans
+  public R2dbcNodeCheckpointStore(
+      final DatabaseClient client,
+      final ObjectMapper mapper,
+      final io.micrometer.core.instrument.MeterRegistry meters,
+      final LongSupplier fencingToken,
+      final long maxBytesPerRun) {
+    this.cap = new RunByteCap(maxBytesPerRun);
     this.client = client;
     this.mapper = mapper;
     this.fencing = new Fencing(fencingToken, meters, "node_checkpoint");
@@ -107,21 +137,36 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
     return Mono.fromCallable(
             () -> messages.stream().map(message -> CheckpointJson.write(mapper, message)).toList())
         .flatMap(json ->
-            rows.insertAll(executionId, nodeId, json)
-                .doOnNext(written -> {
-                  if (written == 0) {
-                    fencing.refused(json.size());
-                  }
-                }))
+            cap.fits(executionId, json)
+                ? rows.insertAll(executionId, nodeId, json)
+                    .doOnNext(written -> {
+                      if (written == 0) {
+                        fencing.refused(json.size());
+                      }
+                    })
+                : overCap(executionId, nodeId))
         .onErrorResume(error -> {
           log.atWarn()
-              .addKeyValue("executionId", executionId)
+              .addKeyValue(EXECUTION_ID, executionId)
               .addKeyValue("nodeId", nodeId)
               .setCause(error)
               .log("Could not record node output, the node cannot be restarted from");
           return rows.state(executionId, nodeId, CheckpointRows.INCOMPLETE).then(Mono.empty());
         })
         .then();
+  }
+
+  /** Marks the node incomplete, once, when its output went over the run's cap. */
+  private Mono<Long> overCap(final String executionId, final String nodeId) {
+    if (!cap.firstCapped(executionId, nodeId)) {
+      return Mono.empty();
+    }
+    log.atWarn()
+        .addKeyValue(EXECUTION_ID, executionId)
+        .addKeyValue("nodeId", nodeId)
+        .addKeyValue("maxBytesPerRun", cap.max())
+        .log("Run output over yukta.restart.max-bytes-per-run, a resume will run the node again");
+    return rows.state(executionId, nodeId, CheckpointRows.INCOMPLETE).then(Mono.empty());
   }
 
   @Override
@@ -156,6 +201,7 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
    */
   @Override
   public Mono<Void> clearAsync(final String executionId) {
+    cap.forget(Set.of(executionId), false);
     return Transactions.inTransaction(
             client,
             client
@@ -173,7 +219,7 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
         .timeout(CheckpointRows.QUESTION_TIMEOUT)
         .onErrorResume(error -> {
           log.atWarn()
-              .addKeyValue("executionId", executionId)
+              .addKeyValue(EXECUTION_ID, executionId)
               .setCause(error)
               .log("Could not clear the checkpoints of a run");
           return Mono.empty();
@@ -191,7 +237,7 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
     return rows.state(executionId, nodeId, CheckpointRows.DONE)
         .onErrorResume(error -> {
           log.atError()
-              .addKeyValue("executionId", executionId)
+              .addKeyValue(EXECUTION_ID, executionId)
               .addKeyValue("nodeId", nodeId)
               .setCause(error)
               .log("Could not make the end of a node durable, a resume will run it again");
@@ -242,6 +288,7 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
    */
   @Override
   public void removeNotIn(final Set<String> kept) {
+    cap.forget(kept, true);
     final String[] ids = kept.toArray(String[]::new);
     try {
       client

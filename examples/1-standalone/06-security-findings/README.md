@@ -38,7 +38,7 @@ API_TRIGGER ─► VALIDATE ─ok─► CONTENT_FILTER (redact) ─► score ─
 | `engineer` | WAIT_FOR_SIGNAL | Waits for the signal `decision`; after 15 minutes without an answer the finding is filed as a fix |
 | `decide` | BRANCH | `fix`, `accept-risk` or `suppress` from the signal's decision |
 | `stamp-*`, `write-*` | MAPPER, FILE_WRITE | Append a line to `fixes.txt`, `accepted-risks.txt` or `suppressions.txt` (stand-ins for a ticket, a risk register entry and a scanner suppression) |
-| `collect` | AGGREGATE | Gathers the results of the batch (up to 100, or when the batch ends) |
+| `collect` | AGGREGATE | `by: sequence`: joins the results of one request back into one message, in the order of the findings (`complete: false` and `missing` if one did not come back within 60 s) |
 | `summarise` | MAPPER | Writes `SUMMARY: 6 findings, fix=2 accept=1 suppress=2 invalid=1` to `summary.txt` |
 
 The engineer sees only `id`, `rule`, `severity`, `file`, the flags, `snippet`, the point breakdown and the

@@ -16,7 +16,6 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Component;
@@ -138,8 +137,7 @@ public class ScheduleTrigger implements TriggerPlugin {
   }
 
   private static Message<?> message(final long tick, final Instant firedAt) {
-    return DefaultMessage.create(
-            UUID.randomUUID(), Map.of("tick", tick, "firedAt", firedAt.toString()))
+    return DefaultMessage.create(null, Map.of("tick", tick, "firedAt", firedAt.toString()))
         .withSourcePort("default");
   }
 }

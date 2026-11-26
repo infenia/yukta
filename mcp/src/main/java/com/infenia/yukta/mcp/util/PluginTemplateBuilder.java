@@ -35,7 +35,6 @@ public class PluginTemplateBuilder {
           import com.infenia.yukta.message.Message;
           import com.infenia.yukta.plugin.type.TriggerPlugin;
           import java.util.Map;
-          import java.util.UUID;
           import org.springframework.stereotype.Component;
           import reactor.core.publisher.Flux;
 
@@ -46,8 +45,8 @@ public class PluginTemplateBuilder {
 
             @Override
             public Flux<Message<?>> start(final Map<String, Object> config) {
-              // Emit the messages that start the workflow
-              return Flux.just(DefaultMessage.create(UUID.randomUUID(), "triggered"));
+              // Emit the messages that start the workflow; the engine sets the trace id to the run's
+              return Flux.just(DefaultMessage.create(null, "triggered"));
             }
           }
           """);

@@ -243,8 +243,9 @@ class NodePoliciesTest {
   }
 
   @Test
-  void eachAttempt_carriesItsNumberInTheAttemptHeader() {
+  void eachAttempt_carriesItsNumberInTheAttemptHeaderAndRetryCount() {
     final java.util.List<Object> seen = new java.util.ArrayList<>();
+    final java.util.List<Integer> retries = new java.util.ArrayList<>();
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
         Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
@@ -256,6 +257,7 @@ class NodePoliciesTest {
                 input,
                 attempt -> {
                   seen.add(attempt.metadata().get(NodePolicies.ATTEMPT_HEADER));
+                  retries.add(attempt.retryCount());
                   return flaky(calls, 2);
                 },
                 () -> {}))
@@ -265,6 +267,7 @@ class NodePoliciesTest {
         .verifyComplete();
 
     assertThat(seen).containsExactly(1, 2, 3);
+    assertThat(retries).containsExactly(0, 1, 2);
   }
 
   @Test

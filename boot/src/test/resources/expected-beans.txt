@@ -1,6 +1,7 @@
 com.infenia.yukta.YuktaApplication
 com.infenia.yukta.config.EgressConfiguration
 com.infenia.yukta.config.ExposureGuard
+com.infenia.yukta.config.FeatureGateHints
 com.infenia.yukta.config.MessageReflectionHints
 com.infenia.yukta.config.MetadataGuardCustomizer
 com.infenia.yukta.config.SpaWebFluxConfig
@@ -196,6 +197,7 @@ com.infenia.yukta.service.input.route.RouteResolver
 com.infenia.yukta.service.input.token.AnswerTokens
 com.infenia.yukta.service.leader.SingleServerLeader
 com.infenia.yukta.service.log.DraftRunFilteringLogStore
+com.infenia.yukta.service.log.ExecutionLogAgeRetention
 com.infenia.yukta.service.metrics.MetricsConfiguration
 com.infenia.yukta.service.metrics.MetricsConfiguration$1
 com.infenia.yukta.service.metrics.MetricsProperties
