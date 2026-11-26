@@ -34,6 +34,13 @@ public class MessageReflectionHints {
   @NoArgsConstructor
   /* default */ static class Hints implements RuntimeHintsRegistrar {
 
+    /** Yukta's own package: its records are bound to JSON by the stores, not only by REST. */
+    private static final String YUKTA_PACKAGE = "com.infenia.yukta.";
+
+    /** Registers the reflection a JSON binding of a type needs. */
+    private static final BindingReflectionHintsRegistrar BINDING =
+        new BindingReflectionHintsRegistrar();
+
     /**
      * The JDK types whose methods a workflow expression may call ({@code SafeMethodResolver} lists
      * the method names, and runs them by reflection): {@code items.toString()}, {@code
@@ -162,6 +169,11 @@ public class MessageReflectionHints {
      * image only allows when it is registered: {@code TaskProgress[]}, {@code InputOptionView[]},
      * {@code McpSchema$Tool[]} each failed a REST or MCP call. Every record of Yukta and of the MCP
      * schema gets its array registered, so a new DTO does not need a hint of its own.
+     *
+     * <p>Yukta's own records also get their components registered: the PostgreSQL stores write
+     * records such as {@code ExecutionLogEvent} and {@code InputResponse} as JSON themselves, which
+     * AOT does not see, and the native Plus binary failed every such write ("Record components not
+     * available for record class ...").
      */
     private static void registerRecordArrays(final RuntimeHints hints) {
       final ClassPathScanningCandidateComponentProvider scanner =
@@ -175,8 +187,22 @@ public class MessageReflectionHints {
           "java.lang.Record".equals(reader.getClassMetadata().getSuperClassName()));
       for (final String basePackage : RECORD_PACKAGES) {
         for (final BeanDefinition definition : scanner.findCandidateComponents(basePackage)) {
-          hints.reflection().registerType(TypeReference.of(definition.getBeanClassName() + "[]"));
+          // a scanned class always has a name
+          final String name = java.util.Objects.requireNonNull(definition.getBeanClassName());
+          hints.reflection().registerType(TypeReference.of(name + "[]"));
+          if (name.startsWith(YUKTA_PACKAGE)) {
+            registerRecord(hints, name);
+          }
         }
+      }
+    }
+
+    /** Registers a record's components and accessors for JSON binding, if it is in the build. */
+    /* default */ static void registerRecord(final RuntimeHints hints, final String name) {
+      // a record whose optional dependency is not in the build is never serialised
+      if (org.springframework.util.ClassUtils.isPresent(name, null)) {
+        BINDING.registerReflectionHints(
+            hints.reflection(), org.springframework.util.ClassUtils.resolveClassName(name, null));
       }
     }
 
