@@ -21,6 +21,7 @@ end events carry `truncated` when it dropped anything. Clients: REST `GET
 /api/sessions/{s}/executions/{e}/results` (SSE, or JSON with `Accept: application/json` and
 `afterCursor`), MCP `get_execution_result`, CLI `yukta-cli result`, and the RESULT block of the UI
 progress panel. Results are in memory only; they are gone after a restart.
+Resolved secrets (`SecretScrubber`, fed by `EnvSecretProvider`) are masked as `******` in log lines (`emitLogEvent`), status metadata (`emitTaskStatusEvent`, so a failed node's `error`) and result payloads (`ExecutionResultService.publish`, strings inside maps and lists, `scrubValue`); with nothing recorded the scrubber returns its input untouched.
 
 ### Tracker queue
 A plugin can write log lines while it runs through the `PluginLogSink` in the Reactor context (see plugin-api). Those lines reach the log feed, the stores and `GET .../logs` (SSE) as they are written, with their stdout/stderr label (`emitLogEvent(..., stderr)`). A node that did so (`NodeActivity.hasLoggedLive`) is not echoed again from its output message; other nodes still log that message cut to 2,048 characters. `PROCESS_EXECUTOR` streams every line, so its `maxOutputLines`/`maxOutputBytes` limit only the output kept in its result message. MCP `get_execution_logs` takes `afterCursor` (the previous call's `nextCursor`) to read only new lines.

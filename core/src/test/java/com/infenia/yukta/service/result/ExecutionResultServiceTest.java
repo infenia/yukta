@@ -172,4 +172,19 @@ class ExecutionResultServiceTest {
     results.publish("e1", "t1", "x");
     assertThat(results.has("e1")).isTrue();
   }
+
+  @Test
+  void resultsMaskResolvedSecrets() {
+    final ExecutionResultService results = service(10);
+    final com.infenia.yukta.service.redact.SecretScrubber scrubber =
+        new com.infenia.yukta.service.redact.SecretScrubber(
+            new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
+    scrubber.record("hunter2-value");
+    results.setSecretScrubber(scrubber);
+
+    results.publish("e1", "t", Map.of("echo", "token hunter2-value"));
+
+    assertThat(results.read("e1", 0).events().getFirst().payload())
+        .isEqualTo(Map.of("echo", "token ******"));
+  }
 }

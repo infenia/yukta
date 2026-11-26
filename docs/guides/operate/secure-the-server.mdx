@@ -105,7 +105,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     export YUKTA_SECRET_SLACK_TOKEN=xoxb-...
     ```
 
-    `decrypted:db.password` reads `YUKTA_SECRET_DB_PASSWORD`: upper-case the name and replace every character that is not a letter or digit with `_`. Each read is logged with the key name, never the value. Placeholders such as `${env.NAME}` read only variables that start with `YUKTA_VAR_`, a short safe list, or names you list in `YUKTA_VARIABLES_ALLOWED`; names that contain `PASSWORD`, `SECRET`, `TOKEN`, `CREDENTIAL`, `PRIVATE` or `KEY` stay blocked.
+    `decrypted:db.password` reads `YUKTA_SECRET_DB_PASSWORD`: upper-case the name and replace every character that is not a letter or digit with `_`. Each read is logged with the key name, never the value, and the value itself (6 characters or more, also base64 or URL-encoded) is masked as `******` wherever a run shows it: log lines, a failed node's error and results. A plugin that transforms a secret (hashes or splits it), or a secret resolved on a remote worker, is not caught. Placeholders such as `${env.NAME}` read only variables that start with `YUKTA_VAR_`, a short safe list, or names you list in `YUKTA_VARIABLES_ALLOWED`; names that contain `PASSWORD`, `SECRET`, `TOKEN`, `CREDENTIAL`, `PRIVATE` or `KEY` stay blocked.
   </Step>
   <Step title="Read who did what">
     Control commands (pause, stop, skip, answer an input request, change limits and others) are recorded with the sender: `key:<name>` for a named key, the supervisor's id for a supervisor.

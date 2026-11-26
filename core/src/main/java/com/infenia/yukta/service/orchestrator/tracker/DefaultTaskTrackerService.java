@@ -220,7 +220,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   }
 
   /**
-   * Masks resolved secrets in every log line.
+   * Masks resolved secrets in every log line and node status.
    *
    * @param secretScrubber the scrubber
    */
@@ -406,7 +406,9 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .addKeyValue("status", status)
         .addKeyValue("metadataSize", metadata.size())
         .log("Emitting task status event");
-    publish(TaskStatusEvent.create(executionId, nodeId, module, status, metadata));
+    // a node's error text can quote a secret it was given
+    final Map<String, Object> safe = scrubber == null ? metadata : scrubber.scrubMap(metadata);
+    publish(TaskStatusEvent.create(executionId, nodeId, module, status, safe));
   }
 
   @Override
@@ -429,13 +431,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           Optional.ofNullable(parentExecutionId).map(this::findState).orElse(null);
       state.parentExecutionId = parentExecutionId;
       state.restartOf = restartOf;
-      if (parentExecutionId == null) {
-        state.rootExecutionId = executionId;
-      } else if (parent != null && parent.rootExecutionId != null) {
-        state.rootExecutionId = parent.rootExecutionId;
-      } else {
-        state.rootExecutionId = parentExecutionId;
-      }
+      state.rootExecutionId =
+          parentExecutionId == null
+              ? executionId
+              : Optional.ofNullable(parent).map(p -> p.rootExecutionId).orElse(parentExecutionId);
     }
   }
 
@@ -979,7 +978,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
 
   /** Whether the idle sweep is off: no session TTL is set, or it is not positive. */
   private static boolean sweepOff(@Nullable final Duration ttl) {
-    return ttl == null || ttl.isZero() || ttl.isNegative();
+    return ttl == null || ttl.compareTo(Duration.ZERO) <= 0;
   }
 
   private WorkflowState findState(final String executionId) {
