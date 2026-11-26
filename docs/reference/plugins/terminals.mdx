@@ -1,8 +1,8 @@
 ---
 title: "Terminal reference"
 sidebarTitle: "Terminals"
-description: "Options and behaviour of CONSOLE_TERMINAL, NOTIFY_TERMINAL, OUTCOME_TERMINAL and SUPERVISOR_DECISION."
-keywords: ["CONSOLE_TERMINAL", "NOTIFY_TERMINAL", "OUTCOME_TERMINAL", "SUPERVISOR_DECISION", "terminals"]
+description: "Options and behaviour of CONSOLE_TERMINAL, NOTIFY_TERMINAL, OUTCOME_TERMINAL, REPLY and SUPERVISOR_DECISION."
+keywords: ["CONSOLE_TERMINAL", "NOTIFY_TERMINAL", "OUTCOME_TERMINAL", "REPLY", "replyTo", "SUPERVISOR_DECISION", "terminals"]
 ---
 
 # Terminal reference
@@ -62,6 +62,25 @@ Names the exit a run took so a supervisor (or a parent `SUB_WORKFLOW`) can act o
 
 ```json
 { "nodeId": "give-up", "type": "OUTCOME_TERMINAL", "config": { "outcome": "ESCALATE", "restartFrom": "build", "reason": "needs a fixer" } }
+```
+
+## `REPLY`
+
+Answers the caller that started the run with `?wait=<seconds>` (`POST /api/workflow/start` or `POST /hooks/{sessionId}/{path}`): the call returns `200` with the payload of the first message that reaches this node in `data.reply`. A workflow can then serve as a synchronous HTTP API.
+
+- **Options:** none.
+- **Behaviour:** the trigger puts the caller's reply key on its message as `replyTo`, and every message derived from it carries it on. The first message to arrive answers; later ones, and messages of a run that nobody waits for, are skipped. Several `REPLY` nodes may share a run; the first answer wins.
+- **Wait:** `?wait=` is capped by `yukta.reply.max-wait` (default `30s`). When it ends first the call returns `202` with only the execution id, as without a wait, and the run goes on. A repeated idempotent start returns the first run, which answers nobody: it gets `202`.
+- **Limit:** the wait lives on the server that took the call, so the run must be on that server.
+
+```json
+{ "nodeId": "answer", "type": "REPLY", "config": {} }
+```
+
+```bash
+curl -X POST 'http://127.0.0.1:9858/api/workflow/start?wait=20' -H 'Content-Type: application/json' \
+  -d '{"sessionId": "s", "workflowId": "w", "payload": {"name": "ada"}}'
+# 200 {"data": {"executionId": "…", "reply": {"greeting": "hi ada"}}, …}
 ```
 
 ## `SUPERVISOR_DECISION`

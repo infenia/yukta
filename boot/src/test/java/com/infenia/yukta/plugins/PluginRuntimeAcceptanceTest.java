@@ -65,6 +65,7 @@ class PluginRuntimeAcceptanceTest {
           Map.entry("WEBHOOK_TRIGGER", Map.of("path", "p", "secret", "s")),
           Map.entry("CONSTANT_SOURCE", Map.of()),
           Map.entry("OUTCOME_TERMINAL", Map.of("outcome", "SUCCESS")),
+          Map.entry("REPLY", Map.of()),
           Map.entry("SUPERVISOR_DECISION", Map.of()),
           Map.entry("SCHEDULE_TRIGGER", Map.of("intervalMs", 1000)));
 

@@ -31,6 +31,7 @@ com.infenia.yukta.controller.NodeOutputController
 com.infenia.yukta.controller.NotificationsController
 com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.ProjectPathController
+com.infenia.yukta.controller.ReplyWait
 com.infenia.yukta.controller.RunDiagnosisController
 com.infenia.yukta.controller.SessionConfigController
 com.infenia.yukta.controller.SupervisionController
@@ -99,6 +100,7 @@ com.infenia.yukta.plugin.core.flow.AskInputProcessor
 com.infenia.yukta.plugin.core.flow.DelayProcessor
 com.infenia.yukta.plugin.core.flow.LoopPredicateProcessor
 com.infenia.yukta.plugin.core.flow.LoopStreamProcessor
+com.infenia.yukta.plugin.core.flow.ReplyTerminal
 com.infenia.yukta.plugin.core.flow.SubWorkflowProcessor
 com.infenia.yukta.plugin.core.flow.WaitForSignalProcessor
 com.infenia.yukta.plugin.core.router.AggregateProcessor
@@ -229,6 +231,7 @@ com.infenia.yukta.service.orchestrator.validator.WorkflowValidator
 com.infenia.yukta.service.plugin.PluginRegistry
 com.infenia.yukta.service.redact.InputRedactor
 com.infenia.yukta.service.redact.SecretScrubber
+com.infenia.yukta.service.reply.InMemoryReplyRegistry
 com.infenia.yukta.service.result.ExecutionResultService
 com.infenia.yukta.service.review.AttachedSupervisors
 com.infenia.yukta.service.review.ControlReviewer

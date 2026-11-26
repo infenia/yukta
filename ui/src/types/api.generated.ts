@@ -2495,7 +2495,7 @@ export interface paths {
         put?: never;
         /**
          * Start a workflow
-         * @description Starts the execution of a DAG workflow for a session. Answers 404 for an unknown session or workflow and 429 when the execution limit is reached.
+         * @description Starts the execution of a DAG workflow for a session. Answers 404 for an unknown session or workflow and 429 when the execution limit is reached. 202 with the execution id; with wait=<seconds>, 200 with the run's REPLY when it answers in time (capped by yukta.reply.max-wait).
          */
         post: operations["startWorkflow"];
         delete?: never;
@@ -2555,7 +2555,7 @@ export interface paths {
         put?: never;
         /**
          * Call a webhook
-         * @description Starts the workflow whose WEBHOOK_TRIGGER node has this path. 401 unless the body is signed with the node's secret; 404 for an unknown hook.
+         * @description Starts the workflow whose WEBHOOK_TRIGGER node has this path. 401 unless the body is signed with the node's secret; 404 for an unknown hook. 202 with the execution id; with wait=<seconds>, 200 with the run's REPLY when it answers in time (capped by yukta.reply.max-wait).
          */
         post: operations["call"];
         delete?: never;
@@ -7275,6 +7275,8 @@ export interface components {
              * @example 550e8400-e29b-41d4-a716-446655440000
              */
             executionId?: string;
+            /** @description What the run's REPLY terminal answered, when the call was made with ?wait= and the reply came in time (status 200); absent otherwise */
+            reply?: unknown;
         };
         WorkflowStatusChanged: components["schemas"]["ExecutionEvent"] & {
             executionId?: string;
@@ -10910,7 +10912,9 @@ export interface operations {
     };
     startWorkflow: {
         parameters: {
-            query?: never;
+            query?: {
+                wait?: number | null;
+            };
             header?: {
                 "Idempotency-Key"?: string;
             };
@@ -10923,8 +10927,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Accepted */
-            202: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10991,7 +10995,9 @@ export interface operations {
     };
     call: {
         parameters: {
-            query?: never;
+            query?: {
+                wait?: number | null;
+            };
             header?: never;
             path: {
                 sessionId: string;
@@ -11005,8 +11011,8 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Accepted */
-            202: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

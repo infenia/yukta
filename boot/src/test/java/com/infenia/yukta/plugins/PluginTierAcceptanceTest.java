@@ -99,6 +99,7 @@ class PluginTierAcceptanceTest {
             "LOOP_STREAM",
             "MAPPER",
             "OUTCOME_TERMINAL",
+            "REPLY",
             "RECIPIENT_LIST",
             "SCHEDULE_TRIGGER",
             "SPLITTER",

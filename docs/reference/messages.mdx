@@ -25,7 +25,7 @@ A message is a payload plus labels, the unit of data on an edge. Messages are im
 | `messageHistory` | list of string | Ids of the last 64 nodes it passed through (`MAX_HISTORY`, not configurable). |
 | `sequenceId`, `sequenceNumber`, `sequenceSize` | string, int, int | Position in a group produced by a splitter. |
 | `expiration` | long | The engine drops an inbound message once this time has passed. |
-| `priority`, `replyTo`, `formatIndicator`, `retryCount`, `controlMessage` | various | Carried along; they change no behaviour except as stated for `controlMessage`. `replyTo` routes nothing. |
+| `priority`, `replyTo`, `formatIndicator`, `retryCount`, `controlMessage` | various | Carried along; they change no behaviour except as stated for `controlMessage`. `replyTo` holds the reply key of a caller waiting with `?wait=`; the `REPLY` terminal answers it. |
 | `origDest`, `failureReason`, `exceptionDetail` | string | Set by plugins such as `VALIDATE` and `BRANCH`, and by error routing. |
 
 Run priority is a different mechanism: `yukta.priority` in the start payload (needs the ADMIN role).

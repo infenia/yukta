@@ -35,7 +35,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
@@ -71,40 +70,47 @@ public class WorkflowController {
   /** The session service. */
   private final SessionService sessionService;
 
+  /** Holds a call with {@code ?wait=} until the run replies. */
+  private final ReplyWait replyWait;
+
   /**
    * Start a workflow.
    *
    * @param request session, workflow and optional trigger payload
    * @param idempotencyKey optional key that makes retries return the original execution
-   * @return the new execution ID
+   * @param wait seconds to wait for the run's REPLY terminal, or null to answer at once
+   * @return the new execution ID, with the reply when one came in time
    */
   @PostMapping("/workflow/start")
-  @ResponseStatus(HttpStatus.ACCEPTED)
   @Operation(
       summary = "Start a workflow",
       description =
           "Starts the execution of a DAG workflow for a session. Answers 404 for an unknown"
-              + " session or workflow and 429 when the execution limit is reached.")
-  public Mono<ApiResponse<WorkflowStartResponse>> startWorkflow(
+              + " session or workflow and 429 when the execution limit is reached. 202 with the"
+              + " execution id; with wait=<seconds>, 200 with the run's REPLY when it answers in"
+              + " time (capped by yukta.reply.max-wait).")
+  public Mono<ResponseEntity<ApiResponse<WorkflowStartResponse>>> startWorkflow(
       @Valid @RequestBody final WorkflowStartRequest request,
-      @RequestHeader(value = "Idempotency-Key", required = false) final String idempotencyKey) {
-    return Mono.deferContextual(
-            context -> {
-              final StartOptions options = request.options();
-              if (options != null && !options.isEmpty() && !isAdmin(context)) {
-                return Mono.error(
-                    new ResponseStatusException(
-                        HttpStatus.FORBIDDEN, "priority and version need the ADMIN role"));
-              }
-              final Map<String, Object> clean =
-                  StartOptions.withInitiator(request.payload(), initiator(request, context));
-              final Map<String, Object> payload = options == null ? clean : options.into(clean);
-              return workflowService.start(
-                  request.sessionId(), request.workflowId(), payload, idempotencyKey);
-            })
-        .map(executionId ->
-            ApiResponse.success(
-                202, "Workflow start accepted", new WorkflowStartResponse(executionId)));
+      @RequestHeader(value = "Idempotency-Key", required = false) final String idempotencyKey,
+      @RequestParam(required = false) @Nullable final Integer wait) {
+    return Mono.deferContextual(context -> {
+      final StartOptions options = request.options();
+      if (options != null && !options.isEmpty() && !isAdmin(context)) {
+        return Mono.error(
+            new ResponseStatusException(
+                HttpStatus.FORBIDDEN, "priority and version need the ADMIN role"));
+      }
+      final Map<String, Object> clean =
+          StartOptions.withInitiator(request.payload(), initiator(request, context));
+      final Map<String, Object> payload = options == null ? clean : options.into(clean);
+      return replyWait.start(
+          wait,
+          payload,
+          keyed ->
+              workflowService.start(
+                  request.sessionId(), request.workflowId(), keyed, idempotencyKey),
+          "Workflow start accepted");
+    });
   }
 
   /** Whether the caller may set start options: an ADMIN key, or no key at all (auth is off). */

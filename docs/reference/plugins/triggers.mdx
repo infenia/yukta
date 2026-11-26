@@ -16,6 +16,7 @@ Emits the `payload` map the caller gave when starting the run.
 - **Options:** none.
 - **Output port:** `default`.
 - **Payload:** the start payload, or an empty map.
+- **Reply:** started with `?wait=<seconds>`, its message carries the caller's reply key as `replyTo`; see [`REPLY`](/reference/plugins/terminals#reply).
 
 ```json
 { "nodeId": "start", "type": "API_TRIGGER", "config": {} }
@@ -36,6 +37,7 @@ Starts the run from a signed inbound `POST /hooks/{sessionId}/{path}`. The call 
 
 - **Output port:** `default`.
 - **Payload:** `{body, headers}`.
+- **Reply:** `POST /hooks/{sessionId}/{path}?wait=<seconds>` waits for the run's [`REPLY`](/reference/plugins/terminals#reply): `200` with it, or `202` when the wait ends first.
 - **Errors:** validation fails when `path` or `secret` is missing or blank.
 
 ```json
