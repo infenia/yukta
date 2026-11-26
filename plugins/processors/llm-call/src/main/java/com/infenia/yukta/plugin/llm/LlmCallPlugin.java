@@ -336,7 +336,7 @@ public final class LlmCallPlugin implements ProcessorPlugin {
                       response.inputTokens() + response.outputTokens(),
                       payload.get("cost") instanceof final Double cost ? cost : 0.0);
                   count(request, response, payload);
-                  return output(message, config, payload, null);
+                  return output(message, config, payload, null).withFormatIndicator("text/plain");
                 })
                 .onErrorResume(error ->
                     RunAbortedException.isAbort(error)

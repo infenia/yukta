@@ -133,6 +133,15 @@ class LlmCallPluginTest {
   }
 
   @Test
+  void answerIsMarkedAsText() {
+    when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1, 1, "m"));
+
+    StepVerifier.create(run(config()))
+        .assertNext(m -> assertThat(m.formatIndicator()).isEqualTo("text/plain"))
+        .verifyComplete();
+  }
+
+  @Test
   void costBudget_usesPrices_continueModeEmitsFailure() {
     when(gateway.call(any())).thenReturn(new LlmResponse("ok", 1_000_000, 0, "m"));
     final Map<String, Object> config =
