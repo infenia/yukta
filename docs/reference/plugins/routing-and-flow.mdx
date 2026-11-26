@@ -78,18 +78,34 @@ Splits a composite message into one message per item.
 
 ## `AGGREGATE`
 
-Batches messages into one message holding the list of their payloads; the reverse of `SPLITTER`.
+Merges messages into one message holding the list of their payloads: `{items, count, sources}`, where `sources` names the node each item came from. With `by: sequence` it is the exact reverse of `SPLITTER`.
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `size` | number | none | yes | Most messages per batch, a positive whole number. |
-| `timeoutMs` | number | none | no | Flush a partial batch this many milliseconds after it started. |
+| `by` | `count`, `sequence` or `correlation` | `count` | no | How messages are grouped (below). |
+| `size` | number | none | for `count` and `correlation` | Most messages per batch, or per correlation group; a positive whole number. |
+| `timeoutMs` | number | none | no | Flush a partial batch or group this many milliseconds after it started. |
 
-- **Output port:** `default`. The remainder is flushed when the stream completes.
-- **Errors:** `size must be a positive number`.
+| `by` | Groups | A group is complete when | Output envelope |
+|---|---|---|---|
+| `count` | Any messages, in arrival order; no splitter needed | `size` have arrived | New `id`; `traceId` of the first. |
+| `sequence` | Messages with the same `sequenceId` (what one `SPLITTER` split), ordered by `sequenceNumber` | `sequenceSize` have arrived | The parent again: its `id` as `id` and `correlationId`, its `traceId`; the labels of the first item (the parent's, plus what the nodes in between added). |
+| `correlation` | Messages with the same `correlationId` (parallel branches, or messages you tagged as belonging together); no splitter needed | `size` have arrived | New `id`; the shared `correlationId`; `traceId` and labels of the first member. |
+
+- **Group modes** add `complete` (`false` when the group was flushed by `timeoutMs` or by the end of the stream) to the payload, and `sequence` adds `missing`, the positions that never arrived. A message without the key is passed on as a group of one.
+- **Output port:** `default`. The remainder is flushed when the stream completes. The `sourceIds` label lists the ids of the merged messages.
+- **Errors:** `size must be a positive number`, `by must be one of count, sequence, correlation`.
 
 ```json
 { "nodeId": "collect", "type": "AGGREGATE", "config": { "size": 3, "timeoutMs": 2000 } }
+```
+
+Split, work on each item, join the results back into one message per original:
+
+```json
+{ "nodeId": "each-file", "type": "SPLITTER", "config": { "itemsPath": "payload.files" } }
+{ "nodeId": "review", "type": "LLM_CALL", "config": { "...": "..." } }
+{ "nodeId": "join", "type": "AGGREGATE", "config": { "by": "sequence", "timeoutMs": 600000 } }
 ```
 
 ## `RECIPIENT_LIST`

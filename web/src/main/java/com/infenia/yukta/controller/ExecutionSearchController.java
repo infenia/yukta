@@ -3,7 +3,6 @@
 package com.infenia.yukta.controller;
 
 import com.infenia.yukta.model.api.ApiResponse;
-import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
@@ -14,7 +13,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
-import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
@@ -108,6 +106,8 @@ public class ExecutionSearchController {
                     : controlBus.getHistory(id, filter.workflowId()))
                 .flatMapIterable(history -> history)
                 .filter(filter::matches)
+                // a session's history is newest first: its first max hits are all it can add
+                .take(max)
                 .map(run -> hit(id, run)))
         .sort(Comparator.comparing(Hit::startTime, Comparator.nullsLast(Comparator.reverseOrder())))
         .take(max)
@@ -132,26 +132,36 @@ public class ExecutionSearchController {
     final Instant since = Instant.now().minus(Math.max(hours, 0), ChronoUnit.HOURS);
     return sessions
         .getSessionIds(false)
-        .concatMap(id -> controlBus.getHistory(id).flatMapIterable(history -> history))
-        .collectList()
-        .map(runs ->
-            ApiResponse.success(
-                200,
-                "Executions counted",
+        .concatMap(id -> controlBus.getHistory(id).map(runs -> counts(runs, since)))
+        .reduce(
+            new Counts(0, 0, 0),
+            (a, b) ->
                 new Counts(
-                    count(runs, run -> run.status() == TaskStatus.RUNNING),
-                    count(runs, run -> run.status() == TaskStatus.QUEUED),
-                    count(
-                        runs,
-                        run ->
-                            run.status() == TaskStatus.FAILURE
-                                && run.startTime() != null
-                                && !run.startTime().isBefore(since)))));
+                    a.running() + b.running(), a.queued() + b.queued(), a.failed() + b.failed()))
+        .map(counts -> ApiResponse.success(200, "Executions counted", counts));
   }
 
-  private static int count(
-      final List<WorkflowExecutionSummary> runs, final Predicate<WorkflowExecutionSummary> test) {
-    return (int) runs.stream().filter(test).count();
+  /** Counts one session's runs, so no list of every session's runs is built. */
+  private static Counts counts(final List<WorkflowExecutionSummary> runs, final Instant since) {
+    int running = 0;
+    int queued = 0;
+    int failed = 0;
+    for (final WorkflowExecutionSummary run : runs) {
+      if (run.status() == null) {
+        continue; // a switch on null throws; such a run counts nowhere, as before
+      }
+      switch (run.status()) {
+        case RUNNING -> running++;
+        case QUEUED -> queued++;
+        case FAILURE -> {
+          if (run.startTime() != null && !run.startTime().isBefore(since)) {
+            failed++;
+          }
+        }
+        default -> {}
+      }
+    }
+    return new Counts(running, queued, failed);
   }
 
   private static Hit hit(final String sessionId, final WorkflowExecutionSummary run) {

@@ -36,6 +36,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.core.publisher.BufferOverflowStrategy;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -97,6 +98,18 @@ public class RunAnalytics {
 
   /** How long buckets are kept. */
   private static final Duration RETENTION = Duration.ofHours(24);
+
+  /**
+   * What the seed reads, only within {@link #RETENTION}: starts first, so each end finds its start
+   * (a run that started before the window counts without a duration).
+   */
+  private static final List<ExecutionLogEvent.Type> SEEDED_TYPES =
+      List.of(
+          ExecutionLogEvent.Type.RUN_STARTED,
+          ExecutionLogEvent.Type.RUN_FINISHED,
+          ExecutionLogEvent.Type.RUN_ABORTED,
+          ExecutionLogEvent.Type.CONTROL_APPLIED,
+          ExecutionLogEvent.Type.CONTROL_REJECTED);
 
   /** Statuses that count as a failure. */
   private static final Set<String> FAILED =
@@ -204,8 +217,9 @@ public class RunAnalytics {
 
   // A failed read must say so: nothing else would.
   /* default */ Mono<Void> seedSafely() {
-    return logStore
-        .readAll()
+    final Instant from = clock.instant().minus(RETENTION);
+    return Flux.fromIterable(SEEDED_TYPES)
+        .concatMap(type -> logStore.ofType(type, from))
         .collectList()
         .doOnNext(this::seed)
         .onErrorResume(e -> {

@@ -112,7 +112,7 @@ export function setup() {
 export function answer(ctx) {
   const target = ctx.answers[exec.scenario.iterationInTest];
   const r = http.post(`${BASE_URL}/api/executions/${target.e}/inputs/${target.r}/answer`,
-    JSON.stringify({ decision: 'approve', rationale: 'k6' }), { headers, tags: { op: 'answer' } });
+    JSON.stringify({ decision: 'approve', rationale: 'k6' }), { headers, tags: { op: 'answer', name: 'answer' } });
   answerMs.add(r.timings.duration);
   answersSent.add(1);
   answerOk.add(check(r, { 'answer 200': (x) => x.status === 200 }));
@@ -132,7 +132,7 @@ export function teardown(ctx) {
   while (Date.now() < deadline) {
     stuck = 0;
     for (const t of ctx.answers.slice(0, 50)) { // a sample is enough: the answers are not ordered by run
-      const s = http.get(`${BASE_URL}/api/executions/${t.e}`, { headers });
+      const s = http.get(`${BASE_URL}/api/executions/${t.e}`, { headers, tags: { name: 'poll' } });
       if (s.status !== 200 || s.json('data.status') === 'RUNNING') stuck++;
     }
     if (!stuck) break;

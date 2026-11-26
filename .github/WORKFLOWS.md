@@ -343,7 +343,7 @@ Issues, issue types and the **Yukta Roadmap** project are described in
 ### `perf-nightly.yml` — Perf nightly
 
 **Purpose**: Catch performance and stability regressions of `main`.
-**Triggered on**: daily schedule, manual.
+**Triggered on**: daily schedule, manual (input `persistence`: `memory`, or `postgres` for the Plus binary with every store in PostgreSQL; that run is not compared with the memory baseline and never becomes one).
 **Behavior**: builds the native binary (quick build), runs the k6 test (2 min) and a 30 minute soak in a container with fixed resources (`perf/run.sh`); `perf/compare.py` fails on a stuck run, a lost tracker event, success under 99%, a median or p99 above the baseline, or rising memory. The baseline is the last green run of `main`. Each failure becomes an `auto-found` issue.
 
 ---
