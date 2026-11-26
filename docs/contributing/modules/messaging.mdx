@@ -521,13 +521,10 @@ These fields exist in the envelope. Nothing in core or the plugins acts on them.
 
 | Field | Status |
 |---|---|
-| expiration | \*\*No.\*\* Never checked. An expired message is delivered like any other. Splitter only copies it. |
 | replyTo | \*\*No.\*\* Never used to route a reply. Splitter copies it; ContentFilter can read it. |
 | formatIndicator | \*\*No.\*\* Never checked or used to pick a format. Splitter copies it. |
-| retryCount | \*\*No.\*\* Not set by any code. The attempt count is carried in the header `failure.attempts` instead. |
-| controlMessage | \*\*No.\*\* Set on control messages by the gateway and controller; no code reads it to treat them differently. |
 | sequenceId, sequenceNumber, sequenceSize | \*\*No.\*\* Set by Splitter. No node re-orders or waits for the full set; Aggregate merges by count or time. |
-| priority | \*\*Partly.\*\* Used only to order a batch of control commands. Data messages are not prioritised. The run scheduler has its own separate priority. |
+| priority | \*\*No.\*\* Data messages are not prioritised. The run scheduler has its own separate priority. |
 | correlationId | \*\*Partly.\*\* Set by Splitter, read by ContentFilter for its allow-list. Nothing matches requests to replies. |
 
 ### Limits and defaults
@@ -537,7 +534,7 @@ Numbers a reader may need.
 | Item | Value |
 |---|---|
 | History cap | \*\*Note.\*\* 64 entries (constant, not configurable) |
-| Envelope size | \*\*Note.\*\* 22 record components, 22 accessors, 18 withers |
+| Envelope size | \*\*Note.\*\* 21 record components, 21 accessors, 17 withers |
 | Payload size limit | \*\*No.\*\* None in this module. Core's checkpoint caps limit replay, not the message. |
 | Payload type | \*\*Note.\*\* Plain Java object; no schema. Read back from checkpoints with its original type if that type is allowed, else as JSON values. |
 | Provider call frequency | \*\*Note.\*\* Once per node when the graph is assembled, not per message. |
@@ -551,17 +548,17 @@ Every field, who sets it today, and who reads it. Verified against core and the 
 
 | Group | Fields | Who sets them | Who reads them |
 |---|---|---|---|
-| Identity | id, traceId | `create` (random id; trace from the trigger or null). Kept by `from` and all withers. | Core logs and checkpoints; id is the key for retries and stores. |
+| Identity | id, traceId | `create` (random id; trace null from the repository's triggers). Core sets a missing trace to the execution id on the first edge. Kept by `from` and all withers. | Core logs and checkpoints; id is the key for retries and stores. |
 | Identity | correlationId, replyTo | Plugins. Splitter sets correlation to the parent's id and copies reply-to. | ContentFilter reads them. Nothing routes replies. |
 | Time | timestamp | Set at construction. `from` keeps the original; Splitter copies the parent's. | Plugins and logs. |
-| QoS | expiration, formatIndicator | Splitter copies them from the parent. | Nothing. |
-| QoS | priority, controlMessage | Control gateway and the node-command endpoint set them on commands. Splitter copies priority. | Control bus sorts a batch by priority. Nothing reads the flag. |
+| QoS | expiration, formatIndicator | Splitter copies them from the parent. | `DirectNodeMessageChannel` drops an expired message; nothing reads the format. |
+| QoS | priority | Splitter copies it. | Nothing. |
 | Routing | sourcePort | Plugins (`default`, named ports, `error`). Core's retry policy and PluginGuard set `error`. | Core edge filter. |
 | Routing | sourceNodeId | Core, on every edge. The control bus sets a fixed source name on commands. | Control bus (to find the target node). |
 | Routing | workflowId | Only the node-command endpoint sets it today. | Control bus. Data messages do not carry it. |
 | Sequence | sequenceId, sequenceNumber, sequenceSize | Splitter. | ContentFilter (sequence id). No reordering. |
 | Dead letter | origDest, failureReason, exceptionDetail | `withFailure`: core's retry policy, PluginGuard, Branch, Splitter, ContentFilter, RecipientList, Validate. | Dead-letter terminals and loggers. |
-| Dead letter | retryCount | Nobody. | Nobody. |
+| Retry | retryCount | Core's retry loop, before each attempt; reset to 0 on every edge. | Plugins and `${message.retryCount}`. |
 | Lineage | messageHistory | Core only, once per node. | Debugging and checkpoints. Capped at 64. |
 | Free-form | metadata | Many plugins (HTTP status, LLM usage, process output...). Core adds `failure.attempts`, `failure.exception`, `failure.time`. | Plugins and expressions. |
 | Body | payload | Every plugin. | Every plugin; core echoes a truncated text of it into run log lines. |
@@ -578,7 +575,7 @@ Short rules that follow from the guarantees.
 | Use `toBuilder()` when changing several fields, to make one copy instead of several. | Don't call `withAddedHistory`. Core stamps every node once; a second stamp duplicates the entry. |
 | Treat the payload and metadata values as read-only: copy before you change a list or map. | Don't mutate a payload object in place. Sibling branches share the same object. |
 | Key any store by (execution id, node id, message id). | Don't key by message id alone. The id is logical and stays the same through the nodes. |
-| Use `withFailure` plus source port `error` when you want a message to go to the error edge. | Don't rely on `expiration`, `replyTo`, `retryCount` or `controlMessage` having any effect. |
+| Use `withFailure` plus source port `error` when you want a message to go to the error edge. | Don't rely on `replyTo`, `priority` or `formatIndicator` having any effect. |
 
 ## Architecture decisions
 

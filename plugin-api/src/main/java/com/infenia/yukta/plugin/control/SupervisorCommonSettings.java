@@ -60,6 +60,14 @@ public class SupervisorCommonSettings {
               "LOW",
               "MEDIUM",
               "HIGH"),
+          ConfigField.choice(
+              SupervisorCapabilities.ON_REVIEW_TIMEOUT,
+              false,
+              "DENY",
+              "What a person's command gets when the supervisor does not review it in time (a"
+                  + " stop is always allowed)",
+              "DENY",
+              "ALLOW"),
           ConfigField.optional(
               SupervisorCapabilities.OBSERVE_INTERNAL,
               Type.BOOLEAN,

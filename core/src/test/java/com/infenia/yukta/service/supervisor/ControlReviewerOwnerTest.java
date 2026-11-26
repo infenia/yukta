@@ -311,6 +311,31 @@ class ControlReviewerOwnerTest {
   }
 
   @Test
+  void ownerThatNeverAnswersRefusesUnlessItSaysToAllowOnTimeout() {
+    assertThat(verdictOfHungOwner(false)).isInstanceOf(ReviewVerdict.Denied.class);
+    assertThat(verdictOfHungOwner(true)).isInstanceOf(ReviewVerdict.Allowed.class);
+  }
+
+  private ReviewVerdict verdictOfHungOwner(final boolean allowOnReviewTimeout) {
+    final ExecutionSupervisor hung = Mockito.mock(ExecutionSupervisor.class);
+    Mockito.when(hung.review(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.never());
+    final SupervisorScope scope = new SupervisorScope.Workflow("w", "s");
+    attached.put(
+        new BoundSupervisor(
+            new SupervisorAttachment("a", "a-sup", scope, true),
+            hung,
+            false,
+            new SupervisorCapabilities(null, false, InputRisk.LOW, Set.of(PAUSE)),
+            false,
+            scope,
+            allowOnReviewTimeout));
+    final ControlReviewer reviewer = new ControlReviewer(java.time.Duration.ofMillis(50));
+    reviewer.setAttachedSupervisors(attached);
+    return verdict(reviewer, RUN_COMMAND, ControlActor.Channel.OPERATOR)
+        .block(java.time.Duration.ofSeconds(5));
+  }
+
+  @Test
   void ownerNeedForApprovalStaysWithoutHierarchy() {
     own(
         "a",

@@ -12,7 +12,6 @@ import com.infenia.yukta.plugin.util.ConfigValidation;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -81,7 +80,7 @@ public class WebhookTriggerPlugin implements TriggerPlugin {
   public Flux<Message<?>> start(final Map<String, Object> config) {
     return Flux.deferContextual(ctx -> {
       final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
-      return Flux.just(DefaultMessage.create(UUID.randomUUID(), payload).withSourcePort("default"));
+      return Flux.just(DefaultMessage.create(null, payload).withSourcePort("default"));
     });
   }
 }

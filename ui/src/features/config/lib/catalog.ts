@@ -291,6 +291,12 @@ export const CATALOG: ConfigOption[] = [
       default: '10',
       purpose: 'Runs kept per session when the log is trimmed.',
     },
+    {
+      key: 'yukta.execution-log.max-age',
+      default: 'unset',
+      purpose:
+        'Runs that ended longer ago than this are removed by an hourly job on the leader. Unset keeps runs by count only.',
+    },
   ]),
   ...group('Scheduler and engine', [
     {
