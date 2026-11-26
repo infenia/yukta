@@ -19,6 +19,7 @@ import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class NodeRunnerTest {
 
   private final TriggerPlugin trigger = mock(TriggerPlugin.class);
@@ -29,7 +30,8 @@ class NodeRunnerTest {
     return new NodeRunner(
         new PluginRegistry(List.of(new FakePlugin("UPPER", new AtomicInteger()), trigger)),
         Set.of("UPPER", "TRIGGER"),
-        new ObjectMapper());
+        new ObjectMapper(),
+        1);
   }
 
   private NodeFrame answerTo(final Flux<NodeFrame> frames) {
@@ -55,6 +57,25 @@ class NodeRunnerTest {
         "does not run");
     assertRefused(
         answerTo(Flux.just(NodeFrame.start("e", "n", "TRIGGER", Map.of()))), "not a processor");
+  }
+
+  @Test
+  void attemptBeyondCapacity_isRefusedRetryably_untilOneSlotIsFree() {
+    final NodeFrame start = NodeFrame.start("e", "n", "UPPER", Map.of());
+    final reactor.core.Disposable first =
+        runner.run(Flux.concat(Flux.just(start), Flux.never())).subscribe();
+    assertThat(runner.running()).isEqualTo(1);
+
+    final NodeFrame refused = answerTo(Flux.just(start, NodeFrame.complete()));
+    assertThat(refused.kind()).isEqualTo(NodeFrame.Kind.ERROR);
+    assertThat(refused.errorClass()).isEqualTo(IllegalStateException.class.getName());
+    assertThat(refused.errorMessage()).contains("full");
+    assertThat(runner.running()).isEqualTo(1);
+
+    first.dispose();
+    assertThat(runner.running()).isZero();
+    assertThat(answerTo(Flux.just(start, NodeFrame.complete())).kind())
+        .isEqualTo(NodeFrame.Kind.COMPLETE);
   }
 
   @Test
