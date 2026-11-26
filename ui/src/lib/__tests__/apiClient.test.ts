@@ -225,6 +225,18 @@ describe('paged lists', () => {
     path: '/api/list',
   });
 
+  it('returns the X-Total-Count the server announced', async () => {
+    mockFetch({
+      ok: true,
+      status: 200,
+      body: page([1]),
+      headers: { 'X-Total-Count': '57' },
+    });
+    await expect(fetchApiPage('/api/list')).resolves.toMatchObject({
+      total: 57,
+    });
+  });
+
   it('returns the cursor the server announced, or null', async () => {
     mockFetch({
       ok: true,
@@ -235,11 +247,13 @@ describe('paged lists', () => {
     await expect(fetchApiPage('/api/list')).resolves.toEqual({
       data: [1],
       nextCursor: 'c1',
+      total: null,
     });
     mockFetch({ ok: true, status: 200, body: page([2]) });
     await expect(fetchApiPage('/api/list')).resolves.toEqual({
       data: [2],
       nextCursor: null,
+      total: null,
     });
   });
 
