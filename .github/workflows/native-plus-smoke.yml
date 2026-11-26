@@ -95,3 +95,62 @@ jobs:
           sessions="$(curl -fsS -H "X-API-Key: $key" "$base/api/sessions")"
           grep -q '"demo"' <<<"$sessions" || { echo "::error::the session did not survive the restart: $sessions"; exit 1; }
           echo "the Quickstart session survived the restart"
+
+  # Remote workers between two native binaries, each built as its role (Spring chooses the workers'
+  # beans when the image is built, so one image cannot be both). The worker must register and run a
+  # placed node, which no other check does for the native frame records' reflection hints.
+  workers-build:
+    name: Native ${{ matrix.role }} binary
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        role: [control-plane, worker]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - name: Add swap
+        run: |
+          sudo fallocate -l 8G /mnt/extra.swap
+          sudo chmod 600 /mnt/extra.swap
+          sudo mkswap /mnt/extra.swap
+          sudo swapon /mnt/extra.swap
+          free -m
+
+      - name: Native compile (quick, workers role)
+        env:
+          NATIVE_QUICK: '1'
+          NATIVE_HEAP: 12g
+          YUKTA_BUILD_FLAGS: -Pyukta.workers=true -Pyukta.workers.native=${{ matrix.role }}
+        run: release/build-server.sh
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: yukta-${{ matrix.role }}
+          path: dist/linux-amd64/yukta
+          retention-days: 1
+
+  workers:
+    name: Native worker registers and runs a placed node
+    needs: workers-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: yukta-*
+          path: roles
+
+      - name: Register a worker and run a placed node
+        run: |
+          chmod +x roles/yukta-control-plane/yukta roles/yukta-worker/yukta
+          release/workers-smoke.sh roles/yukta-control-plane/yukta roles/yukta-worker/yukta

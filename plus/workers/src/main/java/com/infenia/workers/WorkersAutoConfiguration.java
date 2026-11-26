@@ -42,11 +42,35 @@ import tools.jackson.databind.ObjectMapper;
   NodeFrame.class,
   com.infenia.yukta.message.DefaultMessage.class
 })
+@SuppressWarnings("PMD.CouplingBetweenObjects") // wires both roles of the module
 public class WorkersAutoConfiguration {
 
   /** Default constructor. */
   public WorkersAutoConfiguration() {
     super();
+  }
+
+  /**
+   * Stops a native image from starting with worker settings it was not built for (see {@link
+   * NativeRole}). Not conditional, so a native image of either role, or of none, has it.
+   *
+   * @param environment holds the worker settings
+   * @param agent the worker's agent, when this image is a worker
+   * @param executor the control plane's executor, when this image is a control plane
+   * @return the check, run once every bean exists
+   */
+  @Bean
+  public org.springframework.beans.factory.SmartInitializingSingleton workersNativeRoleCheck(
+      final Environment environment,
+      final ObjectProvider<WorkerAgent> agent,
+      final ObjectProvider<WorkerNodeExecutor> executor) {
+    return () ->
+        NativeRole.check(
+            org.springframework.core.NativeDetector.inNativeImage(),
+            environment.getProperty("yukta.workers.control-plane", ""),
+            environment.getProperty("yukta.workers.token", ""),
+            agent.getIfAvailable() != null,
+            executor.getIfAvailable() != null);
   }
 
   /**
