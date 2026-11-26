@@ -2,14 +2,14 @@
 title: "Core module reference: architecture and features"
 sidebarTitle: "Core module reference"
 description: "Architecture, feature catalog and reference for the Yukta core module: the execution engine, admission, control plane, observability, durability and security."
-verifiedCommit: "d2fd431ad"
-verifiedDate: "2026-11-24"
+verifiedCommit: "5aea8194d"
+verifiedDate: "2026-11-26"
 keywords: ["core module", "architecture", "feature catalog"]
 ---
 
 The `core` module is the engine and control plane of Yukta. It takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and records enough to explain or resume it afterwards.
 
-Last verified against commit `d2fd431ad` on 2026-11-24.
+Last verified against commit `5aea8194d` on 2026-11-26.
 
 <CardGroup cols={2}>
   <Card title="Reactive">
@@ -311,7 +311,7 @@ Each edge is a Reactor stream. A slow consumer slows its producers, so memory st
 **Behaviour**
 
 - Every child subscribes before its source starts, so no early message is lost. A fan-out moves at the speed of its slowest child.
-- **Opt-out per node:** `engine.edgeBuffer {size, overflow}` puts a bounded buffer in front of a node. When the node is slower than its parents it drops messages (`DROP_OLDEST` default, or `DROP_NEWEST`) instead of pacing the fan-out. Drops are counted in `yukta.edge.dropped`. The default stays lossless.
+- **Opt-out per node:** `engine.edgeBuffer {size, overflow, order}` puts a bounded buffer in front of a node. When the node is slower than its parents it drops messages (`DROP_OLDEST` default, or `DROP_NEWEST`) instead of pacing the fan-out. Drops are counted in `yukta.edge.dropped`. `order: PRIORITY` hands out the highest message `priority` first and drops the lowest (`PriorityEdgeBuffer`). The default stays lossless.
 - Blocking plugins run on virtual threads so they do not hold the event loop.
 
 **Configure:** per node: `engine.edgeBuffer`
@@ -1232,6 +1232,7 @@ All meters are Micrometer. Tags in braces.
 - **onError:** `FAIL` · `CONTINUE` · `ROUTE`
 - **trigger (join):** `ALL_SUCCESS` · `ALL_DONE` · `ONE_SUCCESS`
 - **edgeBuffer.overflow:** `DROP_OLDEST` · `DROP_NEWEST`
+- **edgeBuffer.order:** `FIFO` · `PRIORITY`
 - **stop mode:** `DRAIN` · `CANCEL` · `KILL`
 - **on-limit:** `QUEUE` · `REJECT`
 - **API role:** `VIEWER` · `OPERATOR` · `ADMIN`
