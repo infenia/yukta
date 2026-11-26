@@ -29,6 +29,12 @@ class R2dbcNodeCheckpointStoreTest extends PostgresTestSupport {
 
   private static final String KEPT_RUN = "kept";
 
+  private static final String ALPHA = "aaaa";
+
+  private static final String BETA = "bbbb";
+
+  private static final String GAMMA = "cccc";
+
   private R2dbcNodeCheckpointStore store;
 
   @BeforeEach
@@ -70,6 +76,78 @@ class R2dbcNodeCheckpointStoreTest extends PostgresTestSupport {
         store.getAll("e1", "n1").<Object>map(Message::payload).collectList().block();
     assertThat(payloads).hasSize(65).startsWith("first", "m0", "m1").endsWith("m62", "m63");
     assertThat(store.get("e1", "n1").block().payload()).isEqualTo("m63");
+  }
+
+  /* default */ @Nested
+  class WhenRunsGoOverTheirCap {
+
+    private R2dbcNodeCheckpointStore capped;
+
+    @BeforeEach
+    void setUp() {
+      // room for two and a half messages of the same size
+      final long one =
+          com.infenia.yukta.service.store.CheckpointJson.write(new ObjectMapper(), message(ALPHA))
+              .length();
+      capped =
+          new R2dbcNodeCheckpointStore(
+              db, new ObjectMapper(), new SimpleMeterRegistry(), null, one * 5 / 2);
+    }
+
+    @Test
+    void theNodeOverTheCapIsIncomplete_andWhatWasRecordedStays() {
+      capped.save("e1", "n1", message(ALPHA)).block();
+      capped.save("e1", "n2", message(BETA)).block();
+      capped.save("e1", "n2", message(GAMMA)).block();
+      capped.save("e1", "n2", message("dddd")).block();
+      capped.markComplete("e1", "n1").block();
+      capped.markComplete("e1", "n2").block();
+
+      assertThat(capped.finishedAsync("e1", "n1").block()).isTrue();
+      assertThat(capped.finishedAsync("e1", "n2").block()).isFalse();
+      assertThat(capped.getAll("e1", "n1").collectList().block()).hasSize(1);
+    }
+
+    @Test
+    void anotherRunHasItsOwnCap() {
+      capped
+          .saveAll("e1", "n1", java.util.List.of(message(ALPHA), message(BETA), message(GAMMA)))
+          .block();
+      capped.save("e2", "n1", message(ALPHA)).block();
+      capped.markComplete("e2", "n1").block();
+
+      assertThat(capped.getAll("e1", "n1").collectList().block()).isEmpty();
+      assertThat(capped.finishedAsync("e2", "n1").block()).isTrue();
+    }
+
+    @Test
+    void clearingTheRunResetsItsCap() {
+      capped
+          .saveAll("e1", "n1", java.util.List.of(message(ALPHA), message(BETA), message(GAMMA)))
+          .block();
+      capped.clearAsync("e1").block();
+      capped.save("e1", "n1", message(ALPHA)).block();
+      capped.markComplete("e1", "n1").block();
+
+      assertThat(capped.finishedAsync("e1", "n1").block()).isTrue();
+    }
+
+    @Test
+    void theSweepOfGoneRunsResetsTheirCap_andKeepsTheOthers() {
+      capped.save(KEPT_RUN, "n1", message(ALPHA)).block();
+      capped
+          .saveAll(GONE_RUN, "n1", java.util.List.of(message(ALPHA), message(BETA), message(GAMMA)))
+          .block();
+      capped.removeNotIn(java.util.Set.of(KEPT_RUN));
+      capped.save(GONE_RUN, "n1", message(ALPHA)).block();
+      capped.save(KEPT_RUN, "n2", message(BETA)).block();
+      capped.save(KEPT_RUN, "n2", message(GAMMA)).block();
+      capped.markComplete(GONE_RUN, "n1").block();
+      capped.markComplete(KEPT_RUN, "n2").block();
+
+      assertThat(capped.finishedAsync(GONE_RUN, "n1").block()).isTrue();
+      assertThat(capped.finishedAsync(KEPT_RUN, "n2").block()).isFalse();
+    }
   }
 
   /* default */ @Nested

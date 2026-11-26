@@ -277,6 +277,12 @@ export const CATALOG: ConfigOption[] = [
       purpose: 'Bytes kept per node in a checkpoint.',
     },
     {
+      key: 'yukta.restart.max-bytes-per-run',
+      default: '1073741824',
+      purpose:
+        'PostgreSQL checkpoints: most output one run records; a node over it is marked incomplete and runs again on resume.',
+    },
+    {
       key: 'yukta.restart.payload-packages',
       default: '[]',
       purpose: 'Java packages whose types may appear in a checkpoint.',
