@@ -51,6 +51,15 @@ class ClassifyPluginTest {
   }
 
   @Test
+  void budgetedNodeStaysOnTheControlPlane() {
+    final ClassifyPlugin plugin = plugin(FakeModel.always(Map.of()));
+
+    assertThat(plugin.requiresControlPlane(Map.<String, Object>of("budget", Map.of("maxCalls", 1))))
+        .isTrue();
+    assertThat(plugin.requiresControlPlane(Map.of())).isFalse();
+  }
+
+  @Test
   void process_routesByLabel() {
     final FakeModel model = FakeModel.always(Map.of("label", choice("bug", 0.9)));
 

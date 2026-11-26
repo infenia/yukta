@@ -15,6 +15,13 @@ class RunBudgetsTest {
   private final RunBudgets budgets = new RunBudgets();
 
   @Test
+  void budgetedIsWhetherTheNodeSetsBudget() {
+    assertThat(RunBudgets.budgeted(Map.<String, Object>of("budget", Map.of("maxCalls", 1))))
+        .isTrue();
+    assertThat(RunBudgets.budgeted(Map.of())).isFalse();
+  }
+
+  @Test
   void runWithoutUse_orWithoutLimits_mayCall() {
     assertThat(budgets.exceeded("r", 10L, 1.0)).isEmpty();
     budgets.add("r", 1_000, 50.0);

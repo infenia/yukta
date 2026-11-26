@@ -17,7 +17,7 @@ whole run instead: it throws `RunAbortedException`, which `NodePolicies` never r
 routes and `failureMode` does not absorb. Every refusal is counted in `llm.budget.exceeded`. One call
 may overshoot the limit. `yukta.llm.rate-limit.<provider>` (requests per minute, e.g.
 `yukta.llm.rate-limit.openai=60`) spaces the calls to a provider across all nodes and runs; a call
-that would wait longer than its own timeout fails. The ledger (`RunBudgets.shared()` in plugin-api) is shared with `MCP_TOOL_CALL`, whose `budget` takes `{maxCalls, agent, hardStop}`; `LLM_CALL` also takes `maxCalls`, and a budget with an `agent` is counted apart from the rest of the run. Token and cost are counted per provider in `llm.tokens` and `llm.cost`.
+that would wait longer than its own timeout fails. The ledger (`RunBudgets.shared()` in plugin-api) is shared with `MCP_TOOL_CALL`, whose `budget` takes `{maxCalls, agent, hardStop}`; `LLM_CALL` also takes `maxCalls`, and a budget with an `agent` is counted apart from the rest of the run. A node with a `budget` cannot have `engine.placement` (`requiresControlPlane(config)` via `RunBudgets.budgeted`): the ledger is per server, so it stays on the control plane. The rate limit is per server too, so each worker spaces its own calls. Token and cost are counted per provider in `llm.tokens` and `llm.cost`.
 
 ### ask_for_input
 `LLM_CALL` with `allowAskInput: true` offers the model the tool `ask_for_input` (`ToolSpecs.askInput`); like every tool it comes

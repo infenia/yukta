@@ -46,6 +46,7 @@ class PluginContractDefaultsTest {
     assertThat(plugin.isComputationallyHeavy(Map.of())).isFalse();
     assertThat(plugin.suppressOptimizationHint(Map.of())).isFalse();
     assertThat(plugin.requiresControlPlane()).isFalse();
+    assertThat(plugin.requiresControlPlane(Map.of("budget", Map.of()))).isFalse();
     assertThat(plugin.describe()).isEqualTo(PluginDescriptor.EMPTY);
     assertThat(plugin.getConfigSchema()).isEmpty();
     StepVerifier.create(plugin.onControlSignal(null)).verifyComplete();

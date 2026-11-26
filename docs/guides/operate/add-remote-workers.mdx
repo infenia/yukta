@@ -111,7 +111,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     }
     ```
 
-    Only processors can be placed. `WAIT_FOR_SIGNAL` and `SUB_WORKFLOW` keep state on the control plane and refuse a placement. Triggers and terminals always run locally.
+    Only processors can be placed. `WAIT_FOR_SIGNAL` and `SUB_WORKFLOW` keep state on the control plane and refuse a placement, and so does an `LLM_CALL`, `MCP_TOOL_CALL` or decision node with a `budget`, so that the run's budget is counted in one place. Triggers and terminals always run locally.
   </Step>
 </Steps>
 
@@ -136,7 +136,7 @@ If no worker qualifies, the attempt fails at once with "No connected worker in p
 - **Make placed steps safe to repeat.** Delivery is at least once. If a worker dies after an effect and before the attempt completes, the effect can happen twice. Use the message id as an idempotency key.
 - **Configure workers like the server.** A plugin runs inside the worker process, so the worker's own allow-lists apply (commands, hosts, variables, secrets). See [Secure the server](/guides/operate/secure-the-server).
 
-What works differently on a worker: run budgets and rate limits (for example for `LLM_CALL`) are counted inside each worker, not for the whole run. Live log lines written on the worker reach the run's log stream as on the control plane. Messages cross as plain JSON values.
+What works differently on a worker: a node with a run `budget` stays on the control plane (see above), but provider rate limits (`yukta.llm.rate-limit.<provider>`) are counted inside each worker, so set each worker's share. Live log lines written on the worker reach the run's log stream as on the control plane. Messages cross as plain JSON values.
 
 ## Related
 

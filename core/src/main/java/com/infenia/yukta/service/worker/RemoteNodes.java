@@ -46,9 +46,11 @@ public class RemoteNodes {
         throw new IllegalArgumentException(
             "engine.placement is only for processor nodes, but " + type + " is not one");
       }
-      if (local.requiresControlPlane()) {
+      if (local.requiresControlPlane(config)) {
         throw new IllegalArgumentException(
-            type + " keeps state on this server, so it cannot have engine.placement");
+            type
+                + " keeps state or a run budget on this server, so it cannot have"
+                + " engine.placement");
       }
       final RemoteNodeExecutor remote = executor.getIfAvailable();
       if (remote == null) {

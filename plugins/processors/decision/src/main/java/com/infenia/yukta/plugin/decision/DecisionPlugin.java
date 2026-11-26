@@ -111,6 +111,12 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
    */
   protected abstract void check(Map<String, Object> config);
 
+  /** A node with a run budget stays on the control plane, which keeps the run's one ledger. */
+  @Override
+  public boolean requiresControlPlane(final Map<String, Object> config) {
+    return RunBudgets.budgeted(config);
+  }
+
   @Override
   public PluginTier getTier() {
     return PluginTier.SPECIFIC;
