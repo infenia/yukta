@@ -41,7 +41,8 @@ public class ApiTriggerPlugin implements TriggerPlugin {
   @Override
   public Flux<Message<?>> start(final Map<String, Object> config) {
     return Flux.deferContextual(ctx -> {
-      final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
+      final Map<String, Object> payload =
+          ctx.<Map<String, Object>>getOrEmpty("payload").orElse(Map.of());
       // a caller waiting with ?wait= gets the reply of the REPLY terminal
       final Object replyTo = payload.get(ReplyGateway.REPLY_TO_KEY);
       return Flux.just(
