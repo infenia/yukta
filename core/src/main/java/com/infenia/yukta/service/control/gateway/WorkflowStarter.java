@@ -4,6 +4,7 @@ package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.model.workflow.WorkflowKey;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.StartOptions;
@@ -135,11 +136,33 @@ class WorkflowStarter {
               .addKeyValue("edgeCount", def.edges().size())
               .log("Workflow definition found and loaded");
 
-          // Refuse at once, with a reason, a start that could neither run nor be queued.
-          scheduler.assertCanAccept(sessionId, workflowId);
           final String executionId = UUID.randomUUID().toString();
-          return prepareAndExecute(
-              sessionId, workflowId, def, executionId, payload, pinned == null);
+          final AdmissionKeys keys = admissionKeys;
+          if (keys == null) {
+            return admitAndExecute(sessionId, workflowId, def, executionId, payload, pinned);
+          }
+          // a start inside a debounce window runs nothing and gets the window's run, so it is not
+          // refused for limits either
+          return keys.debounce(def, payload)
+              .map(java.util.Optional::of)
+              .defaultIfEmpty(java.util.Optional.empty())
+              .flatMap(debounce -> {
+                if (debounce.isEmpty()) {
+                  return admitAndExecute(sessionId, workflowId, def, executionId, payload, pinned);
+                }
+                final WorkflowKey workflow = new WorkflowKey(sessionId, workflowId);
+                final String holder = keys.joinOrOpen(workflow, debounce.get(), executionId);
+                if (!holder.equals(executionId)) {
+                  log.atDebug()
+                      .addKeyValue("executionId", holder)
+                      .log("Start folded into the run of its debounce window");
+                  return Mono.just(holder);
+                }
+                // a start that cannot run must not leave its window pointing at no run
+                return admitAndExecute(sessionId, workflowId, def, executionId, payload, pinned)
+                    .doOnError(_ -> keys.close(workflow, debounce.get(), executionId))
+                    .doOnCancel(() -> keys.close(workflow, debounce.get(), executionId));
+              });
         })
         .doOnSuccess(executionId ->
             log.atInfo()
@@ -153,6 +176,20 @@ class WorkflowStarter {
                 .addKeyValue("sessionId", sessionId)
                 .addKeyValue("workflowId", workflowId)
                 .log("Failed to start workflow execution"));
+  }
+
+  /** Refuses at once, with a reason, a start that could neither run nor be queued; else runs it. */
+  private Mono<String> admitAndExecute(
+      final String sessionId,
+      final String workflowId,
+      final WorkflowDefinition def,
+      final String executionId,
+      final Map<String, Object> payload,
+      @Nullable final String pinned) {
+    return Mono.defer(() -> {
+      scheduler.assertCanAccept(sessionId, workflowId);
+      return prepareAndExecute(sessionId, workflowId, def, executionId, payload, pinned == null);
+    });
   }
 
   /** Prepares a workflow once even when several starts ask for it at the same time. */
@@ -196,7 +233,7 @@ class WorkflowStarter {
     // the key is resolved first, so a start whose key resolves to nothing is refused before any
     // preparation (HTTP 400)
     final AdmissionKeys keys = admissionKeys;
-    return (keys == null ? Mono.<ExecutionScheduler.KeyClaim>empty() : keys.claim(def, payload))
+    return (keys == null ? Mono.<ExecutionScheduler.Claims>empty() : keys.claim(def, payload))
         .map(java.util.Optional::of)
         .defaultIfEmpty(java.util.Optional.empty())
         .flatMap(claim ->
@@ -211,7 +248,7 @@ class WorkflowStarter {
       final String executionId,
       final Map<String, Object> payload,
       final boolean useCache,
-      final ExecutionScheduler.@Nullable KeyClaim claim) {
+      final ExecutionScheduler.@Nullable Claims claim) {
     return Mono.defer(
             () -> {
               log.atDebug()
@@ -302,21 +339,18 @@ class WorkflowStarter {
     return Mono.fromRunnable(() -> cache.invalidate(sessionId, workflowId))
         .then(orchestrator.prepareWorkflow(definition))
         .doOnNext(prepared -> cache.put(sessionId, workflowId, prepared))
-        .then(Mono.defer(() -> dropCacheIfStale(sessionId, definition)));
-  }
-
-  /* default */ Mono<Void> dropCacheIfStale(
-      final String sessionId, final WorkflowDefinition applied) {
-    return definitions
-        .find(sessionId, applied.workflowId())
-        .filter(applied::equals)
-        .hasElement()
-        .doOnNext(current -> {
-          if (!current) {
-            cache.invalidate(sessionId, applied.workflowId());
-          }
-        })
-        .then();
+        .then(
+            Mono.defer(() ->
+                definitions
+                    .find(sessionId, workflowId)
+                    .filter(definition::equals)
+                    .hasElement()
+                    .doOnNext(current -> {
+                      if (!current) {
+                        cache.invalidate(sessionId, workflowId);
+                      }
+                    })
+                    .then()));
   }
 
   /** A workflow definition being prepared; compared by content, so a newer one never joins. */

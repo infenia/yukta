@@ -16,8 +16,8 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class ExecutionSchedulerKeyTest {
 
-  private static ExecutionScheduler.KeyClaim key(final String key, final OnLimit overflow) {
-    return new ExecutionScheduler.KeyClaim(key, 1, overflow);
+  private static ExecutionScheduler.Claims key(final String key, final OnLimit overflow) {
+    return new ExecutionScheduler.Claims(new ExecutionScheduler.KeyClaim(key, 1, overflow), null);
   }
 
   private static ExecutionScheduler unlimited(final OnLimit onLimit) {
@@ -102,7 +102,8 @@ class ExecutionSchedulerKeyTest {
   @Test
   void releasingOneOfTwoRunsOfOneKey_freesOneSlotForTheWaitingStart() {
     final ExecutionScheduler scheduler = unlimited(OnLimit.QUEUE);
-    final ExecutionScheduler.KeyClaim two = new ExecutionScheduler.KeyClaim("a", 2, OnLimit.QUEUE);
+    final ExecutionScheduler.Claims two =
+        new ExecutionScheduler.Claims(new ExecutionScheduler.KeyClaim("a", 2, OnLimit.QUEUE), null);
     final var first = scheduler.acquireStart("s", "w", 0, "e1", two);
     final var second = scheduler.acquireStart("s", "w", 0, "e2", two);
     final var third = scheduler.acquireStart("s", "w", 0, "e3", two);
