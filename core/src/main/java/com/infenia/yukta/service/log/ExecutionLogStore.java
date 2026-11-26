@@ -44,6 +44,17 @@ public interface ExecutionLogStore {
   Mono<Void> applyRecovery(Set<String> dropped, int schedulerKept, List<ExecutionLogEvent> added);
 
   /**
+   * Removes the runs whose last start or end is older than {@code cutoff} and that have ended
+   * (finished or aborted); a run without an end stays, however old. The default removes nothing.
+   *
+   * @param cutoff runs that ended before this go
+   * @return the ids of the removed runs
+   */
+  default Mono<List<String>> purgeEndedBefore(final Instant cutoff) {
+    return Mono.just(List.of());
+  }
+
+  /**
    * Reads the events of one run, oldest first. The default filters {@link #readAll()}; stores
    * override it with an indexed lookup, so hot paths never load the whole log.
    *

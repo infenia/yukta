@@ -117,6 +117,18 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
     }
   }
 
+  /**
+   * The classes whose presence tells that a gated module is in the build. A native image finds a
+   * class by name only when it is registered for reflection, so the build registers these.
+   *
+   * @return the class names, each once
+   */
+  public static Set<String> providers() {
+    return GATES.stream()
+        .map(Gate::provider)
+        .collect(java.util.stream.Collectors.toUnmodifiableSet());
+  }
+
   @Override
   public void postProcessEnvironment(
       final ConfigurableEnvironment environment, final SpringApplication application) {

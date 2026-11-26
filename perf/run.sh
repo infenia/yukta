@@ -77,6 +77,8 @@ if [[ $type == notifications || $PERSISTENCE == postgres ]]; then
 fi
 if [[ $PERSISTENCE == postgres ]]; then
   printf 'SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/yukta\nSPRING_R2DBC_USERNAME=yukta\nSPRING_R2DBC_PASSWORD=perf-only\nSPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/yukta\nSPRING_FLYWAY_USER=yukta\nSPRING_FLYWAY_PASSWORD=perf-only\n' >> "$KEYS_ENV"
+  # the postgres profile keeps only sessions, definitions, the log and agents there: checkpoints and input requests too
+  printf 'YUKTA_RESTART_STORE_TYPE=postgres\nYUKTA_INPUT_STORE_TYPE=postgres\n' >> "$KEYS_ENV"
 fi
 if [[ $type == notifications ]]; then
   for i in $(seq 1 $(( (STREAMS + 7) / 8 ))); do

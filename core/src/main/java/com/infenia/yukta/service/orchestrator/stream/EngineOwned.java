@@ -11,11 +11,11 @@ import lombok.experimental.UtilityClass;
 /**
  * Takes back the message fields only the engine may write, on every edge a plugin's output crosses.
  *
- * <p>The engine owns: the source node and workflow id (stamped), {@code controlMessage} (a stream
- * message is never a control signal), the {@code attempt} header (set by the retry loop just before
- * a call) and the {@code failure.*} headers (set only on a dead letter, which travels on the error
- * port). A plugin may set them on its output, but they do not survive the next edge. The documented
- * list is in {@code docs/reference/messages.mdx}.
+ * <p>The engine owns: the source node and workflow id (stamped), {@code retryCount} (reset, then
+ * counted by the retry loop), the {@code attempt} header (set by the retry loop just before a call)
+ * and the {@code failure.*} headers (set only on a dead letter, which travels on the error port). A
+ * plugin may set them on its output, but they do not survive the next edge. The documented list is
+ * in {@code docs/reference/messages.mdx}.
  */
 @UtilityClass
 final class EngineOwned {
@@ -29,7 +29,10 @@ final class EngineOwned {
     NodePolicies.FAILURE_TIME_HEADER
   };
 
-  /** Resets the engine-owned fields; the failure headers stay on a dead letter. */
+  /**
+   * Resets the engine-owned fields; the failure headers stay on a dead letter. {@code retryCount}
+   * counts the retries at one node, so it starts at 0 on every edge.
+   */
   @SuppressWarnings("PMD.UseConcurrentHashMap") // local copy, never shared
   /* default */ static Message<?> reassert(final Message<?> msg) {
     final boolean deadLetter = NodePolicy.ERROR_PORT.equals(msg.sourcePort());
@@ -40,6 +43,6 @@ final class EngineOwned {
         headers.remove(key);
       }
     }
-    return msg.withControl(false).withMetadata(headers);
+    return msg.withRetryCount(0).withMetadata(headers);
   }
 }

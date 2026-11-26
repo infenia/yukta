@@ -64,7 +64,8 @@ public interface Message<T> {
   String replyTo();
 
   /**
-   * The identifier for tracing the workflow execution.
+   * The identifier for tracing the workflow execution. A message that reaches an edge without one
+   * (a trigger's) gets the run's execution id, which the run's log lines and spans also carry.
    *
    * @return the trace ID
    */
@@ -163,15 +164,6 @@ public interface Message<T> {
    */
   int priority();
 
-  /**
-   * Indicates if this is a management/control message.
-   *
-   * <p>Reserved: carried and copied, but nothing in the engine acts on it yet.
-   *
-   * @return true if control message
-   */
-  boolean controlMessage();
-
   // --- Dead Letter Channel & Retry Metadata ---
 
   /**
@@ -196,9 +188,8 @@ public interface Message<T> {
   String exceptionDetail();
 
   /**
-   * Number of times this message has been retried.
-   *
-   * <p>Reserved: carried and copied, but nothing in the engine acts on it yet.
+   * Number of times the current node has retried this message: 0 on the first attempt. Set by the
+   * engine's retry loop ({@code engine.retry}) and reset to 0 on every edge.
    *
    * @return the retry count
    */
@@ -316,14 +307,6 @@ public interface Message<T> {
    * @return a new message instance
    */
   Message<T> withPriority(int priority);
-
-  /**
-   * Create a copy of this message with a control flag.
-   *
-   * @param control true if this is a control message
-   * @return a new message instance
-   */
-  Message<T> withControl(boolean control);
 
   /**
    * Create a copy of this message augmented with failure metadata.

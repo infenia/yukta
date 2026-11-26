@@ -151,4 +151,33 @@ class MessageReflectionHintsTest {
           .accepts(hints);
     }
   }
+
+  @Test
+  void registerHints_recordsTheStoresWriteAsJson_haveTheirComponents() {
+    final RuntimeHints hints = new RuntimeHints();
+
+    new MessageReflectionHints.Hints()
+        .registerHints(hints, Thread.currentThread().getContextClassLoader());
+
+    // the PostgreSQL execution log and input store write these with Jackson; the native Plus
+    // binary failed every write without their record components
+    assertThat(
+            RuntimeHintsPredicates.reflection()
+                .onMethodInvocation(
+                    com.infenia.yukta.service.log.ExecutionLogEvent.class, "executionId"))
+        .accepts(hints);
+    assertThat(
+            RuntimeHintsPredicates.reflection()
+                .onMethodInvocation(com.infenia.yukta.plugin.input.InputResponse.class, "decision"))
+        .accepts(hints);
+  }
+
+  @Test
+  void registerRecord_thatDoesNotLoad_isSkipped() {
+    final RuntimeHints hints = new RuntimeHints();
+
+    MessageReflectionHints.Hints.registerRecord(hints, "com.infenia.yukta.NotInTheBuild");
+
+    assertThat(hints.reflection().typeHints()).isEmpty();
+  }
 }

@@ -120,10 +120,12 @@ State is durable only in PostgreSQL (`yukta.session.store-type=postgres`), which
 | `yukta.execution-log.retained-runs` | int | `500` | Newest runs kept and restored at start. |
 | `yukta.execution-log.compact-after` | int | `10000` | Log trimmed after this many appended events. |
 | `yukta.execution-log.min-runs-per-session` | int | `10` | Newest runs each session keeps in the log even when a busier session pushes them out of `retained-runs` (at most half of it; 0 turns the floor off). |
+| `yukta.execution-log.max-age` | duration | unset | Runs that ended longer ago than this are removed, with their checkpoints, every hour by the leader; a run without an end is kept. Unset keeps runs by count only; positive when set. |
 | `yukta.restart.retained-executions` | int | `10` | Finished runs kept restartable. |
 | `yukta.restart.payload-packages` | list | empty | Extra class name prefixes (for example `com.acme.plugin.`) whose payloads a resume restores with their Java type; other classes come back as JSON. |
 | `yukta.restart.messages-per-node` | int | `200` | In-memory cap: messages per node and run. |
 | `yukta.restart.bytes-per-node` | long | `4194304` | In-memory cap: bytes per node and run. |
+| `yukta.restart.max-bytes-per-run` | long | `1073741824` | PostgreSQL checkpoints: most output (JSON text, counted by each server) one run records. A node whose output goes over it is marked incomplete, so a resume runs it again; what was recorded stays. |
 | `yukta.restart.auto-resume` | boolean | `false` | Resumes each interrupted run after recovery or takeover, one after another. |
 | `yukta.restart.store-type` | enum | `memory` | `memory` or `postgres` (PostgreSQL; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
 | `yukta.session.store-type` | enum | `in-memory` | `in-memory` or `postgres` (sessions, workflow definitions and the execution log in PostgreSQL); any other value stops start-up. The log line `Stores in use` names the store of each kind of data. |
@@ -142,7 +144,7 @@ State is durable only in PostgreSQL (`yukta.session.store-type=postgres`), which
 | `yukta.supervisor.max-commands-per-second` | int | `20` | Command rate per supervisor. |
 | `yukta.supervisor.max-attachments` | int | `200` | Assignments at once; one more is refused with `409`. |
 | `yukta.supervisor.buffer-size` | int | `10000` | Events a supervisor may have waiting; beyond that it receives `EventsMissed`. |
-| `yukta.supervisor.review-timeout` | duration | `5s` | Longest a review may take; a slower one refuses the command, except a stop. |
+| `yukta.supervisor.review-timeout` | duration | `5s` | Longest a review may take; a slower one refuses the command, except a stop or when the supervisor sets `onReviewTimeout: ALLOW`. |
 | `yukta.supervisor.dry-run` | boolean | `false` | Records commands without applying them. |
 | `yukta.supervisor.default.enabled` | boolean | `true` | Turns on Direct control: people and agents control what no supervisor owns. |
 | `yukta.supervisor.lock-holders` | list | `[]` | Keys that may change a locked assignment. |

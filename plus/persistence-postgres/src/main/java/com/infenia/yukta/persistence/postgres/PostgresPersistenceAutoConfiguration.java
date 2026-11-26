@@ -107,6 +107,7 @@ public class PostgresPersistenceAutoConfiguration {
    * @param mapper reads and writes JSON
    * @param meters where refused writes are counted
    * @param leaderElection the election whose fencing number guards the writes, if one runs
+   * @param maxBytesPerRun most JSON text one run may record
    * @return the store
    */
   @Bean
@@ -117,12 +118,14 @@ public class PostgresPersistenceAutoConfiguration {
       final org.springframework.beans.factory.ObjectProvider<
               io.micrometer.core.instrument.MeterRegistry>
           meters,
-      final org.springframework.beans.factory.ObjectProvider<R2dbcLeaderElection> leaderElection) {
+      final org.springframework.beans.factory.ObjectProvider<R2dbcLeaderElection> leaderElection,
+      @Value("${yukta.restart.max-bytes-per-run:1073741824}") final long maxBytesPerRun) {
     return new R2dbcNodeCheckpointStore(
         client,
         mapper,
         meters.getIfAvailable(io.micrometer.core.instrument.simple.SimpleMeterRegistry::new),
-        leaderElection.stream().findFirst().map(Fencing::tokenOf).orElse(null));
+        leaderElection.stream().findFirst().map(Fencing::tokenOf).orElse(null),
+        maxBytesPerRun);
   }
 
   /**

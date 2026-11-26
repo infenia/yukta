@@ -92,6 +92,12 @@ Keys in `settings` that the server reads for every engine type.
 - **Required:** no
 - **Description:** Command types that people may send through it; the engine reviews each. A command not listed is refused with `409 CONTROLLED_BY_SUPERVISOR`.
 
+### `onReviewTimeout`
+- **Type:** `DENY` or `ALLOW`
+- **Default:** `DENY`
+- **Required:** no
+- **Description:** What a person's command gets when the supervisor does not answer its review within `yukta.supervisor.review-timeout`, or its review fails. `DENY` refuses it; `ALLOW` lets it through, for a supervisor that never refuses a person (for example one that only pauses runs for load), so a slow or stopped one does not block people. A stop is always allowed.
+
 ### `initiative`
 - **Type:** list of command names
 - **Default:** none
@@ -196,7 +202,7 @@ The CLI exits with code `6` for the last two refusals and for `CONTROLLED_BY_SUP
 | `yukta.supervisor.dry-run` | `false` | Record commands instead of applying them, for every supervisor. |
 | `yukta.supervisor.max-commands-per-second` | `20` | Most commands one supervisor may issue per second. |
 | `yukta.supervisor.buffer-size` | `10000` | Events a supervisor may have waiting before events are dropped for it. |
-| `yukta.supervisor.review-timeout` | `5s` | Longest a supervisor may take to answer a review. On a timeout a stop is allowed and any other command refused. |
+| `yukta.supervisor.review-timeout` | `5s` | Longest a supervisor may take to answer a review. On a timeout a stop is allowed and any other command refused, unless the supervisor sets `onReviewTimeout: ALLOW`. |
 | `yukta.supervisor.max-attachments` | `200` | Most attachments at once, manual and from definitions together. |
 | `yukta.supervisor.turn-around.period` | `60s` | Window in which turn-arounds of a target are counted. |
 | `yukta.supervisor.turn-around.limit` | `4` | Most turn-arounds of one target by one supervisor in the period. |

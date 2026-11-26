@@ -55,7 +55,6 @@ public class ControlBusController {
       @Valid @RequestBody final NodeCommandRequest request) {
     final Message<?> command =
         DefaultMessage.create(null, request.payload())
-            .withControl(true)
             .withSourceNodeId("CONSOLE")
             .withWorkflowId(workflowId);
     return controlBus
