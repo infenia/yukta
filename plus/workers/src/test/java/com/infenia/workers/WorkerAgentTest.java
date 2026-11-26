@@ -18,7 +18,35 @@ import org.springframework.messaging.rsocket.RSocketRequester;
 class WorkerAgentTest {
 
   @Test
-  void session_rejectFrame_failsOnceWithTheControlPlanesReason() {
+  void session_rejectFrame_failsOnceWithTheControlPlanesReason_andClosesTheConnection() {
+    final io.rsocket.RSocket socket = mock(io.rsocket.RSocket.class);
+    final WorkerAgent agent =
+        sessionAgent(
+            socket,
+            reactor.core.publisher.Flux.just(
+                WorkerFrame.ack(), WorkerFrame.reject("token refused")));
+
+    // the ACK comes through, so the reconnect pause starts over after a healthy connection
+    reactor.test.StepVerifier.create(agent.session())
+        .expectNextMatches(frame -> frame.type() == WorkerFrame.Type.ACK)
+        .expectErrorMessage("Refused by the control plane: token refused")
+        .verify(Duration.ofSeconds(5));
+    org.mockito.Mockito.verify(socket).dispose();
+  }
+
+  @Test
+  void session_endedByTheControlPlane_failsAndClosesTheConnection() {
+    final io.rsocket.RSocket socket = mock(io.rsocket.RSocket.class);
+    final WorkerAgent agent = sessionAgent(socket, reactor.core.publisher.Flux.empty());
+
+    reactor.test.StepVerifier.create(agent.session())
+        .expectErrorMessage("The control plane closed the connection")
+        .verify(Duration.ofSeconds(5));
+    org.mockito.Mockito.verify(socket).dispose();
+  }
+
+  private static WorkerAgent sessionAgent(
+      final io.rsocket.RSocket socket, final reactor.core.publisher.Flux<WorkerFrame> answers) {
     final RSocketRequester requester =
         mock(RSocketRequester.class, org.mockito.Mockito.RETURNS_DEEP_STUBS);
     org.mockito.Mockito.when(
@@ -26,21 +54,15 @@ class WorkerAgentTest {
                 .route("worker.session")
                 .data(org.mockito.ArgumentMatchers.any())
                 .retrieveFlux(WorkerFrame.class))
-        .thenReturn(
-            reactor.core.publisher.Flux.just(
-                WorkerFrame.lease(0, false), WorkerFrame.reject("token refused")));
-    final WorkerAgent agent =
-        new WorkerAgent(
-            reactor.core.publisher.Mono.just(requester),
-            "secret",
-            new WorkerRegistration("w", Set.of(), Set.of(), 1),
-            Duration.ofSeconds(1),
-            () -> 0,
-            Duration.ofSeconds(1));
-
-    reactor.test.StepVerifier.create(agent.session())
-        .expectErrorMessage("Refused by the control plane: token refused")
-        .verify(Duration.ofSeconds(5));
+        .thenReturn(answers);
+    org.mockito.Mockito.when(requester.rsocket()).thenReturn(socket);
+    return new WorkerAgent(
+        reactor.core.publisher.Mono.just(requester),
+        "secret",
+        new WorkerRegistration("w", Set.of(), Set.of(), 1),
+        Duration.ofSeconds(1),
+        () -> 0,
+        Duration.ofSeconds(1));
   }
 
   @Test

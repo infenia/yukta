@@ -96,8 +96,11 @@ public class WorkerAgent implements SmartLifecycle {
             .retryWhen(
                 Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1))
                     .maxBackoff(MAX_PAUSE)
+                    // failures in a row, not in the process's life: an answer resets the pause
+                    .transientErrors(true)
                     .doBeforeRetry(signal ->
                         log.atWarn()
+                            .addKeyValue("failuresInARow", signal.totalRetriesInARow() + 1)
                             .setCause(signal.failure())
                             .log("Lost the control plane, reconnecting")))
             .subscribe();
@@ -168,8 +171,12 @@ public class WorkerAgent implements SmartLifecycle {
     current.set(requester);
   }
 
-  /** One connection: register, then renew until the control plane ends or refuses it. */
-  /* default */ Mono<Void> session() {
+  /**
+   * One connection: register, then renew until the control plane ends or refuses it. Emits the
+   * control plane's other answers (its ACKs), so the reconnect pause starts over after a healthy
+   * connection, and closes this attempt's connection however the session ends.
+   */
+  /* default */ Flux<WorkerFrame> session() {
     final Flux<WorkerFrame> out =
         Flux.concat(
             Mono.just(WorkerFrame.register(token, registration)),
@@ -177,15 +184,30 @@ public class WorkerAgent implements SmartLifecycle {
                 Flux.interval(renewEvery)
                     .map(_ -> WorkerFrame.lease(usedSlots.getAsInt(), draining.get())),
                 urgent.asFlux()));
-    return connect
-        .doOnNext(this::connected)
-        .flatMapMany(requester ->
-            requester.route("worker.session").data(out).retrieveFlux(WorkerFrame.class))
+    return Flux.usingWhen(
+            connect,
+            requester -> {
+              connected(requester);
+              return requester.route("worker.session").data(out).retrieveFlux(WorkerFrame.class);
+            },
+            this::disconnected)
         .concatMap(answer ->
             answer.type() == WorkerFrame.Type.REJECT
                 ? Mono.<WorkerFrame>error(refused(answer))
-                : Mono.<WorkerFrame>empty())
-        .then(Mono.error(new IllegalStateException("The control plane closed the connection")));
+                : Mono.just(answer))
+        .concatWith(
+            Mono.error(new IllegalStateException("The control plane closed the connection")));
+  }
+
+  /** Closes an attempt's connection, which the control plane ending its stream does not do. */
+  private Mono<Void> disconnected(final RSocketRequester requester) {
+    return Mono.fromRunnable(() -> {
+      current.compareAndSet(requester, null);
+      final RSocket socket = requester.rsocket();
+      if (socket != null) {
+        socket.dispose();
+      }
+    });
   }
 
   private static IllegalStateException refused(final WorkerFrame answer) {
