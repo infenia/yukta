@@ -72,6 +72,7 @@ com.infenia.yukta.mcp.McpDtoReflectionHints
 com.infenia.yukta.mcp.McpEndpointFilter
 com.infenia.yukta.mcp.McpErrorAdvice
 com.infenia.yukta.mcp.McpErrorFilter
+com.infenia.yukta.mcp.WorkflowTestTools
 com.infenia.yukta.mcp.provider.ConversationProvider
 com.infenia.yukta.mcp.provider.DiagnosisProvider
 com.infenia.yukta.mcp.provider.InputProvider

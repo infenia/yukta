@@ -5479,7 +5479,8 @@ export interface components {
             series?: string[];
         };
         Check: {
-            detail?: string;
+            /** @description The actual value when the assertion did not hold */
+            detail?: string | null;
             name?: string;
             passed?: boolean;
         };
