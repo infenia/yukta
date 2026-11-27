@@ -174,6 +174,22 @@ class ExecutionResumerTest {
   }
 
   @Test
+  void subWorkflowRun_isLeftToItsParentByAutoResume() {
+    // the resumed parent starts the child again; resuming it too would run it twice
+    abortedRun(
+        "child",
+        Map.of("k", "v", com.infenia.yukta.plugin.gateway.SubWorkflowGateway.PARENT_KEY, "p"),
+        DefinitionVersion.of(prepared),
+        "a");
+
+    StepVerifier.create(resumer.resume("child", 3))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("is a sub-workflow run"))
+        .verify();
+    // by hand it can still be resumed
+    StepVerifier.create(resumer.resume("child")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
   void cancelledResume_doesNotBlockTheNextOne() {
     abortedRun(DefinitionVersion.of(prepared), "a");
     final WorkflowDefinition slowDef = mock(WorkflowDefinition.class);

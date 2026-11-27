@@ -81,7 +81,7 @@ The scheme is deliberately conservative:
 - Each change of holder increases a fencing number.
 - A server that stops gracefully releases the lease at once.
 
-On takeover the new leader runs recovery once, exactly as after a restart: unfinished runs are marked `ABORTED`, history is restored, and, if enabled, interrupted runs resume from their checkpoints.
+On takeover the new leader runs recovery once, exactly as after a restart: unfinished runs are marked `ABORTED`, history is restored, and, if enabled, interrupted runs resume from their checkpoints. A sub-workflow run is not resumed on its own; its resumed parent starts it again.
 
 ### What high availability is not
 
