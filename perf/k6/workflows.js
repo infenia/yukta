@@ -17,6 +17,14 @@ const DIV = (id, engine) => ({ nodeId: id, type: 'SPLITTER',
             ...(engine && { engine }) } });
 const flaky = () => ({ items: [1], d: Math.random() < 0.3 ? 0 : 1 }); // 30% of the runs fail
 
+// a FILTER that keeps every message, run on a remote worker of the pool "default" (WORKERS=n in run.sh)
+const PLACED = (id) => ({ nodeId: id, type: 'FILTER',
+  config: { condition: 'true', engine: { placement: { pool: 'default' } } } });
+const placed3 = (bytes) => ({
+  nodes: [API('t'), PLACED('a'), PLACED('b'), PLACED('c'), OUT('o')], edges: chain('t', 'a', 'b', 'c', 'o'),
+  payload: { blob: 'x'.repeat(bytes) },
+});
+
 const ids = (n) => Array.from({ length: n }, (_, i) => `m${i}`);
 
 export const CATALOG = {
@@ -53,6 +61,9 @@ export const CATALOG = {
     chaos: true, cancelAfterMs: 100,
     nodes: [T('t'), DELAY('d', 300), MAP('m'), OUT('c')], edges: chain('t', 'd', 'm', 'c'),
   },
+  // three placed nodes in a row, each message crossing to a worker and back three times: opt-in, needs WORKERS=n
+  placed3: placed3(1024),
+  'placed3-1m': placed3(1024 * 1024),
   // spawns an OS process: heavy, opt-in only
   process: {
     nodes: [T('t'), { nodeId: 'p', type: 'PROCESS_EXECUTOR',

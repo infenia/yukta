@@ -8,6 +8,8 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.worker.WorkerRegistry;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
@@ -18,6 +20,12 @@ import tools.jackson.databind.ObjectMapper;
 class WorkersAutoConfigurationTest {
 
   private final WorkersAutoConfiguration config = new WorkersAutoConfiguration();
+
+  private static ObjectProvider<MeterRegistry> meters() {
+    final ObjectProvider<MeterRegistry> meters = mock(ObjectProvider.class);
+    when(meters.getIfAvailable(ArgumentMatchers.any())).thenReturn(new SimpleMeterRegistry());
+    return meters;
+  }
 
   @Test
   void remoteNodeExecutorIsBuiltWithoutTracker() {
@@ -32,7 +40,8 @@ class WorkersAutoConfigurationTest {
             new WorkerConnections(),
             mock(ObjectMapper.class),
             tracker,
-            observations);
+            observations,
+            meters());
 
     assertThat(executor).isNotNull();
     Mockito.verify(tracker).getIfAvailable();
@@ -52,7 +61,8 @@ class WorkersAutoConfigurationTest {
             new WorkerConnections(),
             mock(ObjectMapper.class),
             tracker,
-            observations);
+            observations,
+            meters());
 
     assertThat(executor).isNotNull();
     Mockito.verify(tracker).getIfAvailable();

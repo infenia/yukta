@@ -31,6 +31,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.messaging.rsocket.RSocketRequester;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -140,6 +141,42 @@ class RemoteNodeTest {
     StepVerifier.create(run("CTX", Flux.empty()))
         .assertNext(out -> assertThat(out.payload()).isEqualTo("e1/n1/v"))
         .verifyComplete();
+  }
+
+  @Test
+  void attempt_isMeteredInBytesAndTime() {
+    final MeterRegistry meters = controlPlane.getBean(MeterRegistry.class);
+    final double sentBefore = bytes(meters, "sent");
+    final double receivedBefore = bytes(meters, "received");
+    StepVerifier.create(run("UPPER", Flux.just(message("a")))).expectNextCount(1).verifyComplete();
+    // the meters count when the stream ends, after the verifier has seen it end
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(() -> {
+          assertThat(bytes(meters, "sent")).isGreaterThan(sentBefore);
+          assertThat(bytes(meters, "received")).isGreaterThan(receivedBefore);
+          assertThat(
+                  meters
+                      .get("yukta.worker.attempts")
+                      .tags("module", "UPPER", "outcome", "completed")
+                      .timer()
+                      .count())
+              .isPositive();
+          assertThat(meters.get("yukta.worker.dispatch").tags("module", "UPPER").timer().count())
+              .isPositive();
+        });
+  }
+
+  /** States the data MIME type the worker connection uses, which W7 of the plan replaces. */
+  @Test
+  void workerConnection_carriesDataAsCbor() {
+    final RSocketRequester.Builder builder = worker.getBean(RSocketRequester.Builder.class);
+    assertThat(builder.tcp("localhost", 1).dataMimeType().toString())
+        .isEqualTo("application/cbor");
+  }
+
+  private static double bytes(final MeterRegistry meters, final String direction) {
+    return meters.get("yukta.worker.bytes").tags("direction", direction).counter().count();
   }
 
   // the worker's failure can reach the call after the verifier already cancelled the stream

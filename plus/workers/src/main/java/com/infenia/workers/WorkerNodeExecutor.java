@@ -14,16 +14,22 @@ import com.infenia.yukta.service.worker.RemoteNodeExecutor;
 import com.infenia.yukta.service.worker.WorkerInfo;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.observation.transport.SenderContext;
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import reactor.core.publisher.Flux;
@@ -67,6 +73,9 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
   /** Opens the attempt's observation, which writes the trace headers into START. */
   private final ObservationRegistry observations;
 
+  /** Times the attempts and their dispatch. */
+  private final MeterRegistry meters;
+
   /** Attempts this server has sent to each worker and not seen end yet. */
   private final Map<String, AtomicInteger> inFlight = new ConcurrentHashMap<>();
 
@@ -78,6 +87,8 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
    * @param mapper converts messages to and from plain JSON values
    * @param parentOf finds the open observation of a node from its run and node id, or null
    * @param observations opens the attempt's observation (a no-op registry traces nothing)
+   * @param meters times the attempts ({@code yukta.worker.attempts{module,outcome}}) and the
+   *     wait from the pick to the worker's first answer ({@code yukta.worker.dispatch{module}})
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2") // all are shared Spring beans
   public WorkerNodeExecutor(
@@ -85,12 +96,14 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       final WorkerConnections connections,
       final ObjectMapper mapper,
       final BiFunction<String, String, Observation> parentOf,
-      final ObservationRegistry observations) {
+      final ObservationRegistry observations,
+      final MeterRegistry meters) {
     this.registry = registry;
     this.connections = connections;
     this.mapper = mapper;
     this.parentOf = parentOf;
     this.observations = observations;
+    this.meters = meters;
   }
 
   @Override
@@ -100,8 +113,10 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       final Flux<Message<?>> input,
       final Map<String, Object> config) {
     return Flux.deferContextual(ctx -> {
+      final long picked = System.nanoTime();
       final Optional<Chosen> chosen = pick(pool, pluginType);
       if (chosen.isEmpty()) {
+        attempts(pluginType, "no_worker").record(Duration.ZERO);
         return Flux.error(
             new WorkflowExecutionException(
                 "No connected worker in pool '" + pool + "' can run " + pluginType + " right now"));
@@ -117,6 +132,8 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       final String executionId = ctx.getOrDefault("executionId", "unknown");
       final String nodeId = ctx.getOrDefault("nodeId", "unknown");
       final Map<String, String> trace = new ConcurrentHashMap<>();
+      final AtomicBoolean answered = new AtomicBoolean();
+      final AtomicReference<String> outcome = new AtomicReference<>("cancelled");
       final Observation call = call(workerId, executionId, nodeId, pluginType, trace).start();
       final Flux<NodeFrame> out =
           Flux.concat(
@@ -129,12 +146,28 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
           .route("node.run")
           .data(out)
           .retrieveFlux(NodeFrame.class)
+          .doOnNext(_ -> {
+            if (answered.compareAndSet(false, true)) {
+              dispatch(pluginType).record(System.nanoTime() - picked, TimeUnit.NANOSECONDS);
+            }
+          })
           .<Message<?>>handle((frame, sink) -> answer(workerId, frame, heartbeat, logSink, sink))
-          .onErrorMap(WorkerNodeExecutor::isTransport, error -> lost(workerId, error))
-          .doOnError(call::error)
+          .onErrorMap(
+              WorkerNodeExecutor::isTransport,
+              error -> {
+                outcome.set("lost");
+                return lost(workerId, error);
+              })
+          .doOnComplete(() -> outcome.set("completed"))
+          .doOnError(error -> {
+            outcome.compareAndSet("cancelled", "failed");
+            call.error(error);
+          })
           .doFinally(_ -> {
             call.stop();
             load.decrementAndGet();
+            attempts(pluginType, outcome.get())
+                .record(System.nanoTime() - picked, TimeUnit.NANOSECONDS);
           });
     });
   }
@@ -160,6 +193,21 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
         .highCardinalityKeyValue("executionId", executionId)
         .highCardinalityKeyValue("nodeId", nodeId)
         .highCardinalityKeyValue("workerId", workerId);
+  }
+
+  private Timer attempts(final String pluginType, final String outcome) {
+    return Timer.builder("yukta.worker.attempts")
+        .description("Node attempts sent to workers, from the pick to the end, by outcome")
+        .tag("module", pluginType)
+        .tag("outcome", outcome)
+        .register(meters);
+  }
+
+  private Timer dispatch(final String pluginType) {
+    return Timer.builder("yukta.worker.dispatch")
+        .description("From picking a worker to its first answer on the attempt")
+        .tag("module", pluginType)
+        .register(meters);
   }
 
   /** A worker that may run the attempt, with the way into it. */

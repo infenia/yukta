@@ -33,7 +33,8 @@ class WorkerNodeExecutorTest {
           new WorkerConnections(),
           new ObjectMapper(),
           (executionId, nodeId) -> null,
-          ObservationRegistry.NOOP);
+          ObservationRegistry.NOOP,
+          new SimpleMeterRegistry());
 
   @Test
   void unexpectedFrameOnTheWayBack_failsTheAttempt() {
@@ -144,7 +145,8 @@ class WorkerNodeExecutorTest {
             connections,
             new ObjectMapper(),
             (executionId, nodeId) -> null,
-            ObservationRegistry.NOOP);
+            ObservationRegistry.NOOP,
+            new SimpleMeterRegistry());
     final org.springframework.messaging.rsocket.RSocketRequester requester =
         mock(org.springframework.messaging.rsocket.RSocketRequester.class);
     register(registry, "w2", 3);
@@ -188,7 +190,8 @@ class WorkerNodeExecutorTest {
             connections,
             new ObjectMapper(),
             (executionId, nodeId) -> "e1".equals(executionId) ? node : null,
-            observations);
+            observations,
+            new SimpleMeterRegistry());
     final reactor.util.context.Context context =
         reactor.util.context.Context.of("executionId", "e1", "nodeId", "n1");
 
@@ -229,7 +232,8 @@ class WorkerNodeExecutorTest {
             connections,
             new ObjectMapper(),
             (executionId, nodeId) -> null,
-            ObservationRegistry.NOOP);
+            ObservationRegistry.NOOP,
+            new SimpleMeterRegistry());
     register(registry, "w1", 5);
     connections.put("w1", mock(org.springframework.messaging.rsocket.RSocketRequester.class));
 
