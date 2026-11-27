@@ -2,14 +2,14 @@
 title: "Core module reference: architecture and features"
 sidebarTitle: "Core module reference"
 description: "Architecture, feature catalog and reference for the Yukta core module: the execution engine, admission, control plane, observability, durability and security."
-verifiedCommit: "b24e88d23"
+verifiedCommit: "4fcbf9d9b"
 verifiedDate: "2026-11-27"
 keywords: ["core module", "architecture", "feature catalog"]
 ---
 
 The `core` module is the engine and control plane of Yukta. It takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and records enough to explain or resume it afterwards.
 
-Last verified against commit `b24e88d23` on 2026-11-27.
+Last verified against commit `4fcbf9d9b` on 2026-11-27.
 
 <CardGroup cols={2}>
   <Card title="Reactive">
@@ -455,6 +455,7 @@ A `SUB_WORKFLOW` node runs another stored workflow of the same session for each 
 - The child's start payload carries `yukta.depth` and `yukta.parentExecutionId`. **Nesting is limited to 5.**
 - With `yukta.execution.max-concurrent` set, a child runs on the slot its parent holds (`ExecutionScheduler.borrowed()`): children are not counted in limits or the running gauge, which prevents a parent waiting on children from starving them.
 - The child is subscribed inside the parent node, so cancelling the node cancels the child (`CANCELLED`).
+- After a restart, auto-resume leaves an aborted child alone: the resumed parent re-runs its `SUB_WORKFLOW` node, which starts a fresh child. Progress inside the child is not kept, because its terminal results reach the parent only in memory.
 
 **Source:** `SubWorkflowRunner` `SubWorkflowGateway` `ExecutionScheduler`
 
