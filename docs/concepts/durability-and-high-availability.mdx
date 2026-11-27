@@ -53,7 +53,7 @@ On the next start with a durable execution log, Yukta reads the log, marks every
 
 Two honest limits:
 
-- **Resume is at most once per run**, and only when the workflow has not changed since the run started.
+- **Resume is at most once per run**, and runs the workflow version it started with (the current one, or one of the last 20 saved versions with the same graph). The resumed run can in turn be resumed if it is cut off too.
 - **A wait for a person is lost, then asked again.** An open request survives only with PostgreSQL; otherwise a resumed run asks again.
 
 And because delivery is at-least-once, a resumed node may repeat a side effect that happened immediately before the crash. See [Delivery and back-pressure](/concepts/delivery-and-backpressure).

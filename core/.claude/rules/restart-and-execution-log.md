@@ -25,9 +25,9 @@ Reference for the restart archive, checkpoints, resume and the execution log (an
 - Set `yukta.restart.store-type=postgres` to keep node outputs in PostgreSQL (`R2dbcNodeCheckpointStore`; no caps; payloads come back as plain JSON values). With it and the PostgreSQL execution log,
   `ExecutionResumer.resume(executionId)` continues a run that a restart aborted: the log holds the
   payload (`RUN_STARTED`); nodes that finished (a durable end marker, below) replay their
-  recorded output, the rest run again. `NODE_FINISHED` log events are history only. A run resumes once (`RUN_RESUMED`; the new run can be resumed in turn: `rerun` copies every finished node's output under the new id, and the payload counts the chain in `yukta.resumes`, which `TakeoverRecovery` caps at `MAX_AUTO_RESUMES` = 3 and `StartOptions` strips from client payloads) and only if its definition
-  is unchanged. REST: `POST /api/executions/{id}/recover` (409 `ConflictException` if the run was not
-  aborted, was already resumed or its workflow changed); MCP: `control_workflow` action `RECOVER`.
+  recorded output, the rest run again. `NODE_FINISHED` log events are history only. A run resumes once (`RUN_RESUMED`; the new run can be resumed in turn: `rerun` copies every finished node's output under the new id, and the payload counts the chain in `yukta.resumes`, which `TakeoverRecovery` caps at `MAX_AUTO_RESUMES` = 3 and `StartOptions` strips from client payloads) against the version it started
+  with (the current one, or a saved version whose prepared graph has the same `DefinitionVersion`). REST: `POST /api/executions/{id}/recover` (409 `ConflictException` if the run was not
+  aborted, was already resumed or none of the last 20 saved versions has the graph it ran); MCP: `control_workflow` action `RECOVER`.
   Only one resume per run is accepted (the claim is kept in memory and dropped on failure). The end
   of a node is a durable marker kept with its output (`NodeCheckpointStore.markComplete`, written before the completion
   goes on downstream; `yukta.checkpoint.errors` counts markers that failed, and that node then runs

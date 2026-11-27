@@ -27,6 +27,7 @@ import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import com.infenia.yukta.service.runtime.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
+import com.infenia.yukta.service.workflow.store.DefinitionRevision;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testsupport.ErrorGuardExtension;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
@@ -86,6 +87,7 @@ class ExecutionResumerTest {
   void setUp() {
     final WorkflowDefinition def = mock(WorkflowDefinition.class);
     when(definitions.find("s", "w")).thenReturn(Mono.just(def));
+    when(definitions.revisions("s", "w")).thenReturn(reactor.core.publisher.Flux.empty());
     when(orchestrator.prepareWorkflow(def)).thenReturn(Mono.just(prepared));
     when(orchestrator.rerun(
             anyString(),
@@ -292,6 +294,47 @@ class ExecutionResumerTest {
     StepVerifier.create(resumer.resume("old"))
         .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("changed"))
         .verify();
+  }
+
+  @Test
+  void changedDefinition_resumesAgainstTheSavedVersionTheRunStartedWith() {
+    // the run started on the graph a -> b (an older version); the current one is a -> b -> c
+    final PreparedWorkflow older =
+        new PreparedWorkflow(
+            List.of(),
+            Map.of("a", List.of(node("b")), "b", List.of()),
+            Map.of("a", List.of(), "b", List.of(node("a"))),
+            Map.of(),
+            List.of(node("a"), node("b")),
+            mock(WorkflowTemplate.class));
+    abortedRun(DefinitionVersion.of(older), "a");
+    final WorkflowDefinition broken = mock(WorkflowDefinition.class);
+    final WorkflowDefinition other = mock(WorkflowDefinition.class);
+    final WorkflowDefinition original = mock(WorkflowDefinition.class);
+    when(definitions.revisions("s", "w"))
+        .thenReturn(
+            reactor.core.publisher.Flux.just(
+                new DefinitionRevision("r3", java.time.Instant.EPOCH),
+                new DefinitionRevision("r2", java.time.Instant.EPOCH),
+                new DefinitionRevision("r1", java.time.Instant.EPOCH),
+                new DefinitionRevision("r0", java.time.Instant.EPOCH)));
+    when(definitions.findRevision("s", "w", "r3")).thenReturn(Mono.just(broken));
+    when(definitions.findRevision("s", "w", "r2")).thenReturn(Mono.just(other));
+    when(definitions.findRevision("s", "w", "r1")).thenReturn(Mono.just(original));
+    // a version that no longer prepares is skipped, one with another graph does not match
+    when(orchestrator.prepareWorkflow(broken))
+        .thenReturn(Mono.error(new IllegalStateException("plugin gone")));
+    when(orchestrator.prepareWorkflow(other)).thenReturn(Mono.just(chain()));
+    when(orchestrator.prepareWorkflow(original)).thenReturn(Mono.just(older));
+
+    StepVerifier.create(resumer.resume("old")).expectNextCount(1).verifyComplete();
+
+    final ArgumentCaptor<RestartPlan> plan = ArgumentCaptor.forClass(RestartPlan.class);
+    verify(orchestrator)
+        .rerun(any(), any(), any(), any(), eq(older), plan.capture(), any(), any(), any(), any());
+    assertThat(plan.getValue().rerun()).containsExactly("b");
+    // the search stops at the first match
+    verify(definitions, never()).findRevision("s", "w", "r0");
   }
 
   @Test
