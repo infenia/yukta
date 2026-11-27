@@ -32,7 +32,7 @@ So the responsibility is shared. Yukta guarantees it will not lose work. You mak
 | Status order | Node and run status only move forward | A late event cannot reopen a finished node |
 | Output atomicity | With retries or error routing, a message yields all of its output or none | That output is buffered until the attempt ends |
 | Start | One run id per granted slot | A repeated idempotency key returns the first run, within a finite window |
-| Resume | At most once per run, only if the definition is unchanged | Needs durable checkpoints |
+| Resume | At most once per run, against the workflow version it started with | Needs durable checkpoints |
 | Failure isolation | A slow or failing supervisor never blocks a run | Its events are dropped, not queued |
 
 ## Back-pressure: a slow step slows its feeders

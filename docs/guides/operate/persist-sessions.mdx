@@ -144,7 +144,7 @@ In the web UI, open the aborted run and select **Recover**. Over REST, call `POS
 
 With auto-resume, each recovery resumes the interrupted runs one after another, and a run that cannot be resumed is logged and skipped.
 
-A run resumes once, and only if its workflow definition is unchanged. If the resumed run is cut off too, it is resumed in its turn from what it recorded, so nodes that finished still do not run again. Auto-resume gives up after three resumes in a row (a run that keeps taking the server down); resume such a run by hand once you know why. A node that waited for an approval when the server stopped asks again.
+A run resumes once, against the workflow version it started with (the current one, or one of the last 20 saved versions with the same graph), so editing a workflow does not strand its interrupted runs. If the resumed run is cut off too, it is resumed in its turn from what it recorded, so nodes that finished still do not run again. Auto-resume gives up after three resumes in a row (a run that keeps taking the server down); resume such a run by hand once you know why. A node that waited for an approval when the server stopped asks again.
 
 ## Verify it worked
 

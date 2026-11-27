@@ -4,6 +4,7 @@ package com.infenia.yukta.service.orchestrator;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.ConflictException;
@@ -35,10 +36,10 @@ import reactor.core.scheduler.Schedulers;
  * <p>Nodes that ended successfully (the checkpoint store holds a durable end marker) with a
  * complete recorded output are not run again: their output is replayed to the nodes that did not
  * finish. This needs the PostgreSQL execution log ({@code yukta.session.store-type=postgres}) and
- * checkpoints ({@code yukta.restart.store-type=postgres}). A run can be resumed once, and only if
- * its workflow definition is unchanged; the new run can in turn be resumed if it is aborted too.
- * Each resume counts itself in the payload ({@link #RESUMES_KEY}), so automatic resumes can stop a
- * run that keeps taking the server down.
+ * checkpoints ({@code yukta.restart.store-type=postgres}). A run can be resumed once, against the
+ * workflow version it started with (the current one, or a saved version with the same graph); the
+ * new run can in turn be resumed if it is aborted too. Each resume counts itself in the payload
+ * ({@link #RESUMES_KEY}), so automatic resumes can stop a run that keeps taking the server down.
  */
 @Slf4j
 @Component
@@ -48,6 +49,12 @@ public class ExecutionResumer {
 
   /** The reserved payload key that counts how many resumes led to a run. */
   public static final String RESUMES_KEY = "yukta.resumes";
+
+  /**
+   * How many saved versions a resume looks through for the one a changed workflow ran with; the
+   * stores keep 20 per workflow. Each one looked at is prepared, so this bounds the cost.
+   */
+  private static final int REVISIONS_SEARCHED = 20;
 
   /** The execution log: start, payload, finished nodes, end. */
   private final ExecutionLogStore executionLog;
@@ -152,27 +159,59 @@ public class ExecutionResumer {
                               + started.sessionId()
                               + "/"
                               + started.workflowId())))
-              .flatMap(def ->
+              .flatMap(current -> definitionOf(started, current))
+              .flatMap(found ->
                   admissionKeys
-                      .claim(def, Objects.requireNonNull(started.payload()))
+                      .claim(found.definition(), Objects.requireNonNull(started.payload()))
                       .map(java.util.Optional::of)
                       .defaultIfEmpty(java.util.Optional.empty())
-                      .flatMap(claim ->
-                          orchestrator
-                              .prepareWorkflow(def)
-                              .flatMap(prepared -> start(started, prepared, claim.orElse(null)))));
+                      .flatMap(claim -> start(started, found.prepared(), claim.orElse(null))));
         });
+  }
+
+  /** A workflow definition and its prepared graph. */
+  private record Found(WorkflowDefinition definition, PreparedWorkflow prepared) {}
+
+  /**
+   * The definition the run started with: the current one if its graph is unchanged, else the newest
+   * of the last {@link #REVISIONS_SEARCHED} saved versions whose graph hashes the same.
+   */
+  private Mono<Found> definitionOf(
+      final ExecutionLogEvent started, final WorkflowDefinition current) {
+    final String sessionId = started.sessionId();
+    final String workflowId = started.workflowId();
+    return matching(started, current)
+        .switchIfEmpty(
+            Mono.defer(() ->
+                workflowDefinitionStore
+                    .revisions(sessionId, workflowId)
+                    .take(REVISIONS_SEARCHED)
+                    .concatMap(revision ->
+                        workflowDefinitionStore
+                            .findRevision(sessionId, workflowId, revision.id())
+                            .flatMap(def -> matching(started, def))
+                            // a version that no longer prepares (a plugin removed) is not the one
+                            .onErrorResume(_ -> Mono.empty()))
+                    .next()))
+        .switchIfEmpty(
+            Mono.error(
+                new ConflictException(
+                    "The workflow changed since "
+                        + started.executionId()
+                        + " started, and none of its saved versions is the one it ran")));
+  }
+
+  private Mono<Found> matching(final ExecutionLogEvent started, final WorkflowDefinition def) {
+    return orchestrator
+        .prepareWorkflow(def)
+        .filter(prepared -> DefinitionVersion.of(prepared).equals(started.definitionVersion()))
+        .map(prepared -> new Found(def, prepared));
   }
 
   private Mono<String> start(
       final ExecutionLogEvent started,
       final PreparedWorkflow prepared,
       final ExecutionScheduler.@Nullable KeyClaim claim) {
-    if (!DefinitionVersion.of(prepared).equals(started.definitionVersion())) {
-      return Mono.error(
-          new ConflictException(
-              "The workflow changed since " + started.executionId() + " started"));
-    }
     // The store's durable marker decides, not the log: the log record of a node end is only queued
     // for the writer and can be lost in a crash.
     return Flux.fromIterable(prepared.topologicalOrder())
