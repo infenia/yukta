@@ -1752,10 +1752,10 @@ img.yk-diagram {
   color: var(--yk-blue);
 }
 
-/* The node type is theme, not content: kept faint so the kicker and the heading lead. */
+/* The node type is not shown in the head: read with the name it ran on as one phrase. The run log
+   (flow-run.js) still names it. */
 .ykn-type {
-  font-weight: 400;
-  color: color-mix(in srgb, var(--yk-muted) 60%, transparent);
+  display: none;
 }
 
 .ykn-state:empty {
@@ -1766,25 +1766,22 @@ img.yk-diagram {
   margin-bottom: 0.5rem;
 }
 
+/* The status is a mark, not a word: a ring while queued, a pulsing dot while running, a check once
+   done. The head's left border and number take the same colour. */
 [data-state] .ykn-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding-left: 0.6rem;
-  border-left: 1px solid var(--yk-border);
-  color: var(--yk-muted);
+  display: inline-grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  color: color-mix(in srgb, var(--yk-muted) 70%, transparent);
 }
 
 [data-state] .ykn-state::before {
   content: "";
-  width: 0.5rem;
-  height: 0.5rem;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 50%;
   border: 1.5px solid currentColor;
-}
-
-[data-state] .ykn-state::after {
-  content: "queued";
 }
 
 [data-state="running"] .ykn {
@@ -1801,9 +1798,6 @@ img.yk-diagram {
   animation: ykn-pulse 0.9s ease-in-out infinite;
 }
 
-[data-state="running"] .ykn-state::after {
-  content: "running";
-}
 
 [data-state="succeeded"] .ykn {
   --yk-node: var(--yk-success);
@@ -1815,14 +1809,26 @@ img.yk-diagram {
 
 [data-state="succeeded"] .ykn-state::before {
   content: "✓";
-  width: auto;
-  height: auto;
+  display: grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
   border: 0;
+  background: var(--yk-success);
+  color: var(--yk-card);
+  font-size: 0.6rem;
   font-weight: 700;
+  line-height: 1;
 }
 
-[data-state="succeeded"] .ykn-state::after {
-  content: "succeeded";
+[data-state="running"] .ykn-id::before {
+  background: color-mix(in srgb, var(--yk-blue) 14%, transparent);
+  color: var(--yk-blue);
+}
+
+[data-state="succeeded"] .ykn-id::before {
+  background: color-mix(in srgb, var(--yk-success) 14%, transparent);
+  color: var(--yk-success);
 }
 
 @keyframes ykn-pulse {
