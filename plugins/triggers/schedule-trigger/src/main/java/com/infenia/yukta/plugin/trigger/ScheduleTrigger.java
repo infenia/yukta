@@ -16,6 +16,9 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Component;
@@ -118,22 +121,34 @@ public class ScheduleTrigger implements TriggerPlugin {
       if (expr.next(ZonedDateTime.now(zone)) == null) {
         throw new IllegalArgumentException("cron has no future execution: " + cron);
       }
-      result = repeatWhileScheduled(expr::next, zone);
+      result = repeatWhileScheduled(expr::next, () -> ZonedDateTime.now(zone));
     }
     return result;
   }
 
   /**
    * Fires after each delay to the next execution, and ends instead of spinning once there is none.
+   * The timer runs on the monotonic clock and {@code clock} on the wall clock, so a timer can wake
+   * just before the execution it waited for; the next execution is counted from the later of now
+   * and the last one, or it would fire twice.
    */
   /* default */ static Flux<?> repeatWhileScheduled(
-      final java.util.function.Function<ZonedDateTime, ZonedDateTime> next, final ZoneId zone) {
-    return Mono.defer(
-            () -> {
-              final ZonedDateTime now = ZonedDateTime.now(zone);
-              return Mono.delay(Duration.between(now, next.apply(now)));
-            })
-        .repeat(() -> next.apply(ZonedDateTime.now(zone)) != null);
+      final Function<ZonedDateTime, ZonedDateTime> next, final Supplier<ZonedDateTime> clock) {
+    return Flux.defer(() -> {
+      final AtomicReference<ZonedDateTime> last = new AtomicReference<>();
+      return Mono.defer(
+              () -> {
+                final ZonedDateTime now = clock.get();
+                final ZonedDateTime at = next.apply(latest(now, last.get()));
+                last.set(at);
+                return Mono.delay(Duration.between(now, at));
+              })
+          .repeat(() -> next.apply(latest(clock.get(), last.get())) != null);
+    });
+  }
+
+  private static ZonedDateTime latest(final ZonedDateTime now, final ZonedDateTime last) {
+    return last != null && last.isAfter(now) ? last : now;
   }
 
   private static Message<?> message(final long tick, final Instant firedAt) {
