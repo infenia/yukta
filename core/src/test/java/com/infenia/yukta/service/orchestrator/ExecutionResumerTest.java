@@ -102,14 +102,73 @@ class ExecutionResumerTest {
   }
 
   private void abortedRun(final String version, final String... finishedNodes) {
-    final ExecutionLogEvent started = ExecutionLogEvent.started("old", "s", "w", version, PAYLOAD);
+    abortedRun("old", PAYLOAD, version, finishedNodes);
+  }
+
+  private void abortedRun(
+      final String id,
+      final Map<String, Object> payload,
+      final String version,
+      final String... finishedNodes) {
+    final ExecutionLogEvent started = ExecutionLogEvent.started(id, "s", "w", version, payload);
     log.append(started);
     for (final String node : finishedNodes) {
-      log.append(ExecutionLogEvent.nodeFinished("old", "s", "w", node));
-      checkpoints.save("old", node, DefaultMessage.create(UUID.randomUUID(), node)).block();
-      checkpoints.markComplete("old", node).block();
+      log.append(ExecutionLogEvent.nodeFinished(id, "s", "w", node));
+      checkpoints.save(id, node, DefaultMessage.create(UUID.randomUUID(), node)).block();
+      checkpoints.markComplete(id, node).block();
     }
     log.append(ExecutionLogEvent.aborted(started));
+  }
+
+  @Test
+  void resumedRunThatIsAbortedAgain_resumesFromWhatItRecorded() {
+    // what a resume of a run that had finished a and b leaves under the new run "x": the outputs
+    // of a and b carried over and marked finished (WorkflowOrchestrator.rerun)
+    abortedRun(
+        "x",
+        Map.of("k", "v", ExecutionResumer.RESUMES_KEY, 1),
+        DefinitionVersion.of(prepared),
+        "a",
+        "b");
+
+    StepVerifier.create(resumer.resume("x", 3)).expectNextCount(1).verifyComplete();
+
+    final ArgumentCaptor<RestartPlan> plan = ArgumentCaptor.forClass(RestartPlan.class);
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+    verify(orchestrator)
+        .rerun(
+            eq("s"),
+            eq("w"),
+            eq("x"),
+            anyString(),
+            eq(prepared),
+            plan.capture(),
+            payload.capture(),
+            anyMap(),
+            anyString(),
+            any());
+    assertThat(plan.getValue().rerun()).containsExactly("c");
+    assertThat(plan.getValue().boundary()).containsExactly("b");
+    assertThat(payload.getValue())
+        .containsEntry("k", "v")
+        .containsEntry(ExecutionResumer.RESUMES_KEY, 2);
+  }
+
+  @Test
+  void runThatCameFromTheMostResumesAllowed_isRefused() {
+    abortedRun(
+        "x",
+        Map.of("k", "v", ExecutionResumer.RESUMES_KEY, 3),
+        DefinitionVersion.of(prepared),
+        "a");
+
+    StepVerifier.create(resumer.resume("x", 3))
+        .expectErrorSatisfies(
+            e -> assertThat(e).hasMessageContaining("was resumed 3 times already"))
+        .verify();
+    // by hand there is no limit
+    StepVerifier.create(resumer.resume("x")).expectNextCount(1).verifyComplete();
   }
 
   @Test
@@ -177,7 +236,7 @@ class ExecutionResumerTest {
             anyString(),
             eq(prepared),
             plan.capture(),
-            eq(PAYLOAD),
+            eq(Map.of("k", "v", ExecutionResumer.RESUMES_KEY, 1)),
             outputs.capture(),
             anyString(),
             any());

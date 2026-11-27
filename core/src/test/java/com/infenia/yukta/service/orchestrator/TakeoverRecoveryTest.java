@@ -68,14 +68,15 @@ class TakeoverRecoveryTest {
     action.getValue().run();
 
     verify(recovery).recover();
-    verify(resumer, never()).resume(any());
+    verify(resumer, never()).resume(any(), org.mockito.ArgumentMatchers.anyInt());
   }
 
   @Test
   void autoResume_resumesWhatRecoveryFound_skipsFailures() {
-    when(resumer.resume("a")).thenReturn(Mono.just("a2"));
-    when(resumer.resume("b")).thenReturn(Mono.error(new IllegalStateException("cannot")));
-    when(resumer.resume("c")).thenReturn(Mono.just("c2"));
+    when(resumer.resume("a", TakeoverRecovery.MAX_AUTO_RESUMES)).thenReturn(Mono.just("a2"));
+    when(resumer.resume("b", TakeoverRecovery.MAX_AUTO_RESUMES))
+        .thenReturn(Mono.error(new IllegalStateException("cannot")));
+    when(resumer.resume("c", TakeoverRecovery.MAX_AUTO_RESUMES)).thenReturn(Mono.just("c2"));
     final ArgumentCaptor<Consumer<List<String>>> listener = ArgumentCaptor.forClass(Consumer.class);
     new TakeoverRecovery(election, recovery, resumer, true);
     verify(recovery).onRecovered(listener.capture());
@@ -84,9 +85,9 @@ class TakeoverRecoveryTest {
 
     org.awaitility.Awaitility.await()
         .untilAsserted(() -> {
-          verify(resumer).resume("a");
-          verify(resumer).resume("b");
-          verify(resumer).resume("c");
+          verify(resumer).resume("a", TakeoverRecovery.MAX_AUTO_RESUMES);
+          verify(resumer).resume("b", TakeoverRecovery.MAX_AUTO_RESUMES);
+          verify(resumer).resume("c", TakeoverRecovery.MAX_AUTO_RESUMES);
         });
   }
 }

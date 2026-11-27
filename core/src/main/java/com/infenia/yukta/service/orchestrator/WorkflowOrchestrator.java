@@ -379,6 +379,23 @@ public class WorkflowOrchestrator {
                                       checkpointStore.markComplete(newExecutionId, entry.getKey()))
                                   .onErrorResume(_ -> Mono.empty())))
                   .then();
+          // A node that finished before and neither runs nor replays here keeps its output under
+          // the new execution too: without it a resume of this one would run the node again.
+          final Mono<Void> carryFinished =
+              Flux.fromIterable(nodeIds)
+                  .filter(node -> !plan.rerun().contains(node) && !plan.boundary().contains(node))
+                  .filterWhen(node -> checkpointStore.finishedAsync(previousExecutionId, node))
+                  .concatMap(node ->
+                      checkpointStore
+                          .getAll(previousExecutionId, node)
+                          .collectList()
+                          .flatMap(
+                              messages -> checkpointStore.saveAll(newExecutionId, node, messages))
+                          .then(
+                              Mono.defer(() -> checkpointStore.markComplete(newExecutionId, node)))
+                          // bookkeeping for a later resume: the node then runs again, as before
+                          .onErrorResume(_ -> Mono.empty()))
+                  .then();
 
           return Mono.when(
               archive(newExecutionId, sessionId, workflowId, prepared, payload),
@@ -390,16 +407,18 @@ public class WorkflowOrchestrator {
                   nodeIds,
                   ExecutionScheduler.priorityOf(payload),
                   admission,
-                  recordReplayed.then(
-                      Mono.defer(() ->
-                          compiler.executeTemplate(
-                              newExecutionId,
-                              payload,
-                              nodeCount,
-                              assemblers,
-                              sessionId,
-                              workflowId,
-                              nodeIds))),
+                  recordReplayed
+                      .then(carryFinished)
+                      .then(
+                          Mono.defer(() ->
+                              compiler.executeTemplate(
+                                  newExecutionId,
+                                  payload,
+                                  nodeCount,
+                                  assemblers,
+                                  sessionId,
+                                  workflowId,
+                                  nodeIds))),
                   new Origin("RestartFromNode execution", previousExecutionId)));
         }),
         admission);

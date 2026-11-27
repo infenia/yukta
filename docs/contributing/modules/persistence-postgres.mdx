@@ -326,7 +326,7 @@ Finished nodes have their output rows and a done stamp. The node that was runnin
 Flyway checks the schema, the stores are created, and recovery reads the log: a run with a start and no end is marked ABORTED.
 </Step>
 <Step title="Resume (optional)">
-With auto-resume, each aborted run is resumed once: finished nodes replay their recorded output, the rest run again. Each `isFinished` is a blocking query.
+With auto-resume, each aborted run is resumed once: finished nodes replay their recorded output, the rest run again. The new run records every finished node's output under its own id, so it can be resumed in turn; after three automatic resumes in a row the run waits for a person. Each `isFinished` is a blocking query.
 </Step>
 </Steps>
 

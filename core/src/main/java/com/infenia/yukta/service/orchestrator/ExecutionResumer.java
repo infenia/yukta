@@ -36,13 +36,18 @@ import reactor.core.scheduler.Schedulers;
  * complete recorded output are not run again: their output is replayed to the nodes that did not
  * finish. This needs the PostgreSQL execution log ({@code yukta.session.store-type=postgres}) and
  * checkpoints ({@code yukta.restart.store-type=postgres}). A run can be resumed once, and only if
- * its workflow definition is unchanged.
+ * its workflow definition is unchanged; the new run can in turn be resumed if it is aborted too.
+ * Each resume counts itself in the payload ({@link #RESUMES_KEY}), so automatic resumes can stop a
+ * run that keeps taking the server down.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 @SuppressWarnings("PMD.AvoidCatchingGenericException")
 public class ExecutionResumer {
+
+  /** The reserved payload key that counts how many resumes led to a run. */
+  public static final String RESUMES_KEY = "yukta.resumes";
 
   /** The execution log: start, payload, finished nodes, end. */
   private final ExecutionLogStore executionLog;
@@ -74,6 +79,19 @@ public class ExecutionResumer {
    * @throws ConflictException if it cannot be resumed
    */
   public Mono<String> resume(final String executionId) {
+    return resume(executionId, Integer.MAX_VALUE);
+  }
+
+  /**
+   * Resumes an aborted run as a new run, unless it came from {@code maxResumes} resumes already.
+   *
+   * @param executionId the aborted run
+   * @param maxResumes how many resumes may lead to the run; one more is refused
+   * @return the id of the new run
+   * @throws NotFoundException if the run is unknown
+   * @throws ConflictException if it cannot be resumed
+   */
+  public Mono<String> resume(final String executionId, final int maxResumes) {
     return Mono.defer(() -> {
       // One resume at a time per run: the log only shows RUN_RESUMED once it has started.
       if (!resuming.add(executionId)) {
@@ -85,14 +103,14 @@ public class ExecutionResumer {
       // gave up while the workflow was being prepared); the log keeps the real record.
       // reads the whole log and the checkpoint files, so not on the caller's (event loop)
       // thread
-      return doResume(executionId)
+      return doResume(executionId, maxResumes)
           .subscribeOn(Schedulers.boundedElastic())
           .doOnError(_ -> resuming.remove(executionId))
           .doOnCancel(() -> resuming.remove(executionId));
     });
   }
 
-  private Mono<String> doResume(final String executionId) {
+  private Mono<String> doResume(final String executionId, final int maxResumes) {
     return executionLog
         .forExecution(executionId)
         .collectList()
@@ -114,6 +132,16 @@ public class ExecutionResumer {
           if (started.payload() == null) {
             return Mono.error(
                 new ConflictException("The payload of " + executionId + " was not recorded"));
+          }
+          final int resumes = resumesOf(Objects.requireNonNull(started.payload()));
+          if (resumes >= maxResumes) {
+            return Mono.error(
+                new ConflictException(
+                    "Execution "
+                        + executionId
+                        + " was resumed "
+                        + resumes
+                        + " times already; it is left to be resumed by hand"));
           }
           return workflowDefinitionStore
               .find(started.sessionId(), started.workflowId())
@@ -165,7 +193,9 @@ public class ExecutionResumer {
           new ConflictException("Every node of " + started.executionId() + " had finished"));
     }
     final String newId = UUID.randomUUID().toString();
-    final Map<String, Object> payload = Objects.requireNonNull(started.payload());
+    final var payload =
+        new java.util.HashMap<String, Object>(Objects.requireNonNull(started.payload()));
+    payload.put(RESUMES_KEY, resumesOf(payload) + 1);
     return Flux.fromIterable(plan.boundary())
         .concatMap(node ->
             checkpointStore
@@ -216,6 +246,11 @@ public class ExecutionResumer {
           return Mono.<Void>empty();
         })
         .then(Mono.just(newId));
+  }
+
+  /** How many resumes led to the run that started with this payload. */
+  private static int resumesOf(final Map<String, Object> payload) {
+    return payload.get(RESUMES_KEY) instanceof Number count ? count.intValue() : 0;
   }
 
   private static ExecutionLogEvent first(

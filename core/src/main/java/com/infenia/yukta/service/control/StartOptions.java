@@ -54,7 +54,7 @@ public record StartOptions(@Nullable Integer priority, @Nullable String version)
   /**
    * The payload with the initiator under its reserved key. A caller's own value of that key is
    * dropped, so a run's initiator cannot be forged through the payload. The parent-run and depth
-   * keys are dropped too, and so are the priority, version and reply keys (see {@link
+   * keys are dropped too, and so are the priority, version, reply and resume-count keys (see {@link
    * StartOptions}): only a sub-workflow node may name a parent, and it does not pass through here,
    * so an external caller cannot attach a run to another run's tree.
    *
@@ -73,6 +73,7 @@ public record StartOptions(@Nullable Integer priority, @Nullable String version)
     copy.remove(DefaultAnswerAuthorizer.DEPTH_KEY);
     copy.remove(DefaultAnswerAuthorizer.STARTER_KEY);
     copy.remove(ReplyGateway.REPLY_TO_KEY);
+    copy.remove(com.infenia.yukta.service.orchestrator.ExecutionResumer.RESUMES_KEY);
     if (initiator != null && !initiator.isBlank()) {
       copy.put(ExecutionLogEvent.INITIATOR_KEY, initiator);
     }

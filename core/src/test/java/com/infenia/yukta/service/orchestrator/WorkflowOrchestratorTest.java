@@ -90,6 +90,9 @@ class WorkflowOrchestratorTest {
     lenient().when(checkpointStore.save(anyString(), anyString(), any())).thenReturn(Mono.empty());
     lenient().when(checkpointStore.clearAsync(anyString())).thenReturn(Mono.empty());
     lenient()
+        .when(checkpointStore.finishedAsync(anyString(), anyString()))
+        .thenReturn(Mono.just(false));
+    lenient()
         .when(tracker.finishWorkflow(anyString(), any(TaskStatus.class)))
         .thenReturn(Mono.empty());
     orchestrator =
@@ -643,6 +646,58 @@ class WorkflowOrchestratorTest {
     assertThat(executionArchive.find("new")).isPresent();
     // the original start payload is kept, so a later resume or restart still has it
     assertThat(executionArchive.find("new").orElseThrow().payload()).containsEntry("k", "v");
+  }
+
+  /** Builds t1 -> p, plus t2 and t3 on their own; a restart from p leaves t2 and t3 silent. */
+  private PreparedWorkflow withTwoIndependentTriggers() {
+    final WorkflowNode source = new WorkflowNode("t1", "trigger-type", Map.of());
+    final WorkflowNode worker = new WorkflowNode("p", "proc-type", Map.of());
+    final PreparedWorkflow prepared =
+        new PreparedWorkflow(
+            List.of(),
+            Map.of("t1", List.of(worker), "p", List.of(), "t2", List.of(), "t3", List.of()),
+            Map.of("t1", List.of(), "p", List.of(source), "t2", List.of(), "t3", List.of()),
+            Map.of(),
+            List.of(
+                source,
+                worker,
+                new WorkflowNode("t2", "trigger-type", Map.of()),
+                new WorkflowNode("t3", "trigger-type", Map.of())),
+            org.mockito.Mockito.mock(WorkflowTemplate.class));
+    when(compiler.compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(new NodeAssembler[] {ctx -> {}, ctx -> {}, ctx -> {}, ctx -> {}});
+    when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    when(compiler.executeTemplate(
+            anyString(), any(), eq(4), any(), anyString(), anyString(), anyList()))
+        .thenReturn(Mono.empty());
+    setupRestartControl("s", "w", "new", prepared, Sinks.one());
+    return prepared;
+  }
+
+  @Test
+  void rerun_carriesTheOutputOfFinishedSilentNodes_soResumingTheNewRunSkipsThem() {
+    final PreparedWorkflow prepared = withTwoIndependentTriggers();
+    final Message<?> recorded = org.mockito.Mockito.mock(Message.class);
+    when(checkpointStore.finishedAsync("old", "t2")).thenReturn(Mono.just(true));
+    when(checkpointStore.getAll("old", "t2"))
+        .thenReturn(reactor.core.publisher.Flux.just(recorded));
+    when(checkpointStore.saveAll("new", "t2", List.of(recorded))).thenReturn(Mono.empty());
+    when(checkpointStore.markComplete("new", "t2")).thenReturn(Mono.empty());
+    // t3 finished too, but its output can no longer be read: the run goes on without it
+    when(checkpointStore.finishedAsync("old", "t3")).thenReturn(Mono.just(true));
+    when(checkpointStore.getAll("old", "t3"))
+        .thenReturn(reactor.core.publisher.Flux.error(new IllegalStateException("gone")));
+
+    StepVerifier.create(
+            orchestrator.restartFromNode("s", "w", "old", "new", prepared, "p", Map.of()))
+        .verifyComplete();
+
+    verify(checkpointStore).saveAll("new", "t2", List.of(recorded));
+    verify(checkpointStore).markComplete("new", "t2");
+    verify(checkpointStore, never()).markComplete("new", "t3");
+    // a node that runs again is not copied
+    verify(checkpointStore, never()).finishedAsync("old", "p");
   }
 
   @Test

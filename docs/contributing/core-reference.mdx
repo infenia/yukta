@@ -2,14 +2,14 @@
 title: "Core module reference: architecture and features"
 sidebarTitle: "Core module reference"
 description: "Architecture, feature catalog and reference for the Yukta core module: the execution engine, admission, control plane, observability, durability and security."
-verifiedCommit: "5aea8194d"
-verifiedDate: "2026-11-26"
+verifiedCommit: "e95fc852c"
+verifiedDate: "2026-11-27"
 keywords: ["core module", "architecture", "feature catalog"]
 ---
 
 The `core` module is the engine and control plane of Yukta. It takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and records enough to explain or resume it afterwards.
 
-Last verified against commit `5aea8194d` on 2026-11-26.
+Last verified against commit `e95fc852c` on 2026-11-27.
 
 <CardGroup cols={2}>
   <Card title="Reactive">
@@ -876,6 +876,7 @@ Continue a run that a restart aborted: finished nodes replay their recorded outp
 - Needs the PostgreSQL execution log (holds the start payload) and PostgreSQL checkpoints. A run resumes **once** (`RUN_RESUMED`) and only if its definition is unchanged. The claim is kept in memory and dropped on failure or if the caller cancels.
 - Refused (HTTP 409 `ConflictException`) if the run was not aborted, was already resumed or its workflow changed.
 - `yukta.restart.auto-resume=true` resumes each interrupted run after any recovery, one after another.
+- The resumed run records every finished node's output under its own id, so if it is aborted too it can be resumed in turn without repeating them. The payload counts the chain (`yukta.resumes`, stripped from client payloads); auto-resume refuses a run that came from 3 resumes (`TakeoverRecovery.MAX_AUTO_RESUMES`), a resume by hand has no limit.
 - Resume reads the log and checkpoint files on `boundedElastic`.
 
 **Configure:** `yukta.restart.auto-resume` (false)

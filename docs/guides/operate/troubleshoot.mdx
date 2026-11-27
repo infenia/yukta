@@ -123,7 +123,8 @@ The audit entry for a refused command shows the command and the reason: `yukta-c
 `POST /api/executions/{id}/recover` (and `yukta-cli workflow executions recover`) answers `409` when:
 
 - The run was not aborted. Only a run that a restart aborted can be resumed.
-- The run is being resumed, or was already resumed. A run resumes once.
+- The run is being resumed, or was already resumed. A run resumes once; to continue further, resume the run it was resumed as (the answer names it).
+- The run was resumed automatically three times already (`was resumed 3 times already`): it keeps stopping the server. Find the cause, then resume it by hand.
 - The workflow changed since the run started.
 - The start payload was not recorded.
 - Every node had already finished.
