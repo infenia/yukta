@@ -10,13 +10,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import io.micrometer.observation.transport.ReceiverContext;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -45,8 +49,9 @@ class NodeRunnerTest {
             List.of(
                 new FakePlugin("UPPER", new AtomicInteger()),
                 new FakePlugin("BOOM", new AtomicInteger()),
+                new FakePlugin("HEARTS", new AtomicInteger()),
                 trigger)),
-        Set.of("UPPER", "BOOM", "TRIGGER"),
+        Set.of("UPPER", "BOOM", "HEARTS", "TRIGGER"),
         new ObjectMapper(),
         traced.registry(),
         1);
@@ -112,6 +117,21 @@ class NodeRunnerTest {
   }
 
   @Test
+  void manyHeartbeatsInOneSecond_sendOneFrame() {
+    final List<NodeFrame> frames =
+        runner
+            .run(
+                Flux.just(
+                    NodeFrame.start("e", "n", "HEARTS", Map.of(), Map.of()), NodeFrame.complete()))
+            .collectList()
+            .block();
+
+    assertThat(frames)
+        .extracting(NodeFrame::kind)
+        .containsExactly(NodeFrame.Kind.HEARTBEAT, NodeFrame.Kind.COMPLETE);
+  }
+
+  @Test
   void attempt_runsOnThePluginsPerNodeObject() {
     final ProcessorPlugin shared = mock(ProcessorPlugin.class);
     final ProcessorPlugin perNode = mock(ProcessorPlugin.class);
@@ -138,6 +158,65 @@ class NodeRunnerTest {
 
     verify(perNode).process(any(), eq(Map.of("k", "v")));
     verify(shared, never()).process(any(), any());
+  }
+
+  @Test
+  void heartbeatsRacingOnThreads_sendAtMostOneFrame_andAnUnsplitPluginRunsItself()
+      throws Exception {
+    final ProcessorPlugin racing = mock(ProcessorPlugin.class);
+    when(racing.getType()).thenReturn("RACING");
+    when(racing.initialize(any())).thenReturn(Mono.empty());
+    when(racing.prepare(any())).thenReturn(Mono.empty());
+    // no per-node object: the shared plugin processes, so forNode returns null here
+    when(racing.process(any(), any()))
+        .thenReturn(
+            Flux.deferContextual(ctx -> {
+              final Runnable beat = (Runnable) ctx.get(WorkflowContext.HEARTBEAT_KEY);
+              final int threads = 8;
+              final CyclicBarrier together = new CyclicBarrier(threads);
+              final List<Thread> workers = new ArrayList<>();
+              for (int i = 0; i < threads; i++) {
+                workers.add(
+                    new Thread(() -> {
+                      try {
+                        together.await();
+                      } catch (InterruptedException | BrokenBarrierException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                      }
+                      beat.run();
+                    }));
+              }
+              workers.forEach(Thread::start);
+              for (final Thread worker : workers) {
+                try {
+                  worker.join();
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                }
+              }
+              return Flux.empty();
+            }));
+    final NodeRunner racer =
+        new NodeRunner(
+            new PluginRegistry(List.of(racing)),
+            Set.of("RACING"),
+            new ObjectMapper(),
+            traced.registry(),
+            1);
+
+    final List<NodeFrame> frames =
+        racer
+            .run(
+                Flux.just(
+                    NodeFrame.start("e", "n", "RACING", Map.of(), Map.of()), NodeFrame.complete()))
+            .collectList()
+            .block();
+
+    assertThat(frames.stream().filter(frame -> frame.kind() == NodeFrame.Kind.HEARTBEAT).count())
+        .isLessThanOrEqualTo(1);
+    assertThat(frames.getLast().kind()).isEqualTo(NodeFrame.Kind.COMPLETE);
+    verify(racing).process(any(), any());
   }
 
   @Test
