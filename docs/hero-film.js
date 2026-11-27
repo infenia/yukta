@@ -138,14 +138,11 @@
     ".ykf-kick.on{opacity:1;transform:none}.ykf-kick b{display:grid;place-items:center;height:28px;min-width:28px;padding:0 8px;border-radius:9px;background:var(--bluet);color:#fff;font:600 12px/1 " + MONO + "}" +
     ".ykf-kick span{font-family:'Inter Tight',Inter,sans-serif;font-size:clamp(14px,2.2cqw,21px);font-weight:650;letter-spacing:-.02em;color:var(--ink)}" +
     ".ykf-kick small{display:block;font:500 10.5px/1 " + MONO + ";letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin-bottom:5px}" +
-    ".ykf-snd{position:absolute;right:18px;top:18px;display:flex;align-items:center;gap:8px;padding:8px 12px 8px 10px;border:0;border-radius:999px;background:color-mix(in srgb,var(--panel) 88%,transparent);" +
-    "box-shadow:0 0 0 1px var(--line),0 6px 16px -8px rgb(17 22 31/.3);color:var(--ink);font:600 12px/1 Inter,sans-serif;cursor:pointer;backdrop-filter:blur(8px)}.ykf-snd svg{width:16px;height:16px}.ykf-snd[hidden]{display:none}" +
+    ".ykf-bar .ykf-snd svg{width:17px;height:17px}.ykf-snd span{display:none}.ykf-snd[aria-pressed=true]{color:var(--bluet)}" +
     ".ykf .glow-b{opacity:.16}.ykf .glow-o{opacity:.1}html.dark .ykf .glow-b{opacity:.26}html.dark .ykf .glow-o{opacity:.14}" +
-    ".ykf-big{position:absolute;inset:0;margin:auto;width:max-content;height:max-content;display:flex;align-items:center;gap:10px;padding:14px 20px 14px 16px;border:0;border-radius:999px;" +
-    "background:#245be0;color:#fff;font:600 15px/1 Inter,system-ui,sans-serif;cursor:pointer;box-shadow:0 12px 28px -10px rgba(36,91,224,.6);transition:opacity .25s,transform .2s}" +
-    ".ykf-big:hover{transform:scale(1.03)}.ykf-big svg{width:22px;height:22px}.ykf-big[hidden]{display:none}" +
-    // At the end the button moves to a corner, off the end card's title.
-    ".ykf-big.end{inset:auto auto 108px 16px;margin:0;padding:10px 16px 10px 13px}" +
+    ".ykf-big{position:absolute;inset:0;margin:auto;width:max-content;height:max-content;display:flex;align-items:center;gap:7px;padding:10px 15px 10px 12px;border:0;border-radius:999px;" +
+    "background:#245be0;color:#fff;font:600 13px/1 Inter,system-ui,sans-serif;cursor:pointer;box-shadow:0 10px 22px -10px rgba(36,91,224,.6);transition:opacity .25s,transform .2s}" +
+    ".ykf-big:hover{transform:scale(1.03)}.ykf-big svg{width:16px;height:16px}.ykf-big[hidden]{display:none}" +
     // Controls over the bottom of the picture, on a fade so they read on any scene.
     ".ykf-ctl{position:absolute;left:0;right:0;bottom:0;z-index:4;padding-top:28px;cursor:default;transition:opacity .25s,transform .25s;" +
     "background:linear-gradient(to top,color-mix(in srgb,var(--panel) 94%,transparent) 0,color-mix(in srgb,var(--panel) 80%,transparent) 55%,transparent)}" +
@@ -168,8 +165,8 @@
     ".ykf-chap button{border:0;background:transparent;padding:5px 8px;border-radius:8px;font:500 11.5px/1 " + MONO + ";color:var(--mut);cursor:pointer}" +
     ".ykf-chap button.on{color:var(--bluet);background:var(--soft);box-shadow:inset 0 0 0 1px var(--line)}" +
     "@media (max-width:640px){.ykf-cap{min-height:92px;padding:12px 14px;justify-content:flex-start;text-align:left}.ykf-cap p{font-size:17px}" +
-    ".ykf-kick{left:12px;top:10px}.ykf-kick b{height:22px;min-width:22px;font-size:10.5px}.ykf-kick small{display:none}.ykf-snd{right:8px;top:8px;padding:6px 9px}" +
-    ".ykf-snd span{display:none}.ykf-time{min-width:0}.ykf-big{padding:11px 16px 11px 13px;font-size:13px}}" +
+    ".ykf-kick{left:12px;top:10px}.ykf-kick b{height:22px;min-width:22px;font-size:10.5px}.ykf-kick small{display:none}" +
+    ".ykf-time{min-width:0}.ykf-big{padding:9px 13px 9px 11px;font-size:12px}}" +
     // A narrow film (beside the hero text on a laptop): a shorter caption, chapters on one scrolling row.
     "@container (max-width:780px){.ykf-cap{min-height:70px;padding:10px 5% 12px}.ykf-bar{padding:8px 12px}" +
     ".ykf-chap{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:8px}.ykf-chap button{flex:none;padding:5px 6px}}";
@@ -475,15 +472,61 @@
   // --------------------------------------------------------------------------- sound
 
   // An original score and sound effects, synthesised with Web Audio, so there is no audio file and no licence.
-  // 100 BPM; one chord per bar: Am, F, C, G. The music builds with the story: a pad and a ticking clock for the
-  // problem, a plucked arpeggio and bass once Yukta arrives, a soft beat from the first run, a breakdown when the
-  // AI is switched off, and a final chord on the end card. Sound starts off; browsers allow it only after a click.
+  // The score is written in the manner of a large film score (a ticking clock, string ostinatos, low brass hits,
+  // risers, war drums), not after any existing piece. D minor, 100 BPM, with bars counted from each chapter's cut
+  // so the harmony turns with the picture. Its theme is a staircase: four notes climbing one step at a time
+  // (D, E, F, A), because the film is about steps taken in order. It is heard first when Yukta arrives, grows
+  // through the runs, and resolves to D major on the end card. Sound starts off; browsers allow it only after a click.
+  //
+  //   The problem   drone, clock, heartbeat; the clock doubles and a riser climbs as the agent skips steps
+  //   Meet Yukta    brass hit, the tension lets go, the theme on a soft horn
+  //   Build         plucked strings under the nodes
+  //   Run           brass hit, driving strings, drums and bass; one brass hit where the agent hits the wall
+  //   Control       clock and a low pulse, near silence while the run is paused
+  //   Supervise     strings and drums rebuild, a riser into the high-risk question, a heartbeat until you approve
+  //   Any trigger   a breakdown, then everything, with the theme in octaves on brass
+  //   Yukta         the last hit, and the theme in D major
   var BEAT = 0.6, EIGHTH = 0.3, BAR = 2.4;
-  var PROG = [[45, [57, 60, 64]], [41, [57, 60, 65]], [48, [55, 60, 64]], [43, [55, 59, 62]]];
-  var SFX = [[15, "alert"], [19, "whoosh"], [20.8, "chime"], [25, "whoosh"], [34.2, "ok"], [35, "whoosh"], [39, "swoosh"], [43.6, "swoosh"],
-    [45.6, "error"], [48.4, "click"], [50.2, "click"], [51.6, "click"], [57.5, "alert2"], [60.2, "click"], [61.6, "ping"], [63.7, "click"],
-    [64.9, "chime"], [66, "whoosh"], [67.4, "switch"], [71.2, "chime"], [73, "whoosh"], [73.8, "final"]];
+  // i, VI, iv, V: Dm, Bb, Gm, A, as [bass note, chord tones].
+  var PROG = [[38, [62, 65, 69]], [34, [62, 65, 70]], [31, [62, 67, 70]], [33, [61, 64, 69]]];
+  var DMAJ = [38, [62, 66, 69]];
+  // The theme, as [eighth from its start, note, length in eighths]; the last statement climbs into D major.
+  var THEME = [[0, 62, 1], [1, 64, 1], [2, 65, 2], [4, 69, 4], [8, 67, 1], [9, 65, 1], [10, 64, 2], [12, 62, 4]];
+  var FINAL = [[0, 62, 2], [2, 64, 2], [4, 66, 2], [6, 69, 12]];
+  var SFX = [[15, "alert"], [18.6, "whoosh"], [20.8, "chime"], [24.6, "whoosh"], [34.2, "ok"], [34.6, "whoosh"], [39, "swoosh"], [43.6, "swoosh"],
+    [45.6, "error"], [48.4, "click"], [50.2, "click"], [51.6, "click"], [57.5, "alert2"], [60.2, "click"], [62.4, "ping"], [63.7, "click"],
+    [64.9, "chime"], [65.6, "whoosh"], [67.4, "switch"], [71.2, "chime"], [72.6, "whoosh"], [73.8, "final"]];
   for (var pk = 0; pk < 6; pk++) SFX.push([29.65 + pk * 0.85, "pop" + pk]);
+  // The rest of the picture's beats, so each thing that moves on screen is heard where it moves.
+  // The problem: the checklist builds, the other processes stack behind it, the agent arrives and talks.
+  for (var li = 0; li < 6; li++) SFX.push([1.1 + li * 0.45, "item" + li]);
+  [5, 5.6, 6.2].forEach(function (x) { SFX.push([x, "thud"]); });
+  SFX.push([9, "whoosh"], [9.6, "blip"], [12.2, "zip"], [14, "blip"], [25.8, "blip"], [28.4, "blip"]);
+  // The agent ticks the list off far too fast, then the cost meter runs up.
+  for (var sk = 1; sk < 6; sk++) SFX.push([12.5 + sk * 0.28, "rush" + sk]);
+  for (var cn = 0; cn < 10; cn++) SFX.push([15.8 + cn * 0.3, "coin" + cn]);
+  // Meet Yukta: the logo draws, its name and tagline land; the ways in slide up.
+  SFX.push([21.9, "tap"], [22.5, "tap"], [25.6, "tap"], [25.85, "tap"], [26.1, "tap"]);
+  // The agent at work in its terminal: keys, and a return at the end of each line.
+  [27, 18, 24, 24, 15].forEach(function (len, l) {
+    for (var c = 0; c < len; c += 3) SFX.push([40.3 + l * 0.56 + (c / len) * 0.5, "key"]);
+    SFX.push([40.3 + l * 0.56 + 0.52, l === 4 ? "ok" : "enter"]);
+  });
+  // Node badges: problems found, then fixed.
+  [37.6, 54.9, 68.6].forEach(function (x) { SFX.push([x, "bad"]); });
+  [46.4, 60.4, 69.1].forEach(function (x) { SFX.push([x, "fix"]); });
+  // The supervisor appears; the phone buzzes for the high-risk question; the end card's pills.
+  SFX.push([52.6, "rise"], [61.4, "buzz"], [61.85, "buzz"]);
+  for (var pl = 0; pl < 4; pl++) SFX.push([74.6 + pl * 0.35, "item" + (pl + 2)]);
+  // The token reaching each node: a note that climbs as the run moves on.
+  for (var tk = 1; tk < TOK.length; tk++) {
+    var at = TOK[tk][0], to = TOK[tk][1];
+    if (to !== TOK[tk - 1][1] && to % 1 === 0 && !inAny(at, TOK_HIDE)) SFX.push([at, "step" + to]);
+  }
+  // Each chapter cut lands on a soft low hit, with a rising whoosh leading into it.
+  CHAPTERS.slice(1, -1).forEach(function (c) { SFX.push([c[0], c[0] === 19 || c[0] === 35 || c[0] === 66 ? "braam" : "hit"]); });
+  // The score's own events: risers into the two crises, a dissonant cluster on each, the wall, the approval.
+  SFX.push([13.4, "riser"], [15, "cluster"], [45.55, "braam"], [57.4, "riser2"], [61.4, "cluster"], [63.7, "swell"], [73, "braamBig"]);
   function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
   function makeAudio() {
@@ -535,6 +578,42 @@
       g.gain.setValueAtTime(peak, when + a + hold);
       g.gain.exponentialRampToValueAtTime(0.0001, when + a + hold + r);
     }
+    // Route a voice to its bus, placed in the stereo field where its event is on screen (o.pan, -1 left to
+    // 1 right), and moving across it when o.panTo is set.
+    function out(node, o, when, dest) {
+      if ((o.pan === undefined && o.panTo === undefined) || !ctx.createStereoPanner) { node.connect(dest); return; }
+      var p = ctx.createStereoPanner();
+      p.pan.setValueAtTime(o.pan || 0, when);
+      if (o.panTo !== undefined) p.pan.linearRampToValueAtTime(o.panTo, when + (o.glide || 0.5));
+      node.connect(p);
+      p.connect(dest);
+    }
+    // A frequency-modulated voice: metallic and glassy partials from two sine waves, the brightness falling as it
+    // rings out (o.ratio sets the timbre, o.index the starting brightness).
+    function fm(when, f, o) {
+      var car = ctx.createOscillator(), mod = ctx.createOscillator(), mg = ctx.createGain(), g = ctx.createGain();
+      var dur = (o.a || 0.003) + (o.r || 0.8);
+      car.frequency.value = f;
+      mod.frequency.value = f * (o.ratio || 3.5);
+      mg.gain.setValueAtTime(f * (o.index || 4), when);
+      mg.gain.exponentialRampToValueAtTime(f * 0.05, when + dur);
+      mod.connect(mg);
+      mg.connect(car.frequency);
+      car.connect(g);
+      out(g, o, when, bus);
+      env(g, when, o.g || 0.04, o.a || 0.003, 0, o.r || 0.8);
+      car.start(when);
+      mod.start(when);
+      car.stop(when + dur + 0.05);
+      mod.stop(when + dur + 0.05);
+    }
+    // A crisp interface click: a resonant noise transient over a tiny pitched tick.
+    function click(when, f, g, pan) {
+      hiss(when, { ft: "bandpass", f: f, q: 6, g: g, r: 0.012, pan: pan });
+      tone(when, f / 2, { type: "sine", g: g * 0.6, a: 0.001, r: 0.025, pan: pan });
+    }
+    // The screen x (0 to 1280) of a thing in the picture, as a stereo position.
+    function px(x) { return Math.max(-0.8, Math.min(0.8, (x - 640) / 640)); }
     function tone(when, f, o) {
       var osc = ctx.createOscillator(), g = ctx.createGain(), fl = ctx.createBiquadFilter();
       osc.type = o.type || "sine";
@@ -545,7 +624,7 @@
       fl.frequency.value = o.cut || 8000;
       osc.connect(fl);
       fl.connect(g);
-      g.connect(o.dry ? master : bus);
+      out(g, o, when, o.dry ? master : bus);
       env(g, when, o.g || 0.05, o.a || 0.005, o.h || 0, o.r || 0.3);
       osc.start(when);
       osc.stop(when + (o.a || 0.005) + (o.h || 0) + (o.r || 0.3) + 0.05);
@@ -559,53 +638,213 @@
       fl.Q.value = o.q || 0.7;
       src.connect(fl);
       fl.connect(g);
-      g.connect(bus);
+      out(g, o, when, bus);
       env(g, when, o.g || 0.03, o.a || 0.002, o.h || 0, o.r || 0.05);
       src.start(when);
       src.stop(when + (o.a || 0.002) + (o.h || 0) + (o.r || 0.05) + 0.05);
     }
-    function pad(when, t, dur) {
-      var ch = PROG[Math.floor(t / BAR) % 4], cut = t < 19 ? 700 : t < 35 ? 1300 : 1800, lvl = t > 76 ? 0.012 : 0.022;
+    // Time since the chapter began: the beat grid and the chords restart at every cut.
+    function chapIdx(t) { var c = 0; for (var i = 0; i < CHAPTERS.length; i++) if (t >= CHAPTERS[i][0] - 1e-6) c = i; return c; }
+    // Instruments.
+    function pad(when, ch, dur, cut, lvl) {
       ch[1].forEach(function (m) {
-        [-8, 8].forEach(function (dt) { tone(when, mtof(m), { type: "sawtooth", detune: dt, cut: cut, g: lvl, a: 0.7, h: Math.max(0.1, dur - 1.3), r: 0.9 }); });
+        [m - 12, m].forEach(function (x) {
+          [-7, 7].forEach(function (dt) { tone(when, mtof(x), { type: "sawtooth", detune: dt, cut: cut, g: lvl, a: 0.6, h: Math.max(0.1, dur - 1.1), r: 0.9 }); });
+        });
       });
     }
+    function string(when, m, g, len) {
+      [-5, 5].forEach(function (dt) { tone(when, mtof(m), { type: "sawtooth", detune: dt, cut: 2100, g: g, a: 0.004, h: len, r: 0.09 }); });
+    }
+    function pluck(when, m, g) { tone(when, mtof(m), { type: "triangle", cut: 1800, g: g, a: 0.003, r: 0.28 }); }
+    function horn(when, m, len, g) {
+      [-6, 6].forEach(function (dt) { tone(when, mtof(m), { type: "sawtooth", detune: dt, cut: 1150, g: g, a: 0.12, h: Math.max(0.05, len - 0.12), r: 0.5 }); });
+      tone(when, mtof(m - 12), { type: "sine", g: g * 0.8, a: 0.12, h: Math.max(0.05, len - 0.12), r: 0.5 });
+    }
+    function bass(when, m, g, len) {
+      tone(when, mtof(m), { type: "sine", g: g, a: 0.008, h: len, r: 0.2 });
+      tone(when, mtof(m + 12), { type: "sawtooth", cut: 500, g: g * 0.18, a: 0.008, h: len, r: 0.15 });
+    }
+    function drum(when, g) {
+      tone(when, 95, { to: 38, glide: 0.28, type: "sine", g: g, a: 0.003, r: 0.5, dry: true });
+      hiss(when, { ft: "lowpass", f: 600, g: g * 0.3, r: 0.12 });
+    }
+    function heart(when) {
+      tone(when, 62, { to: 40, glide: 0.1, type: "sine", g: 0.16, a: 0.004, r: 0.16, dry: true });
+      tone(when + 0.2, 58, { to: 38, glide: 0.1, type: "sine", g: 0.11, a: 0.004, r: 0.18, dry: true });
+    }
+    function clock(when, g) { tone(when, 2100, { type: "square", cut: 3600, g: g, r: 0.025 }); }
+    // A low brass hit: detuned saws through a filter that opens and closes, over a sub.
+    function braam(when, root, big) {
+      [root - 12, root, root + 7].concat(big ? [root + 12, root + 16] : []).forEach(function (m) {
+        [-10, 0, 10].forEach(function (dt) {
+          var osc = ctx.createOscillator(), g = ctx.createGain(), fl = ctx.createBiquadFilter();
+          osc.type = "sawtooth";
+          osc.frequency.value = mtof(m);
+          osc.detune.value = dt;
+          fl.type = "lowpass";
+          fl.Q.value = 3;
+          fl.frequency.setValueAtTime(110, when);
+          fl.frequency.exponentialRampToValueAtTime(big ? 1700 : 1150, when + 0.35);
+          fl.frequency.exponentialRampToValueAtTime(200, when + (big ? 5 : 2.2));
+          osc.connect(fl);
+          fl.connect(g);
+          g.connect(bus);
+          env(g, when, big ? 0.03 : 0.035, 0.05, big ? 3 : 0.8, big ? 3 : 1.4);
+          osc.start(when);
+          osc.stop(when + (big ? 6.2 : 2.4));
+        });
+      });
+      tone(when, mtof(root - 24), { type: "sine", g: 0.22, a: 0.02, h: big ? 2.5 : 0.5, r: 1.6, dry: true });
+    }
+    function riser(when, dur) {
+      [50, 62, 74].forEach(function (m) { tone(when, mtof(m), { to: mtof(m + 12), glide: dur, type: "sawtooth", cut: 2400, g: 0.018, a: dur * 0.85, r: dur * 0.2 }); });
+      hiss(when, { ft: "bandpass", f: 300, to: 5200, glide: dur, q: 1.4, g: 0.045, a: dur * 0.9, r: 0.25 });
+    }
+    function theme(k, notes, when, oct, g) {
+      notes.forEach(function (x) { if (x[0] === k) oct.forEach(function (o) { horn(when, x[1] + o, x[2] * EIGHTH, g); }); });
+    }
+    // One eighth note of the score: n counts eighths from the start of the chapter that t falls in.
     function music(n, t, when) {
-      var ch = PROG[Math.floor(t / BAR) % 4], breakdown = t >= 66 && t < 68;
-      if (n % 8 === 0 && t < 78) pad(when, t, BAR);
-      if (t >= 4.6 && t < 9 && n % 2 === 0) tone(when, 1900, { type: "square", cut: 3000, g: 0.012, r: 0.03 });
-      if (t >= 9 && t < 25 && n % 2 === 0) tone(when, mtof(ch[1][(n / 2) % 3] + 12), { type: "triangle", g: 0.035, r: 0.5, cut: 2400 });
-      if (t >= 25 && t < 73 && !breakdown) {
-        var arp = [0, 1, 2, 1, 2, 0, 1, 2];
-        tone(when, mtof(ch[1][arp[n % 8]] + 12), { type: "triangle", g: 0.04, r: 0.32, cut: 3200 });
-        if (n % 8 === 5) tone(when, mtof(ch[1][2] + 24), { type: "sine", g: 0.018, r: 0.6 });
-      }
-      if (t >= 19 && t < 73 && !breakdown && n % 4 === 0) {
-        tone(when, mtof(ch[0]), { type: "sine", g: 0.13, a: 0.01, h: 0.25, r: 0.25 });
-        tone(when, mtof(ch[0] + 12), { type: "triangle", g: 0.03, a: 0.01, h: 0.2, r: 0.2, cut: 900 });
-      }
-      if (t >= 35 && t < 73 && !breakdown) {
-        if (n % 2 === 0) tone(when, 130, { to: 42, glide: 0.14, type: "sine", g: t < 47 ? 0.16 : 0.22, r: 0.32 });
-        else hiss(when, { f: 8000, g: 0.018, r: 0.05 });
-        if (n % 8 === 4 && t >= 47) hiss(when, { ft: "bandpass", f: 1800, q: 0.8, g: 0.05, r: 0.14 });
+      var ci = chapIdx(t), b8 = n % 8, ch = ci === 7 ? DMAJ : PROG[Math.floor(n / 8) % 4];
+      var lo = ch[1].map(function (m) { return m - 12; });
+      if (b8 === 0 && ci > 0 && ci < 7) pad(when, ch, BAR, [0, 1100, 1300, 1700, 800, 1600, 2000][ci], ci === 4 ? 0.008 : 0.013);
+      if (ci === 0) {
+        if (b8 === 0) tone(when, mtof(38), { type: "sawtooth", cut: 240 + t * 22, g: 0.08, a: 0.9, h: BAR - 1.3, r: 0.9 });
+        if (t >= 4.6 && t < 13.4 && n % 2 === 0) clock(when, 0.014);
+        if (t >= 13.4) clock(when, 0.02);
+        if (t >= 9 && (t < 13.4 ? b8 === 0 : n % 4 === 0)) heart(when);
+      } else if (ci === 1) {
+        theme(n - 2, THEME, when, [0], 0.028);
+        if (b8 === 0) bass(when, ch[0], 0.13, BAR - 0.3);
+      } else if (ci === 2) {
+        pluck(when, lo[[0, 2, 1, 2, 0, 2, 1, 2][b8]], 0.045);
+        if (n % 4 === 0) bass(when, ch[0], 0.12, 0.5);
+      } else if (ci === 3) {
+        if (t >= 45.4) return;
+        var duck = t > 39.3 && t < 43.7 ? 0.4 : 1, pat = [0, 1, 2, 1];
+        string(when, lo[pat[(n * 2) % 4]], 0.022 * duck * (n % 2 === 0 ? 1.3 : 1), 0.06);
+        string(when + EIGHTH / 2, lo[pat[(n * 2 + 1) % 4]], 0.018 * duck, 0.06);
+        if (b8 === 0 || b8 === 3 || b8 === 6) drum(when, 0.2 * duck);
+        bass(when, ch[0], 0.1 * duck, 0.18);
+        theme(n, THEME, when, [12], 0.014);
+      } else if (ci === 4) {
+        if (n % 2 === 0) clock(when, 0.012);
+        if (n % 4 === 0 && !inAny(t, HOLD)) bass(when, 38, 0.1, 0.25);
+      } else if (ci === 5) {
+        if (t >= 61.4 && t < 63.7) {
+          if (n % 4 === 0) heart(when);
+          if (n % 2 === 0) clock(when, 0.013);
+          return;
+        }
+        string(when, lo[[0, 1, 2, 1][(n * 2) % 4]], 0.02, 0.06);
+        if (t >= 55) string(when + EIGHTH / 2, lo[[0, 1, 2, 1][(n * 2 + 1) % 4]], 0.016, 0.06);
+        if (t >= 55 && (b8 === 0 || b8 === 4)) drum(when, 0.18);
+        if (n % 2 === 0) bass(when, ch[0], 0.1, 0.25);
+      } else if (ci === 6) {
+        if (t < 68) { if (n % 2 === 0) clock(when, 0.014); return; }
+        string(when, lo[[0, 1, 2, 1][(n * 2) % 4]], 0.032, 0.06);
+        string(when + EIGHTH / 2, lo[[0, 1, 2, 1][(n * 2 + 1) % 4]], 0.027, 0.06);
+        string(when, ch[1][[0, 1, 2, 1][(n * 2) % 4]], 0.012, 0.06);
+        if (b8 === 0 || b8 === 2 || b8 === 3 || b8 === 6) drum(when, 0.27);
+        bass(when, ch[0], 0.14, 0.18);
+        theme(n - 8, THEME, when, [0, 12], 0.03);
+      } else if (n === 0) {
+        pad(when, DMAJ, 6.5, 2200, 0.014);
+      } else if (ci === 7) {
+        theme(n - 4, FINAL, when, [0, 12], 0.022);
       }
     }
-    function bell(when, m, g) {
-      [[1, 1], [2.76, 0.4], [5.4, 0.15]].forEach(function (p) { tone(when, mtof(m) * p[0], { type: "sine", g: g * p[1], a: 0.004, r: 1.4 }); });
-    }
+    // The effects, each placed where its event is on screen: the checklist on the right, the agent left of centre,
+    // the run's nodes from left to right (NX), the person on the left.
     function sfx(k, when) {
-      if (k === "whoosh") hiss(when, { ft: "bandpass", f: 300, to: 3500, glide: 0.55, q: 1.2, g: 0.07, a: 0.25, r: 0.35 });
-      else if (k === "swoosh") hiss(when, { ft: "bandpass", f: 2500, to: 400, glide: 0.5, q: 1.5, g: 0.05, a: 0.15, r: 0.35 });
-      else if (k === "chime") [72, 76, 79, 84].forEach(function (m, i) { bell(when + i * 0.09, m, 0.05); });
-      else if (k === "final") { [60, 64, 67, 72].forEach(function (m) { tone(when, mtof(m), { type: "sawtooth", cut: 1600, g: 0.02, a: 0.4, h: 3.5, r: 2.5 }); }); [84, 88, 91].forEach(function (m, i) { bell(when + 0.2 + i * 0.12, m, 0.04); }); }
-      else if (k === "ok") { bell(when, 79, 0.05); bell(when + 0.1, 84, 0.05); }
-      else if (k === "click") { hiss(when, { f: 3000, g: 0.06, r: 0.02 }); tone(when, 1400, { type: "sine", g: 0.04, r: 0.04 }); }
-      else if (k === "error") { tone(when, 185, { type: "square", cut: 1100, g: 0.05, h: 0.12, r: 0.1 }); tone(when + 0.16, 160, { type: "square", cut: 1100, g: 0.05, h: 0.12, r: 0.12 }); }
-      else if (k === "alert") { tone(when, 660, { type: "triangle", g: 0.06, r: 0.15 }); tone(when + 0.14, 440, { type: "triangle", g: 0.06, r: 0.25 }); }
-      else if (k === "alert2") { tone(when, 880, { type: "triangle", g: 0.05, r: 0.12 }); tone(when + 0.12, 880, { type: "triangle", g: 0.05, r: 0.2 }); }
-      else if (k === "ping") { tone(when, 1320, { type: "sine", g: 0.06, r: 0.25 }); tone(when + 0.16, 1760, { type: "sine", g: 0.06, r: 0.4 }); }
-      else if (k === "switch") { tone(when, 600, { to: 180, glide: 0.3, type: "sine", g: 0.07, r: 0.35 }); }
-      else if (k.indexOf("pop") === 0) { var m = [72, 74, 76, 79, 81, 84][+k.slice(3)]; tone(when, mtof(m), { to: mtof(m + 12), glide: 0.05, type: "sine", g: 0.07, r: 0.18 }); }
+      var i = +k.replace(/\D/g, "");
+      // Air moving: a swept band of noise with an airy top, crossing the stereo field.
+      if (k === "whoosh") {
+        hiss(when, { ft: "bandpass", f: 250, to: 3200, glide: 0.6, q: 1.1, g: 0.06, a: 0.3, r: 0.35, pan: -0.6, panTo: 0.6 });
+        hiss(when + 0.05, { ft: "highpass", f: 5000, g: 0.02, a: 0.35, r: 0.25, pan: -0.4, panTo: 0.5, glide: 0.6 });
+      } else if (k === "swoosh") {
+        hiss(when, { ft: "bandpass", f: 3000, to: 350, glide: 0.5, q: 1.3, g: 0.05, a: 0.12, r: 0.4, pan: 0.5, panTo: -0.5 });
+      } else if (k === "rise") {
+        hiss(when, { ft: "bandpass", f: 200, to: 2600, glide: 1, q: 1, g: 0.04, a: 0.7, r: 0.4, pan: 0.3 });
+        tone(when, 220, { to: 440, glide: 1, type: "sine", g: 0.015, a: 0.8, r: 0.3, pan: 0.3 });
+      } else if (k === "zip") {
+        hiss(when, { ft: "bandpass", f: 900, to: 7000, glide: 0.3, q: 3, g: 0.05, a: 0.04, r: 0.18, pan: -0.1, panTo: 0.6 });
+      }
+      // Bells, glass and metal (FM).
+      else if (k === "chime") [76, 79, 83, 88].forEach(function (m, j) { fm(when + j * 0.085, mtof(m), { ratio: 3.5, index: 3, g: 0.03, r: 1.6, pan: -0.45 + j * 0.3 }); });
+      else if (k === "ok") { fm(when, mtof(79), { ratio: 3.5, index: 2.5, g: 0.035, r: 1, pan: 0.1 }); fm(when + 0.1, mtof(86), { ratio: 3.5, index: 2.5, g: 0.035, r: 1.3, pan: 0.2 }); }
+      else if (k === "fix") { fm(when, mtof(78), { ratio: 2, index: 2, g: 0.03, r: 0.7, pan: px(NX[2]) }); fm(when + 0.09, mtof(85), { ratio: 2, index: 2, g: 0.03, r: 1, pan: px(NX[2]) }); }
+      else if (k === "ping") { fm(when, mtof(88), { ratio: 1.5, index: 1.5, g: 0.04, r: 0.5, pan: -0.5 }); fm(when + 0.15, mtof(93), { ratio: 1.5, index: 1.5, g: 0.04, r: 0.8, pan: -0.5 }); }
+      else if (k.indexOf("coin") === 0) { fm(when, mtof(83 + i), { ratio: 1.41, index: 5, g: 0.02, r: 0.22, pan: 0.55 }); click(when, 6000, 0.012, 0.55); }
+      // Each node the run reaches: a soft mallet note, climbing, from where the node is.
+      else if (k.indexOf("step") === 0) {
+        var sm = [69, 72, 76, 79, 81, 84][i];
+        fm(when, mtof(sm), { ratio: 4, index: 1.2, g: 0.028, r: 0.9, pan: px(NX[i]) });
+        tone(when, mtof(sm - 12), { type: "sine", g: 0.02, a: 0.004, r: 0.3, pan: px(NX[i]) });
+      }
+      // The node graph being built: bubbles that pop into place, left to right.
+      else if (k.indexOf("pop") === 0) {
+        var pm = [72, 74, 76, 79, 81, 84][i];
+        tone(when, mtof(pm - 5), { to: mtof(pm + 7), glide: 0.04, type: "sine", g: 0.06, a: 0.002, r: 0.14, pan: px(NX[i]) });
+        click(when, 3500, 0.02, px(NX[i]));
+      }
+      // The checklist, and the end card's pills: a soft marimba from the right.
+      else if (k.indexOf("item") === 0) {
+        var im = [69, 72, 74, 76, 79, 81][i];
+        tone(when, mtof(im), { type: "sine", g: 0.04, a: 0.002, r: 0.25, pan: 0.5 });
+        tone(when, mtof(im) * 4, { type: "sine", g: 0.008, a: 0.001, r: 0.05, pan: 0.5 });
+      }
+      // The agent racing down the list: quick ticks, falling.
+      else if (k.indexOf("rush") === 0) click(when, 4200 - i * 300, 0.03, 0.55);
+      // Interface: taps, clicks on Pause, Step and Restart, a switch, keys and return.
+      else if (k === "tap") click(when, 2600, 0.03, 0);
+      else if (k === "click") { click(when, 3200, 0.05, -0.2); tone(when, 180, { type: "sine", g: 0.04, a: 0.001, r: 0.04, pan: -0.2 }); }
+      else if (k === "switch") { click(when, 2800, 0.05, -0.3); tone(when + 0.02, 700, { to: 220, glide: 0.25, type: "triangle", g: 0.04, r: 0.3, pan: -0.3 }); }
+      else if (k === "key") {
+        var kp = -0.1 + Math.random() * 0.2;
+        click(when, 2800 + Math.random() * 1800, 0.028, kp);
+        tone(when, 160 + Math.random() * 60, { type: "sine", g: 0.018, a: 0.001, r: 0.03, pan: kp });
+      } else if (k === "enter") { click(when, 1800, 0.045, 0.1); tone(when, 120, { type: "sine", g: 0.04, a: 0.001, r: 0.06, pan: 0.1 }); }
+      // Speech bubbles from the agent: a quick two-note chirp.
+      else if (k === "blip") { tone(when, 990, { to: 1320, glide: 0.04, type: "sine", g: 0.03, r: 0.06, pan: -0.15 }); tone(when + 0.07, 1480, { type: "sine", g: 0.022, r: 0.08, pan: -0.15 }); }
+      // Things landing: the stacked process cards.
+      else if (k === "thud") { tone(when, 140, { to: 60, glide: 0.1, type: "sine", g: 0.09, a: 0.002, r: 0.16, pan: 0.45 }); hiss(when, { ft: "bandpass", f: 1200, q: 0.8, g: 0.025, r: 0.08, pan: 0.45 }); }
+      // Trouble: problems found, the agent's skip refused, alerts, the phone.
+      else if (k === "bad") {
+        [[0, 52], [0.11, 49]].forEach(function (x) {
+          fm(when + x[0], mtof(x[1] + 12), { ratio: 1, index: 1.5, g: 0.035, r: 0.25, pan: px(NX[1]) });
+          tone(when + x[0], mtof(x[1]), { type: "triangle", g: 0.03, r: 0.2, pan: px(NX[1]) });
+        });
+      } else if (k === "error") {
+        tone(when, 90, { to: 45, glide: 0.2, type: "sine", g: 0.14, a: 0.002, r: 0.3, dry: true });
+        hiss(when, { ft: "lowpass", f: 700, g: 0.05, r: 0.15, pan: px(NX[3]) });
+        [[0.02, 196], [0.18, 165]].forEach(function (x) { tone(when + x[0], x[1], { type: "square", cut: 900, g: 0.035, h: 0.1, r: 0.12, pan: px(NX[3]) }); });
+      } else if (k === "alert") {
+        [[0, 659], [0.15, 494]].forEach(function (x) { tone(when + x[0], x[1], { type: "triangle", g: 0.05, h: 0.06, r: 0.18, pan: 0.5 }); fm(when + x[0], x[1] * 2, { ratio: 2, index: 1, g: 0.015, r: 0.2, pan: 0.5 }); });
+      } else if (k === "alert2") {
+        [0, 0.13].forEach(function (d) { tone(when + d, 880, { type: "triangle", g: 0.045, h: 0.05, r: 0.12, pan: 0.35 }); click(when + d, 5000, 0.015, 0.35); });
+      } else if (k === "buzz") {
+        // A phone vibrating on a desk: a motor hum in pulses, with a rattle.
+        [0, 0.11, 0.22].forEach(function (d) {
+          tone(when + d, 158, { type: "sawtooth", cut: 520, g: 0.05, a: 0.005, h: 0.06, r: 0.02, pan: -0.55 });
+          hiss(when + d, { ft: "bandpass", f: 2400, q: 4, g: 0.012, a: 0.005, h: 0.06, r: 0.02, pan: -0.55 });
+        });
+      }
+      // The cuts: an impact with a sub drop, a body and a burst of air.
+      else if (k === "hit") {
+        tone(when, 75, { to: 38, glide: 0.45, type: "sine", g: 0.16, a: 0.004, r: 0.7, dry: true });
+        tone(when, 150, { to: 70, glide: 0.2, type: "triangle", g: 0.04, a: 0.002, r: 0.25 });
+        hiss(when, { ft: "lowpass", f: 2500, to: 300, glide: 0.3, g: 0.04, a: 0.002, r: 0.35 });
+      }
+      // The score's own events.
+      else if (k === "braam") braam(when, 38, false);
+      else if (k === "braamBig") braam(when, 38, true);
+      else if (k === "riser") riser(when, 5.6);
+      else if (k === "riser2") riser(when, 4);
+      else if (k === "cluster") [50, 51, 57].forEach(function (m) { tone(when, mtof(m), { type: "sawtooth", cut: 900, g: 0.022, a: 0.5, h: 1.8, r: 1.2 }); });
+      else if (k === "swell") { pad(when, DMAJ, 2.3, 2400, 0.016); fm(when, mtof(81), { ratio: 3.5, index: 2.5, g: 0.035, r: 1.6 }); }
+      else if (k === "final") [84, 88, 91, 96].forEach(function (m, j) { fm(when + 0.2 + j * 0.12, mtof(m), { ratio: 3.5, index: 3, g: 0.025, r: 2.2, pan: -0.45 + j * 0.3 }); });
     }
     return {
       on: function () { return enabled; },
@@ -620,20 +859,20 @@
         if (!ctx) return;
         newBus();
         until = t;
-        // Starting mid-bar: bring the pad in for the rest of the bar.
-        if (enabled && playing && t < 78) {
-          var rest = BAR - (t % BAR);
-          if (rest > 0.8) pad(ctx.currentTime + 0.02, t, rest);
-        }
       },
       tick: function (t, prev, playing) {
         if (!enabled || !ctx || !playing || !bus) return;
         var now = ctx.currentTime;
         if (t > prev && t - prev < 0.3) SFX.forEach(function (e) { if (e[0] >= prev && e[0] < t) sfx(e[1], now + 0.01); });
         var ahead = t + 0.25;
-        for (var n = Math.ceil(until / EIGHTH - 1e-6); n * EIGHTH < ahead; n++) {
-          var nt = n * EIGHTH;
-          if (nt >= t - 0.02) music(n, nt, now + Math.max(0, nt - t) + 0.02);
+        // Eighth notes counted from the start of the chapter each falls in.
+        for (var ci = 0; ci < CHAPTERS.length; ci++) {
+          var cs = CHAPTERS[ci][0], ce = ci + 1 < CHAPTERS.length ? CHAPTERS[ci + 1][0] : DUR;
+          if (ce <= until || cs >= ahead) continue;
+          for (var n = Math.max(0, Math.ceil((until - cs) / EIGHTH - 1e-6)); cs + n * EIGHTH < Math.min(ce, ahead) - 1e-6; n++) {
+            var nt = cs + n * EIGHTH;
+            if (nt >= t - 0.02) music(n, nt, now + Math.max(0, nt - t) + 0.02);
+          }
         }
         until = Math.max(until, ahead);
         if (t > 77.5) bus.gain.setTargetAtTime(0.0001, now, 0.8);
@@ -669,14 +908,14 @@
       '<div class="ykf" role="region" aria-label="Video: what Yukta is, in 80 seconds">' +
       '<div class="ykf-stage">' + svgMarkup() +
       '<div class="ykf-kick" aria-hidden="true"><b></b><div><small>Chapter</small><span></span></div></div>' +
-      '<button class="ykf-snd" type="button" aria-pressed="false"></button>' +
-      '<button class="ykf-big" type="button">' + PLAY + "<span>Watch with sound · 80 s</span></button>" +
+      '<button class="ykf-big" type="button" aria-label="Watch with sound, 80 seconds">' + PLAY + "<span>Watch with sound · 80 s</span></button>" +
       '<div class="ykf-thin" aria-hidden="true"><i></i></div>' +
       '<div class="ykf-ctl"><div class="ykf-bar"><button class="ykf-pp" type="button" aria-label="Play">' + PLAY + "</button>" +
       '<span class="ykf-time">0:00 / ' + fmt(DUR) + "</span>" +
       '<div class="ykf-track"><div class="ykf-rail"></div><div class="ykf-fill"></div>' +
       CHAPTERS.slice(1).map(function (c) { return '<div class="ykf-tick" style="left:' + (c[0] / DUR * 100).toFixed(2) + '%"></div>'; }).join("") +
-      '<div class="ykf-knob"></div><input class="ykf-range" type="range" min="0" max="' + DUR + '" step="0.05" value="0" aria-label="Seek"></div></div>' +
+      '<div class="ykf-knob"></div><input class="ykf-range" type="range" min="0" max="' + DUR + '" step="0.05" value="0" aria-label="Seek"></div>' +
+      '<button class="ykf-snd" type="button" aria-pressed="false"></button></div>' +
       '<div class="ykf-chap" aria-label="Chapters">' + CHAPTERS.map(function (c, i) { return '<button type="button" data-c="' + i + '">' + c[1] + "</button>"; }).join("") + "</div></div></div>" +
       '<div class="ykf-cap" aria-live="polite"></div></div>';
 
@@ -1172,10 +1411,8 @@
 
     var raf = 0, last = 0, userPaused = false, started = false;
     function setBig() {
-      // The big button is for the first play and the replay; mid-film the bar's button is enough.
-      big.hidden = playing || (started && T < DUR - 0.01);
-      big.classList.toggle("end", T >= DUR - 0.01);
-      big.querySelector("span").textContent = T >= DUR - 0.01 ? "Replay" : started ? "Play" : "Watch with sound · 80 s";
+      // The big button only invites the first play; pause and replay are the bar's button.
+      big.hidden = playing || started;
       pp.innerHTML = playing ? PAUSE : T >= DUR - 0.01 ? REPLAY : PLAY;
       pp.setAttribute("aria-label", playing ? "Pause" : T >= DUR - 0.01 ? "Replay" : "Play");
       wake();
@@ -1233,6 +1470,7 @@
     }
     sndBtn.addEventListener("click", function (e) { e.stopPropagation(); setSound(!audio.on()); });
     sndBtn.innerHTML = SND_OFF + "<span>Sound off</span>";
+    sndBtn.setAttribute("aria-label", "Turn sound on");
     pp.addEventListener("click", function () { if (playing) { userPaused = true; pause(); } else { userPaused = false; play(); } });
     root.querySelector(".ykf-stage").addEventListener("click", function () { if (playing) { userPaused = true; pause(); } else { userPaused = false; play(); } });
     range.addEventListener("input", function () { seek(parseFloat(range.value)); });

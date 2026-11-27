@@ -931,7 +931,8 @@ img.yk-diagram {
    wider, with the film sized so the whole of it (picture, caption, controls) fits on the first screen. */
 .yk-film-box {
   max-width: 68rem;
-  min-height: 420px;
+  /* Space held for the film before it loads; on a phone the film is shorter than 420px. */
+  min-height: min(420px, 75vw);
   margin: 2.5rem auto 0;
 }
 
@@ -2255,4 +2256,88 @@ img.yk-diagram {
   .yk-runlog {
     display: none;
   }
+}
+
+/* ==========================================================================
+ * Home page on a phone (below 640px).
+ * ======================================================================== */
+@media (max-width: 639px) {
+  /* Bordered sections: less inner padding, so the text column is not squeezed twice. */
+  .yk-sec-band {
+    padding: 1.75rem 1.1rem;
+    border-radius: 1.25rem;
+  }
+
+  .ykn {
+    gap: 0.45rem;
+    letter-spacing: 0.02em;
+  }
+
+  .ykn-name {
+    letter-spacing: 0.06em;
+  }
+
+  /* Comparison table: each feature name runs across the row above its answers, so the answers get
+     the full width and the table scrolls sideways under a name that stays in view. */
+  .ykc table,
+  .ykc thead,
+  .ykc tbody {
+    display: block;
+    min-width: 0;
+  }
+
+  .ykc tr {
+    display: grid;
+    grid-template-columns: 10rem repeat(4, 9rem);
+    width: max-content;
+  }
+
+  .ykc thead th:first-child {
+    display: none;
+  }
+
+  .ykc tbody th[scope="row"],
+  .ykc-group th {
+    grid-column: 1 / -1;
+    position: sticky;
+    left: 0;
+    width: calc(100vw - 2.5rem - 2px);
+    box-shadow: none !important;
+    background: none !important;
+  }
+
+  .ykc tbody th[scope="row"] {
+    padding-bottom: 0.1rem;
+    font-size: 0.85rem;
+  }
+
+  .ykc tbody tr + tr > * {
+    border-top: 0;
+  }
+
+  .ykc tbody tr:not(.ykc-group) {
+    border-top: 1px solid color-mix(in srgb, var(--yk-border) 70%, transparent);
+  }
+
+  .ykc tbody tr:not(.ykc-group) > td {
+    padding-top: 0.45rem;
+  }
+
+  .ykc tbody tr:not(.ykc-group):hover > * {
+    background: none;
+  }
+
+  /* Where to go next: the drawings are decoration; on a phone the cards are a short list. */
+  .yk-sec .yk-hero-card-media {
+    display: none;
+  }
+
+  .yk-sec .yk-hero-grid {
+    gap: 0.75rem;
+  }
+
+  .yk-sec .yk-hero-card {
+    padding: 0.25rem 0.5rem 1rem;
+  }
+
 }
