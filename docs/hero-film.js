@@ -145,7 +145,16 @@
     "background:#245be0;color:#fff;font:600 15px/1 Inter,system-ui,sans-serif;cursor:pointer;box-shadow:0 12px 28px -10px rgba(36,91,224,.6);transition:opacity .25s,transform .2s}" +
     ".ykf-big:hover{transform:scale(1.03)}.ykf-big svg{width:22px;height:22px}.ykf-big[hidden]{display:none}" +
     // At the end the button moves to a corner, off the end card's title.
-    ".ykf-big.end{inset:auto auto 16px 16px;margin:0;padding:10px 16px 10px 13px}" +
+    ".ykf-big.end{inset:auto auto 108px 16px;margin:0;padding:10px 16px 10px 13px}" +
+    // Controls over the bottom of the picture, on a fade so they read on any scene.
+    ".ykf-ctl{position:absolute;left:0;right:0;bottom:0;z-index:4;padding-top:28px;cursor:default;transition:opacity .25s,transform .25s;" +
+    "background:linear-gradient(to top,color-mix(in srgb,var(--panel) 94%,transparent) 0,color-mix(in srgb,var(--panel) 80%,transparent) 55%,transparent)}" +
+    ".ykf-ctl .ykf-bar,.ykf-ctl .ykf-chap{background:transparent;border:0}" +
+    ".ykf.idle .ykf-ctl{opacity:0;transform:translateY(6px);pointer-events:none}.ykf.idle .ykf-stage{cursor:none}" +
+    ".ykf.idle:focus-within .ykf-ctl{opacity:1;transform:none;pointer-events:auto}" +
+    ".ykf-thin{position:absolute;left:0;right:0;bottom:0;z-index:3;height:3px;background:color-mix(in srgb,var(--line) 70%,transparent);opacity:0;transition:opacity .25s;pointer-events:none}" +
+    ".ykf-thin i{display:block;width:0;height:100%;background:var(--blue)}.ykf.idle .ykf-thin{opacity:1}" +
+    "@media (prefers-reduced-motion:reduce){.ykf-ctl,.ykf-thin{transition:none}}" +
     ".ykf-bar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line);background:var(--panel)}" +
     ".ykf-bar button{flex:none;display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:10px;background:var(--soft);color:var(--ink);cursor:pointer;box-shadow:inset 0 0 0 1px var(--line)}" +
     ".ykf-bar button:focus-visible,.ykf-big:focus-visible,.ykf-range:focus-visible{outline:2px solid var(--blue);outline-offset:2px}" +
@@ -661,14 +670,15 @@
       '<div class="ykf-stage">' + svgMarkup() +
       '<div class="ykf-kick" aria-hidden="true"><b></b><div><small>Chapter</small><span></span></div></div>' +
       '<button class="ykf-snd" type="button" aria-pressed="false"></button>' +
-      '<button class="ykf-big" type="button">' + PLAY + "<span>Watch with sound · 80 s</span></button></div>" +
-      '<div class="ykf-cap" aria-live="polite"></div>' +
-      '<div class="ykf-bar"><button class="ykf-pp" type="button" aria-label="Play">' + PLAY + "</button>" +
+      '<button class="ykf-big" type="button">' + PLAY + "<span>Watch with sound · 80 s</span></button>" +
+      '<div class="ykf-thin" aria-hidden="true"><i></i></div>' +
+      '<div class="ykf-ctl"><div class="ykf-bar"><button class="ykf-pp" type="button" aria-label="Play">' + PLAY + "</button>" +
       '<span class="ykf-time">0:00 / ' + fmt(DUR) + "</span>" +
       '<div class="ykf-track"><div class="ykf-rail"></div><div class="ykf-fill"></div>' +
       CHAPTERS.slice(1).map(function (c) { return '<div class="ykf-tick" style="left:' + (c[0] / DUR * 100).toFixed(2) + '%"></div>'; }).join("") +
       '<div class="ykf-knob"></div><input class="ykf-range" type="range" min="0" max="' + DUR + '" step="0.05" value="0" aria-label="Seek"></div></div>' +
-      '<div class="ykf-chap" aria-label="Chapters">' + CHAPTERS.map(function (c, i) { return '<button type="button" data-c="' + i + '">' + c[1] + "</button>"; }).join("") + "</div></div>";
+      '<div class="ykf-chap" aria-label="Chapters">' + CHAPTERS.map(function (c, i) { return '<button type="button" data-c="' + i + '">' + c[1] + "</button>"; }).join("") + "</div></div></div>" +
+      '<div class="ykf-cap" aria-live="polite"></div></div>';
 
     var root = el.firstChild;
     var svg = root.querySelector("svg");
@@ -681,6 +691,7 @@
     var range = root.querySelector(".ykf-range");
     var fill = root.querySelector(".ykf-fill");
     var knob = root.querySelector(".ykf-knob");
+    var thin = root.querySelector(".ykf-thin i");
     var chapBtns = [].slice.call(root.querySelectorAll(".ykf-chap button"));
     var Q = {};
     [].forEach.call(svg.querySelectorAll("[data-k]"), function (n) { Q[n.getAttribute("data-k")] = n; });
@@ -921,6 +932,7 @@
       var f = (t / DUR * 100).toFixed(2) + "%";
       fill.style.width = f;
       knob.style.left = f;
+      thin.style.width = f;
       if (document.activeElement !== range) range.value = t;
       timeEl.textContent = fmt(t) + " / " + fmt(DUR);
       var chap = 0;
@@ -1166,6 +1178,15 @@
       big.querySelector("span").textContent = T >= DUR - 0.01 ? "Replay" : started ? "Play" : "Watch with sound · 80 s";
       pp.innerHTML = playing ? PAUSE : T >= DUR - 0.01 ? REPLAY : PLAY;
       pp.setAttribute("aria-label", playing ? "Pause" : T >= DUR - 0.01 ? "Replay" : "Play");
+      wake();
+    }
+    // While it plays, the controls fade out 2.5 s after the pointer stops (and soon after it leaves);
+    // paused, ended or focused (CSS :focus-within) they stay.
+    var idleT = 0;
+    function wake(ms) {
+      clearTimeout(idleT);
+      root.classList.remove("idle");
+      if (playing) idleT = setTimeout(function () { if (playing) root.classList.add("idle"); }, ms || 2500);
     }
     function loop(now) {
       if (!el.isConnected) { cancelAnimationFrame(raf); audio.close(); return; }
@@ -1215,6 +1236,10 @@
     pp.addEventListener("click", function () { if (playing) { userPaused = true; pause(); } else { userPaused = false; play(); } });
     root.querySelector(".ykf-stage").addEventListener("click", function () { if (playing) { userPaused = true; pause(); } else { userPaused = false; play(); } });
     range.addEventListener("input", function () { seek(parseFloat(range.value)); });
+    root.addEventListener("pointermove", function () { wake(); });
+    root.addEventListener("pointerdown", function () { wake(); });
+    root.addEventListener("pointerleave", function () { wake(600); });
+    root.querySelector(".ykf-ctl").addEventListener("click", function (e) { e.stopPropagation(); });
     chapBtns.forEach(function (b) {
       b.addEventListener("click", function () { seek(CHAPTERS[+b.dataset.c][0] + 0.01); if (!playing && !userPaused) play(); });
     });

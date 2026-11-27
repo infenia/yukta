@@ -831,11 +831,11 @@ img.yk-diagram {
     font-size: 0.95rem;
   }
 
-  /* 100svh minus the top nav, the page padding, the caption and the control bar: the picture's
+  /* 100svh minus the top nav, the page padding and the caption (the controls lie over the picture): the picture's
      height, times 16/9 for its width. */
   .yk-top .yk-film-box {
     width: 100%;
-    max-width: calc((100svh - 15rem) * 16 / 9);
+    max-width: calc((100svh - 12.5rem) * 16 / 9);
     min-height: 0;
     margin: 0 auto;
   }
