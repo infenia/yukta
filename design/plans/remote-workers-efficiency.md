@@ -29,7 +29,7 @@ nodes with a run budget kept local (#2751), the Workers panel.
 |---|---|---|---|
 | G1 | Every placed node is its own attempt: A→B→C in one pool goes worker→control plane→worker→control plane→worker | `RemoteNodes.place`, `WorkerNodeExecutor.run` | 2 hops per edge, the control plane carries every byte, a round trip of latency per node |
 | G2 | The worker calls `initialize` + `prepare` per attempt and never `shutdown`; `RemoteProcessor.initialize/prepare` also initialise the plugin on the control plane | `NodeRunner.serve`, `RemoteProcessor` | HTTP/SQL/LLM clients rebuilt per attempt and leaked, and duplicated on the control plane |
-| G3 | Messages are converted `Message`→`Map`→codec on both sides; no compression; one frame per message | `WorkerNodeExecutor.frame`, `NodeRunner` | double conversion, 4-10x more bytes than needed for JSON-like data |
+| G3 | Messages are converted `Message`→`Map`→CBOR on both sides (the codec is already CBOR, W0 states it); no compression; one frame per message | `WorkerNodeExecutor.frame`, `NodeRunner` | double conversion; repeated keys and text payloads cross uncompressed |
 | G4 | No claim-check (ADR 0006 open item); a 64 MB payload passes through the control plane | `WorkerTransport.inboundLimit` | the control plane is a data hop and a memory risk |
 | G5 | No worker with a free slot → the attempt fails at once | `WorkerNodeExecutor.run` | burns retries; nothing to autoscale on; no scale to zero |
 | G6 | `Placement(pool)` only (ADR's `requires` not built); a slot is any plugin | `NodePolicy.Placement` | no GPU/arch/zone targeting; 4 builds can land on a 2-CPU pod |
@@ -48,7 +48,7 @@ One PR per phase, stacked in this order; each ends green on `yk check`.
 ### W0 Measure first
 - Meters: `yukta.worker.bytes{worker,direction}`, `yukta.worker.frames{kind}`, `yukta.worker.dispatch` (pick to first
   frame), `yukta.worker.attempts{worker,outcome}` in `WorkerNodeExecutor` and `NodeRunner`.
-- A test that states which data MIME type the RSocket strategies use today (JSON or CBOR).
+- A test that states which data MIME type the RSocket strategies use today (it is `application/cbor`).
 - A perf scenario: `perf/compose.yaml` gains two workers, `perf/k6/workers.js` runs a 3-node placed chain with 1 KB and
   1 MB messages; bytes per message and p50/p99 node latency go into `perf/BASELINE.md`. Later phases report against it.
 
@@ -88,7 +88,7 @@ One PR per phase, stacked in this order; each ends green on `yk check`.
   one when it is full; warm caches for CI nodes.
 
 ### W7 Wire format (G3)
-- Encode `Message` directly with the Jackson CBOR mapper; no `Map` hop.
+- Encode `Message` directly with the Jackson CBOR mapper (CBOR is already the codec); no `Map` hop.
 - With `deflate` agreed, one `Deflater`/`Inflater` pair per `node.run` channel, level 1, `SYNC_FLUSH` per frame;
   frames under 512 B raw (flag). The `worker.session` stream (token) is never compressed.
 - A MESSAGE frame may carry a list: the sender batches only what is already waiting (up to 64), so a lone message is
@@ -137,7 +137,7 @@ path), queued starts surviving a leader change (HA plan).
 ## Verification
 - Each phase: `yk gradle :plus:workers:test`, `:core:test --tests 'com.infenia.yukta.service.worker.*'`,
   `-Pyukta.workers=true :boot:test --tests '*Workers*'`, `:e2e:test --tests '*WorkersE2eTest'`, then `yk check`.
-- Efficiency against W0: at least 4x fewer bytes per 1 KB JSON message (W7); no control-plane bytes for the internal
+- Efficiency against W0: at least 3x fewer bytes per 1 KB text message (W7); no control-plane bytes for the internal
   edges of a fused chain and at least 50% lower p50 for a 3-node chain (W9); flat control-plane heap with 10 MB
   payloads (W8).
 - Resilience: `ChaosTest` killing a worker mid-attempt and mid-segment; protocol N with N-1 peers; a worker that always
