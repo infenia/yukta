@@ -17,7 +17,7 @@ carries `yukta.depth` and `yukta.parentExecutionId`; nesting is limited to 5. Wi
 so a parent that waits for its children cannot starve them; children are not counted in the limits or
 the running gauge and stay bounded by the parent node and the depth. The child is subscribed inside the
 parent node, so cancelling the node cancels the child, which ends `CANCELLED`; the link to the parent
-is the `yukta.parentExecutionId` in the child's start payload (and its `RUN_STARTED` log entry).
+is the `yukta.parentExecutionId` in the child's start payload (and its `RUN_STARTED` log entry). After a restart auto-resume skips an aborted child (`ExecutionResumer.resume(id, max)`); the resumed parent re-runs the node and starts a fresh child.
 
 ### WAIT_FOR_SIGNAL and ASK_INPUT
 `WAIT_FOR_SIGNAL`, `ASK_INPUT` and `MCP_TOOL_CALL` `requireApproval` ask through `InputAsk` (plugin-api) on an
