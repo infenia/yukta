@@ -426,7 +426,7 @@ What this module does, how, what it guarantees and where the guarantee stops.
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
 | Leader lease | One server at a time admits runs. | One row; renewed every third of the lease; expiry from the database clock. | A standby takes over within about one lease. | Only the execution log and checkpoint messages check the fencing number. |
-| Takeover actions | Registered actions run when a server becomes leader. | Run on another thread; a failing action does not stop the others. | Recovery and auto-resume start without a human. | Live approval waits and queued starts are not restored (core). |
+| Takeover actions | Registered actions run when a server becomes leader. | Run on another thread; a failing action does not stop the others. | Recovery and auto-resume start without a human. | Live approval waits are not restored (core). A queued start is in the log already, so it is aborted and resumed like any run. |
 
 ### Plugin state
 
