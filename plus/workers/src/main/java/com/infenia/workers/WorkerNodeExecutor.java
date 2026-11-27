@@ -7,11 +7,11 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.exception.RemoteFailureException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.RemoteNodeExecutor;
 import com.infenia.yukta.service.worker.WorkerInfo;
 import com.infenia.yukta.service.worker.WorkerRegistry;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.observation.Observation;
@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -40,8 +41,11 @@ import tools.jackson.databind.ObjectMapper;
  */
 @SuppressWarnings({
   "PMD.CouplingBetweenObjects",
-  "PMD.TooManyMethods"
-}) // picks, sends, traces, maps
+  "PMD.ExcessiveImports",
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals"
+}) // picks, sends, traces, maps; the same key names in the context and the trace
+@Slf4j
 public class WorkerNodeExecutor implements RemoteNodeExecutor {
 
   /** Type of a message as plain JSON values. */
@@ -65,6 +69,9 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
   /** Times the attempts and their dispatch. */
   private final MeterRegistry meters;
 
+  /** Keeps a worker that keeps failing out of the picks for a while. */
+  private final WorkerHealth health;
+
   /** Attempts this server has sent to each worker and not seen end yet. */
   private final Map<String, AtomicInteger> inFlight = new ConcurrentHashMap<>();
 
@@ -79,7 +86,6 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
    * @param meters times the attempts ({@code yukta.worker.attempts{module,outcome}}) and the wait
    *     from the pick to the worker's first answer ({@code yukta.worker.dispatch{module}})
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // all are shared Spring beans
   public WorkerNodeExecutor(
       final WorkerRegistry registry,
       final WorkerConnections connections,
@@ -87,12 +93,32 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       final BiFunction<String, String, Observation> parentOf,
       final ObservationRegistry observations,
       final MeterRegistry meters) {
+    this(
+        registry,
+        connections,
+        mapper,
+        parentOf,
+        observations,
+        meters,
+        new WorkerHealth(System::nanoTime));
+  }
+
+  /** Creates the executor with its own record of worker health (tests pass one with a clock). */
+  /* default */ WorkerNodeExecutor(
+      final WorkerRegistry registry,
+      final WorkerConnections connections,
+      final ObjectMapper mapper,
+      final BiFunction<String, String, Observation> parentOf,
+      final ObservationRegistry observations,
+      final MeterRegistry meters,
+      final WorkerHealth health) {
     this.registry = registry;
     this.connections = connections;
     this.mapper = mapper;
     this.parentOf = parentOf;
     this.observations = observations;
     this.meters = meters;
+    this.health = health;
   }
 
   @Override
@@ -147,10 +173,18 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
                 outcome.set("lost");
                 return lost(workerId, error);
               })
-          .doOnComplete(() -> outcome.set("completed"))
+          .doOnComplete(() -> {
+            outcome.set("completed");
+            health.succeeded(workerId, pluginType);
+          })
           .doOnError(error -> {
             outcome.compareAndSet("cancelled", "failed");
             call.error(error);
+            // bad input and hard stops are the run's doing, not the worker's
+            if (("lost".equals(outcome.get()) || error instanceof RemoteFailureException)
+                && health.failed(workerId, pluginType)) {
+              quarantined(workerId, pluginType);
+            }
           })
           .doFinally(_ -> {
             call.stop();
@@ -192,6 +226,18 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
         .register(meters);
   }
 
+  private void quarantined(final String workerId, final String pluginType) {
+    log.atWarn()
+        .addKeyValue("workerId", workerId)
+        .addKeyValue("module", pluginType)
+        .log(
+            "Worker quarantined for {}: its last {} attempts failed while other workers ran {}",
+            WorkerHealth.COOL_DOWN,
+            WorkerHealth.FAILURES,
+            pluginType);
+    meters.counter("yukta.worker.quarantined", "module", pluginType).increment();
+  }
+
   private Timer dispatch(final String pluginType) {
     return Timer.builder("yukta.worker.dispatch")
         .description("From picking a worker to its first answer on the attempt")
@@ -210,7 +256,7 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
   /* default */ Optional<Chosen> pick(final String pool, final String pluginType) {
     return registry.list().stream()
         .filter(info -> info.pools().contains(pool) && info.pluginTypes().contains(pluginType))
-        .filter(info -> !info.draining())
+        .filter(info -> !info.draining() && !health.quarantined(info.workerId()))
         .flatMap(info ->
             connections
                 .find(info.workerId())

@@ -16,6 +16,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -97,7 +98,7 @@ class WorkerNodeExecutorTest {
         NodeFrame.error(
             "java.net.SocketTimeoutException",
             "slow",
-            java.util.List.of(
+            List.of(
                 "java.net.SocketTimeoutException",
                 "java.io.InterruptedIOException",
                 "java.io.IOException"));
@@ -109,9 +110,7 @@ class WorkerNodeExecutorTest {
     assertThat(error.getValue()).isInstanceOf(RemoteFailureException.class);
     assertThat(
             com.infenia.yukta.model.workflow.NodePolicy.from(
-                    Map.of(
-                        "engine",
-                        Map.of("retry", Map.of("noRetryOn", java.util.List.of("IOException")))))
+                    Map.of("engine", Map.of("retry", Map.of("noRetryOn", List.of("IOException")))))
                 .retry()
                 .shouldRetry(error.getValue()))
         .isFalse();
@@ -219,6 +218,83 @@ class WorkerNodeExecutorTest {
         .expectError(WorkflowExecutionException.class)
         .verify(Duration.ofSeconds(5));
     assertThat(traced.failed).hasSize(1);
+  }
+
+  @Test
+  void pick_skipsQuarantinedWorker() {
+    final WorkerRegistry registry =
+        WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry());
+    final WorkerConnections connections = new WorkerConnections();
+    final WorkerHealth health = new WorkerHealth(System::nanoTime);
+    final WorkerNodeExecutor picking =
+        new WorkerNodeExecutor(
+            registry,
+            connections,
+            new ObjectMapper(),
+            (executionId, nodeId) -> null,
+            ObservationRegistry.NOOP,
+            new SimpleMeterRegistry(),
+            health);
+    register(registry, "w1", 5);
+    register(registry, "w2", 1);
+    connections.put("w1", mock(org.springframework.messaging.rsocket.RSocketRequester.class));
+    connections.put("w2", mock(org.springframework.messaging.rsocket.RSocketRequester.class));
+    health.failed("w1", "T");
+    health.succeeded("w2", "T");
+    for (int failure = 1; failure < WorkerHealth.FAILURES; failure++) {
+      health.failed("w1", "T");
+    }
+
+    assertThat(picking.pick("default", "T"))
+        .hasValueSatisfying(chosen -> assertThat(chosen.info().workerId()).isEqualTo("w2"));
+  }
+
+  @Test
+  void failuresOfTheWorker_quarantineIt_butBadInputDoesNotCount() {
+    final WorkerRegistry registry =
+        WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry());
+    final WorkerConnections connections = new WorkerConnections();
+    final WorkerHealth health = new WorkerHealth(System::nanoTime);
+    final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+    final WorkerNodeExecutor failing =
+        new WorkerNodeExecutor(
+            registry,
+            connections,
+            new ObjectMapper(),
+            (executionId, nodeId) -> null,
+            ObservationRegistry.NOOP,
+            meters,
+            health);
+    register(registry, "w1", 5);
+    final org.springframework.messaging.rsocket.RSocketRequester requester =
+        mock(org.springframework.messaging.rsocket.RSocketRequester.class);
+    final org.springframework.messaging.rsocket.RSocketRequester.RequestSpec spec =
+        mock(org.springframework.messaging.rsocket.RSocketRequester.RequestSpec.class);
+    final org.springframework.messaging.rsocket.RSocketRequester.RetrieveSpec retrieve =
+        mock(org.springframework.messaging.rsocket.RSocketRequester.RetrieveSpec.class);
+    org.mockito.Mockito.when(requester.route("node.run")).thenReturn(spec);
+    org.mockito.Mockito.when(spec.data(org.mockito.ArgumentMatchers.any())).thenReturn(retrieve);
+    final NodeFrame broken = NodeFrame.error("a.Broken", "no disk", List.of("a.Broken"));
+    final NodeFrame badInput =
+        NodeFrame.error(IllegalArgumentException.class.getName(), "bad", List.of());
+    org.mockito.Mockito.when(retrieve.retrieveFlux(NodeFrame.class))
+        .thenReturn(reactor.core.publisher.Flux.just(badInput))
+        .thenReturn(reactor.core.publisher.Flux.error(new IllegalStateException("gone")))
+        .thenReturn(reactor.core.publisher.Flux.just(broken));
+    connections.put("w1", requester);
+    health.failed("w1", "T");
+    health.succeeded("w2", "T");
+
+    for (int attempt = 0; attempt < WorkerHealth.FAILURES; attempt++) {
+      reactor.test.StepVerifier.create(
+              failing.run("T", "default", reactor.core.publisher.Flux.empty(), Map.of()))
+          .expectError()
+          .verify(Duration.ofSeconds(5));
+    }
+
+    // the first failure was counted before the loop; bad input did not count, the rest did
+    assertThat(health.quarantined("w1")).isTrue();
+    assertThat(meters.counter("yukta.worker.quarantined", "module", "T").count()).isOne();
   }
 
   @Test
