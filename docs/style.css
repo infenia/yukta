@@ -546,34 +546,182 @@ img.yk-diagram {
   color: #fff;
 }
 
-/* Home page: the comparison table, with Yukta's column marked. */
-.yk-compare {
-  max-width: 68rem;
-  margin: 1.5rem auto 0;
+/* Home page: the comparison table. Rows grouped by theme, each tool's strength under its name,
+   Yukta's column raised like a selected card, and built-in / not-built-in drawn as marks. */
+.ykc {
+  margin-top: 1.75rem;
 }
 
-.yk-landing .yk-compare + .yk-landing-body {
-  margin-top: 1rem;
+.ykc-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--yk-border);
+  border-radius: var(--yk-radius-xl);
+  background: var(--yk-card);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--yk-fg) 6%, transparent), 0 12px 32px -16px color-mix(in srgb, var(--yk-fg) 18%, transparent);
 }
 
-.yk-compare table {
+.ykc table {
+  width: 100%;
+  min-width: 56rem;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.875rem;
+  line-height: 1.45;
+  table-layout: fixed;
 }
 
-.yk-compare th:nth-child(2),
-.yk-compare td:nth-child(2) {
-  background: var(--yk-accent);
-  color: var(--yk-accent-fg);
+.ykc th,
+.ykc td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  vertical-align: top;
+  color: var(--yk-muted);
 }
 
-.yk-compare td:first-child {
-  font-weight: 600;
+.ykc thead th {
+  padding-top: 1.15rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--yk-border);
+  font-weight: 400;
 }
 
-.dark .yk-compare th:nth-child(2),
-.dark .yk-compare td:nth-child(2) {
-  background: color-mix(in srgb, var(--yk-blue) 16%, transparent);
+.ykc thead th:first-child {
+  width: 26%;
+}
+
+.ykc thead strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.95rem;
   color: var(--yk-fg);
+}
+
+.ykc thead th span:not(.sr-only) {
+  display: block;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.ykc tbody th[scope="row"] {
+  font-weight: 600;
+  color: var(--yk-fg);
+}
+
+.ykc tbody tr + tr > * {
+  border-top: 1px solid color-mix(in srgb, var(--yk-border) 70%, transparent);
+}
+
+.ykc tbody tr:not(.ykc-group):hover > * {
+  background: color-mix(in srgb, var(--yk-blue) 4%, transparent);
+}
+
+.ykc-group th {
+  padding: 1.1rem 1rem 0.45rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--yk-blue);
+}
+
+/* Yukta's column: tinted, framed, with the frame closed at the top and the bottom. */
+.ykc :is(th, td):nth-child(2) {
+  background: color-mix(in srgb, var(--yk-blue) 7%, transparent);
+  box-shadow: inset 1px 0 color-mix(in srgb, var(--yk-blue) 35%, transparent), inset -1px 0 color-mix(in srgb, var(--yk-blue) 35%, transparent);
+  color: var(--yk-fg);
+}
+
+.ykc thead th:nth-child(2) {
+  box-shadow: inset 0 3px var(--yk-blue), inset 1px 0 color-mix(in srgb, var(--yk-blue) 35%, transparent), inset -1px 0 color-mix(in srgb, var(--yk-blue) 35%, transparent);
+}
+
+.ykc thead th:nth-child(2) strong {
+  color: var(--yk-blue);
+}
+
+.ykc-group th {
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.ykc td.is-yes {
+  position: relative;
+  padding-left: 2.75rem;
+}
+
+.ykc td.is-yes > .ykc-yes {
+  position: absolute;
+  top: 0.95rem;
+  left: 1rem;
+}
+
+.ykc-group th > span {
+  position: sticky;
+  left: 1rem;
+}
+
+.ykc-yes,
+.ykc-no {
+  display: inline-grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-right: 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  vertical-align: -0.2rem;
+}
+
+.ykc-yes {
+  background: color-mix(in srgb, var(--yk-success) 16%, transparent);
+  color: var(--yk-success);
+}
+
+.ykc-no {
+  color: color-mix(in srgb, var(--yk-muted) 55%, transparent);
+}
+
+.ykc td.is-yes {
+  color: var(--yk-fg);
+}
+
+.ykc-word {
+  color: var(--yk-muted);
+}
+
+.ykc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.8rem;
+  color: var(--yk-muted);
+}
+
+/* Narrow screens scroll the table sideways; the feature names stay in view. */
+@media (max-width: 1023px) {
+  .ykc tbody th[scope="row"],
+  .ykc thead th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--yk-card);
+    box-shadow: 1px 0 var(--yk-border);
+  }
+
+  .ykc table {
+    min-width: 46rem;
+  }
+
+  .ykc thead th:first-child {
+    width: 9.5rem;
+  }
+
+  .ykc tbody th[scope="row"] {
+    font-size: 0.8rem;
+  }
 }
 
 .yk-hero-grid {
@@ -685,11 +833,6 @@ img.yk-diagram {
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--yk-muted);
-}
-
-.yk-landing-body {
-  max-width: 48rem;
-  margin: 4rem auto 0;
 }
 
 /* ==========================================================================
@@ -842,9 +985,8 @@ img.yk-diagram {
   }
 }
 
-/* Home page on a laptop or wider: every section shares the hero's width and left edge, so the page
-   reads down one line. Running text keeps a readable measure; cards, tables and the picture cards
-   use the full width. */
+/* Home page on a laptop or wider: every section shares the hero's width and left edge (--yk-page),
+   so the page reads down one line. */
 @media (min-width: 1180px) {
   .yk-landing {
     --yk-page: 86rem;
@@ -852,38 +994,6 @@ img.yk-diagram {
 
   .yk-landing::before {
     height: 100svh;
-  }
-
-  .yk-landing .yk-landing-body,
-  .yk-landing .yk-compare,
-  .yk-landing .yk-hero-grid {
-    max-width: var(--yk-page);
-  }
-
-  .yk-landing .yk-landing-body > span {
-    display: block;
-  }
-
-  .yk-landing .yk-landing-body > :not(h2, h3, .columns) {
-    max-width: 46rem;
-  }
-
-  .yk-landing .yk-landing-body > h2 {
-    margin-top: 5rem;
-    font-size: 1.875rem;
-    letter-spacing: -0.02em;
-  }
-
-  .yk-landing .yk-top + .yk-landing-body {
-    margin-top: 1rem;
-  }
-
-  .yk-landing .yk-top + .yk-landing-body > h2:first-child {
-    margin-top: 0;
-  }
-
-  .yk-landing .yk-compare table {
-    width: 100%;
   }
 
   .yk-landing .yk-hero-grid {
@@ -915,8 +1025,1228 @@ img.yk-diagram {
     z-index: 40;
   }
 
+  /* Below 1280 px Mintlify caps the content at 48rem; the home page lays out its own width. */
+  html[data-current-path="/"] #content-area {
+    max-width: none;
+  }
+
   /* #content-area keeps 3rem for the desktop tab bar, which is hidden here. */
   html[data-current-path="/"] #content-container {
     padding-top: calc(var(--yk-header) - 3rem);
+  }
+}
+
+/* Home page cards: depth instead of a flat panel. A soft blue light from the top corner, a lit top
+   edge, a deeper shadow, a gradient icon tile, and a lift with a blue rim on hover. */
+.yk-landing .card {
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--yk-blue) 9%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--yk-card) 96%, var(--yk-blue)) 0%, var(--yk-card) 45%);
+  border-color: color-mix(in srgb, var(--yk-border) 80%, var(--yk-fg) 8%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--yk-fg) 7%, transparent),
+    var(--yk-shadow-md);
+}
+
+/* Dark: the top of the card catches a little light. */
+.dark .yk-landing .card {
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--yk-blue) 9%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--yk-card) 92%, var(--yk-fg)) 0%, var(--yk-card) 45%);
+}
+
+.yk-landing .card div[data-component-part="card-icon"][data-component-part] {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--yk-blue) 32%, var(--yk-card)), color-mix(in srgb, var(--yk-blue) 12%, var(--yk-card)));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--yk-blue) 35%, transparent),
+    0 6px 16px -8px color-mix(in srgb, var(--yk-blue) 70%, transparent);
+}
+
+.yk-landing .card :is(h2, h3)[data-component-part="card-title"] {
+  font-size: 1.0625rem;
+  letter-spacing: -0.01em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .yk-landing .card {
+    transition:
+      transform 220ms var(--yk-ease),
+      box-shadow 220ms var(--yk-ease),
+      border-color 220ms var(--yk-ease);
+  }
+
+  .yk-landing .card:hover {
+    transform: translateY(-3px);
+  }
+}
+
+.yk-landing .card:hover {
+  border-color: color-mix(in srgb, var(--yk-blue) 50%, var(--yk-border));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--yk-fg) 9%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--yk-blue) 20%, transparent),
+    0 18px 40px -18px color-mix(in srgb, var(--yk-blue) 55%, transparent),
+    var(--yk-shadow-md);
+}
+
+/* Home page header in one row where it fits: the tabs move up beside the logo, search shrinks to its
+   icon and shortcut, Ask Assistant to its icon, and Examples and Issues (both linked on the page)
+   leave the bar. Narrower screens keep the two rows. Mintlify markup, as above. */
+@media (min-width: 1240px) {
+  html[data-current-path="/"] {
+    --yk-header: 4rem;
+  }
+
+  html[data-current-path="/"] header#navbar.fixed > div.max-w-8xl > div {
+    position: relative;
+  }
+
+  html[data-current-path="/"] header#navbar.fixed div.nav-tabs {
+    height: 4rem;
+  }
+
+  html[data-current-path="/"] header#navbar.fixed div:has(> div.nav-tabs) {
+    position: absolute;
+    top: 0;
+    left: 6.5rem;
+    height: 4rem;
+    padding: 0;
+  }
+
+  html[data-current-path="/"] header#navbar.fixed #navbar-transition {
+    height: 4rem;
+  }
+
+  html[data-current-path="/"] header#navbar.fixed div:has(> #search-bar-entry) {
+    flex: none;
+    margin-left: auto;
+  }
+
+  html[data-current-path="/"] header#navbar.fixed #search-bar-entry {
+    width: auto;
+    gap: 0.75rem;
+  }
+
+  html[data-current-path="/"] header#navbar.fixed #search-bar-entry div.truncate,
+  html[data-current-path="/"] header#navbar.fixed #assistant-entry > span,
+  html[data-current-path="/"] header#navbar.fixed li.navbar-link {
+    display: none;
+  }
+
+  html[data-current-path="/"] header#navbar.fixed #assistant-entry {
+    padding: 0 0.6rem;
+  }
+
+  html[data-current-path="/"] header#navbar.fixed div:has(> nav ul) {
+    flex: none;
+  }
+}
+
+/* ==========================================================================
+ * Home page sections below the hero: one head (kicker, heading, lead), alternating panels that
+ * echo the hero's grid, and section-specific blocks (AI levels, steps split, plans, closing call).
+ * ======================================================================== */
+
+.yk-sec {
+  max-width: var(--yk-page, 72rem);
+  margin: 5rem auto 0;
+}
+
+.yk-sec-head {
+  max-width: 46rem;
+  margin-bottom: 2.25rem;
+}
+
+.yk-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font: 600 0.75rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--yk-blue);
+}
+
+.yk-kicker::before {
+  content: "";
+  width: 1.5rem;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.yk-landing .yk-sec h2,
+.yk-landing .yk-final h2 {
+  margin: 0.9rem 0 0;
+  font-size: clamp(1.75rem, 2.6vw, 2.5rem);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--yk-fg);
+  text-wrap: balance;
+}
+
+.yk-lead {
+  margin: 1rem 0 0;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: var(--yk-muted);
+}
+
+.yk-sec-note {
+  max-width: 46rem;
+  margin: 1.75rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--yk-muted);
+}
+
+.yk-sec-note a,
+.yk-limits a,
+.yk-final p a {
+  color: var(--yk-fg);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--yk-blue) 60%, transparent);
+  text-underline-offset: 3px;
+}
+
+/* A panel: the hero's grid, faded, behind a soft blue light from the top. */
+.yk-sec-band {
+  position: relative;
+  isolation: isolate;
+  padding: clamp(2rem, 4vw, 3.5rem);
+  border: 1px solid var(--yk-border);
+  border-radius: 1.75rem;
+  background:
+    radial-gradient(80% 60% at 50% 0%, color-mix(in srgb, var(--yk-blue) 10%, transparent), transparent 70%),
+    color-mix(in srgb, var(--yk-card) 70%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--yk-fg) 6%, transparent);
+}
+
+.yk-sec-band::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--yk-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--yk-border) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+  border-radius: inherit;
+  mask-image: radial-gradient(70% 80% at 50% 0%, #000, transparent);
+  opacity: 0.5;
+}
+
+.yk-sec .columns {
+  margin: 0;
+}
+
+/* AI levels: five tiles, a meter filling from none to supervisor. */
+.yk-levels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 1rem;
+}
+
+.yk-level {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.25rem;
+  border: 1px solid var(--yk-border);
+  border-radius: var(--yk-radius-xl);
+  background: var(--yk-card);
+  box-shadow: var(--yk-shadow-md);
+  color: var(--yk-muted);
+  text-decoration: none;
+  transition: transform 220ms var(--yk-ease), border-color 220ms var(--yk-ease);
+}
+
+.yk-level:hover {
+  border-color: color-mix(in srgb, var(--yk-blue) 50%, var(--yk-border));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .yk-level:hover {
+    transform: translateY(-3px);
+  }
+}
+
+.yk-level-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.yk-level-n {
+  font: 600 0.75rem/1 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--yk-blue);
+}
+
+.yk-level-meter {
+  display: flex;
+  gap: 3px;
+}
+
+.yk-level-meter i {
+  width: 0.9rem;
+  height: 0.3rem;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--yk-fg) 12%, transparent);
+}
+
+.yk-level-meter i.on {
+  background: var(--yk-blue);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--yk-blue) 60%, transparent);
+}
+
+.yk-level strong {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--yk-fg);
+}
+
+.yk-level-text {
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* Ways in: a row of chips. */
+.yk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: -0.75rem 0 1.75rem;
+}
+
+.yk-chips span {
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--yk-border);
+  border-radius: 999px;
+  background: var(--yk-card);
+  font: 500 0.8rem/1.2 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--yk-fg);
+}
+
+/* Run it in three steps: the pitch on the left, the steps on the right. */
+.yk-split {
+  display: grid;
+  gap: 2.5rem;
+}
+
+@media (min-width: 1024px) {
+  .yk-split {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: clamp(2.5rem, 5vw, 5rem);
+    align-items: start;
+  }
+
+  .yk-split-side {
+    position: sticky;
+    top: calc(var(--yk-header, 3rem) + 2rem);
+  }
+}
+
+.yk-split .yk-cta {
+  justify-content: flex-start;
+}
+
+.yk-split-main {
+  max-width: none;
+}
+
+/* Editions: two plan cards. */
+.yk-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 1.25rem;
+}
+
+.yk-plan {
+  display: flex;
+  flex-direction: column;
+  padding: 1.75rem;
+  border: 1px solid var(--yk-border);
+  border-radius: 1.25rem;
+  background: var(--yk-card);
+  box-shadow: var(--yk-shadow-md);
+}
+
+.yk-plan-featured {
+  border-color: color-mix(in srgb, var(--yk-blue) 55%, var(--yk-border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--yk-blue) 20%, transparent),
+    0 24px 48px -24px color-mix(in srgb, var(--yk-blue) 55%, transparent),
+    var(--yk-shadow-md);
+}
+
+.yk-plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.yk-plan-head strong {
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--yk-fg);
+}
+
+.yk-plan-tag {
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: var(--yk-accent);
+  font: 600 0.7rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--yk-accent-fg);
+}
+
+.yk-plan-licence {
+  margin: 0.4rem 0 1.25rem;
+  font: 500 0.8rem/1.4 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--yk-muted);
+}
+
+.yk-plan ul {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.yk-plan li {
+  position: relative;
+  padding-left: 1.6rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--yk-muted);
+}
+
+.yk-plan li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+  color: var(--yk-blue);
+}
+
+.yk-plan-cta {
+  margin-top: auto;
+  font-weight: 600;
+  color: var(--yk-blue);
+  text-decoration: none;
+}
+
+.yk-limits {
+  display: grid;
+  gap: 0.75rem 2rem;
+  margin-top: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px dashed var(--yk-border);
+  border-radius: var(--yk-radius-xl);
+}
+
+.yk-limits p {
+  margin: 0;
+  font-size: 0.925rem;
+  line-height: 1.55;
+  color: var(--yk-muted);
+}
+
+.yk-limits strong {
+  color: var(--yk-fg);
+}
+
+@media (min-width: 900px) {
+  .yk-limits {
+    grid-template-columns: auto 1fr 1fr;
+    align-items: start;
+  }
+}
+
+/* Closing call: the hero's light again, centred. */
+.yk-final {
+  position: relative;
+  padding: clamp(3rem, 6vw, 5rem) 1.5rem;
+  border-radius: 1.75rem;
+  text-align: center;
+  background:
+    radial-gradient(60% 90% at 50% 100%, color-mix(in srgb, var(--yk-blue) 18%, transparent), transparent 70%),
+    color-mix(in srgb, var(--yk-card) 60%, transparent);
+  border: 1px solid var(--yk-border);
+}
+
+.yk-final p {
+  max-width: 36rem;
+  margin: 1rem auto 0;
+  color: var(--yk-muted);
+}
+
+.yk-final .yk-cta {
+  justify-content: center;
+}
+
+@media (min-width: 1180px) {
+  .yk-sec {
+    margin-top: 7rem;
+  }
+
+  .yk-top + .yk-sec {
+    margin-top: 1.5rem;
+  }
+}
+
+.yk-sec .yk-hero-grid {
+  max-width: none;
+  margin: 0;
+}
+
+/* Where to go next: four compact cards in one row on wide screens. */
+@media (min-width: 1024px) {
+  .yk-landing .yk-sec .yk-hero-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .yk-sec .yk-hero-card-media {
+    aspect-ratio: 4 / 3;
+    padding: 0.5rem;
+  }
+
+  .yk-sec .yk-hero-card h3 {
+    margin-top: 0.75rem;
+  }
+
+  .yk-sec .yk-hero-card span {
+    font-size: 0.85rem;
+  }
+}
+
+/* The product shot under "Yukta in one minute": the top of the run page, framed like a window. */
+.yk-shot {
+  margin-top: 2.5rem;
+}
+
+.yk-shot figure {
+  margin: 0;
+}
+
+.yk-shot img {
+  width: 100%;
+  aspect-ratio: 1440 / 640;
+  object-fit: cover;
+  object-position: top;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--yk-fg) 6%, transparent), 0 24px 48px -24px color-mix(in srgb, var(--yk-fg) 28%, transparent);
+}
+
+.yk-shot figcaption {
+  margin-top: 0.85rem;
+}
+
+/* ==========================================================================
+ * The page as a workflow (laptop and wider). Each section is a node: a port on a wire in the left
+ * gutter, an edge into its label, and a node number. A node lights when its heading has been
+ * revealed (motion.js adds .yk-in), and its wire then flows down to the next one. One ::after per
+ * section draws port, edge and wire, so the band's ::before keeps its grid. --py is the port's
+ * height in the section; the wire ends at the next section's port.
+ * ======================================================================== */
+@media (min-width: 1180px) {
+  .yk-flow {
+    --rail: 1.5rem;
+    --gap: 7rem;
+    --pad-band: clamp(2rem, 4vw, 3.5rem);
+    --wire: color-mix(in srgb, var(--yk-fg) 22%, transparent);
+    --dot: var(--yk-bg, var(--yk-card));
+    --dot-ring: color-mix(in srgb, var(--yk-fg) 30%, transparent);
+  }
+
+  .yk-flow .yk-sec {
+    position: relative;
+    --py: 0.95rem;
+  }
+
+  .yk-flow .yk-sec-band {
+    --py: calc(var(--pad-band) + 0.95rem);
+  }
+
+  .yk-flow .yk-final {
+    --py: calc(clamp(3rem, 6vw, 5rem) + 0.95rem);
+  }
+
+  .yk-flow .yk-sec::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    left: calc(-1 * var(--rail) - 6px);
+    width: calc(var(--rail) + 6px);
+    top: calc(var(--py) - 6px);
+    bottom: calc(-1 * (var(--gap) + 0.95rem));
+    pointer-events: none;
+    /* Layers, top first: port, edge, comet (a light that runs down a live wire), track. */
+    background-image:
+      radial-gradient(circle at 6px 6px, var(--dot) 0 3.5px, var(--dot-ring) 4px 6px, transparent 6.5px),
+      linear-gradient(var(--wire), var(--wire)),
+      var(--comet, none),
+      var(--track, linear-gradient(to bottom, var(--wire) 50%, transparent 50%));
+    background-position: 0 0, 12px 5.5px, left 4.5px top -90px, 4.5px 12px;
+    background-size: 12px 12px, calc(100% - 12px) 1px, 3px 90px, var(--track-size, 2px 12px);
+    background-repeat: no-repeat, no-repeat, no-repeat, var(--track-rep, repeat-y);
+  }
+
+  .yk-flow .yk-sec:has(+ .yk-sec-band)::after {
+    bottom: calc(-1 * (var(--gap) + var(--pad-band) + 0.95rem));
+  }
+
+  .yk-flow .yk-sec:has(+ .yk-final)::after {
+    bottom: calc(-1 * (var(--gap) + clamp(3rem, 6vw, 5rem) + 0.95rem));
+  }
+
+  /* The closing call ends the wire: port and edge only. */
+  .yk-flow .yk-final::after {
+    bottom: auto;
+    height: 12px;
+  }
+
+  .yk-flow .yk-sec:is([data-state="running"], [data-state="succeeded"]) {
+    --wire: color-mix(in srgb, var(--yk-blue) 80%, transparent);
+    --dot: var(--yk-blue);
+    --dot-ring: color-mix(in srgb, var(--yk-blue) 40%, transparent);
+  }
+
+  .yk-flow .yk-sec:is([data-state="running"], [data-state="succeeded"])::after {
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--yk-blue) 70%, transparent));
+  }
+
+  /* A finished node's wire turns solid, blue into green, and carries a light down to the next node. */
+  .yk-flow .yk-sec[data-state="succeeded"] {
+    --track: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--yk-blue) 50%, transparent),
+      color-mix(in srgb, var(--yk-success) 45%, transparent)
+    );
+    --track-size: 3px calc(100% - 12px);
+    --track-rep: no-repeat;
+    --comet: linear-gradient(to bottom, transparent, var(--comet-head) 80%, var(--comet-head));
+    --comet-head: var(--yk-blue);
+  }
+
+  .dark .yk-flow .yk-sec[data-state="succeeded"] {
+    --comet-head: color-mix(in srgb, var(--yk-blue) 35%, white);
+  }
+
+  /* AI levels: one row of five, joined by edges that point up the scale. */
+  .yk-levels {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  .yk-level {
+    position: relative;
+  }
+
+  .yk-level + .yk-level::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(-1.5rem - 1px);
+    width: 1.5rem;
+    height: 9px;
+    margin-top: -4.5px;
+    pointer-events: none;
+    background:
+      linear-gradient(to right, color-mix(in srgb, var(--yk-blue) 60%, transparent) 50%, transparent 50%) 0 4px / 6px 1px repeat-x,
+      conic-gradient(from -135deg at 100% 50%, var(--yk-blue) 0 90deg, transparent 0) right 0 top 0 / 6px 9px no-repeat;
+  }
+}
+
+@media (min-width: 1180px) and (prefers-reduced-motion: no-preference) {
+  .yk-flow .yk-sec[data-state="running"]::after {
+    animation: yk-wire 0.9s linear infinite;
+  }
+
+  .yk-flow .yk-sec[data-state="succeeded"]::after {
+    animation:
+      yk-grow 0.6s ease-out both,
+      yk-comet 2.4s cubic-bezier(0.45, 0, 0.55, 1) 0.6s infinite;
+  }
+
+  .yk-flow .yk-final::after {
+    animation: none !important;
+  }
+
+  .yk-level + .yk-level::before {
+    animation: yk-edge 0.9s linear infinite;
+  }
+
+  @keyframes yk-wire {
+    to {
+      background-position: 0 0, 12px 5.5px, left 4.5px top -90px, 4.5px 24px;
+    }
+  }
+
+  @keyframes yk-grow {
+    from {
+      background-size: 12px 12px, calc(100% - 12px) 1px, 3px 90px, 3px 0;
+    }
+  }
+
+  @keyframes yk-comet {
+    to {
+      background-position: 0 0, 12px 5.5px, left 4.5px bottom -90px, 4.5px 12px;
+    }
+  }
+
+  @keyframes yk-edge {
+    to {
+      background-position: 6px 4px, right 0 top 0;
+    }
+  }
+}
+
+/* ==========================================================================
+ * Node cards: each section head is a node like the app's, numbered in page order, with a type and,
+ * once flow-run.js runs the page, a status (queued, running, succeeded).
+ * ======================================================================== */
+.yk-flow {
+  counter-reset: yk-node;
+}
+
+.yk-flow .ykn {
+  counter-increment: yk-node;
+}
+
+.ykn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 1.9rem;
+  padding: 0.3rem 0.65rem 0.3rem 0.35rem;
+  border: 1px solid var(--yk-border);
+  border-left: 3px solid var(--yk-node, var(--yk-slate));
+  border-radius: 0.6rem;
+  background: var(--yk-card);
+  box-shadow: var(--yk-shadow-sm);
+  font: 600 0.72rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  transition: border-color 300ms var(--yk-ease), box-shadow 300ms var(--yk-ease);
+}
+
+.ykn-id::before {
+  content: counter(yk-node, decimal-leading-zero);
+  display: inline-block;
+  padding: 0.22rem 0.35rem;
+  border-radius: 0.35rem;
+  background: var(--yk-surface);
+  color: var(--yk-muted);
+}
+
+.ykn-name {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--yk-blue);
+}
+
+/* The node type is theme, not content: kept faint so the kicker and the heading lead. */
+.ykn-type {
+  font-weight: 400;
+  color: color-mix(in srgb, var(--yk-muted) 60%, transparent);
+}
+
+.ykn-state:empty {
+  display: none;
+}
+
+.yk-final .ykn {
+  margin-bottom: 0.5rem;
+}
+
+[data-state] .ykn-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--yk-border);
+  color: var(--yk-muted);
+}
+
+[data-state] .ykn-state::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+}
+
+[data-state] .ykn-state::after {
+  content: "queued";
+}
+
+[data-state="running"] .ykn {
+  --yk-node: var(--yk-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--yk-blue) 18%, transparent), var(--yk-shadow-sm);
+}
+
+[data-state="running"] .ykn-state {
+  color: var(--yk-blue);
+}
+
+[data-state="running"] .ykn-state::before {
+  background: currentColor;
+  animation: ykn-pulse 0.9s ease-in-out infinite;
+}
+
+[data-state="running"] .ykn-state::after {
+  content: "running";
+}
+
+[data-state="succeeded"] .ykn {
+  --yk-node: var(--yk-success);
+}
+
+[data-state="succeeded"] .ykn-state {
+  color: var(--yk-success);
+}
+
+[data-state="succeeded"] .ykn-state::before {
+  content: "✓";
+  width: auto;
+  height: auto;
+  border: 0;
+  font-weight: 700;
+}
+
+[data-state="succeeded"] .ykn-state::after {
+  content: "succeeded";
+}
+
+@keyframes ykn-pulse {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-state="running"] .ykn-state::before {
+    animation: none;
+  }
+}
+
+/* The BRANCH section: the head fans out to three lanes, and the lanes join again below. */
+.yk-branch-fan,
+.yk-branch-join {
+  display: none;
+}
+
+@media (min-width: 1180px) {
+  .yk-branch-fan,
+  .yk-branch-join {
+    display: block;
+    width: 100%;
+    height: 2.5rem;
+    overflow: visible;
+    fill: none;
+    stroke: var(--wire);
+    stroke-width: 2;
+    stroke-dasharray: 6 6;
+  }
+
+  .yk-branch-fan {
+    margin-top: -1.25rem;
+  }
+
+  .yk-flow .yk-sec[data-state="succeeded"] :is(.yk-branch-fan, .yk-branch-join) {
+    animation: yk-dash 0.9s linear infinite;
+  }
+
+  @keyframes yk-dash {
+    to {
+      stroke-dashoffset: -12;
+    }
+  }
+}
+
+@media (min-width: 1180px) and (prefers-reduced-motion: reduce) {
+  .yk-flow .yk-sec[data-state="succeeded"] :is(.yk-branch-fan, .yk-branch-join) {
+    animation: none;
+  }
+}
+
+/* ==========================================================================
+ * MiniRun (snippets/mini-run.jsx): five nodes, the agent's attempted shortcut as an arc over them,
+ * controls, and a run log.
+ * ======================================================================== */
+.ykm {
+  border: 1px solid var(--yk-border);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(70% 80% at 50% 0%, color-mix(in srgb, var(--yk-blue) 8%, transparent), transparent 70%),
+    var(--yk-card);
+  box-shadow: var(--yk-shadow-md);
+  overflow: hidden;
+}
+
+.ykm-graph {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1.25rem;
+  padding: 4.5rem 1.5rem 1.75rem;
+}
+
+.ykm-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--yk-border);
+  border-left: 3px solid var(--ykm-c, var(--yk-slate));
+  border-radius: 0.75rem;
+  background: var(--yk-bg);
+  transition: border-color 300ms var(--yk-ease), box-shadow 300ms var(--yk-ease), opacity 300ms;
+}
+
+.ykm-node:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: 1.25rem;
+  border-top: 2px dashed var(--yk-border);
+}
+
+.ykm-node.edge-on::after {
+  border-top-color: var(--yk-blue);
+}
+
+.ykm-type {
+  font: 500 0.62rem/1.2 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--yk-muted);
+  overflow-wrap: anywhere;
+}
+
+.ykm-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--yk-fg);
+}
+
+.ykm-badge {
+  font: 600 0.65rem/1 "JetBrains Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ykm-c, var(--yk-muted));
+}
+
+.ykm-node.is-running {
+  --ykm-c: var(--yk-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--yk-blue) 20%, transparent);
+}
+
+.ykm-node.is-ok {
+  --ykm-c: var(--yk-success);
+}
+
+.ykm-node.is-wait {
+  --ykm-c: var(--yk-orange);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--yk-orange) 22%, transparent);
+}
+
+.ykm-node.is-fail {
+  --ykm-c: var(--yk-danger);
+}
+
+.ykm-node.is-skip {
+  opacity: 0.5;
+}
+
+.ykm-arc {
+  position: absolute;
+  left: 1.5rem;
+  right: 1.5rem;
+  top: 1rem;
+  width: calc(100% - 3rem);
+  height: 3.5rem;
+  overflow: visible;
+  fill: none;
+  stroke: var(--yk-orange);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+  opacity: 0;
+  transition: opacity 300ms, stroke 300ms;
+}
+
+.ykm-arc-label {
+  position: absolute;
+  top: 0.55rem;
+  left: 60%;
+  transform: translateX(-50%);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--yk-orange) 16%, var(--yk-card));
+  font: 600 0.7rem/1.2 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--yk-orange);
+  opacity: 0;
+  transition: opacity 300ms;
+}
+
+.ykm-skip-1 .ykm-arc,
+.ykm-skip-1 .ykm-arc-label,
+.ykm-skip-2 .ykm-arc,
+.ykm-skip-2 .ykm-arc-label {
+  opacity: 1;
+}
+
+.ykm-skip-2 .ykm-arc {
+  stroke: var(--yk-danger);
+}
+
+.ykm-skip-2 .ykm-arc-label {
+  background: color-mix(in srgb, var(--yk-danger) 16%, var(--yk-card));
+  color: var(--yk-danger);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ykm-skip-1 .ykm-arc {
+    animation: yk-dash-arc 0.8s linear infinite;
+  }
+
+  @keyframes yk-dash-arc {
+    to {
+      stroke-dashoffset: -10;
+    }
+  }
+}
+
+.ykm-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1.5rem;
+  border-top: 1px solid var(--yk-border);
+}
+
+.ykm-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--yk-border);
+  border-radius: var(--yk-radius-lg);
+  background: var(--yk-card);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--yk-fg);
+  cursor: pointer;
+}
+
+.ykm-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.ykm-btn.ykm-primary {
+  border-color: var(--yk-blue-strong);
+  background: var(--yk-blue-strong);
+  color: #fff;
+}
+
+.ykm-btn:focus-visible {
+  outline: 2px solid var(--yk-ring);
+  outline-offset: 2px;
+}
+
+.ykm-hint {
+  font-size: 0.85rem;
+  color: var(--yk-orange);
+}
+
+.ykm-more {
+  margin-left: auto;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--yk-blue);
+  text-decoration: none;
+}
+
+.ykm-log {
+  display: grid;
+  gap: 0.3rem;
+  min-height: 11.25rem;
+  margin: 0;
+  padding: 0.9rem 1.5rem 1.1rem;
+  border-top: 1px solid var(--yk-border);
+  background: color-mix(in srgb, var(--yk-bg) 70%, transparent);
+  list-style: none;
+  font: 0.78rem/1.5 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--yk-muted);
+}
+
+.ykm-log li {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.ykm-log b {
+  flex: none;
+  width: 4.5rem;
+  font-weight: 600;
+  color: var(--yk-fg);
+}
+
+.ykm-log .k-ok span {
+  color: var(--yk-success);
+}
+
+.ykm-log .k-fail span {
+  color: var(--yk-danger);
+}
+
+.ykm-log .k-warn span,
+.ykm-log .k-wait span {
+  color: var(--yk-orange);
+}
+
+@media (max-width: 760px) {
+  .ykm-graph {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  .ykm-node:not(:last-child)::after {
+    top: 100%;
+    left: 1.5rem;
+    width: 0;
+    height: 1rem;
+    border-top: 0;
+    border-left: 2px dashed var(--yk-border);
+  }
+
+  .ykm-node.edge-on::after {
+    border-left-color: var(--yk-blue);
+  }
+
+  .ykm-arc {
+    display: none;
+  }
+
+  .ykm-arc-label {
+    position: static;
+    justify-self: start;
+    transform: none;
+  }
+
+  .ykm-more {
+    margin-left: 0;
+  }
+}
+
+/* ==========================================================================
+ * The page's own run log (flow-run.js): a small panel in the corner while the sections are on
+ * screen, one line per node as it runs.
+ * ======================================================================== */
+.yk-runlog {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 30;
+  width: 19rem;
+  border: 1px solid var(--yk-border);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--yk-card) 92%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--yk-shadow-md);
+  font: 0.72rem/1.45 "JetBrains Mono", ui-monospace, monospace;
+  color: var(--yk-muted);
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 250ms var(--yk-ease), transform 250ms var(--yk-ease);
+}
+
+.yk-runlog.on {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.yk-runlog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--yk-border);
+  color: var(--yk-fg);
+  font-weight: 600;
+}
+
+.yk-runlog-status {
+  color: var(--yk-blue);
+}
+
+.yk-runlog.done .yk-runlog-status {
+  color: var(--yk-success);
+}
+
+/* Folded to its head line, a small chip that names the node running; hover or focus opens it. */
+.yk-runlog.idle:not(:hover, :focus) {
+  width: auto;
+  max-width: 24rem;
+}
+
+.yk-runlog.idle:not(:hover, :focus) .yk-runlog-head {
+  gap: 1rem;
+}
+
+.yk-runlog.idle:not(:hover, :focus) ol {
+  display: none;
+}
+
+.yk-runlog.idle:not(:hover, :focus) .yk-runlog-head {
+  border-bottom: 0;
+}
+
+.yk-runlog ol {
+  margin: 0;
+  padding: 0.45rem 0.8rem 0.6rem;
+  list-style: none;
+}
+
+.yk-runlog li {
+  display: flex;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.yk-runlog li span:nth-child(2) {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--yk-fg);
+}
+
+.yk-runlog li.ok span:last-child {
+  color: var(--yk-success);
+}
+
+.yk-runlog li.run span:last-child {
+  color: var(--yk-blue);
+}
+
+.yk-runlog li.note span:nth-child(2) {
+  color: var(--yk-orange);
+}
+
+@media (max-width: 1179px) {
+  .yk-runlog {
+    display: none;
   }
 }
