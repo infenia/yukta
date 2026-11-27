@@ -112,7 +112,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     curl -fsS -H "Authorization: Bearer $YUKTA_KEY" http://127.0.0.1:9858/api/me
     ```
 
-    The first call returns `{"status":"UP"}` and needs no key. The second shows the name and role of your key.
+    The first call needs no key and answers with `"status":"UP"` in its JSON. The second shows the name and role of your key.
   </Step>
   <Step title="Put TLS in front of it">
     Yukta serves plain HTTP, and keys travel in request headers, so end TLS in a reverse proxy on the same host. Two things matter in the proxy: do not buffer event streams, and do not close idle ones early (the server sends a keep-alive comment every 15 seconds).
@@ -173,11 +173,12 @@ curl -s -o /dev/null -w '%{http_code}\n' https://yukta.example.com/api/sessions
 curl -fsS -H "Authorization: Bearer $YUKTA_KEY" https://yukta.example.com/api/me
 ```
 
-The health call returns `{"status":"UP"}`. The second call prints `401`, because it sent no key. The third returns your key's name and role. If the container or service exits at start, read its log: "Refusing to listen on ... without an API key" means no key reached the server. See [Troubleshoot](/guides/operate/troubleshoot).
+The health call answers with `"status":"UP"`. The second call prints `401`, because it sent no key. The third returns your key's name and role. If the container or service exits at start, read its log: "Refusing to listen on ... without an API key" means no key reached the server. See [Troubleshoot](/guides/operate/troubleshoot).
 
 ## Variations that matter
 
-- **Choose the plugins you ship.** Optional plugins are chosen when you build, with `-Pyukta.plugins=default`, `all`, `none` or a comma-separated list. A running server cannot add or remove them. The settings and the plugin names are in [Configuration reference](/reference/configuration) and the [plugin reference](/reference/plugins/overview).
+- **Turn on the plugins your workflows use.** Sixteen built-in plugins, among them `HTTP_REQUEST`, `LLM_CALL` and `PROCESS_EXECUTOR`, are off until you name them at start, for example `YUKTA_PLUGINS_ENABLED=HTTP_REQUEST,LLM_CALL` in `/etc/yukta/yukta.env` or as a `docker run -e`. The full list is in the [plugin reference](/reference/plugins/overview).
+- **Choose the plugins you ship.** In a source build, optional plugins are chosen when you build, with `-Pyukta.plugins=default`, `all`, `none` or a comma-separated list. A running server cannot add or remove them. The settings and the plugin names are in [Configuration reference](/reference/configuration) and the [plugin reference](/reference/plugins/overview).
 - **Run more than one server.** Failover needs a Plus build and PostgreSQL. See [Run highly available](/guides/operate/run-highly-available).
 - **Install on a machine with no internet.** Copy a release's files to a web server laid out as `<base>/vX.Y.Z/<file>`, then run `install.sh` with `YUKTA_DOWNLOAD_BASE=<base>`. Read the script first if you need to audit it.
 - **Check a download.** Every release publishes `SHA256SUMS` and a Sigstore signature for it. See [Releases](/reference/releases).

@@ -11,7 +11,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 <ReaderState
   learn="how one workflow holds a deterministic step and an AI step, and what happens when the model is unavailable"
   time="about 10 minutes"
-  need="a running server, curl and jq, and finished Your first workflow; a local Ollama is optional"
+  need="a server started with LLM_CALL turned on (step 1), curl and jq, and finished Your first workflow; a local Ollama is optional"
   end="a ticket-triage workflow you have run on an urgent, a normal and an invalid ticket"
 />
 
@@ -25,6 +25,16 @@ We will build a workflow that triages a support ticket. Rules we write decide wh
 We call the first kind a **deterministic step**: same input, same output. The second is an **AI step**. Putting both in one graph lets us keep a model on a short leash: it only gets the work that needs judgement.
 
 <Steps titleSize="h2">
+  <Step title="Turn on the model step">
+    Steps that reach outside the server, such as `LLM_CALL`, are off until you name them. Stop the server (`yukta stop`) and start it again with the model step on:
+
+    ```bash
+    YUKTA_PLUGINS_ENABLED=LLM_CALL yukta start
+    ```
+
+    The other steps in this tutorial are always on. To turn on every built-in step instead, use `YUKTA_PLUGINS_ENABLED=all`. See [Plugins](/reference/plugins/overview) for which steps are off by default.
+  </Step>
+
   <Step title="Save the workflow">
     Create `triage.json`:
 
@@ -132,7 +142,7 @@ We call the first kind a **deterministic step**: same input, same output. The se
     {"timestamp":"...","status":200,"message":"Configuration applied successfully"}
     ```
 
-    > **Stuck?** A `400` that mentions `LLM_CALL` or `VALIDATE` as an unknown type means this server was built without that plugin. `curl http://localhost:9858/api/plugins` lists the types it has.
+    > **Stuck?** A `400` that says `Plugin not found for type: LLM_CALL (disabled; ...)` means the server started without step 1. Restart it with `YUKTA_PLUGINS_ENABLED=LLM_CALL`.
   </Step>
 
   <Step title="Add a small helper">
@@ -191,7 +201,7 @@ We call the first kind a **deterministic step**: same input, same output. The se
     ticket '{"subject":"Invoice","body":"Can I get a copy of last months invoice?"}'
     ```
 
-    What you see depends on whether `draft` could reach a model, and both answers are correct. We called Ollama with `llama3.2`, which is the default `provider` and `model` in the file.
+    What you see depends on whether `draft` could reach a model, and both answers are correct. The file calls Ollama with the model `llama3.2`.
 
     <Tabs>
       <Tab title="A model answered">
@@ -202,7 +212,7 @@ We call the first kind a **deterministic step**: same input, same output. The se
         ```
       </Tab>
       <Tab title="No model available">
-        With no Ollama, or no such model, `draft` fails within a second or two, the message leaves through `failure`, and the template reply goes out:
+        With no Ollama, or no such model, `draft` fails (at the latest when its 30-second `timeout` ends), the message leaves through `failure`, and the template reply goes out:
 
         ```text
         [{"action":"send template reply","decidedBy":"fallback rule","reply":"Thanks, we have your ticket and will answer within one working day."}]

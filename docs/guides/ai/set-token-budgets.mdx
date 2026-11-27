@@ -17,7 +17,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 
 **Use this when** a workflow calls a model, possibly in a loop of agent rounds, and you want a ceiling on tokens, money or tool calls.
 
-**Prerequisites:** [Call an LLM](/guides/ai/call-an-llm) works for you. Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
+**Prerequisites:** [Call an LLM](/guides/ai/call-an-llm) works for you. The examples also use `MCP_TOOL_CALL`, so start the server with `YUKTA_PLUGINS_ENABLED=LLM_CALL,MCP_TOOL_CALL`. Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
 
 <Diagram name="guide-set-token-budgets" alt="Every model and tool node that shares an agent name draws on one budget. Without hardStop the next call fails like any failed call; with hardStop the whole run ends." caption="All the nodes that share an agent name spend from one ledger. hardStop turns a used-up budget from a failed node into an ended run." />
 

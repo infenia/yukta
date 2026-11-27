@@ -11,7 +11,7 @@ One definition per term, in alphabetical order. The API calls a run an `executio
 
 | Term | Definition | See |
 |---|---|---|
-| **Actor** | Who sent a command: an API key (`key:<name>`), a supervisor id or `token:<tier>`. Recorded in the audit. | [Security reference](/reference/security) |
+| **Actor** | Who sent a command: an API key (`key:<name>`), a supervisor assignment id (`asg-...`) or `token:<tier>`. Recorded in the audit. | [Security reference](/reference/security) |
 | **Admission** | The decision to start, queue or refuse a run, made against the concurrency limits. | [Configuration reference](/reference/configuration) |
 | **AI step** | A node that calls a model or a tool server: `LLM_CALL`, `MCP_TOOL_CALL`, or a decision plugin on a model. | [AI plugins](/reference/plugins/ai) |
 | **Assignment** | What a supervisor owns: a node, the run level of a workflow, or the server. A unit has one owner. | [Supervisor shell reference](/reference/supervisors/shell) |

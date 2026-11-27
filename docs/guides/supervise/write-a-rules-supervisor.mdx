@@ -40,7 +40,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
       "description": "Pause on repeated failure, refuse KILL, hold production stops",
       "settings": {
         "allowedCommands": ["PauseWorkflowCommand"],
-        "operatorAccess": ["StopWorkflowCommand"],
+        "operatorAccess": ["StartWorkflowCommand", "StopWorkflowCommand"],
         "rules": [
           {
             "id": "pause-on-repeated-failure",
@@ -67,9 +67,9 @@ import { ReaderState } from "/snippets/reader-state.jsx";
 
     - **`when.event`** is `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `EventsMissed`, `AgentConversationChanged` or an input event (`InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled`). `count` and `withinSeconds` (default 1 and 60) are counted per run.
     - **`if`** is a condition over the event's fields (`status`, `module`, `nodeId`, `metadata['code']`, `risk`, `context['environment']`...). One that cannot be evaluated counts as not matching, so a faulty reaction never fires; a `deny` condition that cannot be evaluated **refuses**, so a faulty veto never lets a command through.
-    - **`then.command`** is `PauseWorkflow`, `ResumeWorkflow`, `StopWorkflow` (with `mode`), `PauseNode`, `ResumeNode`, `StopNode`, `Restart`, `RestartFromNode`, or, for an `AgentConversationChanged` event, `AgentMessage`, `AgentInterrupt` or `AgentEnd` (see the [Rule files reference](/reference/supervisors/rule-files)). The supervisor must also list that command's name (`PauseWorkflowCommand`) in `allowedCommands`, or the command is dropped and counted as `forbidden`.
+    - **`then.command`** is `PauseWorkflow`, `ResumeWorkflow`, `StopWorkflow` (with `mode`), `PauseNode`, `ResumeNode`, `StopNode`, `Restart`, `RestartFromNode`, or, for an `AgentConversationChanged` event, `AgentMessage`, `AgentInterrupt` or `AgentEnd` (see the [Rule files reference](/reference/supervisors/rule-files)). When `allowedCommands` is set, as here, it must list that command's name (`PauseWorkflowCommand`), or the command is dropped and counted as `forbidden`. Without `allowedCommands`, a rules supervisor may send every command.
     - **`deny`** and **`requireApproval`** read the command's fields: `executionId`, `actor`, `nodeId`, `mode`, `reason`, `immediate`, and for holds `workflowId`. A deny beats a hold.
-    - **`operatorAccess`** names what a person may send through this owner. A vetoed or held command must be listed here, or a person's command is refused earlier with `409 CONTROLLED_BY_SUPERVISOR`.
+    - **`operatorAccess`** names what a person may send through this owner. A vetoed or held command must be listed here, or a person's command is refused earlier with `409 CONTROLLED_BY_SUPERVISOR`. `StartWorkflowCommand` is listed so that people can still start the workflow.
   </Step>
 
   <Step title="Save it and give it something to own">
@@ -142,16 +142,16 @@ curl -s -X POST "localhost:9858/api/executions/$EXEC/stop?mode=KILL"
 ```
 
 ```json
-{ "status": 403, "message": "use DRAIN or CANCEL", "errors": [ { "field": "code", "message": "CONTROL_REJECTED" } ] }
+{ "status": 403, "message": "asg-2c0c60c2a000d0ba: use DRAIN or CANCEL", "errors": [ { "field": "code", "message": "CONTROL_REJECTED" } ] }
 ```
 
-The run keeps going. A `DRAIN` stop passes the veto and ends it. For a held command (here `prod-stop` on a workflow named `prod-deploy`) the answer is `202` with `{"status":"AWAITING_APPROVAL","requestId":"..."}` and an input request of risk `HIGH` that only a person can approve ([Ask for input](/guides/ai/ask-for-input)). To see what the supervisor did, list its decisions:
+The message starts with the id of the assignment that applied, then your `reason`. The run keeps going. A `DRAIN` stop passes the veto and ends it. For a held command (here `prod-stop` on a workflow named `prod-deploy`) the answer is `202` with `{"status":"AWAITING_APPROVAL","requestId":"..."}` and an input request of risk `HIGH` that only a person can approve ([Ask for input](/guides/ai/ask-for-input)). Reviews of people's commands, the veto included, are in `GET /api/control/audit`, each with its actor, `applied` and the reason. To see the commands the supervisor sent itself, such as a pause after three failures, list its decisions:
 
 ```bash
 curl -s "localhost:9858/api/supervisors/decisions?supervisor=ci-guard"
 ```
 
-Each entry has an outcome: `applied`, `rejected`, `dry-run`, `forbidden`, `not-owned`, `rate-limited`, `awaiting-approval` and so on. `GET /api/control/audit` shows the same commands with their senders.
+Each entry has an outcome: `applied`, `rejected`, `dry-run`, `forbidden`, `not-owned`, `rate-limited`, `awaiting-approval` and so on. The list stays empty until a rule fires.
 
 ## Variations
 

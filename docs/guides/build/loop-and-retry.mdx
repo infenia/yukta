@@ -73,7 +73,7 @@ import { Diagram } from "/snippets/diagram.jsx";
   </Step>
 
   <Step title="Mind the time limits">
-    A loop is one node, so the node's idle timeout and `deadlineMs` bound it. Raise `timeoutSeconds` for long polling. See [Time limits](/concepts/time-limits).
+    A loop is one node, so the node's idle timeout and `deadlineMs` bound it. For long polling, raise the node's `timeoutSeconds` (in `config`, next to `engine`, not inside it). See [Time limits](/concepts/time-limits).
   </Step>
 </Steps>
 

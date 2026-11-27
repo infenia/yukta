@@ -32,10 +32,13 @@ import { ReaderState } from "/snippets/reader-state.jsx";
       "settings": {
         "allowedCommands": ["PauseWorkflowCommand", "ResumeWorkflowCommand"],
         "initiative": ["PauseWorkflowCommand", "ResumeWorkflowCommand"],
-        "maxInitiativePerMinute": 20
+        "maxInitiativePerMinute": 20,
+        "operatorAccess": ["StartWorkflowCommand", "StopWorkflowCommand"]
       }
     }
     ```
+
+    `operatorAccess` keeps the session usable while `cpu-guard` owns it: people and scripts may still start and stop runs there. Without it, every start is refused with `409 CONTROLLED_BY_SUPERVISOR`.
 
     ```bash
     curl -s -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @cpu-guard.json
@@ -52,7 +55,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
     # or: yukta-cli supervisors credential create cpu-guard --ttl-hours 24
     ```
 
-    The token is returned **once** with an `expiresAt`. Issuing again rotates it (the old one stops working at once); `DELETE .../credential` or `yukta-cli supervisors credential revoke cpu-guard` revokes it. Add `&allowedAddresses=10.0.0.5` to tie it to source addresses. It works on `/api/agent/v1` only, and no person's API key works there. Through MCP, `create_credential` returns the token, which then passes through the model: prefer the UI or the CLI.
+    The token is returned **once** with an `expiresAt`. Issuing again rotates it (the old one stops working at once); `DELETE .../credential` or `yukta-cli supervisors credential revoke cpu-guard` revokes it. Add `&allowedAddresses=10.0.0.5` to tie it to source addresses. It works on `/api/agent/v1` only, and no person's API key works there (`401`). The engine runs only while the supervisor owns something: before the assignment, every call answers `404 Supervisor cpu-guard is not running an http engine`. Through MCP, `create_credential` returns the token, which then passes through the model: prefer the UI or the CLI.
   </Step>
 
   <Step title="Run your program">

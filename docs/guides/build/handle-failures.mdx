@@ -40,7 +40,7 @@ import { Diagram } from "/snippets/diagram.jsx";
             { "nodeId": "ticket", "type": "API_TRIGGER", "config": {} },
             { "nodeId": "by-kind", "type": "BRANCH",
               "config": {
-                "selector": "payload.kind", "cases": { "bug": "bug-queue" },
+                "mode": "SELECT_KEY", "selector": "payload.kind", "cases": { "bug": "bug-queue" },
                 "engine": { "retry": { "maxAttempts": 2 }, "onError": "ROUTE" } } },
             { "nodeId": "bugs", "type": "CONSOLE_TERMINAL", "config": {} },
             { "nodeId": "dead-letter", "type": "CONSOLE_TERMINAL", "config": {} }
@@ -90,7 +90,7 @@ curl -s -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/
 curl -s -H 'Accept: application/json' localhost:9858/api/sessions/failures/executions/$EXEC/results
 ```
 
-The `RESULT` event comes from `dead-letter`, and the message carries `failure.attempts` (2), `failure.exception` and `failure.message`; the run still ends `SUCCESS`. With `"kind":"bug"` it comes from `bugs`. Change `onError` to `FAIL` and the same ticket fails the node (`FAILURE`) and ends the run: that run is what the supervisor guide replays ([Replay a supervisor](/guides/supervise/replay-a-supervisor)).
+`$EXEC` is the `executionId` the start call returned. The `RESULT` event comes from `dead-letter` with the ticket as its payload, and the run still ends `SUCCESS`. The message also carries labels in its metadata: `failure.attempts` (2 here), `failure.exception` and `failure.message`. A node placed after the dead letter can read them, for example `metadata['failure.message']` in a `MAPPER`. With `"kind":"bug"` it comes from `bugs`. Change `onError` to `FAIL` and the same ticket fails the node (`FAILURE`) and ends the run: that run is what the supervisor guide replays ([Replay a supervisor](/guides/supervise/replay-a-supervisor)).
 
 ## Variations
 

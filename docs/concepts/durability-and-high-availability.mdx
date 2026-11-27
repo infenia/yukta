@@ -14,20 +14,19 @@ import { ReaderState } from "/snippets/reader-state.jsx";
   end="a clear view of which durability setup your use needs, and what it will not protect"
 />
 
-Every workflow tool has to answer one question honestly: **what happens when the server dies in the middle of a run?** Yukta's answer depends on how you run it, and it is a deployment choice rather than a different product. This page explains the choices and the reasoning.
+Every workflow tool has to answer one question honestly: **what happens when the server dies in the middle of a run?** Yukta's answer depends on the edition. The Community edition (Apache-2.0) keeps state in memory only. The Plus edition (AGPL-3.0-only, or a commercial licence) adds PostgreSQL, so runs survive a restart and a standby can take over. This page explains the choices and the reasoning.
 
 ## The default forgets, on purpose
 
-Out of the box, Yukta keeps everything in memory: sessions, workflow definitions and versions, run history, node outputs. A restart gives a clean server. That is the right default for trying things out and for stateless automation whose definitions live in git. It is the wrong default for anything you cannot afford to lose, and Yukta says so in its start-up log.
+The Community edition keeps everything in memory: sessions, workflow definitions and versions, run history, node outputs. A restart gives a clean server. That is the right default for trying things out and for stateless automation whose definitions live in git. It is the wrong default for anything you cannot afford to lose, and Yukta says so in its start-up log.
 
-You then move each kind of state to durable storage, one kind at a time.
+With the Plus edition you then move each kind of state to PostgreSQL, one kind at a time.
 
 | State | Why you would keep it |
 |---|---|
 | Sessions and workflows, with versions | So your definitions survive a restart |
 | Run history and audit | So you can see what happened, and so interrupted runs are recognised |
 | Checkpoints (node outputs) | So a run can resume and a node can be retried without redoing earlier work |
-| Chat memory and key-value state | So AI conversations and counters persist |
 | Input requests | So a question waiting for a person survives a restart |
 | The leader lease | So several servers can share one database safely |
 

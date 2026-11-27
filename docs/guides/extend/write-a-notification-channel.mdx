@@ -48,6 +48,6 @@ public class ChatChannel implements NotificationChannel {
 
 ## Test it
 
-Unit test `deliver` with a fake `ChannelContext` and `StepVerifier`; deliver the same notification twice and assert the receiver sees one effect. Then add the channel settings and a rule, raise a notification (a `NOTIFY_TERMINAL` with `target: inbox` does it) and check the receiver.
+Unit test `deliver` with a fake `ChannelContext` and `StepVerifier`; deliver the same notification twice and assert the receiver sees one effect. Then add the channel settings and a rule, raise a notification (a `NOTIFY_TERMINAL` with `target: inbox` does it, once `YUKTA_PLUGINS_ENABLED=NOTIFY_TERMINAL` turns the plugin on) and check the receiver.
 
 The SPI version is `1.1`.

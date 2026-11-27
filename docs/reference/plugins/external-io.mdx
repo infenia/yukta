@@ -165,8 +165,15 @@ Module `agent-session` (it starts the process through `process-executor`, which 
 | `approvalRisk` | `LOW`, `MEDIUM`, `HIGH` | `MEDIUM` | no | Risk of the requests; a supervisor may answer only up to its `maxRisk`. |
 | `approvalTimeout` | number | `300` | no | Seconds to wait for an answer. |
 | `approvalAudience` | list | current tier | no | Who may answer: `supervisor:<id>`, `role:OPERATOR`, `key:<name>`, ... |
+| `mode` | `TASK` or `CONVERSATION` | `TASK` | no | `TASK`: the node ends with the agent's turn. `CONVERSATION`: the node stays open for messages sent to its conversation until it is ended, idle for `idleTimeout` or running for `conversationTimeout`. Needs a harness with an interactive mode or resume. |
+| `idleTimeout` | number | `900` | no | `CONVERSATION` only: seconds the agent may wait for a message before the node ends. |
+| `conversationTimeout` | number | `14400` | no | `CONVERSATION` only: seconds the whole node may run. |
+| `steerAudience` | list | `role:OPERATOR` | no | Who may send a message, interrupt or end the conversation: `role:OPERATOR`, `key:<name>`, `supervisor:<id>`, `supervisor:*`. |
+| `command` | list | none | no | Only with the `terminal` harness: the program to run in the terminal and its arguments (`{prompt}` in an argument other than the first gives it the prompt). Needs `yukta.agents.pty.enabled=true`. |
+| `terminalSize` | map | from `yukta.agents.pty.cols` and `rows` | no | Only for a terminal harness: `{cols, rows}`, 1 to 1000 each. |
 | `workingDir`, `env` | string, map | none | no | Where it runs and extra environment. |
 | `timeout` | number | `600` | no | Seconds. |
+| `concurrency` | number | `2` | no | Messages handled at once; each starts an agent. |
 
 - **Output ports:** `success`, `failure` (the agent or harness failed, or timed out), `incomplete` (stopped early, for example out of turns).
 - **Payload:** `{status, reason, text, sessionId, turn, exitCode}` (with Claude Code also `costUsd`, `numTurns`, `structured` and `usage`, the token counts), plus `conversationId` when the run was recorded as a conversation (`yukta.agents.enabled`, the default; see the core reference, CTL-10). A run with no conversation has the payload it always had.

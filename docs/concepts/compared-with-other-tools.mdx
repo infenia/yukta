@@ -1,8 +1,8 @@
 ---
 title: "Yukta compared with other tools"
 sidebarTitle: "Compared with other tools"
-description: "How Yukta differs from Airflow, Temporal, Prefect, Dagster, n8n, Argo Workflows, Step Functions, Camunda and Conductor, and when to pick each."
-keywords: ["comparison", "Airflow", "Temporal", "n8n", "alternatives"]
+description: "How Yukta differs from Airflow, Temporal, Prefect, Dagster, n8n, Argo Workflows, Step Functions, Camunda, Conductor and LangGraph, and when to pick each."
+keywords: ["comparison", "Airflow", "Temporal", "n8n", "LangGraph", "alternatives"]
 ---
 
 import { ReaderState } from "/snippets/reader-state.jsx";
@@ -22,7 +22,7 @@ Yukta is a **server you run yourself** that executes a workflow written as **dat
 |---|---|---|
 | Are workflows code or data? | Programs in a language SDK, or data that people, tools and AI assistants can generate and review | **Data**: a JSON graph |
 | Batch or streaming? | Scheduled batches of tasks, or messages that flow step to step | **Streaming**, with back-pressure |
-| How durable? | Survive a crash with exactly the state it had, or resume and re-run | **Resume and re-run**; durable checkpoints come with the Plus edition |
+| How durable? | Survive a crash with exactly the state it had, or resume and re-run | Community: **in memory only**. Plus (AGPL-3.0-only, or a commercial licence): PostgreSQL with **resume and re-run** from checkpoints |
 | Where does it run? | One process, a database-backed cluster, Kubernetes or a cloud service | **One server** you start with a command |
 | Is an AI agent part of it? | No, a step in the workflow, or the one driving it | **Both**: models as steps inside budgets and approvals, and assistants that build and run workflows over MCP |
 
@@ -39,6 +39,7 @@ Yukta is a **server you run yourself** that executes a workflow written as **dat
 | **AWS Step Functions** | JSON state machines | Orchestrating AWS services | AWS (managed) |
 | **Camunda** | BPMN diagrams | Business processes with human tasks | A cluster, or managed |
 | **Conductor** | JSON | Microservice orchestration | A server and a database |
+| **LangGraph** | Python or JavaScript code | One agent application, with the agent loop written as a graph | Your own process, with a checkpointer for state |
 
 What sets Yukta apart is the combination: workflows as **data**, **messages that stream** between steps with back-pressure, **one server** to run, and **AI-assistant control** over MCP.
 
@@ -58,7 +59,7 @@ What sets Yukta apart is the combination: workflows as **data**, **messages that
 
 <AccordionGroup>
   <Accordion title="You need guaranteed durable execution of long-running business logic">
-    Choose **Temporal** (or a managed equivalent). Its core promise is that a workflow's progress survives crashes and can run for months. Yukta keeps state in memory by default, and durable checkpoints, PostgreSQL storage and failover are part of the Plus edition. See [Durability and high availability](/concepts/durability-and-high-availability).
+    Choose **Temporal** (or a managed equivalent). Its core promise is that a workflow's progress survives crashes and can run for months. The Yukta Community edition keeps state in memory only; durable checkpoints, PostgreSQL storage and failover are part of the Plus edition, under the AGPL. See [Durability and high availability](/concepts/durability-and-high-availability).
   </Accordion>
   <Accordion title="Your pipelines are scheduled data and ML jobs written in Python">
     Choose **Airflow**, **Prefect** or **Dagster**. They have rich data-engineering features: backfills, data lineage and asset catalogues, and large integration ecosystems. Yukta can start a command or call an API on a schedule, but it is not a data-lineage tool.
@@ -72,6 +73,9 @@ What sets Yukta apart is the combination: workflows as **data**, **messages that
   <Accordion title="You live entirely in AWS and want zero servers">
     Choose **AWS Step Functions**. It is managed, integrates with AWS services directly and bills per use.
   </Accordion>
+  <Accordion title="You are writing one agent application in code">
+    Choose **LangGraph** or a similar agent framework. The agent loop, its state and its human-input interrupts live in your own Python or JavaScript program. Yukta runs agents as steps of a larger workflow and controls them from outside; it is not a library for writing the agent itself.
+  </Accordion>
   <Accordion title="You model business processes with human tasks in BPMN">
     Choose **Camunda** or another BPMN engine. Business analysts draw the diagrams, and it has forms, task lists and process analytics. Yukta supports approval waits, but it is not a BPMN engine.
   </Accordion>
@@ -82,7 +86,7 @@ What sets Yukta apart is the combination: workflows as **data**, **messages that
 Be realistic about the current state, so you can choose with open eyes:
 
 - **Alpha.** The workflow JSON, REST API, MCP tools and plugin contract may change before 1.0. See [Releases](/reference/releases).
-- **In-memory by default.** The Community edition forgets sessions and runs on restart. Durable storage and high availability need the Plus edition. See [Licensing and editions](/reference/licensing).
+- **Community is in memory only.** It forgets sessions and runs on restart. Durable storage and high availability need the Plus edition (AGPL-3.0-only, or a commercial licence). See [Licensing and editions](/reference/licensing).
 - **One admitting server at a time.** High availability gives failover, not scale-out of admission. See [Durability and high availability](/concepts/durability-and-high-availability).
 - **Young plugin ecosystem.** There are many built-in plugins, but far fewer ready-made connectors than the older tools.
 

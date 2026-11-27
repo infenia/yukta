@@ -44,13 +44,15 @@ Installed: /home/you/.local/share/yukta/examples (examples) <version>
 
 Your folder differs, and `<version>` is the release you installed. If the script prints `is not on your PATH`, add the folder it names to `PATH`.
 
-Start the server:
+Start the server in the background:
 
 ```bash
-yukta
+yukta start     # returns once the server answers
+yukta status    # is it running, and where
+yukta stop      # when you are done
 ```
 
-It stays in the foreground and listens on `127.0.0.1:9858`, so only your machine can reach it.
+It listens on `127.0.0.1:9858`, so only your machine can reach it. To keep it in the foreground with a live console instead, run a bare `yukta` and press `q` to stop it. More in [Control a run](/guides/build/control-a-run#run-the-server-in-the-console-or-in-the-background).
 
 ## Connect your AI agents
 
@@ -63,7 +65,7 @@ curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.5/ins
 curl -fsSL <install.sh url> | sh -s -- --agents claude,codex
 ```
 
-On Windows set `$env:YUKTA_AGENTS = 'auto'` (or a list, or `'none'`) before running `install.ps1`. Any time later, `yukta-cli agents list|install|uninstall` does the same; see [Connect an AI assistant](/guides/ai/connect-an-assistant) for what it changes and how to undo it. Uninstalling Yukta with the script disconnects the agents it connected.
+On Windows there is no install script yet, so run `yukta-cli agents install` after you unzip. On any system, `yukta-cli agents list|install|uninstall` does the same later; see [Connect an AI assistant](/guides/ai/connect-an-assistant) for what it changes and how to undo it. Uninstalling Yukta with the script disconnects the agents it connected.
 
 ## Install on macOS
 
@@ -83,6 +85,8 @@ From `0.1.0-alpha.4`, download `yukta-<version>-windows-amd64.zip` from the [rel
 Expand-Archive yukta-<version>-windows-amd64.zip .
 .\yukta-<version>-windows-amd64\yukta.exe
 ```
+
+On Windows the server runs in the foreground; `yukta start` and the other background commands are for Linux and macOS.
 
 The zip holds `yukta.exe`, `yukta-cli.exe` and the `examples` folder. SmartScreen warns about the unsigned download: choose **More info**, then **Run anyway**. A one-line `install.ps1` is not part of the releases yet. For `0.1.0-alpha.3` and earlier, download `yukta-cli-windows-amd64.exe` for the client and run the server with Docker Desktop or WSL 2.
 

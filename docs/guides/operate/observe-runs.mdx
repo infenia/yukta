@@ -109,7 +109,7 @@ The server publishes metrics for every governance and execution decision: node e
     | `yukta.worker.slots` at 0 | Placed nodes will fail until workers free up |
     | Process memory or threads rising without leveling off | Something is growing |
 
-    `GET /actuator/metrics` lists every meter the server has, and `GET /actuator/metrics/{name}` shows one with its tags.
+    `GET /actuator/metrics` lists every meter the server has, and `GET /actuator/metrics/{name}` shows one with its tags. A meter appears only once it has something to count, so `404` for `yukta.tracker.dropped` or `yukta.execution.queue.wait` on a new server means nothing happened yet, not a wrong name.
   </Step>
 </Steps>
 

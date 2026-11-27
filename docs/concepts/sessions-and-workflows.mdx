@@ -44,7 +44,7 @@ Before any step runs, a definition is checked: it must be acyclic, ids must be u
 
 ## Where sessions live
 
-By default sessions, definitions and versions are in memory and vanish on restart. That is right for trying things out and wrong for anything you depend on. You can keep them in files or in PostgreSQL (both in the Plus edition), or reapply your definitions from a folder at every start, which works in every edition. See [Durability and high availability](/concepts/durability-and-high-availability).
+In the Community edition sessions, definitions and versions are in memory and vanish on restart. That is right for trying things out and wrong for anything you depend on. The Plus edition keeps them in PostgreSQL. In any edition the server can apply your definitions again from a folder at every start, which rebuilds them but keeps no history. See [Durability and high availability](/concepts/durability-and-high-availability).
 
 ## Related
 

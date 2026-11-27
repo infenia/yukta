@@ -52,7 +52,7 @@ import { Diagram } from "/snippets/diagram.jsx";
   </Step>
 
   <Step title="Write the workflow">
-    This probes a URL every minute and sends a notification when it fails. Save as `uptime.json`:
+    This probes a URL every minute and sends a notification when it fails. `HTTP_REQUEST` and `NOTIFY_TERMINAL` are off by default, so start the server with `YUKTA_PLUGINS_ENABLED=HTTP_REQUEST,NOTIFY_TERMINAL`. Save as `uptime.json`:
 
     ```json uptime.json
     {

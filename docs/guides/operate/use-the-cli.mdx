@@ -28,7 +28,7 @@ export YUKTA_TOKEN=<key>
 yukta-cli whoami
 ```
 
-`whoami` shows the name, role and sessions of your key and what it may do. The URL defaults to `http://localhost:9858`. A flag (`--url`, `--token`) overrides its environment variable, and the client reads no configuration file.
+`whoami` shows the name, role and sessions of your key and what it may do. The URL defaults to `http://127.0.0.1:9858`. A flag (`--url`, `--token`) overrides its environment variable, and the client reads no configuration file.
 
 - **Keep the key out of shell history.** `--token-file <path>` reads it from a file. It cannot be combined with `--token`.
 - **Plain http to a remote host.** The client refuses to send a token over plain `http` to a host that is not loopback. Use HTTPS, or set `--insecure-token` (or `YUKTA_INSECURE_TOKEN=true`) on a network you trust.
@@ -93,7 +93,7 @@ On one node of a live run:
 yukta-cli workflow node pause demo <execution-id> <node-id>
 yukta-cli workflow node skip demo <execution-id> <node-id>
 yukta-cli workflow node retry <execution-id> <node-id>
-yukta-cli workflow node breakpoint <execution-id> <node-id> --field orderId --equals 4411
+yukta-cli workflow node breakpoint <execution-id> <node-id> --field payload.orderId --equals 4411
 ```
 
 `retry` restarts from a node that failed, as a new run. See [Control a run](/guides/build/control-a-run).
@@ -115,13 +115,13 @@ See [Ask for input](/guides/ai/ask-for-input).
 
 ```bash
 yukta-cli plugin list
-yukta-cli plugin get HTTP_REQUEST
+yukta-cli plugin get MAPPER
 yukta-cli scheduler limits
 yukta-cli workers
 yukta-cli controlbus audit --limit 20
 ```
 
-These show the plugin types, the execution limits and how many runs execute and wait, the connected workers, and the newest control commands. Supervisors have their own commands: `yukta-cli supervisors --help`, and see [Assign a supervisor](/guides/supervise/assign-a-supervisor).
+These show the plugin types (`plugin list` includes the ones that are off by default, but `plugin get` answers `404` for those until they are turned on), the execution limits and how many runs execute and wait, the connected workers, and the newest control commands. Supervisors have their own commands: `yukta-cli supervisors --help`, and see [Assign a supervisor](/guides/supervise/assign-a-supervisor).
 
 ## Use it in CI
 

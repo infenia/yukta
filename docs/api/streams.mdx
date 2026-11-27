@@ -123,7 +123,7 @@ A live feed of what happens across the server, for monitors and external supervi
 |---|---|
 | `executionId` | Only events of this run |
 | `tree` | With `executionId`: `true` also sends the events of every run it started as a [sub-workflow](/concepts/sub-workflows), at any depth, so one stream follows a whole tree of runs. Default `false` |
-| `type` | Only this kind: `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome` or `LogLine`. Not case sensitive |
+| `type` | Only these kinds, comma separated, from the table below. Not case sensitive; an unknown kind answers `400` |
 | `severity` | Only this severity or higher: `INFO`, `WARN` or `ERROR`. An invalid value answers `400` |
 
 Each event's `data` is an envelope with the event `type`, its `severity` and the `event` itself.
@@ -134,6 +134,13 @@ Each event's `data` is an envelope with the event `type`, its `severity` and the
 | `WorkflowStatusChanged` | `executionId`, `workflowId`, `status`, `timestamp` |
 | `ControlOutcome` | `executionId`, `command`, `actor`, `applied`, `reason`, `timestamp` |
 | `LogLine` | `executionId`, `nodeId`, `line`, `level`, `timestamp` |
+| `EventsMissed` | `count`, `timestamp`: this reader fell behind and lost that many events |
+| `InputRequested` | `request` (the whole [input request](/guides/ai/ask-for-input), redacted), `timestamp` |
+| `InputEscalated` | `request`, `reason`, `timestamp` |
+| `InputAnswered` | `executionId`, `sessionId`, `workflowId`, `nodeId`, `requestId`, `responder`, `decision`, `timestamp` |
+| `InputExpired` | `executionId`, `sessionId`, `workflowId`, `nodeId`, `requestId`, `timestamp` |
+| `InputCancelled` | `executionId`, `sessionId`, `workflowId`, `nodeId`, `requestId`, `reason`, `timestamp` |
+| `AgentConversationChanged` | `conversation` (an [agent conversation](/api/conversations)), `timestamp` |
 
 **Severity.** A node or run that ends `FAILURE`, `TIMED_OUT` or `ABORTED` is `ERROR`. One that ends `CANCELLED` is `WARN`. A node that ends `UPSTREAM_FAILED` stays `INFO`, because it only reflects the node before it. A control command that was not applied is `WARN`. A log line has a `level` (`DEBUG`, `INFO`, `WARN` or `ERROR`) and takes it as its severity, `DEBUG` counting as `INFO`. A plugin may report the level of a line. Otherwise the server rates each line once, as it is logged: `ERROR` if it contains words such as `error`, `failed`, `failure`, `exception` or `What went wrong` (and the few lines after that one), `WARN` if it contains `warn`, `warning` or `deprecat`, and `INFO` otherwise. A multi-line message becomes one `LogLine` per line. The metadata of a failed node has `problems`, the `{level, line}` pairs the server rated in its `error` text, next to the text itself.
 

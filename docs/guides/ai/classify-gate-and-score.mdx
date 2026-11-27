@@ -17,7 +17,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 
 **Use this when** a step needs judgement that a rule cannot make ("is this a bug or a question?", "is this reply safe to send?") and the answer should come back in a shape you can route on. For open-ended writing use [`LLM_CALL`](/guides/ai/call-an-llm).
 
-**Prerequisites:** the `CLASSIFY` plugin is present (`GET /api/plugins/CLASSIFY` answers `200`). Pick a backend:
+**Prerequisites:** the decision steps are off by default, so start the server with them on: `YUKTA_PLUGINS_ENABLED=CLASSIFY,GATE,SCORE yukta start` (add `ASK`, `ANOMALY` or `DEDUPE` for the last step, and `LLM_CALL` if you use one too). Then pick a backend:
 
 - `SYSTEMONE` (default): a System One decision model on your own Ollama (`baseUrl` defaults to `http://localhost:11434`). Answers carry calibrated probabilities and cost no provider tokens.
 - `LLM`: any chat model, through the same access as `LLM_CALL`. Probabilities are the model's own estimates.

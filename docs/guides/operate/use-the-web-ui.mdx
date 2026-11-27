@@ -33,7 +33,7 @@ A narrow rail (a tab bar on a phone) links to **Sessions**, **Runs**, **Supervis
 2. Search by name or id, then select a row. The session page shows its description, tags, initiator and working directory, and one card per workflow with its node and edge counts and the status of its latest run.
 3. Select a card to open the workflow.
 
-Create one with **New session**: it asks for an id, name, description, initiator and the working directory on the server, saves the session with a starter workflow `main` (an API trigger wired to a console terminal) and opens the editor on it. **Import JSON** creates a session from a file or pasted JSON. **Export JSON** on a session's page downloads its configuration. **Edit** changes its name, description and tags. **Delete** asks you to type the id first, and deleting a workflow works the same way. **New workflow** on a session's page opens the editor on an empty workflow.
+Create one with **New session**: it asks for an id, name, description, initiator and the working directory on the server, saves the session with a starter workflow `main` (an API trigger wired to a console terminal) and opens the editor on it. **Import session** creates a session from a file or pasted JSON. **Export JSON** on a session's page downloads its configuration. **Edit** changes its name, description and tags. **Delete** asks you to type the id first, and deleting a workflow works the same way. **New workflow** on a session's page opens the editor on an empty workflow.
 
 ## Build or edit a workflow without JSON
 
@@ -69,7 +69,7 @@ The model behind the forms is in [Define a workflow](/guides/build/define-a-work
 6. Open **Workflow progress** for three blocks: the execution summary, the **Result** (what reached the terminals, streamed live), and the task sequence in execution order.
 7. **Execution logs** at the bottom streams the run's lines with time, level and node, and has a filter box, a follow switch with **Jump to latest**, a copy button, and a menu for line wrap, raw lines and downloads (`.log` or `.jsonl`). It keeps the newest 20,000 lines and says how many earlier ones are hidden.
 
-**Run History** in the breadcrumb row lists the runs of this workflow, newest first. The selection is kept in the address as `?exec=<id>`, so you can link to a run.
+The run history menu in the breadcrumb row lists the runs of this workflow, newest first. The selection is kept in the address as `?exec=<id>`, so you can link to a run.
 
 ## Steer a run
 
@@ -148,7 +148,7 @@ Three settings bound the relay: `yukta.assistant.enabled` (turns it off), `yukta
   caption="Notice the scope and range controls at the top: they apply to every chart below them."
 />
 
-**Control** (`/control`, titled *Control bus*) has three tabs. **Overview** shows pending input requests, supervisors, the Mission Control dashboard (throughput, latency, capacity, live runs, workers and system), the scheduler's limits with **Edit** (`ADMIN`), and the remote workers with their pools and use. **Activity** is a live feed of events from all runs. **Audit** lists the newest control commands with the time, actor, command, run, and whether each was applied or refused and why. Commands sent without a named key show as `api`. From a workflow page, **Control commands of this run** in the **Workflow actions** menu opens the audit for that run.
+**Control** (`/control`, titled *Control bus*) has three tabs. **Overview** shows pending input requests, supervisors, the Mission Control dashboard (throughput, latency, capacity, live runs, workers and system), the scheduler's limits with **Edit limits** (`ADMIN`), and the remote workers with their pools and use. **Activity** is a live feed of events from all runs. **Audit** lists the newest control commands with the time, actor, command, run, and whether each was applied or refused and why. Commands sent on a server without keys show as `api`. From a workflow page, **Control commands of this run** in the **Workflow actions** menu opens the audit for that run.
 
 See [Use the control dashboard](/guides/supervise/use-the-control-dashboard) for what to read there, and [Tune capacity and limits](/guides/operate/tune-capacity-and-limits) for the scheduler.
 

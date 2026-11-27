@@ -144,12 +144,13 @@ restart before you apply it.
 Create a rules supervisor "release-guard" from the failure-guard preset, in
 dry run. It should pause workflows when nodes fail repeatedly. Check what it
 would own if it owned session release-checks, show me the plan, and wait for
-my yes before you assign it.
+my yes before you assign it. People must still be able to start runs, so add
+StartWorkflowCommand to operatorAccess.
 ```
 
 **Tools, in order:** `list_supervisor_presets` (type `rules`), `get_supervisor_engine` (type `rules`, for the settings shape), `save_supervisor` (type `rules`, `id`, `settings`, `dryRun` true), `check_assignment` (read only), then, after your yes, `set_assignments` with `[{"target":"session:release-checks"}]`.
 
-**Check:** `get_supervisor` shows `dryRun` true, the rules and the assignment. The guide asks you to name the commands the supervisor may send in `allowedCommands` (here `PauseWorkflowCommand`), so check that the settings contain it. Dry run means its commands are only recorded; read them with `yukta-cli supervisors decisions --supervisor release-guard`, which lists outcomes such as `dry-run`.
+**Check:** `get_supervisor` shows `dryRun` true, the rules, `StartWorkflowCommand` under `operatorAccess`, and the assignment. A rules supervisor may send every command unless `allowedCommands` narrows it, so the guard's pause is allowed. Dry run means its commands are only recorded; read them with `yukta-cli supervisors decisions --supervisor release-guard`, which lists outcomes such as `dry-run`.
 
 **Role:** `ADMIN`. `set_assignments` takes direct control of the unit away from people unless the supervisor lists the command in `operatorAccess`, so the assistant must ask first.
 

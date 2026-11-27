@@ -57,6 +57,8 @@ A replay rebuilds the **status events** of the past run from its execution log a
     ```
 
     `allowed` says whether the supervisor's capabilities would let the command through: a command outside `allowedCommands` shows `false`. An empty list means the supervisor would have done nothing.
+
+    This sample is from a run in which three nodes failed. `ci-guard`'s rule waits for three failures within 60 seconds, so for the `sort` run, where one node fails, it answers `"data": []`. A draft is how you try a rule that would react to it.
   </Step>
 
   <Step title="Replay a draft instead">

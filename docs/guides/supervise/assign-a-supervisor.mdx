@@ -32,17 +32,17 @@ import { Diagram } from "/snippets/diagram.jsx";
     {
       "id": "release-guard",
       "type": "rules",
-      "description": "Owns the slow workflow; people may pause and resume it",
+      "description": "Owns the slow workflow; people may start, pause and resume it",
       "settings": {
         "rules": [],
         "allowedCommands": ["PauseWorkflowCommand", "ResumeWorkflowCommand"],
-        "operatorAccess": ["PauseWorkflowCommand", "ResumeWorkflowCommand"]
+        "operatorAccess": ["StartWorkflowCommand", "PauseWorkflowCommand", "ResumeWorkflowCommand"]
       }
     }
     ```
 
     - `allowedCommands` is what the supervisor itself may send. Name them, whatever the engine's default is.
-    - `operatorAccess` is what a **person** may send for what it owns (default none). A listed command is reviewed by the owner's engine.
+    - `operatorAccess` is what a **person** may send for what it owns (default none, so without `StartWorkflowCommand` nobody could even start a run of it). A listed command is reviewed by the owner's engine.
 
     Check the draft without saving, then save:
 
@@ -90,12 +90,12 @@ import { Diagram } from "/snippets/diagram.jsx";
       -H 'Content-Type: application/json' -d '[{"target":"workflow:steer/slow//wait"}]'
     ```
 
-    The save is refused with `409` and the code `OWNERSHIP_CONFLICT`, naming the other supervisor and the units in dispute (the `message` reads like `<unit> already owned by release-guard`):
+    The save is refused with `409` and the code `OWNERSHIP_CONFLICT`, naming the supervisor that owns the unit:
 
     ```json
     {
       "status": 409,
-      "message": "node wait of steer/slow already owned by release-guard",
+      "message": "workflow slow is already owned by release-guard",
       "error": "Conflict",
       "errors": [ { "field": "code", "message": "OWNERSHIP_CONFLICT" }, { "field": "supervisor", "message": "release-guard" } ]
     }

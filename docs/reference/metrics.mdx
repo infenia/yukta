@@ -73,7 +73,6 @@ Values of the `reason` tag on `yukta.executions.rejected`, from `ExecutionSchedu
 | `yukta.store.table.bytes` | gauge | `table` | Size on disk of a PostgreSQL store table (rows, out-of-line values, indexes; deleted rows count until vacuum), read at most once a minute: the execution log, checkpoints, definitions and revisions, sessions, input requests, notifications with their receipts and deliveries, and agent conversations with their events (Plus persistence) |
 | `yukta.checkpoint.bytes` | gauge | none | Node output held by the checkpoint store; with PostgreSQL checkpoints, the size on disk of `node_checkpoint`, the same on every server |
 | `yukta.checkpoint.errors` | counter | none | End markers that could not be written |
-| `yukta.checkpoint.io.pending` | gauge | none | Checkpoint file operations queued for or running on the checkpoint scheduler (file and spill stores); high for long means the disk is slower than the runs |
 | `yukta.secrets.masked` | counter | none | Log lines in which a resolved secret was masked |
 
 ## Workers and high availability

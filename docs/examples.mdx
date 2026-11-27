@@ -7,13 +7,13 @@ keywords: ["examples", "sample workflows", "templates", "approval", "data pipeli
 
 Each example is a complete workflow for a job you probably recognise: an agent that must not skip verification, a deploy that needs approval, a PR risk gate, a nightly event load that must reject bad rows. Find the one closest to yours, run it, then change it. The use-case examples are written to be copied: each README lists which nodes to change and which stand-in to swap for a model call.
 
-Every example is a folder in the repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) directory with a `session.json` and a `run.sh` that applies the session, starts the run, answers any approval itself and prints `PASS` or `FAIL`. The examples are grouped by what they need to run.
+Each example is a folder in the repository's [`examples`](https://github.com/infenia/yukta/tree/main/examples) directory. Most hold a `session.json` and a `run.sh` that applies the session, starts the run, answers any approval itself and prints `PASS` or `FAIL`. Two are different: 08 is a supervisor rule file that you load (see [Write a rules supervisor](/guides/supervise/write-a-rules-supervisor)), and 15 is a walkthrough to follow by hand. The examples are grouped by what they need to run.
 
 ## Categories
 
 | Category | What you need | Examples |
 |---|---|---|
-| **1. Standalone** | Only the Yukta server. Allow the `sh` and `echo` commands. | Release approval, PR risk gate, dependency updates, model promotion, security findings, input pull, supervisor profiles, supervisor workflow, inbox notification, hello world |
+| **1. Standalone** | Only the Yukta server. Allow the `sh`, `echo` and `shuf` commands. | Release approval, PR risk gate, dependency updates, model promotion, security findings, input pull, supervisor profiles, supervisor workflow, inbox notification, hello world |
 | **2. Free dependencies** | Free tools on the machine (`git`, `python3`, `go`, `uv`, `bun` or `node`) or a stand-in for an outside service that the example starts itself. | Agent verification, alert triage, an MCP agent, supervisor agents, check out and run an app, a CI pipeline |
 | **3. Paid tools** | An AI agent CLI (Claude Code, Codex) or a hosted model. The examples run against a fake agent unless you configure the real tool. | Agent session walkthrough, agent console |
 
@@ -44,10 +44,10 @@ export YUKTA_PLUGINS_ENABLED=all
 export YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,shuf,python3,git,uv,bun,node,npm   # npm.cmd on Windows
 export YUKTA_VARIABLES_ALLOWED=java.io.tmpdir
 export YUKTA_AI_PRESETS_DIR=$PWD/examples/3-paid-tools/16-agent-console/agent-harnesses   # example 16
-yukta                      # the installed server; from a source checkout: ./gradlew bootRun
+yukta start                # the installed server, in the background; from a source checkout: ./gradlew bootRun
 ```
 
-Start it from the folder that holds `examples/` (`~/.local/share/yukta` after the install script), so `YUKTA_AI_PRESETS_DIR` finds it, and run the examples from there. Set `YUKTA_API_KEY` if you gave the server a key (`YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE=ADMIN`).
+Start it from the folder that holds `examples/` (`~/.local/share/yukta` after the install script), so `YUKTA_AI_PRESETS_DIR` finds it, and run the examples from there. The scripts talk to `http://localhost:9858`: set `YUKTA_URL` for another address, and `YUKTA_API_KEY` if you gave the server a key (`YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE=ADMIN`).
 
 ```bash
 ./examples/run-all.sh                         # all of them, with a summary
@@ -59,6 +59,7 @@ A server that allows less still runs the rest; an example it cannot run reports 
 | Example | Commands the server may run | Also on the machine |
 |---|---|---|
 | 01, 03, 04, 05, 06, 07, 09 | none | |
+| 08 supervisor profiles | nothing to run: a rule file you load | |
 | 02 release approval | `sh` | |
 | 10 inbox notification | `echo` | |
 | 11 agent verification | `sh`, `echo` | `git` |
@@ -79,7 +80,7 @@ A server that allows less still runs the rest; an example it cannot run reports 
 | # | Pain point | What it shows |
 |---|---|---|
 | [11](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/11-agent-verification) | An AI coding agent skips tests and says "done" | Verification gates and a bounded fix loop before "done" exists |
-| [18](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/18-todo-run) | A project you want running on your machine, not just built | Clone, then start a Python backend and a React frontend side by side; stop the run to stop the app |
+| [18](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/18-todo-run) | A project you want running on your machine, not only built | Clone, then start a Python backend and a React frontend side by side; stop the run to stop the app |
 | [19](https://github.com/infenia/yukta/tree/main/examples/2-free-deps/19-todo-ci) | CI that stops at the first failing check | Backend lint, format and test, then frontend lint, format and test, as a chain of stages |
 | [02](https://github.com/infenia/yukta/tree/main/examples/1-standalone/02-release-approval) | Production deploy that needs a person, then a check | Approval with a timeout, smoke check, rollback |
 | [03](https://github.com/infenia/yukta/tree/main/examples/1-standalone/03-pr-risk-gate) | Merging risky PRs, or reviewing every routine one | Risk scoring, reviewer gate, secrets stripped from messages |

@@ -25,7 +25,7 @@ Roles apply to every client: a key without the needed role gets `403` from REST,
 |---|---|---|---|---|
 | List sessions | `GET /api/sessions`, `GET /api/sessions/summaries` | `list_sessions` | `session list`, `session summaries` | Sessions page |
 | Show a session | `GET /api/sessions/{id}` | `get_session_details` | `session get` | Session page |
-| Create or replace a session | `POST /api/sessions` | `create_session` | `session apply` | New session, Import JSON, Templates |
+| Create or replace a session | `POST /api/sessions` | `create_session` | `session apply` | New session, Import session, Templates |
 | Export a session as JSON | `GET /api/sessions/{id}/config` | – | `session config` | Session page |
 | Delete a session or workflow | `DELETE /api/sessions/{id}`, `DELETE /api/sessions/{id}/workflows/{wf}` | `delete_session`, `delete_workflow` | `session delete`, `session workflow delete` | Session and workflow pages |
 | Show a workflow and its graph | `GET /api/sessions/{id}/workflows/{wf}`, `.../graph` | `get_workflow_details` | `session workflow get`, `session workflow graph` | Workflow page |

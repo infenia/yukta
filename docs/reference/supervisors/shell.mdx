@@ -90,7 +90,7 @@ Keys in `settings` that the server reads for every engine type.
 - **Type:** list of command names
 - **Default:** none
 - **Required:** no
-- **Description:** Command types that people may send through it; the engine reviews each. A command not listed is refused with `409 CONTROLLED_BY_SUPERVISOR`.
+- **Description:** Command types that people may send through it; the engine reviews each. A command not listed is refused with `409 CONTROLLED_BY_SUPERVISOR`. That includes starting a run: list `StartWorkflowCommand` if people or scripts should still start what it owns.
 
 ### `onReviewTimeout`
 - **Type:** `DENY` or `ALLOW`

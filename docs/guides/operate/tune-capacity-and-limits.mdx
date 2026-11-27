@@ -70,7 +70,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     yukta-cli scheduler limits set --max-concurrent 40 --max-per-workflow 8
     ```
 
-    Setting limits needs the `ADMIN` role. The first command shows the limits in force (`0` is no limit) and how many runs execute and wait. In the web UI, open **Control** and select **Edit** in the scheduler panel. The new limits are written to the execution log and are reapplied at the next start when the log is durable, so from then on the log wins over your settings file.
+    Setting limits needs the `ADMIN` role. The first command shows the limits in force (`0` is no limit) and how many runs execute and wait. In the web UI, open **Control** and turn the concurrent-run knob, or select **Edit limits**, in the **Capacity** panel ([Use the Control dashboard](/guides/supervise/use-the-control-dashboard)). The new limits are written to the execution log and are reapplied at the next start when the log is durable, so from then on the log wins over your settings file.
 
     To move a waiting run up the queue, change its priority (`OPERATOR`):
 
@@ -95,7 +95,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     | How it runs | How to set the heap |
     |---|---|
     | JVM jar | `-Xmx2g` or `-XX:MaxRAMPercentage=75` before `-jar`, or in `JAVA_TOOL_OPTIONS`. With no flag the JVM takes a quarter of the memory it sees; in a container that is the container limit. |
-    | Native binary | `JAVA_TOOL_OPTIONS` is ignored. Pass `-Xmx` as an argument: `yukta -Xmx2g`. The native binary uses the serial garbage collector. Passing `-Xmx` to Yukta's binary has not been tested. |
+    | Native binary | `JAVA_TOOL_OPTIONS` is ignored. Pass `-Xmx` as an argument: `yukta -Xmx2g`. The native binary uses the serial garbage collector and honours the flag: with a heap too small (`-Xmx12m`) it stops at start-up with `OutOfMemoryError`. |
     | Docker image | The image runs the native binary, so pass the flag after the image name: `docker run ... ghcr.io/infenia/yukta -Xmx2g`. Set the container's memory limit above the heap. |
 
     Yukta does not set the Reactor and Netty properties; they keep their library defaults. Standard ones can be given as `-D` arguments (system properties are passed to the native binary the same way, as the nightly smoke test does for `yukta.rate-limit-per-minute`): `-Dreactor.schedulers.defaultPoolSize` and `-Dreactor.schedulers.defaultBoundedElasticSize` size the shared Reactor schedulers, and `-Dio.netty.leakDetection.level` controls buffer leak checks. Yukta's own blocking work runs on a separate pool of up to 100000 virtual threads. Whether these properties take effect in a native binary has not been tested.

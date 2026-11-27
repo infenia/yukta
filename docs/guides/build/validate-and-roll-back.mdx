@@ -66,7 +66,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     curl -s "localhost:9858/api/sessions/demo/workflows/greet/versions/diff?from=$OLD"
     ```
 
-    Omit `to` to compare with the current definition. The diff lists a changed description, nodes added, removed or changed, and edges added or removed.
+    The list is newest first; each entry has an `id`, a `savedAt` time and a `note`. Keep the `id` of the version you want, for example the oldest: `OLD=$(curl -s localhost:9858/api/sessions/demo/workflows/greet/versions | jq -r '.data[-1].id')`. Omit `to` to compare with the current definition. The diff lists a changed description, nodes added, removed or changed, and edges added or removed.
   </Step>
 
   <Step title="Annotate a version">

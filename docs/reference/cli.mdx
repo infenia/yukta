@@ -89,7 +89,9 @@ On failure the command prints `error: <message>` to standard error.
 | `plugin get <type>` | Details of one plugin. |
 | `plugin validate <dir>` | Checks a [community plugin](/guides/extend/write-a-community-plugin) directory with no server: the manifest against its schema, one run of its command with `PATH` as its only environment variable, every output line against the output schema, and the directory digest to pin with `TYPE@sha256:<digest>`. Flags: `--config <json>` (the node configuration, default `{}`), `--payload <json>` (the sample message's payload, default `{}`). Exits non-zero on the first problem. |
 | `scheduler limits` | Shows the execution limits and the slots in use. |
-| `scheduler set --max-concurrent N --max-per-workflow M` | Changes the limits; both flags are required, `0` is unlimited. |
+| `scheduler limits set --max-concurrent N --max-per-workflow M` | Changes the limits; both flags are required, `0` is unlimited. Needs an `ADMIN` key. |
+| `server status` | The state, process id, health and uptime of the server started with `yukta start`. |
+| `server logs [-f]` | The end of that server's log; `-f` follows it. |
 
 ## AI agents
 

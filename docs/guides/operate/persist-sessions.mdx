@@ -1,7 +1,7 @@
 ---
 title: "Persist sessions across restarts"
 sidebarTitle: "Persist sessions"
-description: "Keep workflows, run history and checkpoints through a restart: load session files at start-up or keep state in PostgreSQL, and resume the runs a restart interrupted."
+description: "Keep workflows, run history and checkpoints through a restart with PostgreSQL in the Plus edition, resume the runs a restart interrupted, and reload definitions from files on the Community edition."
 keywords: ["persistence", "bootstrap", "PostgreSQL", "resume", "restart", "durability"]
 ---
 
@@ -15,24 +15,24 @@ import { Diagram } from "/snippets/diagram.jsx";
   end="a server whose sessions are back after a restart, and a way to resume interrupted runs"
 />
 
-**Use this when** a restart must not cost you your workflows or your run history. By default Yukta keeps everything in memory, and a restart gives a clean server.
+**Use this when** a restart must not cost you your workflows or your run history. The Community edition keeps everything in memory, and a restart gives a clean server. Durable state needs the Plus edition (AGPL-3.0-only, or a commercial licence) with PostgreSQL.
 
-**Prerequisites:** pick the option that fits your edition. The release binaries, the Docker image and the packages are the Community edition and can use option 1 only.
+**Prerequisites:** pick the option that fits your edition. The release binaries, the Docker image and the packages are the Community edition and can use option 1 only. Option 1 is not durability: it rebuilds your definitions in memory at every start, and run history is still lost.
 
 | Option | Edition | What survives a restart |
 |---|---|---|
-| 1. Session files loaded at start-up | Community and Plus | Your workflow definitions. Run history does not |
+| 1. Session files applied at start-up | Community and Plus | Nothing is stored. The server applies your definitions again at every start; run history is lost |
 | 2. PostgreSQL | Plus (AGPL-3.0-only) | Definitions and versions, run history, checkpoints and input requests, shared between servers |
 
 How the stores work and what each keeps is in [How durability and high availability work](/concepts/durability-and-high-availability). The licence terms are in [Licensing and editions](/reference/licensing).
 
 <Diagram
   name="ops-persist-sessions"
-  alt="Memory keeps nothing across a restart, session files keep definitions, and only PostgreSQL also keeps run history and resume checkpoints."
-  caption="Pick the row that fits your edition; each store beyond memory is a separate switch."
+  alt="Memory keeps nothing across a restart. Session files only put the definitions back at start-up. Only PostgreSQL keeps run history and resume checkpoints."
+  caption="Only PostgreSQL (Plus) is durable; session files rebuild definitions in memory, and each PostgreSQL store is a separate switch."
 />
 
-## Option 1: load session files at start-up
+## Option 1: apply session files at start-up
 
 <Steps>
   <Step title="Write your sessions as files">

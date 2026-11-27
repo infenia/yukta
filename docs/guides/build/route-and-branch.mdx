@@ -29,7 +29,7 @@ An edge with no `sourcePort` receives every port except `error`. A message on a 
 
 <Steps>
   <Step title="Branch on a value">
-    `BRANCH` in its default mode `SELECT_KEY` evaluates `selector` and looks the result up in `cases`; each case names an output port. `defaultPort` catches the rest. Save as `router.json`:
+    `BRANCH` with `mode` `SELECT_KEY` evaluates `selector` and looks the result up in `cases`; each case names an output port. `defaultPort` catches the rest. Save as `router.json`:
 
     ```json router.json
     {
@@ -45,7 +45,7 @@ An edge with no `sourcePort` receives every port except `error`. A message on a 
           "nodes": [
             { "nodeId": "ticket", "type": "API_TRIGGER", "config": {} },
             { "nodeId": "by-kind", "type": "BRANCH",
-              "config": { "selector": "payload.kind",
+              "config": { "mode": "SELECT_KEY", "selector": "payload.kind",
                           "cases": { "bug": "bug-queue", "feature": "feature-queue" },
                           "defaultPort": "other-queue" } },
             { "nodeId": "bugs", "type": "CONSOLE_TERMINAL", "config": {} },
@@ -86,7 +86,7 @@ An edge with no `sourcePort` receives every port except `error`. A message on a 
   </Step>
 
   <Step title="Route on how a command or request went">
-    `PROCESS_EXECUTOR` with `"failureMode": "CONTINUE", "routeByExitCode": true` leaves on `success` or `failure`; `HTTP_REQUEST` does the same with `"routeByStatus": true`. Wire `"sourcePort": "success"` and `"failure"`.
+    `PROCESS_EXECUTOR` with `"failureMode": "CONTINUE", "routeByExitCode": true` leaves on `success` or `failure`; `HTTP_REQUEST` does the same with `"failureMode": "CONTINUE", "routeByStatus": true` (a 2xx answer is `success`). Wire `"sourcePort": "success"` and `"failure"`.
   </Step>
 
   <Step title="Filter, validate, fan out">
@@ -107,7 +107,7 @@ An edge with no `sourcePort` receives every port except `error`. A message on a 
 curl -s -H 'Accept: application/json' localhost:9858/api/sessions/router/executions/$EXEC/results
 ```
 
-The `RESULT` event comes from node `bugs`. Start again with `"kind":"idea"` and it comes from `other`. To check the wiring before running, validate the workflow: the answer lists each node's output ports ([Validate and roll back](/guides/build/validate-and-roll-back)).
+`$EXEC` is the `executionId` the start call returned. The `RESULT` event comes from node `bugs`. Start again with `"kind":"idea"` and it comes from `other`. To check the wiring before running, validate the workflow: the answer lists each node's output ports ([Validate and roll back](/guides/build/validate-and-roll-back)).
 
 ## Variations
 

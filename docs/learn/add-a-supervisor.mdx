@@ -100,6 +100,7 @@ A supervisor has two layers. The **shell** is what Yukta enforces: what the supe
       "id": "no-kill",
       "type": "rules",
       "settings": {
+        "operatorAccess": ["StartWorkflowCommand", "StopWorkflowCommand"],
         "rules": [
           {
             "id": "no-kill-nightly",
@@ -114,7 +115,9 @@ A supervisor has two layers. The **shell** is what Yukta enforces: what the supe
     }
     ```
 
-    The rule reads: refuse a `StopWorkflow` command when its `mode` is `KILL`, and tell the caller why. Save it:
+    The rule reads: refuse a `StopWorkflow` command when its `mode` is `KILL`, and tell the caller why.
+
+    `operatorAccess` matters as much as the rule. Once a supervisor owns a workflow, people can no longer steer it directly: a command from a person goes through the supervisor only if it is listed here, and is otherwise refused with `409 CONTROLLED_BY_SUPERVISOR`. We let people start and stop runs, and the rule then reviews each stop. Save it:
 
     ```bash
     curl -X PUT http://localhost:9858/api/supervisors/no-kill \
@@ -147,13 +150,13 @@ A supervisor has two layers. The **shell** is what Yukta enforces: what the supe
     curl -i -X POST "http://localhost:9858/api/executions/$EXEC/stop?mode=KILL"
     ```
 
-    You should see the refusal, with your reason in the message, and the supervisor's name in `Yukta-Via` (the body is shortened):
+    You should see the refusal, with your reason in the message after the id of the assignment that applied, and the supervisor's name in `Yukta-Via` (the body is shortened):
 
     ```text
     HTTP/1.1 403 Forbidden
     Yukta-Via: no-kill
     ...
-    {"status":403,"message":"KILL can leave the export half written: use DRAIN or CANCEL", ...}
+    {"status":403,"message":"asg-7849eaa72349e8ce: KILL can leave the export half written: use DRAIN or CANCEL","errors":[{"field":"code","message":"CONTROL_REJECTED"}], ...}
     ```
 
     The run keeps going. Now stop it the way the reason suggests:
@@ -168,7 +171,7 @@ A supervisor has two layers. The **shell** is what Yukta enforces: what the supe
 
     The same rule holds for every client. A script, the web UI, `yukta-cli` and an assistant over MCP all send the same command through the same review, and each is refused alike.
 
-    > **Stuck?** If the `KILL` still succeeds, the assignment is missing: `Yukta-Via: default` in the response means nobody owns the workflow. Repeat step 4 and check that the session id in `session:nightly` is spelled exactly like the session.
+    > **Stuck?** If starting the run is refused with `409 CONTROLLED_BY_SUPERVISOR`, the supervisor was saved without `operatorAccess`: add it as in step 3 and save again. If the `KILL` still succeeds, the assignment is missing: `Yukta-Via: default` in the response means nobody owns the workflow. Repeat step 4 and check that the session id in `session:nightly` is spelled exactly like the session.
   </Step>
 </Steps>
 

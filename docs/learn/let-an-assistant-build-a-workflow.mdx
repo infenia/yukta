@@ -90,15 +90,15 @@ We will not write a workflow ourselves this time. We connect an assistant to Yuk
     install it, then start the workflow and tell me the verdict.
     ```
 
-    You should see the assistant call `whoami`, then ask Yukta how a session is written (`get_session_creation_instructions`) and which plugins exist (`list_plugins`). Then it shows you the workflow JSON. On a local server with no key, `whoami` reports:
+    You should see the assistant call `whoami`, then ask Yukta how a session is written (`get_session_creation_instructions`) and which plugins exist (`list_plugins`). Then it shows you the workflow JSON. On a local server with no key, `whoami` reports (shortened):
 
     ```json
-    {"authenticated":false,"role":"ADMIN","authEnabled":false}
+    {"authenticated":false,"role":"ADMIN","authEnabled":false,"permissions":{"editSessions":true,"startRuns":true}}
     ```
 
     Read the JSON it shows. The things to check are the node types, that `coverage >= 80` is the condition, and that no key or password appears in it. Then answer yes.
 
-    > **Stuck?** If the call to `create_session` fails with `Record components not available for record class ...SessionConfigData`, your server is a native build with a known gap in this tool. Ask the assistant to save the JSON to `release-checks.json`, apply it yourself with `yukta-cli session apply release-checks.json`, and carry on from the next step. Starting and reading runs over MCP is not affected.
+    > **Stuck?** If `create_session` is refused with `required property ... not found` or `Workflow description is mandatory`, the assistant left a field out. Yukta names the field, and the assistant can add it and try again. If you prefer, ask it to save the JSON to `release-checks.json` and apply it yourself with `yukta-cli session apply release-checks.json`.
   </Step>
 
   <Step title="Watch it run and read the verdict">
@@ -135,7 +135,7 @@ We will not write a workflow ourselves this time. We connect an assistant to Yuk
     Lower the coverage bar to 70 and run it again.
     ```
 
-    Creating a session with an id that already exists **replaces** it. The skill tells the assistant to stop and ask you before it does that, naming what will happen. You should see a question such as "this replaces the session release-checks, shall I go ahead?". Say yes. The new run reports `pass`, because 72 is at least 70.
+    Sending a session whose id already exists **replaces** it, and deletes the workflows the new version leaves out. Yukta refuses that unless the call says `overwrite: true`, and the skill tells the assistant to ask you before it sends one. You should see a question such as "this replaces the session release-checks, shall I go ahead?". Say yes. The new run reports `pass`, because 72 is at least 70.
 
     The same rule covers deleting a session or workflow, force-stopping runs, rolling back a version, changing the scheduler limits, and answering an approval. Those are your decisions, and we meet the last one in [Ask for approval](/learn/ask-for-approval).
   </Step>

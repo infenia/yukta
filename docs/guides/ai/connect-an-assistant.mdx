@@ -40,7 +40,7 @@ yukta-cli agents uninstall --all      # remove exactly what install added
 | OpenCode (`opencode`) | `~/.config/opencode/opencode.json` | `~/.config/opencode/skills` |
 | Any agent that reads `~/.agents/skills` (`generic`) | not applicable | `~/.agents/skills` |
 
-It talks to the server at `--url` (default `http://localhost:9858`). For a server with API keys, add `--token-file <file>`, or `--token-env VAR` so that agents which support it read the key from an environment variable instead of a file. Without either, a key is written into the agent's configuration file, which then is private to you (mode `0600`).
+It talks to the server at `--url` (default `http://127.0.0.1:9858`). For a server with API keys, add `--token-file <file>`, or `--token-env VAR` so that agents which support it read the key from an environment variable instead of a file. Without either, a key is written into the agent's configuration file, which then is private to you (mode `0600`).
 
 What it never does: it changes only a `yukta` entry in each agent's configuration and the skill folders `yukta-workflows` and `yukta-supervisor`; it keeps the first original of each file as `<file>.yukta-bak`; and it leaves a file it cannot parse as plain JSON (one with comments, say) alone and prints the entry to add by hand. Everything it did is recorded in `agents.json` in your user config folder, which `agents uninstall` reads. After upgrading `yukta-cli`, `yukta-cli agents install --refresh` updates the skills.
 
@@ -150,13 +150,13 @@ The steps below do the same by hand, for an agent that is not in the list or a s
 
 ## Verify it worked
 
-`claude mcp list` (or `codex mcp list`) shows `yukta` as connected, and the assistant's first call returns something like:
+`claude mcp list` (or `codex mcp list`) shows `yukta` as connected, and the assistant's first call returns something like this (shortened). A key limited to sessions gets `false` for the server-wide permissions: editing and deleting sessions, changing limits and sending raw node commands (`sendCommands`):
 
 ```json
 { "authenticated": true, "keyName": "assistant", "role": "OPERATOR", "sessions": ["team-a", "team-b"],
   "authEnabled": true,
   "permissions": { "startRuns": true, "controlRuns": true, "editSessions": false,
-                   "deleteSessions": false, "changeLimits": false, "sendCommands": true } }
+                   "deleteSessions": false, "changeLimits": false, "sendCommands": false } }
 ```
 
 `list_sessions` then answers with your sessions. A tool the role does not allow is refused with HTTP `403` (a body above 1 MB with `413`). When keys are configured, a missing or wrong key is refused with `401`.

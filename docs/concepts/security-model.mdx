@@ -41,7 +41,7 @@ The reasoning behind the highest line: a workflow can run commands, scripts and 
 
 A key can additionally be **limited to some sessions**, so it reaches only those, and a key can be marked as held by an AI agent. A non-admin key must name its sessions; a misspelt field cannot silently widen it. Keys may be stored as hashes, may expire, and can be rotated without downtime by having two valid at once. Revoking one still takes a configuration change.
 
-Every control command (pause, stop, answer, restart and others) is audited with who sent it, as `key:<name>`, a supervisor's id, or a one-time token. Ordinary reads and starts are not audited by key.
+Every control command (pause, stop, answer, restart and others) is audited with who sent it, as `key:<name>`, a supervisor's assignment id (`asg-...`), or `token:<tier>` for a one-time token. Ordinary reads and starts are not audited by key.
 
 ## Who may answer a question
 
@@ -61,8 +61,8 @@ See [How supervisors work](/concepts/supervisors).
 
 Roles say who may define and run workflows. Other controls bound what a workflow can *do*.
 
-- **Process execution** is off until you allow-list executables. The list names a program, not what the program does with its arguments, so it is **not a sandbox**: allowing an interpreter or a shell allows any code. Allow only programs you wrote.
-- **Outbound calls** go through an egress policy and host allow-lists; private and loopback addresses are refused unless listed, and redirects are not followed.
+- **Process execution** is off until you turn the plugin on and allow-list executables. The list names a program, not what the program does with its arguments, so it is **not a sandbox**: allowing an interpreter or a shell allows any code. Allow only programs you wrote.
+- **Outbound calls** go through an egress policy and host allow-lists. Out of the box any host may be called except link-local and cloud metadata addresses (such as `169.254.169.254`); narrow it with `yukta.egress.allowed-hosts`. An `http` supervisor's push URL is stricter: private and loopback addresses are refused there too unless the list names the host. Redirects are not followed.
 - **Secrets** are referenced, not embedded: a workflow names a secret, which is read from the environment, and secret-looking values are masked in reads and logs.
 - **AI steps** have a tool allow-list, budgets, and prompt and answer filters. See [AI and deterministic work](/concepts/ai-and-deterministic-work).
 

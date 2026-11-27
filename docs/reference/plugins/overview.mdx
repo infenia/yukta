@@ -96,7 +96,7 @@ Each `configSchema` entry has `name`, `type` (`STRING`, `NUMBER`, `BOOLEAN`, `EN
 
 ## Tiers and enabling plugins
 
-Each plugin has a tier (`CORE`, `EXTENDED`, `SPECIFIC`) and a `restricted` flag for plugins that reach outside the engine (processes, files, network, databases). Core and unrestricted extended plugins are always on. Specific and restricted ones, such as `PROCESS_EXECUTOR`, `HTTP_REQUEST`, `FILE_READ`, `FILE_WRITE`, `SQL_QUERY`, `LLM_CALL`, `MCP_TOOL_CALL` and the decision types, are off until you name them:
+Each plugin has a tier (`CORE`, `EXTENDED`, `SPECIFIC`) and a `restricted` flag for plugins that reach outside the engine (processes, files, network, databases). Core and unrestricted extended plugins are always on. Specific and restricted ones are off until you name them. These are: `PROCESS_EXECUTOR`, `HTTP_REQUEST`, `NOTIFY_TERMINAL`, `FILE_READ`, `FILE_WRITE`, `SQL_QUERY`, `LLM_CALL`, `MCP_LIST_TOOLS`, `MCP_TOOL_CALL`, `AGENT_SESSION`, `ASK`, `DEDUPE` and the decision types `CLASSIFY`, `GATE`, `SCORE` and `ANOMALY`:
 
 ```yaml
 yukta:

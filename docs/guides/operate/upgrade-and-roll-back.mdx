@@ -32,7 +32,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     Open [Releases](/reference/releases) and the release notes of every release between yours and the target. While the major version is `0`, a minor release may break things. Ask the install script whether you are behind:
 
     ```bash
-    install.sh --check
+    curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.5/install.sh | sh -s -- --check
     ```
 
     It prints the version it found and the newest one, and exits with status `1` when you are behind. It changes nothing.
@@ -42,7 +42,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 
     - **Definitions in files.** If you load a folder with `yukta.bootstrap.dir`, nothing more to do. See [Persist sessions](/guides/operate/persist-sessions).
     - **Definitions only on the server.** Download each session as JSON (**Export JSON** on its page in the [web UI](/guides/operate/use-the-web-ui)) or print it with `yukta-cli session config <session-id> -o json`, and keep the files.
-    - **A Plus build with files or PostgreSQL.** Back up the data directories, or the whole database, before you start. Migrations run forward only (there are no undo scripts), so the database backup is also your way back.
+    - **A Plus build with PostgreSQL.** Back up the whole database before you start. Migrations run forward only (there are no undo scripts), so the database backup is also your way back.
 
     An export holds the current definitions, not the saved version history.
   </Step>
@@ -113,9 +113,8 @@ yukta-cli session list
 Reinstall the version you ran before, and restore what the new version could have changed.
 
 - **Docker:** run the old tag.
-- **Install script:** run it with `--version <old>`, or move `yukta.prev` and `yukta-cli.prev` back over the new programs.
+- **Install script:** run it with `sh -s -- --version <old>`, or move `yukta.prev` and `yukta-cli.prev` back over the new programs.
 - **Package:** install the old `.deb` or `.rpm`. Your downgrade flags depend on your package manager.
-- **Files:** state written by a newer version may not load in an older one. Restore the data directories from step 2.
 - **PostgreSQL:** the new version may have applied migrations that the old one does not know. Restore the database from the backup you made in step 2 before you start the old release.
 
 Roll back the workers to the old release too.

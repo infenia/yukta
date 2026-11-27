@@ -34,7 +34,8 @@ The schema is in alpha and may change.
       "nodes": [
         { "nodeId": "ticket", "type": "API_TRIGGER", "config": {} },
         { "nodeId": "classify", "type": "LLM_CALL", "group": "analysis",
-          "config": { "engine": { "onError": "ROUTE" } } },
+          "config": { "provider": "ollama", "model": "llama3.2", "prompt": "Classify: ${payload.report}",
+                      "engine": { "onError": "ROUTE" } } },
         { "nodeId": "done", "type": "CONSOLE_TERMINAL", "config": {} },
         { "nodeId": "dead", "type": "CONSOLE_TERMINAL", "config": {} }
       ],
@@ -57,22 +58,26 @@ The schema is in alpha and may change.
 
 ### `name`
 - **Type:** `string`
-- **Required:** yes
-- **Description:** Human-readable name; not blank, at most 256 characters.
+- **Default:** the `sessionId`
+- **Required:** no over REST; yes for the MCP `create_session` tool
+- **Description:** Human-readable name; at most 256 characters.
 
 ### `description`
 - **Type:** `string`
-- **Required:** yes
-- **Description:** Human-readable description; not blank, at most 256 characters.
+- **Default:** the `name`
+- **Required:** no over REST; yes for the MCP `create_session` tool
+- **Description:** Human-readable description; at most 256 characters.
 
 ### `initiator`
 - **Type:** `string`
-- **Required:** yes
-- **Description:** Who created the session; not blank.
+- **Default:** `anonymous`
+- **Required:** no over REST; yes for the MCP `create_session` tool
+- **Description:** Who created the session.
 
 ### `projectPath`
 - **Type:** `string`
-- **Required:** checked by the `@ProjectPath` constraint
+- **Default:** `.`
+- **Required:** no over REST; yes for the MCP `create_session` tool
 - **Description:** Working directory of the session; at most 1024 characters.
 
 ### `tags`
@@ -101,8 +106,9 @@ The schema is in alpha and may change.
 
 ### `description`
 - **Type:** `string`
-- **Required:** yes
-- **Description:** Not blank, at most 256 characters.
+- **Default:** the `workflowId`
+- **Required:** no over REST; yes for the MCP `create_session` tool
+- **Description:** At most 256 characters.
 
 ### `nodes`
 - **Type:** `array` of [node](#node)

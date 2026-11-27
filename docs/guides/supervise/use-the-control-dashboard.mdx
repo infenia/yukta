@@ -53,7 +53,7 @@ import { UiShot } from "/snippets/ui-shot.jsx";
   </Step>
 
   <Step title="See who steered what">
-    The **Audit** tab (`/control?tab=audit`) lists every control command with who sent it (`key:<name>`, a supervisor id or the UI user) and whether it was applied or rejected. The **Activity** tab is the live event feed. The same data over REST is `GET /api/control/audit`.
+    The **Audit** tab (`/control?tab=audit`) lists every control command with who sent it (`key:<name>` for a person's or a script's key, which is also what the UI sends, or a supervisor's assignment id; `api` on a server without keys) and whether it was applied or rejected. The **Activity** tab is the live event feed. The same data over REST is `GET /api/control/audit`.
   </Step>
 
   <Step title="Check who owns what">
@@ -71,7 +71,7 @@ import { UiShot } from "/snippets/ui-shot.jsx";
 
 - Start a few runs: the command strip's running count moves, **Live runs** lists them and the heat strip fills the current minute.
 - Set the concurrent limit to 1 on the Capacity knob and start two runs: the second waits, and the waiting count in the strip shows it. `GET /api/scheduler/limits` returns the same numbers: `maxConcurrent`, `maxPerWorkflow`, `running`, `queued`.
-- Pause a run from **Live runs**, open **Audit**, and the pause is there with your key name or `UI user`.
+- Pause a run from **Live runs**, open **Audit**, and the pause is there with your key name (`key:<name>`).
 - Copy the address bar to a colleague: they see the same scope and range.
 
 ## Variations
