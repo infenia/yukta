@@ -1037,9 +1037,9 @@ img.yk-diagram {
   }
 }
 
-/* Home page cards: depth instead of a flat panel. A soft blue light from the top corner, a lit top
+/* Cards, on every page: depth instead of a flat panel. A soft blue light from the top corner, a lit top
    edge, a deeper shadow, a gradient icon tile, and a lift with a blue rim on hover. */
-.yk-landing .card {
+.card {
   background:
     radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--yk-blue) 9%, transparent), transparent 60%),
     linear-gradient(180deg, color-mix(in srgb, var(--yk-card) 96%, var(--yk-blue)) 0%, var(--yk-card) 45%);
@@ -1050,13 +1050,13 @@ img.yk-diagram {
 }
 
 /* Dark: the top of the card catches a little light. */
-.dark .yk-landing .card {
+.dark .card {
   background:
     radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--yk-blue) 9%, transparent), transparent 60%),
     linear-gradient(180deg, color-mix(in srgb, var(--yk-card) 92%, var(--yk-fg)) 0%, var(--yk-card) 45%);
 }
 
-.yk-landing .card div[data-component-part="card-icon"][data-component-part] {
+.card div[data-component-part="card-icon"][data-component-part] {
   width: 2.5rem;
   height: 2.5rem;
   background: linear-gradient(135deg, color-mix(in srgb, var(--yk-blue) 32%, var(--yk-card)), color-mix(in srgb, var(--yk-blue) 12%, var(--yk-card)));
@@ -1065,25 +1065,25 @@ img.yk-diagram {
     0 6px 16px -8px color-mix(in srgb, var(--yk-blue) 70%, transparent);
 }
 
-.yk-landing .card :is(h2, h3)[data-component-part="card-title"] {
+.card :is(h2, h3)[data-component-part="card-title"] {
   font-size: 1.0625rem;
   letter-spacing: -0.01em;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .yk-landing .card {
+  .card {
     transition:
       transform 220ms var(--yk-ease),
       box-shadow 220ms var(--yk-ease),
       border-color 220ms var(--yk-ease);
   }
 
-  .yk-landing .card:hover {
+  .card:hover {
     transform: translateY(-3px);
   }
 }
 
-.yk-landing .card:hover {
+.card:hover {
   border-color: color-mix(in srgb, var(--yk-blue) 50%, var(--yk-border));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--yk-fg) 9%, transparent),
@@ -2340,4 +2340,118 @@ img.yk-diagram {
     padding: 0.25rem 0.5rem 1rem;
   }
 
+}
+
+/* ==========================================================================
+ * Docs pages: the home page's finish, kept around the text and never on it. Body text, its size,
+ * colour and spacing are unchanged; these touch the page header, headings' margin, steps, the
+ * "You'll learn" box, callouts and code blocks.
+ * ======================================================================== */
+
+/* The eyebrow above the title as a node chip, like the home page's section heads. */
+#header .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  height: auto;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--yk-border);
+  border-left: 3px solid var(--yk-blue);
+  border-radius: 0.6rem;
+  background: var(--yk-card);
+  box-shadow: var(--yk-shadow-sm);
+  font: 600 0.7rem/1 "JetBrains Mono", ui-monospace, monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* The home hero's grid behind the page header, fading out before the body begins. */
+#header {
+  isolation: isolate;
+}
+
+#header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -4rem -3rem -2.5rem;
+  pointer-events: none;
+  background:
+    linear-gradient(color-mix(in srgb, var(--yk-fg) 5%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem,
+    linear-gradient(90deg, color-mix(in srgb, var(--yk-fg) 5%, transparent) 1px, transparent 1px) 0 0 / 2.5rem 2.5rem;
+  -webkit-mask-image: radial-gradient(70% 90% at 20% 30%, #000, transparent 75%);
+  mask-image: radial-gradient(70% 90% at 20% 30%, #000, transparent 75%);
+}
+
+/* Narrow screens: no bleed past the edges, which would scroll the page sideways. */
+@media (max-width: 1023px) {
+  #header::before {
+    inset: -4rem 0 -2.5rem;
+  }
+}
+
+/* Section headings as ports on a wire, in the left margin where there is room. Hidden on hover, where
+   the heading's own link icon appears. */
+@media (min-width: 1280px) {
+  html:not([data-current-path="/"]) #content > h2 {
+    position: relative;
+  }
+
+  html:not([data-current-path="/"]) #content > h2::before {
+    content: "";
+    position: absolute;
+    left: -1.75rem;
+    top: 0.5em;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--yk-bg);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--yk-blue) 45%, transparent);
+    transition: opacity 150ms var(--yk-ease), box-shadow 300ms var(--yk-ease), background 300ms var(--yk-ease);
+  }
+
+  html:not([data-current-path="/"]) #content > h2:hover::before {
+    opacity: 0;
+  }
+
+  html:not([data-current-path="/"]) #content > h2:target::before {
+    background: var(--yk-blue);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--yk-blue) 20%, transparent);
+  }
+}
+
+/* Steps: number tiles like node icons, joined by a wire that fades as it goes. */
+[data-component-part="step-number"] > div {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--yk-blue) 30%, var(--yk-card)), color-mix(in srgb, var(--yk-blue) 10%, var(--yk-card)));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--yk-blue) 35%, transparent),
+    0 0 0 4px var(--yk-bg),
+    0 6px 14px -6px color-mix(in srgb, var(--yk-blue) 60%, transparent);
+}
+
+[data-component-part="step-line"][data-component-part] {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--yk-blue) 45%, transparent), var(--yk-border));
+}
+
+/* "You'll learn" box (reader-state.jsx), callouts and code blocks: a lit top edge and soft depth. */
+.yk-rs.yk-rs {
+  border-color: color-mix(in srgb, var(--yk-border) 80%, var(--yk-fg) 8%);
+  background:
+    radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, var(--yk-blue) 8%, transparent), transparent 60%),
+    var(--yk-card);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--yk-fg) 7%, transparent),
+    var(--yk-shadow-sm);
+}
+
+[data-callout-type] {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--yk-callout) 9%, var(--yk-bg)), color-mix(in srgb, var(--yk-callout) 5%, var(--yk-bg)));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--yk-fg) 5%, transparent);
+}
+
+.code-block,
+.code-group {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--yk-fg) 6%, transparent),
+    var(--yk-shadow-md);
 }
