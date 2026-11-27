@@ -33,6 +33,11 @@
   --yk-slate: #6a7a9b;
   --yk-orange: #e85d0c;
   --yk-blue-strong: #245be0; /* brand blue one step darker: white text on it passes AA */
+  /* Blue used as a text colour: the brand blue on light (4.6:1 on white), the soft blue on dark, where
+     the brand blue is only 4:1. Fills and lines keep --yk-blue. */
+  --yk-blue-text: var(--yk-blue);
+  /* Orange as a text colour: the brand orange is 3.4:1 on white, so light mode uses a darker one (5:1). */
+  --yk-orange-text: #b84a08;
 
   /* Theme roles. */
   --yk-bg: #fbfcfe;
@@ -68,6 +73,8 @@
   --yk-primary: #6fa2ff;
   --yk-accent: #1e2d4c;
   --yk-accent-fg: #a9c6ff;
+  --yk-blue-text: var(--yk-blue-soft);
+  --yk-orange-text: var(--yk-orange);
   --yk-orange: #fc8c45;
   --yk-success: #4bcb71;
   --yk-danger: #ff6467;
@@ -417,7 +424,7 @@ div[data-component-part="card-icon"] > svg {
 [data-component-part="tab-button"][aria-selected="true"],
 [role="tab"][aria-selected="true"] {
   color: var(--yk-fg);
-  border-color: var(--yk-blue);
+  border-color: var(--yk-blue-text);
 }
 
 /* ==========================================================================
@@ -650,7 +657,7 @@ img.yk-diagram {
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
 }
 
 /* Yukta's column: tinted, framed, with the frame closed at the top and the bottom. */
@@ -665,7 +672,7 @@ img.yk-diagram {
 }
 
 .ykc thead th:nth-child(2) strong {
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
 }
 
 .ykc-group th {
@@ -708,7 +715,7 @@ img.yk-diagram {
 }
 
 .ykc-no {
-  color: color-mix(in srgb, var(--yk-muted) 55%, transparent);
+  color: color-mix(in srgb, var(--yk-muted) 80%, transparent);
 }
 
 .ykc td.is-yes {
@@ -1195,7 +1202,7 @@ img.yk-diagram {
   font: 600 0.75rem/1 "JetBrains Mono", ui-monospace, monospace;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
 }
 
 .yk-kicker::before {
@@ -1206,8 +1213,9 @@ img.yk-diagram {
   opacity: 0.6;
 }
 
-.yk-landing .yk-sec h2,
-.yk-landing .yk-final h2 {
+/* Section headings only, not the card titles inside sections (Mintlify renders those as h2 too). */
+.yk-landing .yk-sec h2:not([data-component-part]),
+.yk-landing .yk-final h2:not([data-component-part]) {
   margin: 0.9rem 0 0;
   font-size: clamp(1.75rem, 2.6vw, 2.5rem);
   font-weight: 600;
@@ -1312,7 +1320,7 @@ img.yk-diagram {
 
 .yk-level-n {
   font: 600 0.75rem/1 "JetBrains Mono", ui-monospace, monospace;
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
 }
 
 .yk-level-meter {
@@ -1462,13 +1470,13 @@ img.yk-diagram {
   position: absolute;
   left: 0;
   font-weight: 700;
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
 }
 
 .yk-plan-cta {
   margin-top: auto;
   font-weight: 600;
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
   text-decoration: none;
 }
 
@@ -1778,7 +1786,7 @@ img.yk-diagram {
 .ykn-name {
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
 }
 
 /* The node type is not shown in the head: read with the name it ran on as one phrase. The run log
@@ -1819,7 +1827,7 @@ img.yk-diagram {
 }
 
 [data-state="running"] .ykn-state {
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
 }
 
 [data-state="running"] .ykn-state::before {
@@ -1852,7 +1860,7 @@ img.yk-diagram {
 
 [data-state="running"] .ykn-id::before {
   background: color-mix(in srgb, var(--yk-blue) 14%, transparent);
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
 }
 
 [data-state="succeeded"] .ykn-id::before {
@@ -1958,7 +1966,7 @@ img.yk-diagram {
 }
 
 .ykm-node.edge-on::after {
-  border-top-color: var(--yk-blue);
+  border-top-color: var(--yk-blue-text);
 }
 
 .ykm-type {
@@ -1978,11 +1986,13 @@ img.yk-diagram {
   font: 600 0.65rem/1 "JetBrains Mono", ui-monospace, monospace;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--ykm-c, var(--yk-muted));
+  /* --ykm-t: the state's colour as text, where the line colour (--ykm-c) is too light to read. */
+  color: var(--ykm-t, var(--ykm-c, var(--yk-muted)));
 }
 
 .ykm-node.is-running {
   --ykm-c: var(--yk-blue);
+  --ykm-t: var(--yk-blue-text);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--yk-blue) 20%, transparent);
 }
 
@@ -1992,6 +2002,7 @@ img.yk-diagram {
 
 .ykm-node.is-wait {
   --ykm-c: var(--yk-orange);
+  --ykm-t: var(--yk-orange-text);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--yk-orange) 22%, transparent);
 }
 
@@ -2028,7 +2039,7 @@ img.yk-diagram {
   border-radius: 999px;
   background: color-mix(in srgb, var(--yk-orange) 16%, var(--yk-card));
   font: 600 0.7rem/1.2 "JetBrains Mono", ui-monospace, monospace;
-  color: var(--yk-orange);
+  color: var(--yk-orange-text);
   opacity: 0;
   transition: opacity 300ms;
 }
@@ -2099,14 +2110,14 @@ img.yk-diagram {
 
 .ykm-hint {
   font-size: 0.85rem;
-  color: var(--yk-orange);
+  color: var(--yk-orange-text);
 }
 
 .ykm-more {
   margin-left: auto;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
   text-decoration: none;
 }
 
@@ -2145,7 +2156,7 @@ img.yk-diagram {
 
 .ykm-log .k-warn span,
 .ykm-log .k-wait span {
-  color: var(--yk-orange);
+  color: var(--yk-orange-text);
 }
 
 @media (max-width: 760px) {
@@ -2165,7 +2176,7 @@ img.yk-diagram {
   }
 
   .ykm-node.edge-on::after {
-    border-left-color: var(--yk-blue);
+    border-left-color: var(--yk-blue-text);
   }
 
   .ykm-arc {
@@ -2224,7 +2235,7 @@ img.yk-diagram {
 }
 
 .yk-runlog-status {
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
 }
 
 .yk-runlog.done .yk-runlog-status {
@@ -2273,11 +2284,11 @@ img.yk-diagram {
 }
 
 .yk-runlog li.run span:last-child {
-  color: var(--yk-blue);
+  color: var(--yk-blue-text);
 }
 
 .yk-runlog li.note span:nth-child(2) {
-  color: var(--yk-orange);
+  color: var(--yk-orange-text);
 }
 
 @media (max-width: 1179px) {
