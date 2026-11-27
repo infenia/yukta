@@ -794,15 +794,16 @@ img.yk-diagram {
 
 @media (min-width: 1180px) {
   .yk-landing {
-    padding: 2rem 2.5rem 5rem;
+    padding: 2rem 3rem 5rem;
   }
 
   .yk-top {
     display: grid;
-    grid-template-columns: minmax(20rem, 2fr) minmax(0, 3fr);
+    grid-template-columns: minmax(20rem, 5fr) minmax(0, 8fr);
     gap: clamp(2rem, 4vw, 4rem);
     align-items: center;
-    max-width: 88rem;
+    max-width: var(--yk-page);
+    min-height: calc(100svh - 11rem - var(--yk-header, 3rem) + 3rem);
     margin: 0 auto;
   }
 
@@ -835,8 +836,87 @@ img.yk-diagram {
      height, times 16/9 for its width. */
   .yk-top .yk-film-box {
     width: 100%;
-    max-width: calc((100svh - 12.5rem) * 16 / 9);
+    max-width: calc((100svh - 12.5rem - var(--yk-header, 3rem) + 3rem) * 16 / 9);
     min-height: 0;
     margin: 0 auto;
+  }
+}
+
+/* Home page on a laptop or wider: every section shares the hero's width and left edge, so the page
+   reads down one line. Running text keeps a readable measure; cards, tables and the picture cards
+   use the full width. */
+@media (min-width: 1180px) {
+  .yk-landing {
+    --yk-page: 86rem;
+  }
+
+  .yk-landing::before {
+    height: 100svh;
+  }
+
+  .yk-landing .yk-landing-body,
+  .yk-landing .yk-compare,
+  .yk-landing .yk-hero-grid {
+    max-width: var(--yk-page);
+  }
+
+  .yk-landing .yk-landing-body > span {
+    display: block;
+  }
+
+  .yk-landing .yk-landing-body > :not(h2, h3, .columns) {
+    max-width: 46rem;
+  }
+
+  .yk-landing .yk-landing-body > h2 {
+    margin-top: 5rem;
+    font-size: 1.875rem;
+    letter-spacing: -0.02em;
+  }
+
+  .yk-landing .yk-top + .yk-landing-body {
+    margin-top: 1rem;
+  }
+
+  .yk-landing .yk-top + .yk-landing-body > h2:first-child {
+    margin-top: 0;
+  }
+
+  .yk-landing .yk-compare table {
+    width: 100%;
+  }
+
+  .yk-landing .yk-hero-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem;
+  }
+}
+
+/* Home page only, on a laptop or wider: no side panel. Mintlify marks the page with
+   html[data-current-path], which follows client-side navigation, so the panel is back on every other
+   page. The theme's narrow-screen header (logo, search, assistant, links, theme switch and tabs)
+   stands in for the panel's logo and search. These rules target Mintlify's own markup: if an update
+   renames it, the page falls back to the panel and the desktop tab bar, as on every other page. */
+@media (min-width: 1024px) {
+  html[data-current-path="/"] {
+    --sidebar-width: 0px;
+    --yk-header: 7rem;
+  }
+
+  html[data-current-path="/"] #sidebar,
+  html[data-current-path="/"] #navbar-transition-maple {
+    display: none !important;
+  }
+
+  html[data-current-path="/"] div:has(> header#navbar.fixed) {
+    display: block !important;
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 40;
+  }
+
+  /* #content-area keeps 3rem for the desktop tab bar, which is hidden here. */
+  html[data-current-path="/"] #content-container {
+    padding-top: calc(var(--yk-header) - 3rem);
   }
 }
