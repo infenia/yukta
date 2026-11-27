@@ -1,0 +1,76 @@
+{
+  "sessionId": "example-01-hello",
+  "name": "Hello world",
+  "description": "Take a text from the caller (or a default), turn it into a digit, branch on even or odd and print a greeting.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": { "example": "01-hello-world" },
+  "workflows": {
+    "hello": {
+      "workflowId": "hello",
+      "description": "Text in, default if empty, text to digit, even or odd branch, greeting out",
+      "nodes": [
+        { "nodeId": "input", "type": "API_TRIGGER", "color": "sky", "config": {} },
+        {
+          "nodeId": "default-text",
+          "type": "MAPPER",
+          "color": "sky",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "text": "payload['text'] != null && payload['text'] != '' ? payload['text'] : 'Yukta'"
+            }
+          }
+        },
+        {
+          "nodeId": "to-digit",
+          "type": "MAPPER",
+          "color": "sky",
+          "config": {
+            "mode": "PROJECTION",
+            "dropOriginal": false,
+            "mapping": { "digit": "payload.text.length() % 10" }
+          }
+        },
+        {
+          "nodeId": "even-or-odd",
+          "type": "BRANCH",
+          "color": "violet",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": { "payload.digit % 2 == 0": "even" },
+            "defaultPort": "odd"
+          }
+        },
+        {
+          "nodeId": "say-even",
+          "type": "MAPPER",
+          "color": "sky",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": { "greeting": "'Hello, ' + payload.text + '! Digit ' + payload.digit + ' is even.'" }
+          }
+        },
+        {
+          "nodeId": "say-odd",
+          "type": "MAPPER",
+          "color": "sky",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": { "greeting": "'Hello, ' + payload.text + '! Digit ' + payload.digit + ' is odd.'" }
+          }
+        },
+        { "nodeId": "print", "type": "CONSOLE_TERMINAL", "color": "stone", "config": {} }
+      ],
+      "edges": [
+        { "source": "input", "target": "default-text" },
+        { "source": "default-text", "target": "to-digit" },
+        { "source": "to-digit", "target": "even-or-odd" },
+        { "source": "even-or-odd", "sourcePort": "even", "target": "say-even" },
+        { "source": "even-or-odd", "sourcePort": "odd", "target": "say-odd" },
+        { "source": "say-even", "target": "print" },
+        { "source": "say-odd", "target": "print" }
+      ]
+    }
+  }
+}

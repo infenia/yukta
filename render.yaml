@@ -1,0 +1,44 @@
+# Render Blueprint: public READ-ONLY Yukta demo.
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repo. Render builds demo/Dockerfile,
+# which only adds session files to the released native image (no compile, so a small plan is enough).
+services:
+  - type: web
+    name: yukta-demo
+    runtime: docker
+    plan: starter            # free sleeps after 15 min idle; starter stays up
+    region: frankfurt        # pick the region nearest your audience
+    dockerfilePath: ./demo/Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health   # the only path that needs no key
+    autoDeploy: false        # deploy a new version on purpose
+    envVars:
+      - key: SERVER_PORT
+        value: "10000"       # Render's default port; keeps the health check simple
+      - key: YUKTA_SERVER_ADDRESS
+        value: 0.0.0.0       # Render's proxy must reach it; the key rules below still apply
+
+      # Keys. The server refuses to start on 0.0.0.0 without one.
+      # Admin: yours alone. Render generates it; read it in the dashboard (Environment).
+      - key: YUKTA_API_KEYS_0_NAME
+        value: admin
+      - key: YUKTA_API_KEYS_0_KEY
+        generateValue: true
+      - key: YUKTA_API_KEYS_0_ROLE
+        value: ADMIN
+      # Viewer: PUBLIC by design. Visitors paste it into the UI. It can only GET (no runs, no edits,
+      # no /api/config, no /actuator). Rotate it by changing this value and redeploying.
+      - key: YUKTA_API_KEYS_1_NAME
+        value: public-viewer
+      - key: YUKTA_API_KEYS_1_KEY
+        sync: false          # set in the dashboard, e.g. "demo-viewer-<random>", at least 32 chars
+      - key: YUKTA_API_KEYS_1_ROLE
+        value: VIEWER
+      - key: YUKTA_API_KEYS_1_SESSIONS_0
+        value: "*"
+
+      # Lock down what a workflow could do even if someone got an operator key.
+      # (An EMPTY egress list means "allow all", so list one harmless host.)
+      - key: YUKTA_EGRESS_ALLOWED_HOSTS
+        value: demo.invalid
+      # yukta.process.allowed-commands is unset, so PROCESS_EXECUTOR runs nothing. Leave it unset.
+      # Do not add LLM, database or cloud credentials to this service.
