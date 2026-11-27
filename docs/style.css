@@ -434,6 +434,34 @@ img.yk-diagram {
   box-shadow: var(--yk-shadow-sm);
 }
 
+/* On a phone a diagram is too small to read in place: tapping it opens it full size (diagram-open.js),
+   and this line says so. */
+@media (max-width: 767px) {
+  img.yk-diagram {
+    cursor: zoom-in;
+  }
+
+  /* Once per diagram: on the image shown for the theme (light and dark may each have a wrapper).
+     Mintlify prefixes the Tailwind classes in pages with mint-. */
+  html:not(.dark) :has(> img.yk-diagram:is(.block, .mint-block))::after,
+  html.dark :has(> img.yk-diagram:is(.hidden, .mint-hidden))::after {
+    content: "Tap the diagram to open it full size ↗";
+    display: block;
+    font-size: 0.8rem;
+    color: var(--yk-muted);
+  }
+
+  /* In a figure (Diagram snippet) the hint follows the caption; after an inline image it tucks up
+     under the image's bottom margin. */
+  figure:has(> img.yk-diagram)::after {
+    margin-top: 0.35rem;
+  }
+
+  :not(figure):has(> img.yk-diagram)::after {
+    margin-top: -0.75rem;
+  }
+}
+
 .yk-eyebrow {
   display: inline-flex;
   align-items: center;
