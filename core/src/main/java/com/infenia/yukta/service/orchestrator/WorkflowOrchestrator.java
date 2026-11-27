@@ -479,7 +479,12 @@ public class WorkflowOrchestrator {
       final Map<String, Object> payload) {
     final String version = DefinitionVersion.of(prepared);
     executionLog.append(
-        ExecutionLogEvent.started(executionId, sessionId, workflowId, version, payload));
+        ExecutionLogEvent.started(
+            executionId,
+            sessionId,
+            workflowId,
+            version,
+            ExecutionResumer.logged(prepared, payload)));
     tracker.setInitiator(executionId, ExecutionLogEvent.initiatorOf(payload));
     executionArchive
         .put(new ArchivedExecution(executionId, sessionId, workflowId, prepared, version, payload))

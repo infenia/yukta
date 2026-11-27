@@ -2,14 +2,14 @@
 title: "Core module reference: architecture and features"
 sidebarTitle: "Core module reference"
 description: "Architecture, feature catalog and reference for the Yukta core module: the execution engine, admission, control plane, observability, durability and security."
-verifiedCommit: "d2bf5744f"
+verifiedCommit: "b24e88d23"
 verifiedDate: "2026-11-27"
 keywords: ["core module", "architecture", "feature catalog"]
 ---
 
 The `core` module is the engine and control plane of Yukta. It takes a workflow definition (a DAG of trigger, processor and terminal nodes), runs it as a live stream of messages, lets people and programs steer it while it runs, and records enough to explain or resume it afterwards.
 
-Last verified against commit `d2bf5744f` on 2026-11-27.
+Last verified against commit `b24e88d23` on 2026-11-27.
 
 <CardGroup cols={2}>
   <Card title="Reactive">
@@ -877,6 +877,7 @@ Continue a run that a restart aborted: finished nodes replay their recorded outp
 - Refused (HTTP 409 `ConflictException`) if the run was not aborted, was already resumed or the version it ran is no longer saved.
 - `yukta.restart.auto-resume=true` resumes each interrupted run after any recovery, one after another.
 - The resumed run records every finished node's output under its own id, so if it is aborted too it can be resumed in turn without repeating them. The payload counts the chain (`yukta.resumes`, stripped from client payloads); auto-resume refuses a run that came from 3 resumes (`TakeoverRecovery.MAX_AUTO_RESUMES`), a resume by hand has no limit.
+- A workflow with `durable: false` (`WorkflowDefinition.durable`, carried to `PreparedWorkflow.durable`) logs its start payload with `yukta.notDurable` (`ExecutionResumer.logged`, stripped from client payloads), and a resume of such a run is refused, whatever the workflow says later. Its checkpoints are still written; `engine.checkpoint` turns them off per node.
 - Resume reads the log and checkpoint files on `boundedElastic`.
 
 **Configure:** `yukta.restart.auto-resume` (false)

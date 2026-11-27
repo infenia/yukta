@@ -90,6 +90,7 @@ class WorkflowPreparatorTest {
           assertThat(pw.topologicalOrder()).hasSize(1);
           assertThat(pw.edges()).isEmpty();
           assertThat(pw.template()).isSameAs(template);
+          assertThat(pw.durable()).isTrue();
         })
         .verifyComplete();
 
@@ -133,6 +134,33 @@ class WorkflowPreparatorTest {
         .verifyComplete();
 
     verify(processor).initialize(placed);
+  }
+
+  @Test
+  void prepareWorkflow_workflowThatIsNotDurable_isPreparedSo() {
+    final Node node = Fixtures.node("n1", "plugin-type", Map.of());
+    final WorkflowDefinition base = Fixtures.workflow("wf1", "desc", List.of(node), List.of());
+    final WorkflowDefinition def =
+        new WorkflowDefinition(
+            base.workflowId(),
+            base.description(),
+            base.nodes(),
+            base.edges(),
+            base.supervisors(),
+            base.groupColors(),
+            null,
+            false);
+    when(registry.get("plugin-type")).thenReturn(plugin);
+    when(validator.validate(def)).thenReturn(Mono.empty());
+    when(plugin.initialize(Map.of())).thenReturn(Mono.empty());
+    when(plugin.prepare(Map.of())).thenReturn(Mono.empty());
+    when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
+        .thenReturn(List.of(new WorkflowNode("n1", "plugin-type", Map.of())));
+    when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
+
+    StepVerifier.create(preparator.prepareWorkflow(def))
+        .assertNext(pw -> assertThat(pw.durable()).isFalse())
+        .verifyComplete();
   }
 
   @Test

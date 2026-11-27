@@ -51,10 +51,18 @@ public class ExecutionResumer {
   public static final String RESUMES_KEY = "yukta.resumes";
 
   /**
+   * The reserved payload key that marks, in the log, a run whose workflow is not durable: such a
+   * run is never resumed, whatever its workflow says by then.
+   */
+  public static final String NOT_DURABLE_KEY = "yukta.notDurable";
+
+  /**
    * How many saved versions a resume looks through for the one a changed workflow ran with; the
    * stores keep 20 per workflow. Each one looked at is prepared, so this bounds the cost.
    */
   private static final int REVISIONS_SEARCHED = 20;
+
+  private static final String EXECUTION_PREFIX = "Execution ";
 
   /** The execution log: start, payload, finished nodes, end. */
   private final ExecutionLogStore executionLog;
@@ -104,7 +112,7 @@ public class ExecutionResumer {
       if (!resuming.add(executionId)) {
         return Mono.error(
             new ConflictException(
-                "Execution " + executionId + " is being resumed or was already resumed"));
+                EXECUTION_PREFIX + executionId + " is being resumed or was already resumed"));
       }
       // A claim is dropped when the resume fails or is cancelled (for example a client that
       // gave up while the workflow was being prepared); the log keeps the real record.
@@ -130,7 +138,10 @@ public class ExecutionResumer {
           if (resumed != null) {
             return Mono.error(
                 new ConflictException(
-                    "Execution " + executionId + " was already resumed as " + resumed.status()));
+                    EXECUTION_PREFIX
+                        + executionId
+                        + " was already resumed as "
+                        + resumed.status()));
           }
           if (first(events, ExecutionLogEvent.Type.RUN_ABORTED) == null) {
             return Mono.error(
@@ -140,11 +151,19 @@ public class ExecutionResumer {
             return Mono.error(
                 new ConflictException("The payload of " + executionId + " was not recorded"));
           }
+          if (Boolean.TRUE.equals(Objects.requireNonNull(started.payload()).get(NOT_DURABLE_KEY))) {
+            return Mono.error(
+                new ConflictException(
+                    EXECUTION_PREFIX
+                        + executionId
+                        + " cannot be resumed: its workflow was not durable (durable: false) when"
+                        + " it started"));
+          }
           final int resumes = resumesOf(Objects.requireNonNull(started.payload()));
           if (resumes >= maxResumes) {
             return Mono.error(
                 new ConflictException(
-                    "Execution "
+                    EXECUTION_PREFIX
                         + executionId
                         + " was resumed "
                         + resumes
@@ -233,7 +252,7 @@ public class ExecutionResumer {
     }
     final String newId = UUID.randomUUID().toString();
     final var payload =
-        new java.util.HashMap<String, Object>(Objects.requireNonNull(started.payload()));
+        new java.util.LinkedHashMap<String, Object>(Objects.requireNonNull(started.payload()));
     payload.put(RESUMES_KEY, resumesOf(payload) + 1);
     return Flux.fromIterable(plan.boundary())
         .concatMap(node ->
@@ -285,6 +304,25 @@ public class ExecutionResumer {
           return Mono.<Void>empty();
         })
         .then(Mono.just(newId));
+  }
+
+  /**
+   * The start payload as the log keeps it: marked when the workflow is not durable, so the run is
+   * never resumed even if the workflow is made durable later.
+   *
+   * @param prepared the workflow the run uses
+   * @param payload the start payload
+   * @return the payload to log
+   */
+  public static Map<String, Object> logged(
+      final PreparedWorkflow prepared, final Map<String, Object> payload) {
+    if (prepared.durable()) {
+      return payload;
+    }
+    final var marked = new java.util.TreeMap<String, Object>();
+    marked.putAll(payload);
+    marked.put(NOT_DURABLE_KEY, true);
+    return marked;
   }
 
   /** How many resumes led to the run that started with this payload. */

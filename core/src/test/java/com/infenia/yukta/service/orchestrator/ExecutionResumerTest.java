@@ -338,6 +338,33 @@ class ExecutionResumerTest {
   }
 
   @Test
+  void runOfWorkflowThatWasNotDurable_isRefused_evenIfWorkflowIsDurableNow() {
+    final PreparedWorkflow notDurable =
+        new PreparedWorkflow(
+            prepared.edges(),
+            prepared.adjacencyList(),
+            prepared.parentsList(),
+            prepared.pluginCache(),
+            prepared.topologicalOrder(),
+            prepared.template(),
+            false);
+    // the current workflow (prepared, durable) has the same graph
+    abortedRun(
+        "old", ExecutionResumer.logged(notDurable, PAYLOAD), DefinitionVersion.of(prepared), "a");
+
+    StepVerifier.create(resumer.resume("old"))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("was not durable"))
+        .verify();
+    verify(orchestrator, never())
+        .rerun(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void durableRun_isLoggedWithItsPayloadAsIs() {
+    assertThat(ExecutionResumer.logged(prepared, PAYLOAD)).isSameAs(PAYLOAD);
+  }
+
+  @Test
   void runWithoutRecordedPayload_isRefused() {
     final ExecutionLogEvent started =
         ExecutionLogEvent.started("old", "s", "w", DefinitionVersion.of(prepared));
