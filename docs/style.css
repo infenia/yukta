@@ -783,3 +783,60 @@ img.yk-diagram {
 :root:not(.dark) .yk-kind-terminal .yk-kind-name {
   color: #475569;
 }
+
+/* Home page: the hero text and the film. Stacked on narrow screens; side by side on a laptop or
+   wider, with the film sized so the whole of it (picture, caption, controls) fits on the first screen. */
+.yk-film-box {
+  max-width: 68rem;
+  min-height: 420px;
+  margin: 2.5rem auto 0;
+}
+
+@media (min-width: 1180px) {
+  .yk-landing {
+    padding: 2rem 2.5rem 5rem;
+  }
+
+  .yk-top {
+    display: grid;
+    grid-template-columns: minmax(20rem, 2fr) minmax(0, 3fr);
+    gap: clamp(2rem, 4vw, 4rem);
+    align-items: center;
+    max-width: 88rem;
+    margin: 0 auto;
+  }
+
+  .yk-top .yk-landing-hero {
+    text-align: left;
+  }
+
+  .yk-top .yk-landing-hero h1 {
+    font-size: clamp(2.25rem, 3.3vw, 3.75rem);
+  }
+
+  .yk-top .yk-landing-hero p {
+    margin: 0;
+    font-size: clamp(1rem, 1.1vw, 1.2rem);
+    line-height: 1.6;
+  }
+
+  .yk-top .yk-cta {
+    justify-content: flex-start;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+  }
+
+  .yk-landing .yk-top .yk-cta a {
+    padding: 0.65rem 1.1rem;
+    font-size: 0.95rem;
+  }
+
+  /* 100svh minus the top nav, the page padding, the caption and the control bar: the picture's
+     height, times 16/9 for its width. */
+  .yk-top .yk-film-box {
+    width: 100%;
+    max-width: calc((100svh - 15rem) * 16 / 9);
+    min-height: 0;
+    margin: 0 auto;
+  }
+}

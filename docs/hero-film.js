@@ -100,7 +100,7 @@
 
   var MONO = "'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace";
   var CSS =
-    ".ykf{--bg:#fbfcfe;--panel:#fff;--ink:#11161f;--mut:#545e6f;--line:#dee1e8;--soft:#f0f4f9;--blue:#2f6bff;--blue2:#6fa2ff;--bluet:#245be0;--slate:#6a7a9b;" +
+    ".ykf{container-type:inline-size;--bg:#fbfcfe;--panel:#fff;--ink:#11161f;--mut:#545e6f;--line:#dee1e8;--soft:#f0f4f9;--blue:#2f6bff;--blue2:#6fa2ff;--bluet:#245be0;--slate:#6a7a9b;" +
     "--orange:#e85d0c;--green:#008235;--red:#e7000b;--head:#f1cfb6;--hair:#3b2a24;--pants:#3a4356;--robot:#fff;--robotl:#c9d2e3;--robotd:#dfe5ef;--desk:#e7ebf2;--shade:rgba(17,22,31,.12);" +
     "position:relative;border-radius:16px;overflow:hidden;background:var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,sans-serif;" +
     "box-shadow:0 2px 4px rgb(17 22 31/.04),0 12px 28px -12px rgb(17 22 31/.16),0 0 0 1px var(--line);user-select:none;-webkit-user-select:none}" +
@@ -130,13 +130,13 @@
     ".ykf .lit rect{fill:var(--blue);stroke:var(--blue)}.ykf .lit text{fill:#fff}.ykf .btn rect{fill:var(--panel);stroke:var(--line);stroke-width:1.5}.ykf .btn text{fill:var(--ink)}.ykf .btn.on rect{stroke:var(--blue);stroke-width:2.5}" +
     ".ykf .go rect{fill:var(--bluet);stroke:none}.ykf .go text{fill:#fff}" +
     ".ykf-cap{position:relative;display:flex;align-items:center;justify-content:center;min-height:96px;padding:14px 7% 16px;text-align:center;pointer-events:none;background:var(--bg);border-top:1px solid var(--line)}" +
-    ".ykf-cap p{margin:0;font-family:'Inter Tight',Inter,ui-sans-serif,system-ui,sans-serif;font-size:clamp(17px,2.35vw,27px);font-weight:600;line-height:1.28;letter-spacing:-.022em;color:var(--ink);text-wrap:balance}" +
+    ".ykf-cap p{margin:0;font-family:'Inter Tight',Inter,ui-sans-serif,system-ui,sans-serif;font-size:clamp(16px,3cqw,27px);font-weight:600;line-height:1.28;letter-spacing:-.022em;color:var(--ink);text-wrap:balance}" +
     ".ykf-cap i{font-style:normal;display:inline-block;animation:ykf-w .55s cubic-bezier(.2,.8,.2,1) both}" +
     "@keyframes ykf-w{from{opacity:0;transform:translateY(10px);filter:blur(6px)}}" +
     ".ykf-cap i.e1,.ykf-cap i.e2{font-weight:750}.ykf-cap i.e1{color:var(--bluet)}.ykf-cap i.e2{color:var(--orange)}" +
     ".ykf-kick{position:absolute;left:28px;top:24px;display:flex;align-items:center;gap:12px;pointer-events:none;opacity:0;transform:translateX(-14px);transition:opacity .5s,transform .6s cubic-bezier(.2,.8,.2,1)}" +
     ".ykf-kick.on{opacity:1;transform:none}.ykf-kick b{display:grid;place-items:center;height:28px;min-width:28px;padding:0 8px;border-radius:9px;background:var(--bluet);color:#fff;font:600 12px/1 " + MONO + "}" +
-    ".ykf-kick span{font-family:'Inter Tight',Inter,sans-serif;font-size:clamp(15px,1.7vw,21px);font-weight:650;letter-spacing:-.02em;color:var(--ink)}" +
+    ".ykf-kick span{font-family:'Inter Tight',Inter,sans-serif;font-size:clamp(14px,2.2cqw,21px);font-weight:650;letter-spacing:-.02em;color:var(--ink)}" +
     ".ykf-kick small{display:block;font:500 10.5px/1 " + MONO + ";letter-spacing:.12em;text-transform:uppercase;color:var(--mut);margin-bottom:5px}" +
     ".ykf-snd{position:absolute;right:18px;top:18px;display:flex;align-items:center;gap:8px;padding:8px 12px 8px 10px;border:0;border-radius:999px;background:color-mix(in srgb,var(--panel) 88%,transparent);" +
     "box-shadow:0 0 0 1px var(--line),0 6px 16px -8px rgb(17 22 31/.3);color:var(--ink);font:600 12px/1 Inter,sans-serif;cursor:pointer;backdrop-filter:blur(8px)}.ykf-snd svg{width:16px;height:16px}.ykf-snd[hidden]{display:none}" +
@@ -144,6 +144,8 @@
     ".ykf-big{position:absolute;inset:0;margin:auto;width:max-content;height:max-content;display:flex;align-items:center;gap:10px;padding:14px 20px 14px 16px;border:0;border-radius:999px;" +
     "background:#245be0;color:#fff;font:600 15px/1 Inter,system-ui,sans-serif;cursor:pointer;box-shadow:0 12px 28px -10px rgba(36,91,224,.6);transition:opacity .25s,transform .2s}" +
     ".ykf-big:hover{transform:scale(1.03)}.ykf-big svg{width:22px;height:22px}.ykf-big[hidden]{display:none}" +
+    // At the end the button moves to a corner, off the end card's title.
+    ".ykf-big.end{inset:auto auto 16px 16px;margin:0;padding:10px 16px 10px 13px}" +
     ".ykf-bar{display:flex;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--line);background:var(--panel)}" +
     ".ykf-bar button{flex:none;display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:10px;background:var(--soft);color:var(--ink);cursor:pointer;box-shadow:inset 0 0 0 1px var(--line)}" +
     ".ykf-bar button:focus-visible,.ykf-big:focus-visible,.ykf-range:focus-visible{outline:2px solid var(--blue);outline-offset:2px}" +
@@ -158,7 +160,10 @@
     ".ykf-chap button.on{color:var(--bluet);background:var(--soft);box-shadow:inset 0 0 0 1px var(--line)}" +
     "@media (max-width:640px){.ykf-cap{min-height:92px;padding:12px 14px;justify-content:flex-start;text-align:left}.ykf-cap p{font-size:17px}" +
     ".ykf-kick{left:12px;top:10px}.ykf-kick b{height:22px;min-width:22px;font-size:10.5px}.ykf-kick small{display:none}.ykf-snd{right:8px;top:8px;padding:6px 9px}" +
-    ".ykf-snd span{display:none}.ykf-time{min-width:0}.ykf-big{padding:11px 16px 11px 13px;font-size:13px}}";
+    ".ykf-snd span{display:none}.ykf-time{min-width:0}.ykf-big{padding:11px 16px 11px 13px;font-size:13px}}" +
+    // A narrow film (beside the hero text on a laptop): a shorter caption, chapters on one scrolling row.
+    "@container (max-width:780px){.ykf-cap{min-height:70px;padding:10px 5% 12px}.ykf-bar{padding:8px 12px}" +
+    ".ykf-chap{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:8px}.ykf-chap button{flex:none;padding:5px 6px}}";
 
   // --------------------------------------------------------------------------- drawing
 
@@ -1157,6 +1162,7 @@
     function setBig() {
       // The big button is for the first play and the replay; mid-film the bar's button is enough.
       big.hidden = playing || (started && T < DUR - 0.01);
+      big.classList.toggle("end", T >= DUR - 0.01);
       big.querySelector("span").textContent = T >= DUR - 0.01 ? "Replay" : started ? "Play" : "Watch with sound · 80 s";
       pp.innerHTML = playing ? PAUSE : T >= DUR - 0.01 ? REPLAY : PLAY;
       pp.setAttribute("aria-label", playing ? "Pause" : T >= DUR - 0.01 ? "Replay" : "Play");

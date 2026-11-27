@@ -2,7 +2,7 @@
 title: "Workflows your AI agents can't skip"
 sidebarTitle: "Introduction"
 description: "Yukta is AI-first, not AI-dependent: run a job as a flowchart of scripts, rules, model calls and coding agents, let an assistant build and steer it, and run it with no AI at all."
-mode: "frame"
+mode: "custom"
 keywords: ["introduction", "AI-first", "AI agents", "Claude Code", "Codex", "Antigravity", "MCP", "supervisors", "approvals", "workflow orchestration", "deterministic"]
 ---
 
@@ -18,10 +18,11 @@ export const HeroCard = ({ light, dark, title, description, href }) => (
 );
 
 <div className="yk-landing">
+  <div className="yk-top">
   <div className="not-prose yk-landing-hero">
     <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Alpha · AI-first, not AI-dependent</span>
     <h1>Workflows your AI agents can't skip.</h1>
-    <p>Write your process down once as a flowchart. Yukta runs every step in order, whether it is a script, a rule, a model call or a whole AI agent. You, your assistant or a supervisor can pause, steer or approve it while it runs, and none of it needs AI to work.</p>
+    <p>Write your process down once as a flowchart. Yukta runs every step in order, and you, your assistant or a supervisor can steer it. None of it needs AI.</p>
     <div className="yk-cta">
       <a className="yk-cta-primary" href="/get-started/install">Install Yukta</a>
       <a href="/learn/playground">Try it in your browser</a>
@@ -29,8 +30,9 @@ export const HeroCard = ({ light, dark, title, description, href }) => (
     </div>
   </div>
 
-  <div className="not-prose" style={{ maxWidth: "68rem", margin: "2.5rem auto 0" }} data-yk-no-reveal>
-    <div id="yk-film" style={{ minHeight: "420px" }}></div>
+  <div className="not-prose yk-film-box" data-yk-no-reveal>
+    <div id="yk-film"></div>
+  </div>
   </div>
 
   <div className="prose prose-gray dark:prose-invert yk-landing-body">
