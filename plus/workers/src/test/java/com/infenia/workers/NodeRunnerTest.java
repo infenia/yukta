@@ -3,9 +3,14 @@
 package com.infenia.workers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import io.micrometer.observation.transport.ReceiverContext;
@@ -16,11 +21,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"unchecked", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({
+  "unchecked",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyStaticImports",
+  "PMD.TooManyMethods"
+})
 class NodeRunnerTest {
 
   private final TriggerPlugin trigger = mock(TriggerPlugin.class);
@@ -98,6 +109,35 @@ class NodeRunnerTest {
 
     assertThat(traced.failed).hasSize(1);
     assertThat(traced.failed.getFirst().getError()).hasMessage("boom");
+  }
+
+  @Test
+  void attempt_runsOnThePluginsPerNodeObject() {
+    final ProcessorPlugin shared = mock(ProcessorPlugin.class);
+    final ProcessorPlugin perNode = mock(ProcessorPlugin.class);
+    when(shared.getType()).thenReturn("STATEFUL");
+    when(shared.initialize(any())).thenReturn(Mono.empty());
+    when(shared.prepare(any())).thenReturn(Mono.empty());
+    when(shared.forNode(Map.of("k", "v"))).thenReturn(perNode);
+    when(perNode.process(any(), any())).thenReturn(Flux.empty());
+    final NodeRunner stateful =
+        new NodeRunner(
+            new PluginRegistry(List.of(shared)),
+            Set.of("STATEFUL"),
+            new ObjectMapper(),
+            traced.registry(),
+            1);
+
+    StepVerifier.create(
+            stateful.run(
+                Flux.just(
+                    NodeFrame.start("e", "n", "STATEFUL", Map.of("k", "v"), Map.of()),
+                    NodeFrame.complete())))
+        .assertNext(frame -> assertThat(frame.kind()).isEqualTo(NodeFrame.Kind.COMPLETE))
+        .verifyComplete();
+
+    verify(perNode).process(any(), eq(Map.of("k", "v")));
+    verify(shared, never()).process(any(), any());
   }
 
   @Test

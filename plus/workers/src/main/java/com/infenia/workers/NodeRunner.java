@@ -131,6 +131,7 @@ public class NodeRunner {
     } else if (problem.isEmpty()) {
       final ProcessorPlugin plugin = (ProcessorPlugin) plugins.get(start.pluginType());
       final Map<String, Object> config = start.config() != null ? start.config() : Map.of();
+      final ProcessorPlugin node = nodeObject(plugin, config);
       final Flux<Message<?>> input =
           all.skip(1)
               .takeWhile(frame -> frame.kind() == NodeFrame.Kind.MESSAGE)
@@ -147,7 +148,7 @@ public class NodeRunner {
           plugin
               .initialize(config)
               .then(Mono.defer(() -> plugin.prepare(config)))
-              .thenMany(Flux.defer(() -> plugin.process(input, config)))
+              .thenMany(Flux.defer(() -> node.process(input, config)))
               .map(message -> NodeFrame.message(mapper.convertValue(message, JSON_OBJECT)))
               .concatWith(Mono.just(NodeFrame.complete()))
               .onErrorResume(error -> {
@@ -179,6 +180,15 @@ public class NodeRunner {
               });
     }
     return result;
+  }
+
+  /**
+   * The object that processes one node. As on the control plane: the shared plugin is prepared, and
+   * the node's own object processes, so per-node state never crosses between concurrent attempts.
+   */
+  private static ProcessorPlugin nodeObject(
+      final ProcessorPlugin plugin, final Map<String, Object> config) {
+    return plugin.forNode(config) instanceof final ProcessorPlugin own ? own : plugin;
   }
 
   /**
