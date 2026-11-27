@@ -61,7 +61,10 @@ final class WireMeter {
     return socket -> channel(socket, received, sent);
   }
 
-  /** Counts what goes into the socket's channels with {@code into}, what comes out with {@code outOf}. */
+  /**
+   * Counts what goes into the socket's channels with {@code into}, what comes out with {@code
+   * outOf}.
+   */
   private static RSocket channel(final RSocket socket, final Counter into, final Counter outOf) {
     return new RSocketProxy(socket) {
       @Override

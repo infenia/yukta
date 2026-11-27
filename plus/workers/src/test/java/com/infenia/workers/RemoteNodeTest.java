@@ -171,8 +171,7 @@ class RemoteNodeTest {
   @Test
   void workerConnection_carriesDataAsCbor() {
     final RSocketRequester.Builder builder = worker.getBean(RSocketRequester.Builder.class);
-    assertThat(builder.tcp("localhost", 1).dataMimeType().toString())
-        .isEqualTo("application/cbor");
+    assertThat(builder.tcp("localhost", 1).dataMimeType().toString()).isEqualTo("application/cbor");
   }
 
   private static double bytes(final MeterRegistry meters, final String direction) {

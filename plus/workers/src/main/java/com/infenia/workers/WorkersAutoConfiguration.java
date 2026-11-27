@@ -199,8 +199,8 @@ public class WorkersAutoConfiguration {
         server
             .fragment(WorkerTransport.FRAGMENT_BYTES)
             .maxInboundPayloadSize(WorkerTransport.inboundLimit(maxPayloadBytes))
-            .interceptors(registry ->
-                registry.forRequester(wire.requester()).forResponder(wire.responder()));
+            .interceptors(
+                registry -> registry.forRequester(wire.requester()).forResponder(wire.responder()));
   }
 
   /**

@@ -7,8 +7,6 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
-import com.infenia.yukta.plugin.exception.RemoteFailureException;
-import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.RemoteNodeExecutor;
 import com.infenia.yukta.service.worker.WorkerInfo;
@@ -21,12 +19,9 @@ import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.observation.transport.SenderContext;
 import java.time.Duration;
 import java.util.Comparator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -51,12 +46,6 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
 
   /** Type of a message as plain JSON values. */
   private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {};
-
-  /** Class name whose failures keep their meaning: bad input is not retried. */
-  private static final String BAD_INPUT = IllegalArgumentException.class.getName();
-
-  /** Class name whose failures keep their meaning: a hard stop ends the run. */
-  private static final String RUN_ABORTED = RunAbortedException.class.getName();
 
   /** The live workers. */
   private final WorkerRegistry registry;
@@ -87,8 +76,8 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
    * @param mapper converts messages to and from plain JSON values
    * @param parentOf finds the open observation of a node from its run and node id, or null
    * @param observations opens the attempt's observation (a no-op registry traces nothing)
-   * @param meters times the attempts ({@code yukta.worker.attempts{module,outcome}}) and the
-   *     wait from the pick to the worker's first answer ({@code yukta.worker.dispatch{module}})
+   * @param meters times the attempts ({@code yukta.worker.attempts{module,outcome}}) and the wait
+   *     from the pick to the worker's first answer ({@code yukta.worker.dispatch{module}})
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2") // all are shared Spring beans
   public WorkerNodeExecutor(
@@ -148,7 +137,7 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
           .retrieveFlux(NodeFrame.class)
           .doOnNext(_ -> {
             if (answered.compareAndSet(false, true)) {
-              dispatch(pluginType).record(System.nanoTime() - picked, TimeUnit.NANOSECONDS);
+              dispatch(pluginType).record(Duration.ofNanos(System.nanoTime() - picked));
             }
           })
           .<Message<?>>handle((frame, sink) -> answer(workerId, frame, heartbeat, logSink, sink))
@@ -167,7 +156,7 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
             call.stop();
             load.decrementAndGet();
             attempts(pluginType, outcome.get())
-                .record(System.nanoTime() - picked, TimeUnit.NANOSECONDS);
+                .record(Duration.ofNanos(System.nanoTime() - picked));
           });
     });
   }
@@ -287,7 +276,7 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       case HEARTBEAT -> heartbeat.run();
       case LOG -> log(frame, logSink);
       case COMPLETE -> sink.complete();
-      case ERROR -> sink.error(failure(workerId, frame));
+      case ERROR -> sink.error(frame.toFailure(workerId));
       default -> sink.error(new WorkflowExecutionException("Unexpected frame from " + workerId));
     }
   }
@@ -305,21 +294,5 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
             .filter(known -> known.name().equals(level))
             .findFirst()
             .orElse(null));
-  }
-
-  private static RuntimeException failure(final String workerId, final NodeFrame frame) {
-    final String errorClass = String.valueOf(frame.errorClass());
-    final RuntimeException failure;
-    if (BAD_INPUT.equals(errorClass)) {
-      failure = new IllegalArgumentException(frame.errorMessage());
-    } else if (RUN_ABORTED.equals(errorClass)) {
-      failure = new RunAbortedException(String.valueOf(frame.errorMessage()));
-    } else {
-      failure =
-          new RemoteFailureException(
-              "Worker " + workerId + " failed: " + errorClass + ": " + frame.errorMessage(),
-              Set.copyOf(frame.errorTypes() != null ? frame.errorTypes() : List.of(errorClass)));
-    }
-    return failure;
   }
 }
