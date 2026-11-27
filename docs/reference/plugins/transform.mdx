@@ -19,7 +19,7 @@ Builds a new payload from the message.
 | `mapping` | expression | none | yes | See the table below. |
 | `dropOriginal` | boolean | `true` | no | Discard the input data; when `false` the mapped fields are set on a copy of the original message data (`PROJECTION`, and the map form of `TEMPLATE`). |
 | `strictMode` | boolean | `true` | no | Fail on an evaluation error; when `false`, a `PROJECTION` field that evaluates to `null` is skipped. |
-| `envelope` | map | none | no | Fields to set on the output message: `priority`, `ttlMs` (the message expires that many milliseconds from now and is dropped before any later node), `formatIndicator`, `replyTo`, `correlationId`. Each value is a literal or a `${...}` expression, read from the input message. |
+| `envelope` (after alpha.5) | map | none | no | Fields to set on the output message: `priority`, `ttlMs` (the message expires that many milliseconds from now and is dropped before any later node), `formatIndicator`, `replyTo`, `correlationId`. Each value is a literal or a `${...}` expression, read from the input message. |
 
 | Mode | `mapping` |
 |---|---|

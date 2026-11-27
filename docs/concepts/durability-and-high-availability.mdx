@@ -44,7 +44,7 @@ This gives you three related abilities, all of which start a *new* run:
 - **Restart from a node**, or retry a node that failed, replaying the recorded output of what came before.
 - **Resume** a run a restart aborted: finished nodes replay, unfinished ones run.
 
-What you can restart depends on what is checkpointed, and where. In memory, checkpoints are capped per node and are lost on restart; a node that outgrows a cap is marked incomplete and a restart that needs it is refused rather than replaying part of it. In PostgreSQL the cap is per run instead, and much larger (`yukta.restart.max-bytes-per-run`, 1 GiB by default), so a large streaming run cannot fill the database; a node that goes over it is treated the same way. And after a restart, only resume works for the runs that were aborted.
+What you can restart depends on what is checkpointed, and where. In memory, checkpoints are capped per node and are lost on restart; a node that outgrows a cap is marked incomplete and a restart that needs it is refused rather than replaying part of it. In PostgreSQL the cap is per run instead, and much larger (`yukta.restart.max-bytes-per-run`, 1 GiB by default; after alpha.5), so a large streaming run cannot fill the database; a node that goes over it is treated the same way. And after a restart, only resume works for the runs that were aborted.
 
 ## What a crash looks like
 

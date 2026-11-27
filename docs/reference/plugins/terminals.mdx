@@ -66,7 +66,7 @@ Names the exit a run took so a supervisor (or a parent `SUB_WORKFLOW`) can act o
 
 ## `REPLY`
 
-Answers the caller that started the run with `?wait=<seconds>` (`POST /api/workflow/start` or `POST /hooks/{sessionId}/{path}`): the call returns `200` with the payload of the first message that reaches this node in `data.reply`. A workflow can then serve as a synchronous HTTP API.
+After alpha.5. Answers the caller that started the run with `?wait=<seconds>` (`POST /api/workflow/start` or `POST /hooks/{sessionId}/{path}`): the call returns `200` with the payload of the first message that reaches this node in `data.reply`. A workflow can then serve as a synchronous HTTP API.
 
 - **Options:** none.
 - **Behaviour:** the trigger puts the caller's reply key on its message as `replyTo`, and every message derived from it carries it on. The first message to arrive answers; later ones, and messages of a run that nobody waits for, are skipped. Several `REPLY` nodes may share a run; the first answer wins.

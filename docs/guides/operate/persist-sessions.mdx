@@ -117,7 +117,7 @@ A file that cannot be read, is invalid or cannot be applied is logged and skippe
     The database owner's password is used only for this one-off setup. Keep it in your secret manager, not in the server's environment; the server needs only the two account passwords. Keep the host and database name in both URLs identical.
   </Step>
   <Step title="Move the other data you need">
-    Sessions, workflows, the execution log, agent conversations and node checkpoints move with the profile, and interrupted runs are resumed on their own (`yukta.restart.auto-resume=true`). Input requests are a separate switch:
+    Sessions, workflows, the execution log, agent conversations and node checkpoints move with the profile, and interrupted runs are resumed on their own (`yukta.restart.auto-resume=true`; after alpha.5). Input requests are a separate switch:
 
     ```properties
     yukta.input.store-type=postgres          # open input requests and their deliveries
@@ -134,7 +134,7 @@ A file that cannot be read, is invalid or cannot be applied is logged and skippe
 
 A restart marks every run that was in flight `ABORTED` at the next start, when the execution log is durable. Resume continues such a run as a new run: nodes that finished are not run again, and the others get the recorded outputs and run.
 
-The `postgres` profile resumes them on its own. To resume one by hand (with `yukta.restart.auto-resume=false`, or a run that was skipped):
+The `postgres` profile resumes them on its own (after alpha.5). To resume one by hand (with `yukta.restart.auto-resume=false`, or a run that was skipped):
 
 ```bash
 yukta-cli workflow executions recover <execution-id>
@@ -161,7 +161,7 @@ With option 1 the session is back and the history is empty. With option 2 the hi
 
 ## Variations that matter
 
-- **Trim what the log keeps.** The log keeps the newest `yukta.execution-log.retained-runs` runs and checkpoints the newest `yukta.restart.retained-executions`. Set `yukta.execution-log.max-age` (for example `90d`) to also remove runs by age, so a busy server and a quiet one keep the same span of history. The defaults and the other bounds are in [Configuration reference](/reference/configuration).
+- **Trim what the log keeps.** The log keeps the newest `yukta.execution-log.retained-runs` runs and checkpoints the newest `yukta.restart.retained-executions`. Set `yukta.execution-log.max-age` (after alpha.5; for example `90d`) to also remove runs by age, so a busy server and a quiet one keep the same span of history. The defaults and the other bounds are in [Configuration reference](/reference/configuration).
 - **Delete a session.** A session stays until you delete it: `yukta-cli session delete <session-id>` (needs `ADMIN`), the **Delete** action in the web UI, or `DELETE /api/sessions/{id}`.
 - **Share state between servers.** That is [high availability](/guides/operate/run-highly-available), and it needs PostgreSQL.
 - **Back up.** Back up every table together: the log, the checkpoints and the definitions refer to each other.

@@ -26,7 +26,7 @@ A placeholder is `${source}` inside any string of a node's `config`. When a valu
 | `${payload}` | The whole payload of the message in hand. |
 | `${payload.a.b}` | A nested field of the payload; maps only, dot-separated. |
 | `${metadata.key}` | A label on the message, for example `${metadata.signal.decision}`. |
-| `${message.field}` | A field of the message envelope: `id`, `traceId`, `correlationId`, `replyTo`, `timestamp`, `expiration`, `formatIndicator`, `sourceNodeId`, `sourcePort`, `workflowId`, `messageHistory`, `sequenceId`, `sequenceNumber`, `sequenceSize`, `priority`, `retryCount`, `origDest`, `failureReason`. For example an idempotency header `${message.id}`, or `${message.sequenceNumber:int}`. |
+| `${message.field}` (after alpha.5) | A field of the message envelope: `id`, `traceId`, `correlationId`, `replyTo`, `timestamp`, `expiration`, `formatIndicator`, `sourceNodeId`, `sourcePort`, `workflowId`, `messageHistory`, `sequenceId`, `sequenceNumber`, `sequenceSize`, `priority`, `retryCount`, `origDest`, `failureReason`. For example an idempotency header `${message.id}`, or `${message.sequenceNumber:int}`. |
 | `${start.a.b}` | A field of the run's start payload (what the run was started with, or what a parent `SUB_WORKFLOW` handed it), readable from every node. Engine entries starting `yukta.` are hidden. |
 | `${context.name}` | A plain text, number or flag the caller put in the run context. Entries starting `yukta.` and non-scalar values are hidden. |
 | `${env.NAME}` | An environment variable of the server, if readable (see below). |

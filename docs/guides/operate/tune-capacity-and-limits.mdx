@@ -132,7 +132,7 @@ curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" "$YUKTA_SERVER_URL/actuato
 
 ## Limit runs per key
 
-The limits above count runs of a whole workflow. To allow at most so many runs at once that share a value of the start payload (one deploy per environment, one agent run per ticket), give the workflow an `admission` block:
+After alpha.5. The limits above count runs of a whole workflow. To allow at most so many runs at once that share a value of the start payload (one deploy per environment, one agent run per ticket), give the workflow an `admission` block:
 
 ```json
 {

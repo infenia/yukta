@@ -98,9 +98,9 @@ With `retry` or `onError` `CONTINUE`/`ROUTE`, a message produces all of its outp
 ## Flow control
 
 ### `edgeBuffer`
-- **Type:** `object` with `size` (integer 1 to 100000, required), `overflow` (`DROP_OLDEST` or `DROP_NEWEST`, default `DROP_OLDEST`) and `order` (`FIFO` or `PRIORITY`, default `FIFO`)
+- **Type:** `object` with `size` (integer 1 to 100000, required), `overflow` (`DROP_OLDEST` or `DROP_NEWEST`, default `DROP_OLDEST`) and `order` (`FIFO` or `PRIORITY`, default `FIFO`; after alpha.5)
 - **Default:** none (lossless, paced by the slowest child)
-- **Description:** A bounded buffer in front of the node; when it is full the node drops a message instead of slowing its parents. Drops are counted in `yukta.edge.dropped`. With `order: PRIORITY` the node gets the waiting message with the highest `priority` first (ties in arrival order), and a full buffer drops the oldest (`DROP_OLDEST`) or newest (`DROP_NEWEST`) message of the lowest priority. `MAPPER` `envelope.priority` and `CLASSIFY` `priorityByLabel` set the priority.
+- **Description:** A bounded buffer in front of the node; when it is full the node drops a message instead of slowing its parents. Drops are counted in `yukta.edge.dropped`. With `order: PRIORITY` (after alpha.5) the node gets the waiting message with the highest `priority` first (ties in arrival order), and a full buffer drops the oldest (`DROP_OLDEST`) or newest (`DROP_NEWEST`) message of the lowest priority. `MAPPER` `envelope.priority` and `CLASSIFY` `priorityByLabel` set the priority.
 
 ```json
 "engine": { "edgeBuffer": { "size": 500, "order": "PRIORITY" } }

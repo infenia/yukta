@@ -24,14 +24,14 @@ A message is a payload plus labels, the unit of data on an edge. Messages are im
 | `workflowId` | string | Running workflow. Set by the engine on every edge. |
 | `messageHistory` | list of string | Ids of the last 64 nodes it passed through (`MAX_HISTORY`, not configurable). |
 | `sequenceId`, `sequenceNumber`, `sequenceSize` | string, int, int | Position in a group produced by a splitter. |
-| `expiration` | long | The engine drops an inbound message once this time has passed, and counts it in `yukta.messages.expired`. `MAPPER` sets it with `envelope.ttlMs`. |
-| `formatIndicator` | string | Media type of the content the message carries, such as `application/json`. Set by `HTTP_REQUEST`, `FILE_READ`, `PROCESS_EXECUTOR` and `LLM_CALL`; read by `HTTP_REQUEST` (request `Content-Type`) and `FILE_WRITE` (JSON output). `MAPPER` sets it with `envelope`. |
+| `expiration` | long | The engine drops an inbound message once this time has passed, and counts it in `yukta.messages.expired`. `MAPPER` sets it with `envelope.ttlMs` (after alpha.5). |
+| `formatIndicator` | string | Media type of the content the message carries, such as `application/json`. Set (after alpha.5) by `HTTP_REQUEST`, `FILE_READ`, `PROCESS_EXECUTOR` and `LLM_CALL`; read by `HTTP_REQUEST` (request `Content-Type`) and `FILE_WRITE` (JSON output). `MAPPER` sets it with `envelope`. |
 | `retryCount` | int | How many times the current node has retried this message (`engine.retry`); `0` on the first attempt. |
-| `priority` | int | Carried along. It orders a node's `engine.edgeBuffer` with `order: PRIORITY`; `CLASSIFY` `priorityByLabel` sets it. `MAPPER` sets `priority`, `replyTo` and `correlationId` with its `envelope` option. |
-| `replyTo` | string | The reply key of a caller waiting with `?wait=`; the `REPLY` terminal answers it. `MAPPER` can set it with `envelope`. |
+| `priority` | int | Carried along. After alpha.5, it orders a node's `engine.edgeBuffer` with `order: PRIORITY`; `CLASSIFY` `priorityByLabel` sets it. `MAPPER` sets `priority`, `replyTo` and `correlationId` with its `envelope` option. |
+| `replyTo` | string | After alpha.5, the reply key of a caller waiting with `?wait=`; the `REPLY` terminal answers it. `MAPPER` can set it with `envelope`. |
 | `origDest`, `failureReason`, `exceptionDetail` | string | Set by plugins such as `VALIDATE` and `BRANCH`, and by error routing. |
 
-Every field above except `payload`, `metadata` and `exceptionDetail` is read in config as `${message.<field>}`, for example `${message.traceId}` (see [Expressions](/reference/expressions)).
+Every field above except `payload`, `metadata` and `exceptionDetail` is read in config as `${message.<field>}` (after alpha.5), for example `${message.traceId}` (see [Expressions](/reference/expressions)).
 
 Run priority is a different mechanism: `yukta.priority` in the start payload (needs the ADMIN role).
 
