@@ -511,6 +511,71 @@ img.yk-diagram {
   color: var(--yk-muted);
 }
 
+/* Home page: the call-to-action buttons under the hero text. */
+.yk-cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.75rem;
+}
+
+.yk-landing .yk-cta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 1.25rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: var(--yk-radius-lg);
+  border: 1px solid var(--yk-border);
+  background: var(--yk-card);
+  color: var(--yk-fg);
+  text-decoration: none;
+  transition: transform 0.2s var(--yk-ease), box-shadow 0.2s var(--yk-ease);
+}
+
+.yk-landing .yk-cta a:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--yk-shadow-md);
+}
+
+.yk-landing .yk-cta a.yk-cta-primary {
+  background: var(--yk-blue-strong);
+  border-color: var(--yk-blue-strong);
+  color: #fff;
+}
+
+/* Home page: the comparison table, with Yukta's column marked. */
+.yk-compare {
+  max-width: 68rem;
+  margin: 1.5rem auto 0;
+}
+
+.yk-landing .yk-compare + .yk-landing-body {
+  margin-top: 1rem;
+}
+
+.yk-compare table {
+  font-size: 0.875rem;
+}
+
+.yk-compare th:nth-child(2),
+.yk-compare td:nth-child(2) {
+  background: var(--yk-accent);
+  color: var(--yk-accent-fg);
+}
+
+.yk-compare td:first-child {
+  font-weight: 600;
+}
+
+.dark .yk-compare th:nth-child(2),
+.dark .yk-compare td:nth-child(2) {
+  background: color-mix(in srgb, var(--yk-blue) 16%, transparent);
+  color: var(--yk-fg);
+}
+
 .yk-hero-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
