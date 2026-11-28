@@ -9,6 +9,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.availability.AvailabilityChangeEvent;
+import org.springframework.boot.availability.ReadinessState;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import reactor.core.Disposable;
@@ -23,7 +27,7 @@ import reactor.util.retry.Retry;
  * open port, so they work behind NAT.
  */
 @Slf4j
-public class WorkerAgent implements SmartLifecycle {
+public class WorkerAgent implements SmartLifecycle, ApplicationEventPublisherAware {
 
   /** How often a draining worker looks at its running attempts. */
   private static final long DRAIN_POLL_MILLIS = 50;
@@ -54,6 +58,9 @@ public class WorkerAgent implements SmartLifecycle {
 
   /** Frames to send on the open stream besides the regular lease renewals. */
   private final Sinks.Many<WorkerFrame> urgent = Sinks.many().multicast().directBestEffort();
+
+  /** Where readiness changes go; null outside an application context. */
+  private final AtomicReference<ApplicationEventPublisher> publisher = new AtomicReference<>();
 
   /** The running connection loop, null before {@link #start()}. */
   private Disposable connection;
@@ -117,6 +124,7 @@ public class WorkerAgent implements SmartLifecycle {
    */
   @Override
   public void stop(final Runnable callback) {
+    ready(ReadinessState.REFUSING_TRAFFIC);
     drain()
         .doFinally(_ -> {
           close();
@@ -132,8 +140,21 @@ public class WorkerAgent implements SmartLifecycle {
   }
 
   @Override
+  public void setApplicationEventPublisher(final ApplicationEventPublisher eventPublisher) {
+    this.publisher.set(eventPublisher);
+  }
+
+  @Override
   public boolean isRunning() {
     return connection != null && !connection.isDisposed();
+  }
+
+  /** Readiness is whether the worker is registered with a leader. */
+  private void ready(final ReadinessState state) {
+    final ApplicationEventPublisher target = publisher.get();
+    if (target != null) {
+      AvailabilityChangeEvent.publish(target, this, state);
+    }
   }
 
   private void close() {
@@ -186,7 +207,15 @@ public class WorkerAgent implements SmartLifecycle {
             connect,
             requester -> {
               connected(requester);
-              return requester.route("worker.session").data(out).retrieveFlux(WorkerFrame.class);
+              return requester
+                  .route("worker.session")
+                  .data(out)
+                  .retrieveFlux(WorkerFrame.class)
+                  .doOnNext(answer -> {
+                    if (answer.type() == WorkerFrame.Type.ACK) {
+                      ready(ReadinessState.ACCEPTING_TRAFFIC);
+                    }
+                  });
             },
             this::disconnected)
         .concatMap(answer ->
@@ -200,6 +229,7 @@ public class WorkerAgent implements SmartLifecycle {
   /** Closes an attempt's connection, which the control plane ending its stream does not do. */
   private Mono<Void> disconnected(final RSocketRequester requester) {
     return Mono.fromRunnable(() -> {
+      ready(ReadinessState.REFUSING_TRAFFIC);
       current.compareAndSet(requester, null);
       requester.dispose();
     });

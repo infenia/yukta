@@ -10,7 +10,9 @@ import com.infenia.yukta.service.worker.WorkerRegistration;
 import java.time.Duration;
 import java.util.Set;
 import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.availability.AvailabilityChangeEvent;
 import org.springframework.messaging.rsocket.RSocketRequester;
 
 @NoArgsConstructor
@@ -43,6 +45,43 @@ class WorkerAgentTest {
         .expectErrorMessage("The control plane closed the connection")
         .verify(Duration.ofSeconds(5));
     org.mockito.Mockito.verify(requester).dispose();
+  }
+
+  /* default */
+  @Nested
+  class Readiness {
+
+    @Test
+    void readiness_followsRegistration_andRefusesBeforeTheConnectionCloses() {
+      final RSocketRequester requester = mockRequester();
+      final WorkerAgent agent =
+          sessionAgent(requester, reactor.core.publisher.Flux.just(WorkerFrame.ack()));
+      final java.util.List<Object> states = new java.util.ArrayList<>();
+      agent.setApplicationEventPublisher(event -> {
+        if (event instanceof AvailabilityChangeEvent<?> change) {
+          states.add(change.getState());
+        }
+      });
+      org.mockito.Mockito.doAnswer(
+              call -> {
+                states.add("closed");
+                return null;
+              })
+          .when(requester)
+          .dispose();
+
+      // ACK, then the stream ends: accepting first, refusing before the connection is closed
+      reactor.test.StepVerifier.create(agent.session())
+          .expectNextCount(1)
+          .expectError()
+          .verify(Duration.ofSeconds(5));
+
+      assertThat(states)
+          .containsExactly(
+              org.springframework.boot.availability.ReadinessState.ACCEPTING_TRAFFIC,
+              org.springframework.boot.availability.ReadinessState.REFUSING_TRAFFIC,
+              "closed");
+    }
   }
 
   private static RSocketRequester mockRequester() {
