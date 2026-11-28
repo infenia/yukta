@@ -68,7 +68,6 @@ import reactor.core.scheduler.Schedulers;
   "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
   "PMD.CouplingBetweenObjects",
-  "PMD.CyclomaticComplexity",
   "PMD.AvoidDuplicateLiterals"
 })
 public class DefaultTaskTrackerService implements TaskTrackerService {
