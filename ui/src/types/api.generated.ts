@@ -565,6 +565,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/events/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List past events
+         * @description The newest events of the activity feed, kept in memory or, with PostgreSQL, durably. Log lines are not kept. Page back with before.
+         */
+        get: operations["history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events/stream": {
         parameters: {
             query?: never;
@@ -1409,6 +1429,26 @@ export interface paths {
         };
         /** Stream metric samples */
         get: operations["stream_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Workflow durations
+         * @description Runs, failures and run-duration percentiles per workflow
+         */
+        get: operations["workflows"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2568,6 +2608,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ActivityHistoryEntry: {
+            /** @description The event envelope of the live stream */
+            envelope?: components["schemas"]["JsonNode"];
+            /** Format: int64 */
+            seq?: number;
+        };
         AgentConversation: {
             capabilities?: string[];
             ended?: boolean;
@@ -2922,6 +2968,39 @@ export interface components {
         ApiResponseIssuedView: {
             /** @description The response data */
             data?: components["schemas"]["IssuedView"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListActivityHistoryEntry: {
+            /** @description The response data */
+            data?: components["schemas"]["ActivityHistoryEntry"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -3912,6 +3991,39 @@ export interface components {
         ApiResponseListWorkflowExecutionSummary: {
             /** @description The response data */
             data?: components["schemas"]["WorkflowExecutionSummary"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListWorkflowRow: {
+            /** @description The response data */
+            data?: components["schemas"]["WorkflowRow"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -7309,6 +7421,17 @@ export interface components {
             sessionId?: string;
             workflowId?: string;
         };
+        WorkflowRow: {
+            /** Format: int64 */
+            failures?: number;
+            /** Format: double */
+            p50Ms?: number;
+            /** Format: double */
+            p95Ms?: number;
+            /** Format: int64 */
+            runs?: number;
+            workflowId?: string;
+        };
         /** @description Request object for starting a workflow */
         WorkflowStartRequest: {
             /**
@@ -8183,6 +8306,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseEditionInfo"];
+                };
+            };
+        };
+    };
+    history: {
+        parameters: {
+            query?: {
+                limit?: number;
+                /** @description Only events with a lower seq */
+                before?: number;
+                type?: string;
+                severity?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListActivityHistoryEntry"];
                 };
             };
         };
@@ -9320,6 +9469,29 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": components["schemas"]["ServerSentEventMetricSample"][];
+                };
+            };
+        };
+    };
+    workflows: {
+        parameters: {
+            query?: {
+                range?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListWorkflowRow"];
                 };
             };
         };

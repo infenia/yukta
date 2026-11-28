@@ -17,10 +17,13 @@ export default function SeriesChart({
   points,
   label,
   color = 'var(--chart-1)',
+  format = String,
 }: {
   points: MetricPoint[];
   label: string;
   color?: string;
+  /** how a value reads on the axis and in the tooltip */
+  format?: (value: number) => string;
 }) {
   const config: ChartConfig = { v: { label, color } };
   return (
@@ -36,10 +39,15 @@ export default function SeriesChart({
           tickLine={false}
           axisLine={false}
         />
-        <YAxis width={40} tickLine={false} axisLine={false} />
+        <YAxis
+          width={48}
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={format}
+        />
         <ChartTooltip
           labelFormatter={(t) => time(Number(t))}
-          formatter={(value) => [String(value), label]}
+          formatter={(value) => [format(Number(value)), label]}
         />
         <Area
           dataKey="v"

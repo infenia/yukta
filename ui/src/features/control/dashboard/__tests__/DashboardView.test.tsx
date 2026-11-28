@@ -43,6 +43,11 @@ vi.mock('../RunPanels', () => ({
   NodesPanel: () => null,
 }));
 vi.mock('../HealthPanels', () => ({ SystemPanel: () => null }));
+vi.mock('../OutcomesPanel', () => ({ OutcomesPanel: () => null }));
+vi.mock('../WorkflowPanels', () => ({
+  WorkflowsPanel: () => null,
+  HotspotsPanel: () => null,
+}));
 vi.mock('@/features/supervisors/components/SupervisorsSummary', () => ({
   SupervisorsSummary: () => <div>supervisors-card</div>,
 }));

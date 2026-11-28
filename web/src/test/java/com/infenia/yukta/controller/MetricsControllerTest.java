@@ -54,6 +54,8 @@ class MetricsControllerTest {
 
   private final MetricsController controller = new MetricsController(sampler, analytics, tracker);
 
+  private final MetricsWorkflowsController workflows = new MetricsWorkflowsController(analytics);
+
   private void finishedRun(final String session, final String workflow, final String status) {
     final Instant now = Instant.now();
     analytics.accept(
@@ -153,6 +155,19 @@ class MetricsControllerTest {
         .verifyComplete();
     StepVerifier.create(controller.nodes(ONE_HOUR, "workflow:none", 0))
         .assertNext(r -> assertThat(r.data()).isEmpty())
+        .verifyComplete();
+    StepVerifier.create(workflows.workflows(ONE_HOUR, 5000))
+        .assertNext(r ->
+            assertThat(r.data())
+                .singleElement()
+                .satisfies(w -> {
+                  assertThat(w.workflowId()).isEqualTo("w1");
+                  assertThat(w.runs()).isEqualTo(1);
+                  assertThat(w.failures()).isEqualTo(1);
+                }))
+        .verifyComplete();
+    StepVerifier.create(workflows.workflows(ONE_HOUR, 0))
+        .assertNext(r -> assertThat(r.data()).hasSize(1))
         .verifyComplete();
     StepVerifier.create(controller.annotations(ONE_HOUR, RunAnalytics.GLOBAL))
         .assertNext(r ->

@@ -135,6 +135,7 @@ The web UI's Control page reads a short history of server metrics from `GET /api
 | `GET /api/metrics/heatmap` | Runs and failures per minute (`range` defaults to `24h`) |
 | `GET /api/metrics/modules` | One row per plugin type, busiest first: executions, failures, mean duration |
 | `GET /api/metrics/nodes` | The slowest nodes by 95th percentile duration; `limit` 1 to 100, default `10` |
+| `GET /api/metrics/workflows` | One row per workflow with runs, slowest first: runs, failures, p50 and p95 run time in milliseconds; `range`, and `limit` 1 to 100, default `20`. Two sessions that use the same workflow id share a row |
 | `GET /api/metrics/annotations` | Control commands, applied or rejected, oldest first |
 | `GET /api/metrics/runs/live` | Each running run with its progress and its workflow's usual p95 duration |
 | `GET /api/metrics/stream` | Server-sent stream of metric samples; it carries no history |

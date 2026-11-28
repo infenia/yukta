@@ -102,6 +102,16 @@ export interface NodeRow {
   lastExecutionId: string;
 }
 
+/** How one workflow did in the range; the slowest come first. */
+export interface WorkflowRow {
+  workflowId: string;
+  runs: number;
+  failures: number;
+  /** milliseconds; 0 when no run was timed */
+  p50Ms: number;
+  p95Ms: number;
+}
+
 export interface LiveRun {
   executionId: string;
   sessionId: string;
@@ -139,6 +149,11 @@ export const getModules = (range: Range, scope: Scope = GLOBAL) =>
 export const getNodes = (range: Range, scope: Scope = GLOBAL, limit = 50) =>
   fetchApi<NodeRow[]>(
     `/api/metrics/nodes?${query({ range, limit: String(limit) }, scope)}`
+  );
+
+export const getWorkflows = (range: Range, limit = 20) =>
+  fetchApi<WorkflowRow[]>(
+    `/api/metrics/workflows?${query({ range, limit: String(limit) }, GLOBAL)}`
   );
 
 export const getAnnotations = (range: Range, scope: Scope = GLOBAL) =>

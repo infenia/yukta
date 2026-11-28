@@ -36,6 +36,7 @@ public record MetricsProperties(
           "llm.",
           "jvm.memory.used",
           "jvm.memory.max",
+          "jvm.memory.committed",
           "jvm.threads.live",
           "jvm.gc.pause",
           "process.cpu.usage",

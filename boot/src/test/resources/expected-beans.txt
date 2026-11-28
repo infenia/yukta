@@ -7,6 +7,8 @@ com.infenia.yukta.config.MetadataGuardCustomizer
 com.infenia.yukta.config.SpaWebFluxConfig
 com.infenia.yukta.config.YuktaProperties
 com.infenia.yukta.console.ConsoleRunner
+com.infenia.yukta.controller.ActivityHistoryController
+com.infenia.yukta.controller.ActivityRecorder
 com.infenia.yukta.controller.AgentApiController
 com.infenia.yukta.controller.AgentCredentialController
 com.infenia.yukta.controller.AgentMcpController
@@ -28,6 +30,7 @@ com.infenia.yukta.controller.InputRequestsController
 com.infenia.yukta.controller.LogManagementController
 com.infenia.yukta.controller.MeController
 com.infenia.yukta.controller.MetricsController
+com.infenia.yukta.controller.MetricsWorkflowsController
 com.infenia.yukta.controller.NodeOutputController
 com.infenia.yukta.controller.NotificationsController
 com.infenia.yukta.controller.PluginController
@@ -53,6 +56,7 @@ com.infenia.yukta.edition.EditionInfo
 com.infenia.yukta.exception.GlobalExceptionHandler
 com.infenia.yukta.filter.AgentCredentialFilter
 com.infenia.yukta.filter.ApiKeyFilter
+com.infenia.yukta.filter.ApiRequestMetricsFilter
 com.infenia.yukta.filter.ControlViaFilter
 com.infenia.yukta.filter.HostOriginFilter
 com.infenia.yukta.filter.RequestLoggingFilter
@@ -148,6 +152,7 @@ com.infenia.yukta.plugin.util.EgressPolicy
 com.infenia.yukta.plugin.util.VariableResolver
 com.infenia.yukta.security.ApiKeyAuthenticator
 com.infenia.yukta.service.EnvSecretProvider
+com.infenia.yukta.service.activity.InMemoryActivityStore
 com.infenia.yukta.service.agent.AgentConversationQueries
 com.infenia.yukta.service.agent.AgentConversationService
 com.infenia.yukta.service.agent.AgentRetention
@@ -199,8 +204,10 @@ com.infenia.yukta.service.input.token.AnswerTokens
 com.infenia.yukta.service.leader.SingleServerLeader
 com.infenia.yukta.service.log.DraftRunFilteringLogStore
 com.infenia.yukta.service.log.ExecutionLogAgeRetention
+com.infenia.yukta.service.metrics.ApiRequestMetrics
 com.infenia.yukta.service.metrics.MetricsConfiguration
 com.infenia.yukta.service.metrics.MetricsConfiguration$1
+com.infenia.yukta.service.metrics.MetricsConfiguration$HostMemory
 com.infenia.yukta.service.metrics.MetricsProperties
 com.infenia.yukta.service.metrics.MetricsSampler
 com.infenia.yukta.service.metrics.RunAnalytics
@@ -285,6 +292,7 @@ com.infenia.yukta.service.workflow.store.WorkflowDefinitionStoreConfiguration
 com.infenia.yukta.startup.AppConfiguration
 com.infenia.yukta.startup.DefaultsAutoConfiguration
 com.infenia.yukta.startup.DefaultsAutoConfiguration$1
+com.infenia.yukta.startup.InMemoryActivityConfiguration
 com.infenia.yukta.startup.InMemoryStateNotice
 com.infenia.yukta.startup.StoreSummary
 com.infenia.yukta.supervisor.process.ProcessEngineConfiguration

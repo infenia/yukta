@@ -33,11 +33,11 @@ export function ControlPage() {
       <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
         <PageHeader
           backdrop
-          title="Control bus"
-          description="How the server is doing, who and what is steering runs, and every control command with who sent it."
+          title="Dashboard"
+          description="How the server is doing, what is running now, and every control command with who sent it."
         />
         <Tabs
-          ariaLabel="Control bus sections"
+          ariaLabel="Dashboard sections"
           idPrefix="control"
           items={TABS.map((id) => ({
             id,

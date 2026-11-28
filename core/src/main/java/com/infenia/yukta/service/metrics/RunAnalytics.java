@@ -23,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
@@ -458,6 +459,19 @@ public class RunAnalytics {
       String lastExecutionId) {}
 
   /**
+   * How one workflow did. A workflow is known by its id alone, so two sessions that use the same id
+   * share a row.
+   *
+   * @param workflowId the workflow
+   * @param runs runs that ended
+   * @param failures how many of them failed or timed out
+   * @param p50Ms median run duration in milliseconds over the sampled runs, 0 when none was timed
+   * @param p95Ms 95th percentile run duration in milliseconds over the sampled runs
+   */
+  public record WorkflowRow(
+      String workflowId, long runs, long failures, double p50Ms, double p95Ms) {}
+
+  /**
    * A run in progress.
    *
    * @param executionId the run
@@ -801,8 +815,8 @@ public class RunAnalytics {
 
   /**
    * The aggregates of the last hour as single values: {@code runs.finished}, {@code runs.<STATUS>},
-   * {@code runs.failed}, {@code duration.p95}, {@code overhead.start.p95} and {@code
-   * overhead.handoff.p95} in milliseconds.
+   * {@code runs.failed}, {@code duration.p50}, {@code duration.p95}, {@code overhead.start.p95} and
+   * {@code overhead.handoff.p95} in milliseconds.
    *
    * @param scope the scope
    * @return name to value; empty for an unknown scope or nothing in the hour
@@ -842,6 +856,7 @@ public class RunAnalytics {
       out.put("runs.failed", failed);
     }
     if (!durations.isEmpty()) {
+      out.put("duration.p50", percentile(durations, 0.5));
       out.put("duration.p95", percentile(durations, 0.95));
     }
     return out;
@@ -945,6 +960,49 @@ public class RunAnalytics {
         .sorted(Comparator.comparingDouble(NodeRow::p95Ms).reversed())
         .limit(limit)
         .toList();
+  }
+
+  /**
+   * How each workflow did within the range, slowest first. Workflows beyond the {@value
+   * #MAX_SCOPES} tracked on their own are not listed.
+   *
+   * @param range how far back
+   * @param limit most rows returned
+   * @return one row per workflow that had runs, by 95th percentile duration, highest first
+   */
+  public synchronized List<WorkflowRow> workflows(final Duration range, final int limit) {
+    return scopes.keySet().stream()
+        .filter(k -> k.startsWith(WORKFLOW_SCOPE) && !(WORKFLOW_SCOPE + OTHER).equals(k))
+        .map(k -> workflowRow(k, range))
+        .flatMap(Optional::stream)
+        .sorted(Comparator.comparingDouble(WorkflowRow::p95Ms).reversed())
+        .limit(limit)
+        .toList();
+  }
+
+  private Optional<WorkflowRow> workflowRow(final String scope, final Duration range) {
+    long runs = 0;
+    long failures = 0;
+    final List<Double> durations = new ArrayList<>();
+    for (final Bucket b : within(scope, range).values()) {
+      for (final Map.Entry<String, Integer> s : b.byStatus.entrySet()) {
+        runs += s.getValue();
+        if (FAILED.contains(s.getKey())) {
+          failures += s.getValue();
+        }
+      }
+      durations.addAll(b.sampledDurations());
+    }
+    if (runs == 0) {
+      return Optional.empty();
+    }
+    return Optional.of(
+        new WorkflowRow(
+            scope.substring(WORKFLOW_SCOPE.length()),
+            runs,
+            failures,
+            durations.isEmpty() ? 0 : percentile(durations, 0.5),
+            durations.isEmpty() ? 0 : percentile(durations, 0.95)));
   }
 
   private static boolean inScope(final String scope, final NodeKey key) {

@@ -90,7 +90,7 @@ async function mockControl(
 
 const tab = (page: Page, name: string) =>
   page
-    .getByRole('tablist', { name: 'Control bus sections' })
+    .getByRole('tablist', { name: 'Dashboard sections' })
     .getByRole('tab', { name });
 
 const entry = (n: number, over: Record<string, unknown> = {}) => ({
@@ -109,15 +109,13 @@ test.describe('Control - the page and its tabs', () => {
     await page.goto('/control');
 
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Control bus' })
+      page.getByRole('heading', { level: 1, name: 'Dashboard' })
     ).toBeVisible();
     await expect(
       page.getByText('How the server is doing, who and what is steering runs')
     ).toBeVisible();
     await expect(
-      page
-        .getByRole('tablist', { name: 'Control bus sections' })
-        .getByRole('tab')
+      page.getByRole('tablist', { name: 'Dashboard sections' }).getByRole('tab')
     ).toHaveText(['Overview', 'Activity', 'Audit']);
     await expect(tab(page, 'Overview')).toHaveAttribute(
       'aria-selected',
@@ -296,7 +294,7 @@ test.describe('Control - execution limits', () => {
       if (r.request().method() === 'POST') posted = true;
       return r.fallback();
     });
-    await page.goto('/control');
+    await page.goto('/config?tab=capacity');
     await page.getByRole('button', { name: 'Edit limits' }).click();
     const dialog = page.getByRole('dialog', { name: 'Edit execution limits' });
     await expect(dialog.getByLabel(/Max concurrent/)).toHaveValue('4');
@@ -324,7 +322,7 @@ test.describe('Control - execution limits', () => {
     page,
   }) => {
     await mockControl(page);
-    await page.goto('/control');
+    await page.goto('/config?tab=capacity');
     await page.getByRole('button', { name: 'Edit limits' }).click();
     const dialog = page.getByRole('dialog');
 
@@ -360,7 +358,7 @@ test.describe('Control - execution limits', () => {
           })
         : r.fallback()
     );
-    await page.goto('/control');
+    await page.goto('/config?tab=capacity');
     await page.getByRole('button', { name: 'Edit limits' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByLabel(/Max concurrent/).fill('9');

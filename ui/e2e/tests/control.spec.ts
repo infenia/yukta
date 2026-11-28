@@ -102,7 +102,7 @@ test.describe('Control page', () => {
     await expect(page).toHaveURL(/severity=ERROR/);
   });
 
-  test('shows the execution limits and changes them', async ({ page }) => {
+  test('changes the execution limits from Configuration', async ({ page }) => {
     await mockControlApi(page, []);
     let limits = {
       maxConcurrent: 4,
@@ -120,10 +120,8 @@ test.describe('Control page', () => {
       }
       return route.fulfill(envelope('/limits', limits));
     });
-    const control = new ControlPage(page);
-    await control.goto();
+    await page.goto('/config?tab=capacity');
 
-    await expect(page.getByText('at most unlimited')).toBeVisible();
     await page.getByRole('button', { name: 'Edit limits' }).click();
     await page.getByLabel(/Max concurrent/).fill('8');
     await page.getByLabel(/Max per workflow/).fill('2');
@@ -132,10 +130,9 @@ test.describe('Control page', () => {
 
     await expect(page.getByRole('dialog')).toHaveCount(0);
     expect(posted).toBe('?maxConcurrent=8&maxPerWorkflow=2');
-    await expect(page.getByText('of 8', { exact: true })).toBeVisible();
   });
 
-  test('shows the dashboard: numbers, a slow live run and the limit knob', async ({
+  test('shows the dashboard: numbers, a slow live run and no controls', async ({
     page,
   }) => {
     await mockControlApi(page, []);
@@ -175,13 +172,8 @@ test.describe('Control page', () => {
         ])
       )
     );
-    let posted = '';
-    await page.route('**/api/scheduler/limits*', (route) => {
-      if (route.request().method() === 'POST') {
-        posted = new URL(route.request().url()).search;
-        return route.fulfill(envelope('/scheduler/limits', null));
-      }
-      return route.fulfill(
+    await page.route('**/api/scheduler/limits*', (route) =>
+      route.fulfill(
         envelope('/scheduler/limits', {
           maxConcurrent: 4,
           maxPerWorkflow: 0,
@@ -189,8 +181,8 @@ test.describe('Control page', () => {
           queued: 0,
           queueCapacity: 100,
         })
-      );
-    });
+      )
+    );
     const control = new ControlPage(page);
     await control.goto();
 
@@ -202,11 +194,11 @@ test.describe('Control page', () => {
     await expect(slow).toContainText('(slow)');
     await expect(slow).toHaveAttribute('data-slow', 'true');
 
-    const knob = page.getByRole('slider', { name: /Concurrent run limit/ });
-    await expect(knob).toHaveAttribute('aria-valuenow', '4');
-    await knob.focus();
-    await page.keyboard.press('ArrowUp');
-    await expect.poll(() => posted).toBe('?maxConcurrent=5&maxPerWorkflow=0');
+    await expect(page.getByRole('slider')).toHaveCount(0);
+    await expect(page.getByRole('switch')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Edit limits' })).toHaveCount(
+      0
+    );
   });
 
   test('shows the supervisor counts and decisions, and links to a supervisor', async ({
@@ -400,15 +392,10 @@ test.describe('Control page', () => {
       name: /Inputs waiting: 2\./,
     });
     await expect(approvals).toBeVisible();
-    const ai = page.getByRole('region', { name: 'AI usage' });
-    const openai = ai.getByRole('row', { name: /OPENAI/ });
-    await expect(openai).toContainText('120');
-    await expect(openai).toContainText('60');
-    await expect(openai).toContainText('3.60');
-    await expect(ai).toContainText('Refused heavy calls / min');
+    await expect(page.getByRole('region', { name: 'AI usage' })).toHaveCount(0);
   });
 
-  test('resumes a live run from the dashboard', async ({ page }) => {
+  test('shows a paused live run without a resume button', async ({ page }) => {
     await mockControlApi(page, []);
     await page.route('**/api/metrics/runs/live', (route) =>
       route.fulfill(
@@ -428,17 +415,11 @@ test.describe('Control page', () => {
         ])
       )
     );
-    let resumed = '';
-    await page.route('**/api/executions/*/resume', (route) => {
-      resumed = new URL(route.request().url()).pathname;
-      return route.fulfill(ok({ executionId: 'run-7' }));
-    });
     const control = new ControlPage(page);
     await control.goto();
 
-    await page
-      .getByRole('button', { name: 'resume wf-held run run-7' })
-      .click();
-    await expect.poll(() => resumed).toBe('/api/executions/run-7/resume');
+    await expect(page.getByRole('link', { name: 'wf-held' })).toBeVisible();
+    await expect(page.getByText(/paused/)).toBeVisible();
+    await expect(page.getByRole('button', { name: /resume/ })).toHaveCount(0);
   });
 });

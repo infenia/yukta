@@ -1,0 +1,222 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { expectTooltip, renderWithProviders } from '@/test/utils/testUtils';
+import { ApiError } from '@/lib/apiClient';
+import { useMe } from '@/lib/identity';
+import { getDrain, setDrain } from '../../api/drain';
+import { getLimits, setLimits } from '../../api/scheduler';
+import { CapacityControls } from '../CapacityControls';
+import { useSupervision } from '@/features/supervisors/hooks/useSupervisorTypes';
+
+vi.mock('../../api/drain', () => ({
+  getDrain: vi.fn(),
+  setDrain: vi.fn(async () => ({})),
+}));
+vi.mock('../../api/scheduler', () => ({
+  getLimits: vi.fn(),
+  setLimits: vi.fn(async () => ({})),
+  limitText: (n: number) => (n === 0 ? 'unlimited' : String(n)),
+}));
+vi.mock('@/lib/identity', () => ({
+  useMe: vi.fn(),
+  REQUIRED_ROLE: { changeLimits: 'ADMIN' },
+}));
+vi.mock('@/features/supervisors/hooks/useSupervisorTypes', () => ({
+  useSupervision: vi.fn(() => ({ data: undefined })),
+}));
+vi.mock('../LimitsDialog', () => ({
+  LimitsDialog: ({ onClose }: { onClose: () => void }) => (
+    <button onClick={onClose}>close-limits-dialog</button>
+  ),
+}));
+vi.mock('@/components/dashboard/Knob', () => ({
+  Knob: ({
+    label,
+    value,
+    disabled,
+    onChange,
+    onCommit,
+  }: {
+    label: string;
+    value: number;
+    disabled?: boolean;
+    onChange: (v: number) => void;
+    onCommit: (v: number) => void;
+  }) => (
+    <div>
+      <span data-testid="knob" data-disabled={String(!!disabled)}>
+        {label}:{value}
+      </span>
+      <button onClick={() => onChange(7)}>turn</button>
+      <button onClick={() => onCommit(7)}>commit-7</button>
+      <button onClick={() => onCommit(4)}>commit-same</button>
+    </div>
+  ),
+}));
+
+const limits = {
+  maxConcurrent: 4,
+  maxPerWorkflow: 2,
+  running: 4,
+  queued: 1,
+  queueCapacity: 10,
+};
+
+const me = (changeLimits: boolean) => ({ permissions: { changeLimits } });
+
+describe('CapacityControls', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getLimits).mockResolvedValue(limits as never);
+    vi.mocked(getDrain).mockResolvedValue({
+      draining: false,
+      idle: true,
+    } as never);
+    vi.mocked(useMe).mockReturnValue(me(true) as never);
+  });
+
+  it('shows the per-workflow limit and opens the limits editor from Edit limits', async () => {
+    renderWithProviders(<CapacityControls />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit limits' }));
+    fireEvent.click(screen.getByText('close-limits-dialog'));
+    expect(screen.queryByText('close-limits-dialog')).toBeNull();
+  });
+
+  it('says so when there is no scheduler', async () => {
+    vi.mocked(getLimits).mockResolvedValue(null as never);
+    renderWithProviders(<CapacityControls />);
+    expect(await screen.findByText('No scheduler')).toBeInTheDocument();
+  });
+
+  it('shows the drain switch off while the drain state is still loading', async () => {
+    vi.mocked(getDrain).mockReturnValue(new Promise(() => {}) as never);
+    renderWithProviders(<CapacityControls />);
+    const drain = await screen.findByRole('switch');
+    expect(drain).not.toBeChecked();
+  });
+
+  it('starts a drain only after confirming it', async () => {
+    renderWithProviders(<CapacityControls />);
+    const drain = await screen.findByRole('switch');
+    fireEvent.click(drain);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(setDrain).not.toHaveBeenCalled();
+    fireEvent.click(drain);
+    fireEvent.click(screen.getByRole('button', { name: 'Drain' }));
+    await waitFor(() => expect(setDrain).toHaveBeenCalled());
+    expect(vi.mocked(setDrain).mock.calls[0][0]).toBe(true);
+  });
+
+  it('ends a drain straight away and labels what is still running', async () => {
+    vi.mocked(getDrain).mockResolvedValue({
+      draining: true,
+      idle: false,
+    } as never);
+    renderWithProviders(<CapacityControls />);
+    const drain = await screen.findByRole('switch');
+    expect(screen.getByText('(running work finishes)')).toBeInTheDocument();
+    fireEvent.click(drain);
+    await waitFor(() => expect(setDrain).toHaveBeenCalled());
+    expect(vi.mocked(setDrain).mock.calls[0][0]).toBe(false);
+  });
+
+  it('changes the limit when a different value is committed', async () => {
+    renderWithProviders(<CapacityControls />);
+    await screen.findByRole('switch');
+    fireEvent.click(screen.getByRole('button', { name: 'turn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'commit-same' }));
+    expect(setLimits).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'commit-7' }));
+    await waitFor(() => expect(setLimits).toHaveBeenCalledWith(7, 2));
+  });
+
+  it('locks the controls for a key that may not change limits', async () => {
+    vi.mocked(useMe).mockReturnValue(me(false) as never);
+    renderWithProviders(<CapacityControls />);
+    const knob = await screen.findByTestId('knob');
+    expect(knob.getAttribute('data-disabled')).toBe('true');
+    expect(screen.getByRole('switch')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Edit limits' })).toBeDisabled();
+  });
+
+  it('locks the controls, with the reason, when the owner of the server does not let people change them', async () => {
+    vi.mocked(useMe).mockReturnValue(me(true) as never);
+    vi.mocked(useSupervision).mockReturnValue({
+      data: {
+        setLimits: { allowed: false, via: 'ops-guard', reason: null },
+        drain: { allowed: true, via: 'ops-guard', reason: null },
+      },
+    } as never);
+    renderWithProviders(<CapacityControls />);
+    const knob = await screen.findByTestId('knob');
+    expect(knob.getAttribute('data-disabled')).toBe('true');
+    await expectTooltip(
+      screen.getByRole('switch').parentElement as HTMLElement,
+      'Controlled by ops-guard. People cannot do this directly.'
+    );
+    vi.mocked(useSupervision).mockReturnValue({ data: undefined } as never);
+  });
+
+  it('uses the reason the server gives', async () => {
+    vi.mocked(useMe).mockReturnValue(me(true) as never);
+    vi.mocked(useSupervision).mockReturnValue({
+      data: { drain: { allowed: false, via: 'x', reason: 'Not now' } },
+    } as never);
+    renderWithProviders(<CapacityControls />);
+    await screen.findByTestId('knob');
+    await expectTooltip(
+      screen.getByRole('switch').parentElement as HTMLElement,
+      'Not now'
+    );
+    vi.mocked(useSupervision).mockReturnValue({ data: undefined } as never);
+  });
+
+  it('shows why a limit change was refused', async () => {
+    vi.mocked(setLimits).mockRejectedValueOnce(new ApiError(403));
+    renderWithProviders(<CapacityControls />);
+    await screen.findByRole('switch');
+    fireEvent.click(screen.getByRole('button', { name: 'commit-7' }));
+    expect(
+      await screen.findByText('This needs an ADMIN key.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows a drain failure with its message and labels an idle drain', async () => {
+    vi.mocked(getDrain).mockResolvedValue({
+      draining: true,
+      idle: true,
+    } as never);
+    vi.mocked(setDrain).mockRejectedValueOnce(new Error('drain refused'));
+    renderWithProviders(<CapacityControls />);
+    expect(await screen.findByText('(idle)')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('switch'));
+    expect(await screen.findByText('drain refused')).toBeInTheDocument();
+  });
+
+  it('retries the limits when they fail to load', async () => {
+    vi.mocked(getLimits).mockRejectedValue(new Error('scheduler down'));
+    renderWithProviders(<CapacityControls />);
+    fireEvent.click(await screen.findByRole('button', { name: /retry/i }));
+    await waitFor(() => expect(getLimits).toHaveBeenCalledTimes(2));
+  });
+
+  it('closes the drain confirmation with Escape', async () => {
+    renderWithProviders(<CapacityControls />);
+    fireEvent.click(await screen.findByRole('switch'));
+    expect(screen.getByText('Drain the server?')).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByText('Drain the server?')).toBeNull();
+  });
+
+  it('shows a refusal that carries no message as nothing', async () => {
+    vi.mocked(setLimits).mockRejectedValueOnce({});
+    renderWithProviders(<CapacityControls />);
+    await screen.findByRole('switch');
+    fireEvent.click(screen.getByRole('button', { name: 'commit-7' }));
+    await waitFor(() => expect(setLimits).toHaveBeenCalled());
+    expect(screen.queryByText('This needs an ADMIN key.')).toBeNull();
+  });
+});

@@ -126,7 +126,9 @@ function GroupChips({
 
 /** The live event feed: filters in the URL, pause and resume, a bounded buffer. */
 export function ActivityPanel() {
-  const { connected, events, dropped } = useControlEvents();
+  const { connected, events, dropped, hasMore, loadingOlder, loadOlder } =
+    useControlEvents();
+  const [visible, setVisible] = useState(VISIBLE_ROWS);
   const [params, setParams] = useSearchParams();
   const [frozenAt, setFrozenAt] = useState<number | null>(null);
   // no group chosen means the default set; ponytail: switching every group off shows the default
@@ -239,7 +241,7 @@ export function ActivityPanel() {
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, VISIBLE_ROWS).map((e) => (
+              {rows.slice(0, visible).map((e) => (
                 <tr key={e.seq} className="border-border border-t align-top">
                   <td className="text-code-sm text-on-surface-variant px-3 py-1 whitespace-nowrap">
                     {formatLogTimestamp(e.event.timestamp)}
@@ -268,6 +270,21 @@ export function ActivityPanel() {
               ))}
             </tbody>
           </table>
+          {(rows.length > visible || hasMore) && (
+            <div className="border-border border-t p-2 text-center">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loadingOlder}
+                onClick={() => {
+                  setVisible((v) => v + VISIBLE_ROWS);
+                  if (rows.length <= visible + VISIBLE_ROWS) loadOlder();
+                }}
+              >
+                {loadingOlder ? 'Loading…' : 'Load older'}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </section>

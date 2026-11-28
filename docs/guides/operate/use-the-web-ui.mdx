@@ -148,7 +148,7 @@ Three settings bound the relay: `yukta.assistant.enabled` (turns it off), `yukta
   caption="Notice the scope and range controls at the top: they apply to every chart below them."
 />
 
-**Control** (`/control`, titled *Control bus*) has three tabs. **Overview** shows pending input requests, supervisors, the Mission Control dashboard (throughput, latency, capacity, live runs, workers and system), the scheduler's limits with **Edit** (`ADMIN`), and the remote workers with their pools and use. **Activity** is a live feed of events from all runs. **Audit** lists the newest control commands with the time, actor, command, run, and whether each was applied or refused and why. Commands sent without a named key show as `api`. From a workflow page, **Control commands of this run** in the **Workflow actions** menu opens the audit for that run.
+**Control** (`/control`, titled *Dashboard*) has three tabs. **Overview** shows pending input requests, supervisors, the Mission Control dashboard (throughput, latency, capacity, live runs, workers and system), the scheduler's limits (read-only; change them under **Configuration › Capacity**, `ADMIN`), and the remote workers with their pools and use. **Activity** is a live feed of events from all runs. **Audit** lists the newest control commands with the time, actor, command, run, and whether each was applied or refused and why. Commands sent without a named key show as `api`. From a workflow page, **Control commands of this run** in the **Workflow actions** menu opens the audit for that run.
 
 See [Use the control dashboard](/guides/supervise/use-the-control-dashboard) for what to read there, and [Tune capacity and limits](/guides/operate/tune-capacity-and-limits) for the scheduler.
 

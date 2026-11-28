@@ -17,6 +17,7 @@ import {
   getNodes,
   getSeries,
   getSnapshot,
+  getWorkflows,
   type MetricPoint,
   type MetricSample,
   type Range,
@@ -105,6 +106,13 @@ export const useNodes = (range: Range, scope: Scope, live: boolean) =>
   useQuery({
     queryKey: ['metrics', 'nodes', range, scope],
     queryFn: () => getNodes(range, scope),
+    refetchInterval: slow(live),
+  });
+
+export const useWorkflows = (range: Range, live: boolean) =>
+  useQuery({
+    queryKey: ['metrics', 'workflows', range],
+    queryFn: () => getWorkflows(range),
     refetchInterval: slow(live),
   });
 

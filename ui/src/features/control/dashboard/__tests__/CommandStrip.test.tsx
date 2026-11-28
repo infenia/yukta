@@ -10,17 +10,54 @@ import { getLimits } from '../../api/scheduler';
 import { getOpenInputs } from '@/features/workflow/api/inputs';
 import { CommandStrip } from '../CommandStrip';
 
+const hoisted = vi.hoisted(() => ({
+  wait: [
+    { t: 1, v: 100 },
+    { t: 2, v: 1500 },
+  ] as { t: number; v: number }[],
+}));
+
 vi.mock('@/features/metrics/hooks', () => ({
   useMetricSnapshot: vi.fn(),
-  useMetricSeries: () => ({
-    data: {
-      'overhead.start.p95': [
-        { t: 1, v: 2 },
-        { t: 2, v: 4 },
-      ],
-    },
+  useMetricSeries: (name: string) => ({
+    data:
+      name === 'queue.wait'
+        ? { 'queue.wait.p95': hoisted.wait }
+        : name === 'yukta.executions.'
+          ? {
+              'yukta.executions.running': [
+                { t: 1, v: 1 },
+                { t: 2, v: 3 },
+              ],
+              'yukta.executions.queued': [
+                { t: 1, v: 0 },
+                { t: 2, v: 2 },
+              ],
+            }
+          : {
+              'overhead.start.p95': [
+                { t: 1, v: 2 },
+                { t: 2, v: 4 },
+              ],
+            },
   }),
   useHeatmap: vi.fn(),
+}));
+vi.mock('../MetricDrawer', () => ({
+  MetricDrawer: ({
+    spec,
+    onClose,
+  }: {
+    spec: { title: string; points: unknown[]; format?: (v: number) => string };
+    onClose: () => void;
+  }) => (
+    <div>
+      <p>
+        drawer:{spec.title}:{spec.points.length}:{spec.format?.(5) ?? 'plain'}
+      </p>
+      <button onClick={onClose}>close-drawer</button>
+    </div>
+  ),
 }));
 vi.mock('../../api/scheduler', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/scheduler')>()),
@@ -82,13 +119,10 @@ describe('CommandStrip', () => {
     expect(
       screen.getByText('request to plugin · hand-off 4 ms')
     ).toBeInTheDocument();
-    await userEvent.hover(
-      screen.getByText('Engine p95 (1 h)').parentElement as HTMLElement
+    await userEvent.click(
+      screen.getByRole('button', { name: 'About Engine p95 (1 h)' })
     );
-    expect(await screen.findByText(/leaves out the plugin/)).toHaveAttribute(
-      'data-slot',
-      'tooltip-content'
-    );
+    expect(await screen.findByText(/leaves out the plugin/)).toBeVisible();
   });
 
   it('has no engine number before anything was measured', () => {
@@ -106,10 +140,11 @@ describe('CommandStrip', () => {
 });
 
 describe('CommandStrip success rate', () => {
-  it('shows a danger ring when fewer than 90% of the day’s runs succeeded', () => {
+  it('shows the success rate with the day’s run count when runs failed', () => {
     heatmap.mockReturnValue(asHeat([{ runs: 10, failed: 5 }]));
     renderWithProviders(<CommandStrip scope="global" live={false} />);
     expect(screen.getAllByText('50%').length).toBeGreaterThan(0);
+    expect(screen.getByText('of 10 runs')).toBeInTheDocument();
   });
 
   it('shows a dash with no runs in the day', () => {
@@ -117,7 +152,7 @@ describe('CommandStrip success rate', () => {
     expect(screen.getByText('Success (24 h)')).toBeInTheDocument();
   });
 
-  it('shows a success ring when nearly all runs succeeded', () => {
+  it('shows the success rate with the day’s run count when nearly all succeeded', () => {
     heatmap.mockReturnValue(asHeat([{ runs: 100, failed: 1 }]));
     renderWithProviders(<CommandStrip scope="global" live={false} />);
     expect(screen.getAllByText('99%').length).toBeGreaterThan(0);
@@ -157,5 +192,118 @@ describe('CommandStrip inputs tile', () => {
     expect(
       await screen.findByRole('link', { name: /Inputs waiting: –\./ })
     ).toBeInTheDocument();
+  });
+});
+
+describe('CommandStrip drill-down', () => {
+  const MIN = 60_000;
+  const open = async (label: string) => {
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Open ${label} chart` })
+    );
+  };
+
+  it('opens the running history as a larger chart and closes it again', async () => {
+    await open('Running');
+    expect(screen.getByText('drawer:Running:2:plain')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'close-drawer' }));
+    expect(screen.queryByText(/drawer:/)).toBeNull();
+  });
+
+  it('opens the queue history', async () => {
+    await open('Queued');
+    expect(screen.getByText('drawer:Queued:2:plain')).toBeInTheDocument();
+  });
+
+  it('opens the engine p95 history in milliseconds', async () => {
+    await open('Engine p95 (1 h)');
+    expect(screen.getByText('drawer:Engine p95:2:5 ms')).toBeInTheDocument();
+  });
+
+  it('opens the success rate by half hour, in percent', async () => {
+    const t = Math.floor(Date.now() / (30 * MIN)) * 30 * MIN;
+    heatmap.mockReturnValue(
+      asHeat([
+        { time: t - 30 * MIN, runs: 10, failed: 5 },
+        { time: t, runs: 10, failed: 0 },
+      ])
+    );
+    await open('Success (24 h)');
+    expect(screen.getByText('drawer:Success rate:2:5%')).toBeInTheDocument();
+  });
+
+  it('opens the failed runs of the last hour with a point per five minutes', async () => {
+    heatmap.mockReturnValue(asHeat([{ time: Date.now(), runs: 3, failed: 2 }]));
+    await open('Failed (1 h)');
+    expect(screen.getByText('drawer:Failed runs:12:plain')).toBeInTheDocument();
+  });
+
+  it('draws no sparkline, so offers no chart, for a success rate with one point', () => {
+    heatmap.mockReturnValue(asHeat([{ time: Date.now(), runs: 3, failed: 2 }]));
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    expect(
+      screen.queryByRole('button', { name: 'Open Success (24 h) chart' })
+    ).toBeNull();
+  });
+
+  it('explains each tile behind its info button', async () => {
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'About Failed (1 h)' })
+    );
+    expect(await screen.findByText(/failed in the last hour/)).toBeVisible();
+  });
+});
+
+describe('CommandStrip queue wait', () => {
+  it('shows how long starts waited for a slot, and opens its history in milliseconds', async () => {
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    expect(screen.getByText('Queue wait p95 (1 h)')).toBeInTheDocument();
+    expect(screen.getByText('1.5 s')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Open Queue wait p95 (1 h) chart' })
+    );
+    expect(
+      screen.getByText('drawer:Queue wait p95:2:5 ms')
+    ).toBeInTheDocument();
+  });
+
+  it('shows a dash before any start waited', () => {
+    hoisted.wait = [];
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    expect(
+      screen.getByText('Queue wait p95 (1 h)').closest('div')?.parentElement
+    ).toHaveTextContent('–');
+    hoisted.wait = [
+      { t: 1, v: 100 },
+      { t: 2, v: 1500 },
+    ];
+  });
+});
+
+describe('CommandStrip failed runs against the hour before', () => {
+  const MIN = 60_000;
+  const cells = (now: number, last: number, previous: number) => [
+    { time: now - 10 * MIN, runs: 5, failed: last },
+    { time: now - 90 * MIN, runs: 5, failed: previous },
+    { time: now + 5 * MIN, runs: 1, failed: 9 },
+    { time: now - 3 * 60 * MIN, runs: 1, failed: 9 },
+  ];
+
+  it.each([
+    [3, 1, '+2 vs hour before'],
+    [1, 3, '-2 vs hour before'],
+    [2, 2, '0 vs hour before'],
+  ])('says %i now against %i before as %s', (last, previous, text) => {
+    heatmap.mockReturnValue(asHeat(cells(Date.now(), last, previous)));
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    expect(screen.getByText(text)).toBeInTheDocument();
+  });
+
+  it('says nothing about a change when no run failed in either hour', () => {
+    heatmap.mockReturnValue(asHeat(cells(Date.now(), 0, 0)));
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    expect(screen.queryByText(/vs hour before/)).toBeNull();
   });
 });

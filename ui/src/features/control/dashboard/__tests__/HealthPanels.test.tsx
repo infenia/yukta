@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
 import { useWorkers } from '../../api/workers';
-import { AiUsagePanel, VitalsPanel, WorkerSlotsPanel } from '../HealthPanels';
+import { SystemPanel, VitalsPanel, WorkerSlotsPanel } from '../HealthPanels';
 
 vi.mock('../../api/workers', () => ({ useWorkers: vi.fn() }));
 let edition = 'PLUS';
@@ -92,12 +92,41 @@ describe('VitalsPanel', () => {
       })
     );
     renderWithProviders(<VitalsPanel />);
-    expect(screen.getByText('Heap 25%, 100 of 400 MB')).toBeInTheDocument();
-    expect(screen.getByText('Heap · 100 of 400 MB')).toBeInTheDocument();
+    expect(screen.getByText('JVM heap 25%, 100 of 400 MB')).toBeInTheDocument();
+    expect(screen.getByText('JVM heap · 100 of 400 MB')).toBeInTheDocument();
     expect(screen.getByText('CPU 25%, process')).toBeInTheDocument();
     expect(screen.getByText('Threads 120, live')).toBeInTheDocument();
     expect(screen.getByText('42 ms')).toBeInTheDocument();
     expect(screen.getByText('30.0')).toBeInTheDocument();
+  });
+
+  it('shows the host memory beside the JVM heap, and the heap the JVM has reserved', () => {
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({
+        data: {
+          'jvm.memory.used{area=heap,id=eden}': 100_000_000,
+          'jvm.memory.max{area=heap,id=eden}': 400_000_000,
+          'jvm.memory.committed{area=heap,id=eden}': 250_000_000,
+          'yukta.system.memory.total': 16_000_000_000,
+          'yukta.system.memory.free': 4_000_000_000,
+        },
+      })
+    );
+    renderWithProviders(<VitalsPanel />);
+    expect(
+      screen.getByText('Host memory 75%, 12.0 of 16.0 GB')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Heap reserved')).toBeInTheDocument();
+    expect(screen.getByText('250 MB')).toBeInTheDocument();
+  });
+
+  it('leaves out the host memory and the reserved heap when the server does not report them', () => {
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({ data: { 'jvm.threads.live': 10 } })
+    );
+    renderWithProviders(<VitalsPanel />);
+    expect(screen.queryByText(/Host memory/)).toBeNull();
+    expect(screen.queryByText('Heap reserved')).toBeNull();
   });
 
   it('says so without samples and retries a failed read', () => {
@@ -116,47 +145,29 @@ describe('VitalsPanel', () => {
   });
 });
 
-describe('AiUsagePanel', () => {
-  beforeEach(() => vi.clearAllMocks());
+describe('SystemPanel health chip', () => {
+  const render = (data: Record<string, number>) => {
+    vi.mocked(useWorkers).mockReturnValue(q({ data: [] }));
+    vi.mocked(useMetricSnapshot).mockReturnValue(q({ data }));
+    renderWithProviders(<SystemPanel live={false} />);
+  };
 
-  it('shows the rates for the global scope, with precision by size', () => {
-    vi.mocked(useMetricSnapshot).mockReturnValue(
-      q({
-        data: {
-          'llm.tokens{x=1}|rate': 2,
-          'llm.cost{x=1}|rate': 0.001,
-          'yukta.mcp.calls{x=1}|rate': 1,
-        },
-      })
-    );
-    renderWithProviders(<AiUsagePanel scope="global" />);
-    expect(screen.getByText('120')).toBeInTheDocument();
-    expect(screen.getByText('3.60')).toBeInTheDocument();
-    expect(screen.getByText('60')).toBeInTheDocument();
+  it('says what needs a look in the card header', () => {
+    render({
+      'jvm.memory.used{area=heap,id=eden}': 95,
+      'jvm.memory.max{area=heap,id=eden}': 100,
+      'yukta.tracker.dropped{type=log}|rate': 0.5,
+    });
+    expect(
+      screen.getByText('Heap 95% full · Events dropped')
+    ).toBeInTheDocument();
   });
 
-  it('says the usage is the whole server outside the global scope', () => {
-    vi.mocked(useMetricSnapshot).mockReturnValue(
-      q({ data: { 'llm.tokens{provider=A}|rate': 1 } })
-    );
-    renderWithProviders(<AiUsagePanel scope="session:s1" />);
-    expect(screen.getByText('Whole server')).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: /A/ })).toBeInTheDocument();
-  });
-
-  it('says so when there was no model or tool call', () => {
-    vi.mocked(useMetricSnapshot).mockReturnValue(q({ data: {} }));
-    renderWithProviders(<AiUsagePanel scope="global" />);
-    expect(screen.getByText('No model or tool calls yet')).toBeInTheDocument();
-  });
-
-  it('retries the AI usage when it fails to load', () => {
-    const refetch = vi.fn();
-    vi.mocked(useMetricSnapshot).mockReturnValue(
-      q({ error: new Error('x'), refetch })
-    );
-    renderWithProviders(<AiUsagePanel scope="global" />);
-    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
-    expect(refetch).toHaveBeenCalled();
+  it('says nothing while all is well', () => {
+    render({
+      'jvm.memory.used{area=heap,id=eden}': 10,
+      'jvm.memory.max{area=heap,id=eden}': 100,
+    });
+    expect(screen.queryByText(/Heap \d+% full|Events dropped/)).toBeNull();
   });
 });

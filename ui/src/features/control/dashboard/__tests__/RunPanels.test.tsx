@@ -2,13 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
-import { useMe } from '@/lib/identity';
-import { runAction } from '@/features/workflow/api/executionControl';
 import {
   useHeatmap,
   useLiveRuns,
+  useMetricSnapshot,
   useModules,
   useNodes,
 } from '@/features/metrics/hooks';
@@ -20,17 +19,11 @@ import {
 } from '../RunPanels';
 
 vi.mock('../useNow', () => ({ useNow: () => 10 * 60_000 }));
-vi.mock('@/features/workflow/api/executionControl', () => ({
-  runAction: vi.fn(async () => ({})),
-}));
-vi.mock('@/lib/identity', () => ({
-  useMe: vi.fn(),
-  REQUIRED_ROLE: { controlRuns: 'OPERATOR' },
-}));
 vi.mock('@/features/metrics/hooks', () => ({
   useHeatmap: vi.fn(),
   useModules: vi.fn(),
   useLiveRuns: vi.fn(),
+  useMetricSnapshot: vi.fn(() => ({ data: undefined })),
   useNodes: vi.fn(),
 }));
 vi.mock('@/components/dashboard/Strips', () => ({
@@ -71,8 +64,8 @@ describe('DayHeat', () => {
     vi.mocked(useHeatmap).mockReturnValue(
       q({
         data: [
-          { time: 9 * 60_000, runs: 3, failed: 1 },
-          { time: 8 * 60_000, runs: 2, failed: 0 },
+          { time: 9 * 60_000, runs: 3, failed: 1, failedRuns: [] },
+          { time: 8 * 60_000, runs: 2, failed: 0, failedRuns: [] },
         ],
       })
     );
@@ -101,6 +94,84 @@ describe('DayHeat', () => {
     expect(
       screen.getByText('Could not load the last 24 hours.')
     ).toBeInTheDocument();
+  });
+});
+
+describe('DayHeat failed runs', () => {
+  const failing = [
+    { time: 8 * 60_000, runs: 2, failed: 1, failedRuns: ['old-run'] },
+    {
+      time: 9 * 60_000,
+      runs: 3,
+      failed: 2,
+      failedRuns: ['new-run', 'newer/run'],
+    },
+  ];
+
+  it('offers the failed runs of the day, newest first, each opening the run search', () => {
+    vi.mocked(useHeatmap).mockReturnValue(q({ data: failing }));
+    renderWithProviders(<DayHeat scope="global" live />);
+
+    fireEvent.click(screen.getByRole('button', { name: '3 failed' }));
+
+    expect(
+      screen.getByRole('dialog', { name: 'Failed runs' })
+    ).toBeInTheDocument();
+    const links = screen.getAllByRole('link');
+    expect(links.map((l) => l.textContent)).toEqual([
+      'new-run',
+      'newer/run',
+      'old-run',
+    ]);
+    expect(links[1]).toHaveAttribute('href', '/runs?text=newer%2Frun');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('offers nothing to open when no run failed', () => {
+    vi.mocked(useHeatmap).mockReturnValue(
+      q({ data: [{ time: 9 * 60_000, runs: 3, failed: 0, failedRuns: [] }] })
+    );
+    renderWithProviders(<DayHeat scope="global" live />);
+    expect(screen.queryByRole('button', { name: /failed/ })).toBeNull();
+  });
+});
+
+describe('LeaderboardPanel retries', () => {
+  const rows = q({
+    data: [
+      { module: 'http', executions: 8, failures: 0, avgMs: 10 },
+      { module: 'echo', executions: 2, failures: 0, avgMs: 10 },
+    ],
+  });
+
+  it('shows the retries per minute of a plugin when any plugin was retried', () => {
+    vi.mocked(useModules).mockReturnValue(rows);
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({
+        data: {
+          'yukta.node.retries{module=http}|rate': 0.1,
+          'yukta.node.retries{module=http}|mean': 5,
+          'yukta.node.executions{module=http}|rate': 3,
+        },
+      })
+    );
+    renderWithProviders(<LeaderboardPanel scope="global" range="1h" live />);
+
+    expect(screen.getByText('Retries / min')).toBeInTheDocument();
+    expect(screen.getByText('http').closest('tr')).toHaveTextContent('6.0');
+    expect(screen.getByText('echo').closest('tr')).toHaveTextContent('–');
+    vi.mocked(useMetricSnapshot).mockReturnValue(q({ data: undefined }));
+  });
+
+  it('leaves the column out when nothing was retried', () => {
+    vi.mocked(useModules).mockReturnValue(rows);
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({ data: { 'yukta.node.retries{module=http}|rate': 0 } })
+    );
+    renderWithProviders(<LeaderboardPanel scope="global" range="1h" live />);
+    expect(screen.queryByText('Retries / min')).toBeNull();
+    vi.mocked(useMetricSnapshot).mockReturnValue(q({ data: undefined }));
   });
 });
 
@@ -208,12 +279,52 @@ describe('NodesPanel', () => {
   });
 });
 
+describe('LiveRunsPanel running long', () => {
+  it('counts the runs that have gone on longer than usual', () => {
+    vi.mocked(useLiveRuns).mockReturnValue(
+      q({
+        data: [
+          run({
+            executionId: 'a',
+            workflowId: 'a',
+            elapsedMs: 9000,
+            p95Ms: 5000,
+          }),
+          run({
+            executionId: 'b',
+            workflowId: 'b',
+            elapsedMs: 9000,
+            p95Ms: 5000,
+          }),
+          run({
+            executionId: 'c',
+            workflowId: 'c',
+            elapsedMs: 1000,
+            p95Ms: 5000,
+          }),
+          run({
+            executionId: 'd',
+            workflowId: 'd',
+            elapsedMs: 99_000,
+            p95Ms: null,
+          }),
+        ],
+      })
+    );
+    renderWithProviders(<LiveRunsPanel scope="global" live />);
+    expect(screen.getByText('2 running long')).toBeInTheDocument();
+  });
+
+  it('says nothing when no run is past its usual time', () => {
+    vi.mocked(useLiveRuns).mockReturnValue(q({ data: [run()] }));
+    renderWithProviders(<LiveRunsPanel scope="global" live />);
+    expect(screen.queryByText(/running long/)).toBeNull();
+  });
+});
+
 describe('LiveRunsPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useMe).mockReturnValue({
-      permissions: { controlRuns: true },
-    } as never);
   });
 
   it('shows the runs in scope and flags one that runs past its usual time', () => {
@@ -252,7 +363,7 @@ describe('LiveRunsPanel', () => {
     expect(screen.getByText(/\(slow\)/)).toBeInTheDocument();
   });
 
-  it('names the running nodes and offers Resume, not Pause, for a paused run', () => {
+  it('names the running nodes, marks a paused run and offers no run buttons', () => {
     vi.mocked(useLiveRuns).mockReturnValue(
       q({
         data: [
@@ -270,65 +381,20 @@ describe('LiveRunsPanel', () => {
     expect(screen.getByText('n1, n2, n3 +2')).toBeInTheDocument();
     expect(screen.getByText('between nodes')).toBeInTheDocument();
     expect(screen.getByText(/paused/)).toBeInTheDocument();
+    // read-only: control lives on the run page the workflow name links to
     expect(
-      screen.getByRole('button', { name: 'resume a run e1' })
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'pause a run e1' })).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'pause b run e2' })
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'resume b run e2' })
+      screen.queryByRole('button', { name: /pause|resume|stop/i })
     ).toBeNull();
+    expect(screen.getByRole('link', { name: 'a' })).toBeInTheDocument();
   });
 
-  it('pauses a run straight away and stops one only after confirming', async () => {
-    vi.mocked(useLiveRuns).mockReturnValue(
-      q({ data: [run({ executionId: 'e1', workflowId: 'a' })] })
-    );
-    renderWithProviders(<LiveRunsPanel scope="global" live />);
-    fireEvent.click(screen.getByRole('button', { name: 'pause a run e1' }));
-    await waitFor(() => expect(runAction).toHaveBeenCalled());
-    expect(vi.mocked(runAction).mock.calls[0][0]).toBe('e1');
-    expect(vi.mocked(runAction).mock.calls[0][1]).toBe('pause');
-
-    fireEvent.click(screen.getByRole('button', { name: 'stop a run e1' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(screen.getByRole('button', { name: 'stop a run e1' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Stop run' }));
-    await waitFor(() =>
-      expect(vi.mocked(runAction).mock.calls.at(-1)?.[1]).toBe('stop')
-    );
-  });
-
-  it('locks run controls for a key that may not control runs', () => {
-    vi.mocked(useMe).mockReturnValue({
-      permissions: { controlRuns: false },
-    } as never);
-    vi.mocked(useLiveRuns).mockReturnValue(
-      q({ data: [run({ executionId: 'e1', workflowId: 'a' })] })
-    );
-    renderWithProviders(<LiveRunsPanel scope="global" live />);
-    expect(
-      screen.getByRole('button', { name: 'pause a run e1' })
-    ).toBeDisabled();
-  });
-
-  it('shows the empty state, a failed action and a retry', async () => {
+  it('shows the empty state and a retry', () => {
     vi.mocked(useLiveRuns).mockReturnValue(q({ data: [] }));
     const { unmount } = renderWithProviders(
       <LiveRunsPanel scope="global" live />
     );
     expect(screen.getByText('No run is going')).toBeInTheDocument();
     unmount();
-
-    vi.mocked(runAction).mockRejectedValueOnce(new Error('refused'));
-    vi.mocked(useLiveRuns).mockReturnValue(
-      q({ data: [run({ executionId: 'e1', workflowId: 'a' })] })
-    );
-    renderWithProviders(<LiveRunsPanel scope="global" live />);
-    fireEvent.click(screen.getByRole('button', { name: 'pause a run e1' }));
-    expect(await screen.findByText('refused')).toBeInTheDocument();
 
     const refetch = vi.fn();
     vi.mocked(useLiveRuns).mockReturnValue(
@@ -337,19 +403,5 @@ describe('LiveRunsPanel', () => {
     renderWithProviders(<LiveRunsPanel scope="global" live />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
-  });
-
-  it('closes the stop confirmation with Escape', () => {
-    vi.mocked(useMe).mockReturnValue({
-      permissions: { controlRuns: true },
-    } as never);
-    vi.mocked(useLiveRuns).mockReturnValue(
-      q({ data: [run({ executionId: 'e1', workflowId: 'a' })] })
-    );
-    renderWithProviders(<LiveRunsPanel scope="global" live />);
-    fireEvent.click(screen.getByRole('button', { name: 'stop a run e1' }));
-    expect(screen.getByText('Stop a?')).toBeInTheDocument();
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByText('Stop a?')).toBeNull();
   });
 });

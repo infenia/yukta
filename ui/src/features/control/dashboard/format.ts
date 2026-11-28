@@ -81,73 +81,183 @@ export function integrate(points: MetricPoint[]): number {
   return total;
 }
 
-/** One provider's model traffic: tokens per minute each way and spend per hour. */
-export interface ProviderUsage {
-  provider: string;
-  tokensInPerMinute: number;
-  tokensOutPerMinute: number;
-  spendPerHour: number;
+/**
+ * "100 of 400 MB": bytes used out of a maximum, both in one unit (GB from a billion bytes up) so
+ * the caption stays short. A maximum that is not known (zero or less) shows the used amount alone.
+ */
+export function usedOfBytes(used: number, max: number): string {
+  const big = Math.max(used, max) >= 1e9;
+  const [divisor, unit, digits] = big ? [1e9, 'GB', 1] : [1e6, 'MB', 0];
+  const fmt = (n: number) => (n / divisor).toFixed(digits);
+  return max > 0
+    ? `${fmt(used)} of ${fmt(max)} ${unit}`
+    : `${fmt(used)} ${unit}`;
 }
 
-/** Model and tool-call traffic from a snapshot, per provider and in total. */
-export interface AiUsage {
-  providers: ProviderUsage[];
-  mcpCallsPerMinute: number;
-  mcpFailedPerMinute: number;
-  heavyRefusedPerMinute: number;
+interface HeatCell {
+  time: number;
+  runs: number;
+  failed: number;
+}
+
+/** Heat-map cells summed into `bucketMs` buckets, oldest first. */
+function bucketHeat(cells: HeatCell[], bucketMs: number) {
+  const buckets = new Map<number, { runs: number; failed: number }>();
+  for (const c of cells) {
+    const key = Math.floor(c.time / bucketMs);
+    const sum = buckets.get(key) ?? { runs: 0, failed: 0 };
+    buckets.set(key, {
+      runs: sum.runs + c.runs,
+      failed: sum.failed + c.failed,
+    });
+  }
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([key, sum]) => ({ t: key * bucketMs, ...sum }));
+}
+
+/** The success rate (percent) per half hour; a half hour with no runs has no point. */
+export function successPoints(cells: HeatCell[], bucketMs = 30 * 60_000) {
+  return bucketHeat(cells, bucketMs)
+    .filter((b) => b.runs > 0)
+    .map((b) => ({
+      t: b.t,
+      v: Math.round(((b.runs - b.failed) / b.runs) * 100),
+    }));
+}
+
+/** Failed runs per five minutes over the last hour, a quiet bucket counted as zero. */
+export function failedPoints(
+  cells: HeatCell[],
+  now: number,
+  bucketMs = 5 * 60_000
+) {
+  const buckets = new Map(
+    bucketHeat(cells, bucketMs).map((b) => [b.t, b.failed])
+  );
+  const last = Math.floor(now / bucketMs);
+  return Array.from({ length: 12 }, (_, i) => {
+    const t = (last - 11 + i) * bucketMs;
+    return { t, v: buckets.get(t) ?? 0 };
+  });
+}
+
+/** The kinds of REST call `yukta.api.requests` is tagged with, in the order they are drawn. */
+export const OPERATIONS = ['read', 'run', 'change', 'other'] as const;
+
+/** The kind of call a `yukta.api.requests{op=...}` series key is for, or undefined. */
+export const opOf = (key: string): string | undefined =>
+  OPERATIONS.find((op) => key.includes(`{op=${op}}`));
+
+/** Lines of the run-time chart: how long a run took, not what the engine added. */
+export const RUN_LINES = [
+  { key: 'duration.p50', label: 'run p50', color: 'var(--chart-1)' },
+  { key: 'duration.p95', label: 'run p95', color: 'var(--chart-2)' },
+  { key: 'duration.p99', label: 'run p99', color: 'var(--chart-4)' },
+];
+
+/** How long ago, as a person says it: "just now", "12 min ago", "3 h ago", "2 d ago". */
+export function agoText(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
+}
+
+/** The start of the minute of the newest run in the cells, or undefined when none ran. */
+export function lastRunAt(cells: HeatCell[]): number | undefined {
+  const times = cells.filter((c) => c.runs > 0).map((c) => c.time);
+  return times.length > 0 ? Math.max(...times) : undefined;
+}
+
+/** Failed runs in the last hour and in the hour before it. */
+export function failedHours(cells: HeatCell[], now: number) {
+  const hour = 60 * 60_000;
+  let last = 0;
+  let previous = 0;
+  for (const c of cells) {
+    const age = now - c.time;
+    if (age >= 0 && age < hour) last += c.failed;
+    else if (age >= hour && age < 2 * hour) previous += c.failed;
+  }
+  return { last, previous };
+}
+
+/** The ids of the failed runs the cells name, newest first, each with the minute it ended. */
+export function failedRunIds(cells: (HeatCell & { failedRuns: string[] })[]) {
+  return cells
+    .flatMap((c) => c.failedRuns.map((id) => ({ time: c.time, id })))
+    .sort((a, b) => b.time - a.time);
+}
+
+/** The longest garbage-collection pause in a snapshot, in milliseconds (0 when none). */
+export function longestGcPause(values: Record<string, number> | undefined) {
+  return Math.max(
+    0,
+    ...Object.entries(values ?? {})
+      .filter(([k]) => k.startsWith('jvm.gc.pause') && k.endsWith('|max'))
+      .map(([, v]) => v)
+  );
+}
+
+/** A share of the heap or host memory above which the System card says so. */
+const HEAP_WARN = 0.85;
+const HOST_WARN = 0.9;
+/** A garbage-collection pause longer than this, in milliseconds, is worth a word. */
+const GC_WARN_MS = 1000;
+
+/** What on the System card needs a look: a full heap, full host memory, a long pause, drops. */
+export function healthConcerns(values: Record<string, number> | undefined) {
+  const concerns: string[] = [];
+  const heapMax = sumOf(values, 'jvm.memory.max{area=heap');
+  const heap =
+    heapMax > 0 ? sumOf(values, 'jvm.memory.used{area=heap') / heapMax : 0;
+  if (heap > HEAP_WARN) concerns.push(`Heap ${Math.round(heap * 100)}% full`);
+  const total = values?.['yukta.system.memory.total'] ?? 0;
+  const host =
+    total > 0 ? 1 - (values?.['yukta.system.memory.free'] ?? 0) / total : 0;
+  if (host > HOST_WARN)
+    concerns.push(`Host memory ${Math.round(host * 100)}% used`);
+  const pause = longestGcPause(values);
+  if (pause > GC_WARN_MS) concerns.push(`GC pause ${formatMs(pause)}`);
+  if (sumOf(values, 'yukta.tracker.dropped', '|rate') > 0)
+    concerns.push('Events dropped');
+  return concerns;
 }
 
 /**
- * Reads the `llm.tokens{direction,provider}`, `llm.cost{provider}`, `yukta.mcp.call{outcome,tool}`
- * (outcome SUCCESS or FAILURE) and `yukta.mcp.heavy.refused` rates of a snapshot. Providers are
- * sorted by name.
+ * The values of a series on an even grid that ends now, so a graph spans the whole window even
+ * when the server recorded nothing for some steps. A step without a point keeps the value before
+ * it (a gauge or a percentile stays what it last was); steps before the first point are `lead`,
+ * or left out when `lead` is undefined, so a line does not start with an invented value. A step
+ * with several points takes the last.
+ *
+ * @param points the recorded points, oldest first
+ * @param now the end of the window, epoch milliseconds
+ * @param spanMs the length of the window
+ * @param stepMs the length of one step
+ * @param lead the value before the first point, or undefined to start at the first point
  */
-export function aiUsage(values: Record<string, number> | undefined): AiUsage {
-  const providers = new Map<string, ProviderUsage>();
-  const of = (key: string) => {
-    const provider = tagOf(key, 'provider') ?? 'unknown';
-    let row = providers.get(provider);
-    if (!row) {
-      row = {
-        provider,
-        tokensInPerMinute: 0,
-        tokensOutPerMinute: 0,
-        spendPerHour: 0,
-      };
-      providers.set(provider, row);
-    }
-    return row;
-  };
-  let mcpCallsPerMinute = 0;
-  let mcpFailedPerMinute = 0;
-  let heavyRefusedPerMinute = 0;
-  for (const [key, rate] of Object.entries(values ?? {})) {
-    if (!key.endsWith('|rate')) continue;
-    if (key.startsWith('llm.tokens')) {
-      const row = of(key);
-      if (tagOf(key, 'direction') === 'output') {
-        row.tokensOutPerMinute += rate * 60;
-      } else {
-        row.tokensInPerMinute += rate * 60;
-      }
-    } else if (key.startsWith('llm.cost')) {
-      of(key).spendPerHour += rate * 3600;
-    } else if (key.startsWith('yukta.mcp.call')) {
-      mcpCallsPerMinute += rate * 60;
-      const outcome = tagOf(key, 'outcome');
-      if (outcome === 'FAILURE') {
-        mcpFailedPerMinute += rate * 60;
-      }
-    } else if (key.startsWith('yukta.mcp.heavy.refused')) {
-      heavyRefusedPerMinute += rate * 60;
-    }
+export function fillSeries(
+  points: { t: number; v: number }[],
+  now: number,
+  spanMs: number,
+  stepMs: number,
+  lead?: number
+): number[] {
+  const bucketOf = (t: number) => Math.floor(t / stepMs);
+  const byStep = new Map(points.map((p) => [bucketOf(p.t), p.v]));
+  const last = bucketOf(now);
+  const first = last - Math.round(spanMs / stepMs) + 1;
+  const before = points.filter((p) => bucketOf(p.t) < first);
+  const knownBefore =
+    before.length > 0 ? before[before.length - 1].v : undefined;
+  let carried = knownBefore ?? lead;
+  const values: number[] = [];
+  for (let step = first; step <= last; step++) {
+    carried = byStep.get(step) ?? carried;
+    if (carried !== undefined) values.push(carried);
   }
-  return {
-    providers: [...providers.values()].sort((a, b) =>
-      a.provider.localeCompare(b.provider)
-    ),
-    mcpCallsPerMinute,
-    mcpFailedPerMinute,
-    heavyRefusedPerMinute,
-  };
+  return values;
 }

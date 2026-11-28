@@ -1,44 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useSupervision } from '@/features/supervisors/hooks/useSupervisorTypes';
-import { controlledBy } from '@/features/supervisors/components/RequireControl';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { ArcGauge } from '@/components/dashboard/Gauges';
-import { Knob } from '@/components/dashboard/Knob';
 import { Panel } from '@/components/dashboard/Tile';
-import { InlineError } from '@/components/common/InlineError';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
-import { Modal } from '@/components/common/Modal';
-import { Button } from '@/components/ui/button';
-import { ApiError } from '@/lib/apiClient';
-import { REQUIRED_ROLE, useMe } from '@/lib/identity';
-import { getDrain, setDrain, type DrainState } from '../api/drain';
-import {
-  getLimits,
-  limitText,
-  setLimits,
-  type SchedulerLimits,
-} from '../api/scheduler';
-import { LimitsDialog } from '../components/LimitsDialog';
+import { useMe } from '@/lib/identity';
+import { getDrain } from '../api/drain';
+import { getLimits, limitText } from '../api/scheduler';
 import { PanelState } from './PanelState';
 import { tagOf } from './format';
-import { Tip } from '@/components/ui/tooltip';
 
 const LIMITS_KEY = ['control', 'scheduler', 'limits'];
 const DRAIN_KEY = ['control', 'scheduler', 'drain'];
-/** The knob goes to this when no limit is set, so there is something to turn. */
-const KNOB_MAX = 64;
 
-const failure = (error: Error | null) =>
-  error instanceof ApiError && error.status === 403
-    ? 'This needs an ADMIN key.'
-    : error?.message;
-
-/** Running against the limit, the limit as a knob, the drain switch and the refused starts. */
+/** Running against the limit, the waiting queue and the refused starts. Read-only: the limits are set under Configuration. */
 export function CapacityPanel({ live }: { live: boolean }) {
-  const client = useQueryClient();
   const limits = useQuery({
     queryKey: LIMITS_KEY,
     queryFn: getLimits,
@@ -50,51 +28,10 @@ export function CapacityPanel({ live }: { live: boolean }) {
     refetchInterval: live ? 5000 : false,
   });
   const snapshot = useMetricSnapshot().data;
-  const [turning, setTurning] = useState<number | null>(null);
-  const [confirmDrain, setConfirmDrain] = useState(false);
-  const [editing, setEditing] = useState(false);
-  // Shown disabled, with the role it needs, to a key that may not change the limits
   const me = useMe();
-  // the server's owner may not let people change the limits or drain
-  const server = useSupervision({}).data;
-  const refused = [server?.setLimits, server?.drain].find(
-    (c) => c && !c.allowed
-  );
-  const mayChange = (!me || me.permissions.changeLimits) && !refused;
-  const needs = refused
-    ? (refused.reason ?? controlledBy(refused.via))
-    : mayChange
-      ? undefined
-      : `Needs ${REQUIRED_ROLE.changeLimits}`;
-
-  // Both writes show the new value at once; the refetch after each write shows the server's value, so a refusal is undone.
-  const changeLimit = useMutation({
-    mutationFn: ({ max, perWorkflow }: { max: number; perWorkflow: number }) =>
-      setLimits(max, perWorkflow),
-    onMutate: async ({ max }) => {
-      await client.cancelQueries({ queryKey: LIMITS_KEY });
-      client.setQueryData<SchedulerLimits>(
-        LIMITS_KEY,
-        (old) => ({ ...old, maxConcurrent: max }) as SchedulerLimits
-      );
-    },
-    onSettled: () => client.invalidateQueries({ queryKey: LIMITS_KEY }),
-  });
-  const toggleDrain = useMutation({
-    mutationFn: setDrain,
-    onMutate: async (on) => {
-      await client.cancelQueries({ queryKey: DRAIN_KEY });
-      client.setQueryData<DrainState>(
-        DRAIN_KEY,
-        (old) => ({ ...old, draining: on }) as DrainState
-      );
-    },
-    onSettled: () => client.invalidateQueries({ queryKey: DRAIN_KEY }),
-  });
 
   const data = limits.data;
   const max = data?.maxConcurrent ?? 0;
-  const knobValue = turning ?? max;
   const rejected = Object.entries(snapshot ?? {})
     .filter(([key]) => key.startsWith('yukta.executions.rejected'))
     .map(([key, rate]) => ({
@@ -104,7 +41,10 @@ export function CapacityPanel({ live }: { live: boolean }) {
     .filter((r) => r.perMinute > 0);
 
   return (
-    <Panel title="Capacity">
+    <Panel
+      title="Capacity"
+      info="How many runs the server executes at once against its limit, how many wait in the queue, and why new starts were refused. Always the whole server. Read-only: limits are changed under Configuration."
+    >
       <PanelState
         isPending={limits.isPending}
         error={limits.error}
@@ -121,7 +61,7 @@ export function CapacityPanel({ live }: { live: boolean }) {
                 max={max > 0 ? max : Math.max(1, data.running)}
                 tone={max > 0 && data.running >= max ? 'attention' : 'primary'}
               />
-              <dl className="text-body-sm text-on-surface-variant flex flex-col">
+              <dl className="text-body-sm text-on-surface-variant flex min-w-0 flex-col">
                 <dt>Running</dt>
                 <dd className="num text-on-surface">
                   {data.running} of {limitText(max)}
@@ -136,67 +76,12 @@ export function CapacityPanel({ live }: { live: boolean }) {
                 </dd>
               </dl>
             </div>
-            <div className="flex items-center gap-3">
-              <Knob
-                label="Concurrent run limit (0 is unlimited)"
-                value={knobValue}
-                min={0}
-                max={Math.max(KNOB_MAX, max)}
-                valueText={limitText(knobValue)}
-                onChange={setTurning}
-                disabled={!mayChange}
-                title={needs}
-                onCommit={(value) => {
-                  setTurning(null);
-                  if (value !== max)
-                    changeLimit.mutate({
-                      max: value,
-                      perWorkflow: data.maxPerWorkflow,
-                    });
-                }}
-              />
-              <span className="text-body-sm text-on-surface-variant">
-                Limit: {limitText(knobValue)}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="text-body-md flex items-center gap-2">
-                <Tip
-                  label={needs}
-                  disabled={
-                    !mayChange || drain.isPending || toggleDrain.isPending
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    checked={drain.data?.draining ?? false}
-                    // Ending a drain is safe; starting one refuses every new start, so it asks first
-                    onChange={(e) =>
-                      e.target.checked
-                        ? setConfirmDrain(true)
-                        : toggleDrain.mutate(false)
-                    }
-                  />
-                </Tip>
-                Drain: refuse new starts
-                {drain.data?.draining && (
-                  <span className="text-body-sm text-on-surface-variant">
-                    {drain.data.idle ? '(idle)' : '(running work finishes)'}
-                  </span>
-                )}
-              </label>
-              <Tip label={needs} disabled={!mayChange}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditing(true)}
-                >
-                  Edit limits
-                </Button>
-              </Tip>
-            </div>
+            {drain.data?.draining && (
+              <p className="bg-warning/15 text-body-sm text-on-surface self-start rounded-full px-2 py-0.5">
+                Draining: new starts are refused
+                {drain.data.idle ? ' (idle)' : ', running work finishes'}
+              </p>
+            )}
             {rejected.length > 0 && (
               <ul
                 aria-label="Refused starts per minute"
@@ -212,40 +97,17 @@ export function CapacityPanel({ live }: { live: boolean }) {
                 ))}
               </ul>
             )}
-            {(changeLimit.error ?? toggleDrain.error) && (
-              <InlineError
-                message={
-                  failure(changeLimit.error ?? toggleDrain.error) ?? null
-                }
-              />
+            {(!me || me.permissions.changeLimits) && (
+              <Link
+                to="/config?tab=capacity"
+                className="text-body-sm text-primary self-start hover:underline"
+              >
+                Change limits in Configuration
+              </Link>
             )}
           </div>
         )}
       </PanelState>
-      {editing && data && (
-        <LimitsDialog limits={data} onClose={() => setEditing(false)} />
-      )}
-      {confirmDrain && (
-        <Modal title="Drain the server?" onClose={() => setConfirmDrain(false)}>
-          <p className="text-body-md text-on-surface-variant mb-4">
-            New starts are refused until you end the drain. Runs already going
-            finish.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setConfirmDrain(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                toggleDrain.mutate(true);
-                setConfirmDrain(false);
-              }}
-            >
-              Drain
-            </Button>
-          </div>
-        </Modal>
-      )}
     </Panel>
   );
 }

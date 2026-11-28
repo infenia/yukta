@@ -17,7 +17,6 @@ import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
-import { setMe } from '@/lib/identity';
 import { installMockEventSource } from '@/test/mocks/MockEventSource';
 import { DashboardView } from '../DashboardView';
 
@@ -25,6 +24,13 @@ import { DashboardView } from '../DashboardView';
 vi.mock('../RunsChart', () => ({
   default: ({ series }: { series: Record<string, unknown[]> }) => (
     <div data-testid="runs-chart">{Object.keys(series).join(',')}</div>
+  ),
+}));
+vi.mock('@/features/metrics/SeriesChart', () => ({
+  default: ({ label, points }: { label: string; points: unknown[] }) => (
+    <div data-testid="series-chart">
+      {label}:{points.length}
+    </div>
   ),
 }));
 vi.mock('../OverheadChart', () => ({
@@ -53,39 +59,18 @@ let limits = {
   queueCapacity: 100,
 };
 let drain = { draining: false, running: 3, queued: 1, idle: false };
-let limitsPosted: string | null = null;
-let limitsStatus = 200;
-let drainStatus = 200;
 let metricsFail = false;
 let heat: unknown[] = [];
 let modules: unknown[] = [];
 let nodes: unknown[] = [];
+let workflows: unknown[] = [];
 let liveRuns: unknown[] = [];
 let marks: unknown[] = [];
-let actions: string[] = [];
 let approvals: unknown[] = [];
 
 const server = setupServer(
   http.get('/api/scheduler/limits', () => ok(limits)),
-  http.post('/api/scheduler/limits', ({ request }) => {
-    limitsPosted = new URL(request.url).search;
-    return limitsStatus === 200
-      ? ok(null)
-      : HttpResponse.json({ message: 'no' }, { status: limitsStatus });
-  }),
   http.get('/api/admin/drain', () => ok(drain)),
-  http.post('/api/admin/drain', () => {
-    if (drainStatus !== 200) {
-      return HttpResponse.json({ message: 'no' }, { status: drainStatus });
-    }
-    drain = { ...drain, draining: true };
-    return ok(drain);
-  }),
-  http.delete('/api/admin/drain', () =>
-    drainStatus === 200
-      ? ok({ ...drain, draining: false })
-      : HttpResponse.json({ message: 'no' }, { status: drainStatus })
-  ),
   http.get('/api/workers', () =>
     ok([
       {
@@ -152,11 +137,11 @@ const server = setupServer(
               ],
               'overhead.handoff.p95': [{ time: minute, value: 4 }],
             }
-          : names.startsWith('llm.cost')
+          : names.startsWith('duration')
             ? {
-                'llm.cost{provider=OPENAI}|rate': [
-                  { time: minute - 10_000, value: 0 },
-                  { time: minute, value: 0.05 },
+                'duration.p95': [
+                  { time: minute - 60_000, value: 1500 },
+                  { time: minute, value: 2500 },
                 ],
               }
             : {},
@@ -165,15 +150,12 @@ const server = setupServer(
   http.get('/api/metrics/heatmap', () => ok(heat)),
   http.get('/api/metrics/modules', () => ok(modules)),
   http.get('/api/metrics/nodes', () => ok(nodes)),
+  http.get('/api/metrics/workflows', () => ok(workflows)),
   http.get('/api/edition', () =>
     ok({ edition: 'PLUS', license: 'x', features: [], source: null })
   ),
   http.get('/api/metrics/annotations', () => ok(marks)),
-  http.get('/api/metrics/runs/live', () => ok(liveRuns)),
-  http.post('/api/executions/:id/:action', ({ params }) => {
-    actions.push(`${String(params.action)} ${String(params.id)}`);
-    return ok({ executionId: String(params.id) });
-  })
+  http.get('/api/metrics/runs/live', () => ok(liveRuns))
 );
 
 beforeAll(() => server.listen());
@@ -183,16 +165,13 @@ afterEach(() => {
   server.resetHandlers();
   limits = { ...limits, maxConcurrent: 8 };
   drain = { draining: false, running: 3, queued: 1, idle: false };
-  limitsPosted = null;
-  limitsStatus = 200;
-  drainStatus = 200;
   metricsFail = false;
   heat = [];
   modules = [];
   nodes = [];
+  workflows = [];
   liveRuns = [];
   marks = [];
-  actions = [];
   approvals = [];
 });
 afterAll(() => server.close());
@@ -311,7 +290,7 @@ describe('the Mission Control dashboard', () => {
     expect(screen.queryByText('2.5 s')).toBeNull(); // no mean per plugin type
   });
 
-  it('lists live runs, flags the slow one and pauses or stops from the row', async () => {
+  it('lists live runs and flags the slow one, with no run buttons', async () => {
     liveRuns = [
       {
         executionId: 'run-slow',
@@ -352,19 +331,7 @@ describe('the Mission Control dashboard', () => {
       screen.getByRole('meter', { name: 'wf-a: 1 of 4 nodes done' })
     ).toBeInTheDocument();
 
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole('button', { name: 'pause wf-a run run-slow' })
-    );
-    await user.click(
-      screen.getByRole('button', { name: 'stop wf-a run run-slow' })
-    );
-    // stopping asks first
-    expect(actions).toEqual(['pause run-slow']);
-    await user.click(screen.getByRole('button', { name: 'Stop run' }));
-    await waitFor(() =>
-      expect(actions).toEqual(['pause run-slow', 'stop run-slow'])
-    );
+    expect(screen.queryByRole('button', { name: /run run-slow/ })).toBeNull();
   });
 
   it('shows only the live runs of the chosen scope', async () => {
@@ -392,22 +359,7 @@ describe('the Mission Control dashboard', () => {
     expect(screen.queryByText('wf-b')).toBeNull();
   });
 
-  it('shows the limit knob, the drain switch and the run buttons disabled to a viewer', async () => {
-    setMe({
-      authenticated: true,
-      keyName: 'v',
-      role: 'VIEWER',
-      sessions: null,
-      authEnabled: true,
-      permissions: {
-        startRuns: false,
-        controlRuns: false,
-        editSessions: false,
-        deleteSessions: false,
-        changeLimits: false,
-        sendCommands: false,
-      },
-    });
+  it('shows no limit knob, drain switch or run buttons, to anyone', async () => {
     liveRuns = [
       {
         executionId: 'r1',
@@ -424,57 +376,15 @@ describe('the Mission Control dashboard', () => {
     ];
     renderWithProviders(<DashboardView />);
 
-    expect(await screen.findByRole('switch', { name: /Drain/ })).toBeDisabled();
+    await screen.findByText('wf-a');
+    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByRole('slider')).toBeNull();
     expect(
-      screen.getByRole('slider', { name: /Concurrent run limit/ })
-    ).toHaveAttribute('aria-disabled', 'true');
+      screen.queryByRole('button', { name: /Edit limits|stop|pause/ })
+    ).toBeNull();
     expect(
-      await screen.findByRole('button', { name: 'stop wf-a run r1' })
-    ).toBeDisabled();
-    setMe(null);
-  });
-
-  it('turns the limit with the keyboard, sends it, and puts it back when refused', async () => {
-    limitsStatus = 403;
-    renderWithProviders(<DashboardView />);
-    const user = userEvent.setup();
-
-    const knob = await screen.findByRole('slider', {
-      name: /Concurrent run limit/,
-    });
-    expect(knob).toHaveAttribute('aria-valuenow', '8');
-    knob.focus();
-    await user.keyboard('{ArrowUp}');
-
-    await waitFor(() => expect(limitsPosted).toContain('maxConcurrent=9'));
-    expect(
-      await screen.findByText('This needs an ADMIN key.')
-    ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(
-        screen.getByRole('slider', { name: /Concurrent run limit/ })
-      ).toHaveAttribute('aria-valuenow', '8')
-    );
-  });
-
-  it('switches the drain on, and back when the server refuses', async () => {
-    renderWithProviders(<DashboardView />);
-    const user = userEvent.setup();
-    const toggle = await screen.findByRole('switch', { name: /Drain/ });
-    expect(toggle).not.toBeChecked();
-
-    await user.click(toggle);
-    // draining refuses every new start, so it asks first
-    expect(toggle).not.toBeChecked();
-    await user.click(screen.getByRole('button', { name: 'Drain' }));
-    await waitFor(() => expect(toggle).toBeChecked());
-
-    drainStatus = 403;
-    await user.click(toggle); // turn it off again; the server refuses
-    expect(
-      await screen.findByText('This needs an ADMIN key.')
-    ).toBeInTheDocument();
-    await waitFor(() => expect(toggle).toBeChecked()); // put back as it was
+      screen.getByRole('link', { name: 'Change limits in Configuration' })
+    ).toHaveAttribute('href', '/config?tab=capacity');
   });
 
   it('lists the refused starts per minute and keeps scope, range and live in the URL', async () => {
@@ -537,28 +447,7 @@ describe('the Mission Control dashboard', () => {
     );
   });
 
-  it('shows model use per provider and the refused heavy calls', async () => {
-    renderWithProviders(<DashboardView />);
-
-    const panel = (
-      await screen.findByRole('heading', { name: 'AI usage' })
-    ).closest('section') as HTMLElement;
-    const row = await within(panel).findByRole('row', { name: /OPENAI/ });
-    expect(within(row).getByText('120')).toBeInTheDocument(); // 2 tokens/s in
-    expect(within(row).getByText('60')).toBeInTheDocument(); // 1 token/s out
-    expect(within(panel).getByText('6.00')).toBeInTheDocument(); // refused/min
-  });
-
-  it('says the AI usage is the whole server in a scoped view', async () => {
-    window.history.pushState({}, '', '/?scope=workflow:wf');
-    renderWithProviders(<DashboardView />);
-
-    expect(
-      await screen.findByRole('heading', { name: 'AI usage · whole server' })
-    ).toBeInTheDocument();
-  });
-
-  it('resumes a live run from its row and links to that run', async () => {
+  it('links a paused live run to its run view and offers no resume button', async () => {
     liveRuns = [
       {
         executionId: 'r1',
@@ -574,16 +463,13 @@ describe('the Mission Control dashboard', () => {
       },
     ];
     renderWithProviders(<DashboardView />);
-    const user = userEvent.setup();
 
     expect(await screen.findByRole('link', { name: 'wf-a' })).toHaveAttribute(
       'href',
       '/sessions/s1/workflow/wf-a?exec=r1'
     );
-    await user.click(
-      screen.getByRole('button', { name: 'resume wf-a run r1' })
-    );
-    await waitFor(() => expect(actions).toEqual(['resume r1']));
+    expect(screen.getByText(/paused/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /resume/ })).toBeNull();
   });
 
   it('opens the audit for a marked command that names no run', async () => {
@@ -609,5 +495,49 @@ describe('the Mission Control dashboard', () => {
     );
     await waitFor(() => expect(window.location.search).toBe('?tab=audit'));
     expect(window.location.pathname).toBe('/control');
+  });
+
+  it('lists how long each workflow takes and opens one, node by node', async () => {
+    workflows = [
+      { workflowId: 'wf-slow', runs: 4, failures: 1, p50Ms: 1000, p95Ms: 2500 },
+      { workflowId: 'wf-quick', runs: 9, failures: 0, p50Ms: 0, p95Ms: 0 },
+    ];
+    nodes = [
+      {
+        sessionId: 's1',
+        workflowId: 'wf-slow',
+        nodeId: 'build',
+        module: 'echo',
+        runs: 4,
+        failures: 1,
+        p50Ms: 900,
+        p95Ms: 2400,
+        lastExecutionId: 'e9',
+      },
+    ];
+    renderWithProviders(<DashboardView />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'wf-slow' }));
+
+    const drawer = await screen.findByRole('dialog', { name: 'wf-slow' });
+    expect(await within(drawer).findByTestId('series-chart')).toHaveTextContent(
+      'Run time, p95:2'
+    );
+    expect(
+      await within(drawer).findByRole('link', { name: 'build' })
+    ).toHaveAttribute(
+      'href',
+      '/sessions/s1/workflow/wf-slow?exec=e9&node=build'
+    );
+    await user.click(
+      within(drawer).getByRole('button', {
+        name: 'Focus the dashboard on this workflow',
+      })
+    );
+    await waitFor(() =>
+      expect(window.location.search).toContain('scope=workflow%3Awf-slow')
+    );
+    expect(screen.queryByRole('dialog', { name: 'wf-slow' })).toBeNull();
   });
 });

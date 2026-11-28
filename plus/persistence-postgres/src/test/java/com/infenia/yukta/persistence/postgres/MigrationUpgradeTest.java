@@ -71,7 +71,7 @@ class MigrationUpgradeTest extends PostgresTestSupport {
       assertThat(scalar(statement, "SELECT to_regclass('half_done')::text")).isNull();
       assertThat(scalar(statement, "SELECT count(*) FROM workflow_definition")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("1");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("2");
   }
 
   /**
@@ -113,7 +113,8 @@ class MigrationUpgradeTest extends PostgresTestSupport {
             "notification_epoch",
             "agent_conversation",
             "agent_event",
-            "agent_epoch"
+            "agent_epoch",
+            "activity"
           }) {
         assertThat(regclass(connection, table)).isEqualTo(table);
       }
@@ -126,6 +127,6 @@ class MigrationUpgradeTest extends PostgresTestSupport {
       assertThat(scalar(statement, "SELECT nextval('notification_seq')")).isEqualTo("1");
       assertThat(scalar(statement, "SELECT nextval('agent_seq')")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("1");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("2");
   }
 }

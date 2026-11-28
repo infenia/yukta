@@ -109,8 +109,8 @@ Roles apply to every client: a key without the needed role gets `403` from REST,
 
 | Task | REST | MCP | CLI | Web UI |
 |---|---|---|---|---|
-| Scheduler limits | `GET`, `POST /api/scheduler/limits` | `get_scheduler_limits`, `set_scheduler_limits` | `scheduler limits`, `scheduler set` | Control › Overview (Capacity) |
-| Drain the server | `GET`, `POST`, `DELETE /api/admin/drain` | – | – | Control › Overview (Capacity) |
+| Scheduler limits | `GET`, `POST /api/scheduler/limits` | `get_scheduler_limits`, `set_scheduler_limits` | `scheduler limits`, `scheduler set` | Configuration › Capacity |
+| Drain the server | `GET`, `POST`, `DELETE /api/admin/drain` | – | – | Configuration › Capacity |
 | Workers | `GET /api/workers` | – | `workers` | Control › Overview |
 | Control audit | `GET /api/control/audit` | – | `controlbus audit` | Control › Audit |
 | Live events of all runs | `GET /api/events/stream` | – | `controlbus watch` | Control › Activity |

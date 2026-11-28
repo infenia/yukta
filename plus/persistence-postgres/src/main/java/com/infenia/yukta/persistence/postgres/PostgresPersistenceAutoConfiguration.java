@@ -32,7 +32,7 @@ import tools.jackson.databind.ObjectMapper;
 @AutoConfiguration(before = DefaultsAutoConfiguration.class)
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 @ConditionalOnProperty(name = "yukta.session.store-type", havingValue = "postgres")
-@Import(PostgresHaConfiguration.class)
+@Import({PostgresHaConfiguration.class, PostgresActivityConfiguration.class})
 public class PostgresPersistenceAutoConfiguration {
 
   /** Default constructor. */

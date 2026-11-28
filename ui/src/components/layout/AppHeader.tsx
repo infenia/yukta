@@ -23,7 +23,12 @@ const NAV = [
     icon: 'shield_person',
   },
   { to: '/plugins', section: '/plugins', label: 'Plugins', icon: 'extension' },
-  { to: '/control', section: '/control', label: 'Dashboard', icon: 'hub' },
+  {
+    to: '/control',
+    section: '/control',
+    label: 'Dashboard',
+    icon: 'dashboard',
+  },
   {
     to: '/config',
     section: '/config',

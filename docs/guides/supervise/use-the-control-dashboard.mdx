@@ -25,11 +25,15 @@ import { UiShot } from "/snippets/ui-shot.jsx";
 
 <Steps>
   <Step title="Read the command strip">
-    The top row answers "is it healthy?" at a glance, in six tiles: **Running** (against the concurrent run limit), **Queued** (and what the queue holds), **Success (24 h)** as a rate, **Failed (1 h)** out of the runs that finished, **Engine p95 (1 h)** with its trend (how long a message waits between taking its node's turn and the plugin being called, not the plugins' own time), and **Inputs waiting**, which opens the inbox where they are answered. Workers and AI usage have their own panels below.
+    The top row answers "is it healthy?" at a glance, in seven tiles: **Running** (against the concurrent run limit), **Queued** (and what the queue holds), **Queue wait p95 (1 h)** (how long starts waited for a free slot), **Success (24 h)** as a rate, **Failed (1 h)** out of the runs that finished (with the change against the hour before), **Engine p95 (1 h)** with its trend (how long a message waits between taking its node's turn and the plugin being called, not the plugins' own time), and **Inputs waiting**, which opens the inbox where they are answered. Each tile has a small chart beside the number: click it to open a larger chart in a side drawer, with the latest, average, lowest and highest value. The **i** button on a tile or panel says what it shows. Workers have their own panel below. The dashboard only reads: it has no buttons that change the server. Panels that keep their size (charts, capacity, supervisors) come first and the ones that grow with the data (live runs, plugins, slowest nodes, system) sit at the bottom, so the page does not jump as runs start and finish.
+  </Step>
+
+  <Step title="See where the time and the failures are">
+    **Throughput** has a **Runs** view (runs that finished per minute, by how they ended) and an **API calls** view (REST calls per minute, split into read, run and change, with the mean time per call under the chart). **Workflow durations** lists each workflow with its runs, failures and typical (p50) and slow (p95) run time; click a workflow to see its run time over the range and, below it, the same range node by node, with a button that narrows the whole dashboard to it. **Failure hotspots** names the nodes that failed most and appears only when some node failed in the range. **Plugins** shows each plugin type's runs as a bar, with the failed share in red. **Outcomes (1 h)** shows how the hour's runs ended as shares. The **Engine overhead** panel has a **Run time** view: how long whole runs take (p50, p95, p99) against the engine's own share. Under the runs chart, the **N failed** link in the 24-hour band lists the failed runs, each opening the run search; when the range has no runs, the panel says when the last run finished and offers the full day. **Live runs** counts the runs that are past their usual time, **Plugins** adds a retries-per-minute column when any plugin was retried, and the **System** card shows a note in its header only when the heap or host memory is nearly full, a garbage-collection pause was long, or events were dropped. Run times are for workflow runs, not API calls. Everything is kept in memory for 24 hours and starts empty after a restart.
   </Step>
 
   <Step title="Scope the page">
-    Use the **Scope** filter to pick the whole server, one session or one workflow. Runs, success rate, p95, approvals, the charts, live runs, the heat strip and the plugin table follow it. Capacity, running and waiting runs, worker slots, the control bus, system, model spend and AI usage always show the whole server (a scoped view labels those tiles). The scope, time range (`15m` to `24h`) and live or paused state are kept in the URL, so you can share a view:
+    Use the **Scope** filter to pick the whole server, one session or one workflow. Runs, success rate, p95, approvals, the charts, live runs, the heat strip and the plugin table follow it. Capacity, running and waiting runs, worker slots, the control bus, and system always show the whole server (a scoped view labels those tiles). The scope, time range (`15m` to `24h`) and live or paused state are kept in the URL, so you can share a view:
 
     ```text
     http://localhost:9858/control?scope=workflow:<id>&range=6h&live=0
@@ -37,7 +41,7 @@ import { UiShot } from "/snippets/ui-shot.jsx";
   </Step>
 
   <Step title="Change capacity">
-    The **Capacity** panel shows running against the limit, the concurrent run limit (0 is unlimited) as a knob, the drain switch, and starts refused per reason. A change the server refuses is put back. The same from the command line:
+    The **Capacity** panel on the dashboard shows running against the limit, the waiting queue, a draining notice and starts refused per reason, read-only. To change them, open **Configuration › Capacity**: the concurrent run limit (0 is unlimited) as a knob, **Edit limits** and the drain switch. A change the server refuses is put back. The same from the command line:
 
     ```bash
     curl -X POST "localhost:9858/api/scheduler/limits?maxConcurrent=8&maxPerWorkflow=2"
@@ -70,15 +74,14 @@ import { UiShot } from "/snippets/ui-shot.jsx";
 ## Verify it worked
 
 - Start a few runs: the command strip's running count moves, **Live runs** lists them and the heat strip fills the current minute.
-- Set the concurrent limit to 1 on the Capacity knob and start two runs: the second waits, and the waiting count in the strip shows it. `GET /api/scheduler/limits` returns the same numbers: `maxConcurrent`, `maxPerWorkflow`, `running`, `queued`.
-- Pause a run from **Live runs**, open **Audit**, and the pause is there with your key name or `UI user`.
+- Set the concurrent limit to 1 under **Configuration › Capacity** and start two runs: the second waits, and the waiting count in the strip shows it. `GET /api/scheduler/limits` returns the same numbers: `maxConcurrent`, `maxPerWorkflow`, `running`, `queued`.
+- Pause a run from its run page, open **Audit**, and the pause is there with your key name or `UI user`. **Live runs** only shows runs; its workflow name links to the run page.
 - Copy the address bar to a colleague: they see the same scope and range.
 
 ## Variations
 
 - **Prometheus.** The registry is on the class path but the endpoint is off by default. To scrape it, set `management.endpoints.web.exposure.include=health,info,metrics,prometheus` and point the scraper at `/actuator/prometheus`. The dashboard does not need it: [Observe runs](/guides/operate/observe-runs).
 - **Where the numbers come from.** `GET /api/metrics/series` and `GET /api/metrics/snapshot` (the same as the MCP tool `get_metrics_snapshot`). They are in-memory samples since startup.
-- **AI usage.** Tokens in and out and spend per provider, MCP tool calls, failed calls and refused heavy calls are server-wide meters, so a scoped view says so. To cap them: [Set token budgets](/guides/ai/set-token-budgets).
 - **Dashboard in an assistant.** `get_scheduler_limits`, `get_control_bus_status` and `get_metrics_snapshot` give an assistant the same picture: [Connect an assistant](/guides/ai/connect-an-assistant).
 
 ## Related

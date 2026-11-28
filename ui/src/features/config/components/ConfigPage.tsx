@@ -35,6 +35,7 @@ import {
   type AppliesWhen,
   type ConfigOption,
 } from '../lib/catalog';
+import { CapacityControls } from '@/features/control/components/CapacityControls';
 import { howToSet } from '../lib/howToSet';
 import { useConfigValues } from '../hooks/useConfigValues';
 
@@ -156,7 +157,7 @@ function OptionCatalog() {
         <Popover>
           <PopoverTrigger
             aria-label="How configuration works"
-            className="border-border text-primary hover:bg-primary/10 transition-standard focus-visible:ring-ring/30 ml-auto flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border outline-none focus-visible:ring-3"
+            className="border-border text-primary transition-standard hover:bg-primary/10 focus-visible:ring-ring/30 ml-auto flex size-9 cursor-pointer items-center justify-center rounded-full border outline-none focus-visible:ring-3"
           >
             <span
               aria-hidden="true"
@@ -230,7 +231,7 @@ function OptionCatalog() {
                           <span
                             aria-hidden="true"
                             className={cn(
-                              'material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-standard shrink-0 text-xl',
+                              'material-symbols-outlined text-on-surface-variant transition-standard group-hover:text-primary shrink-0 text-xl',
                               expanded && 'text-primary rotate-180'
                             )}
                           >
@@ -308,9 +309,10 @@ function OptionCatalog() {
   );
 }
 
-type Tab = 'options' | 'security' | 'modes';
+type Tab = 'options' | 'security' | 'modes' | 'capacity';
 const TABS = [
   { id: 'options', label: 'Options' },
+  { id: 'capacity', label: 'Capacity' },
   { id: 'security', label: 'Security' },
   { id: 'modes', label: 'Run modes' },
 ] as const;
@@ -320,7 +322,11 @@ export function ConfigPage() {
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab');
   const tab: Tab =
-    requested === 'modes' || requested === 'security' ? requested : 'options';
+    requested === 'modes' ||
+    requested === 'security' ||
+    requested === 'capacity'
+      ? requested
+      : 'options';
   const choose = (next: Tab) => {
     const updated = new URLSearchParams(params);
     if (next === 'options') updated.delete('tab');
@@ -348,6 +354,7 @@ export function ConfigPage() {
         className="pt-6"
       >
         {tab === 'options' && <OptionCatalog />}
+        {tab === 'capacity' && <CapacityControls />}
         {tab === 'security' && <SecurityGuide />}
         {tab === 'modes' && <PackagingGuide />}
       </div>

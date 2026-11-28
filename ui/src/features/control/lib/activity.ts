@@ -136,3 +136,20 @@ export function appendBounded(
   const dropped = Math.max(0, all.length - MAX_EVENTS);
   return { buffer: dropped ? all.slice(dropped) : all, dropped };
 }
+
+/** A row of `/api/events/history`: the server's number and the envelope of the live stream. */
+export interface HistoryRow {
+  seq: number;
+  envelope: ActivityEvent;
+}
+
+/**
+ * Puts a page of older events (newest first, as the server sends them) in front of the buffer. An
+ * event that is not older than the oldest live event is dropped, since the stream already sent it.
+ */
+export function prependHistory(buffer: Entry[], page: Entry[]): Entry[] {
+  const first = buffer.find((e) => e.seq >= 0);
+  const cutoff = first ? Date.parse(first.event.timestamp) : Infinity;
+  const older = page.filter((e) => Date.parse(e.event.timestamp) < cutoff);
+  return older.reverse().concat(buffer);
+}

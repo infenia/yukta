@@ -5,11 +5,16 @@ import type { ReactNode } from 'react';
 import { ArcGauge, MeterBar } from '@/components/dashboard/Gauges';
 import { Panel } from '@/components/dashboard/Tile';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
-import { GLOBAL, type Scope } from '@/features/metrics/api';
 import { useEdition } from '@/features/edition/hooks/useEdition';
 import { useWorkers } from '../api/workers';
 import { PanelState } from './PanelState';
-import { aiUsage, formatMs, sumOf } from './format';
+import {
+  formatMs,
+  healthConcerns,
+  longestGcPause,
+  sumOf,
+  usedOfBytes,
+} from './format';
 
 function WorkersBody({ live }: { live: boolean }) {
   const workers = useWorkers(live);
@@ -66,6 +71,10 @@ function VitalsBody() {
   const values = snapshot.data;
   const heapUsed = sumOf(values, 'jvm.memory.used{area=heap');
   const heapMax = sumOf(values, 'jvm.memory.max{area=heap');
+  const heapCommitted = sumOf(values, 'jvm.memory.committed{area=heap');
+  // the machine's (or container's) memory, which the heap is only a part of
+  const hostTotal = values?.['yukta.system.memory.total'] ?? 0;
+  const hostUsed = hostTotal - (values?.['yukta.system.memory.free'] ?? 0);
   const cpu = (values?.['process.cpu.usage'] ?? 0) * 100;
   const threads = values?.['jvm.threads.live'] ?? 0;
   return (
@@ -76,15 +85,26 @@ function VitalsBody() {
       emptyText="No samples yet"
       onRetry={() => void snapshot.refetch()}
     >
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {[
           {
-            name: 'Heap',
-            caption: `${Math.round(heapUsed / 1e6)} of ${Math.round(heapMax / 1e6)} MB`,
+            name: 'JVM heap',
+            caption: usedOfBytes(heapUsed, heapMax),
             value: heapUsed,
             max: Math.max(1, heapMax),
             text: `${Math.round((heapUsed / Math.max(1, heapMax)) * 100)}%`,
           },
+          ...(hostTotal > 0
+            ? [
+                {
+                  name: 'Host memory',
+                  caption: usedOfBytes(hostUsed, hostTotal),
+                  value: hostUsed,
+                  max: hostTotal,
+                  text: `${Math.round((hostUsed / hostTotal) * 100)}%`,
+                },
+              ]
+            : []),
           {
             name: 'CPU',
             caption: 'process',
@@ -107,26 +127,25 @@ function VitalsBody() {
               max={g.max}
               valueText={g.text}
             />
-            <figcaption className="text-body-sm text-on-surface-variant truncate text-center">
+            <figcaption className="text-body-sm text-on-surface-variant text-center wrap-break-word">
               {g.name} · {g.caption}
             </figcaption>
           </figure>
         ))}
       </div>
-      <dl className="text-body-sm text-on-surface-variant mt-2 flex gap-4">
+      <dl className="text-body-sm text-on-surface-variant mt-2 flex flex-wrap gap-x-4 gap-y-1">
+        {heapCommitted > 0 && (
+          <div>
+            <dt>Heap reserved</dt>
+            <dd className="num text-on-surface">
+              {usedOfBytes(heapCommitted, 0)}
+            </dd>
+          </div>
+        )}
         <div>
           <dt>Longest GC pause</dt>
           <dd className="num text-on-surface">
-            {formatMs(
-              Math.max(
-                0,
-                ...Object.entries(values ?? {})
-                  .filter(
-                    ([k]) => k.startsWith('jvm.gc.pause') && k.endsWith('|max')
-                  )
-                  .map(([, v]) => v)
-              )
-            )}
+            {formatMs(longestGcPause(values))}
           </dd>
         </div>
         <div>
@@ -149,106 +168,6 @@ export function VitalsPanel() {
   );
 }
 
-/** A rate with two decimals while small and none once it is large. */
-const rate = (value: number) => value.toFixed(value < 10 ? 2 : 0);
-
-/**
- * Model tokens (in and out) and spend per provider, and the MCP tool-call traffic with the failed
- * and the refused heavy calls. These meters carry no session or workflow tag, so the panel shows
- * the whole server and says so in a scoped view.
- */
-function AiBody() {
-  const snapshot = useMetricSnapshot();
-  const usage = aiUsage(snapshot.data);
-  const tools = [
-    ['MCP calls / min', usage.mcpCallsPerMinute],
-    ['Failed calls / min', usage.mcpFailedPerMinute],
-    ['Refused heavy calls / min', usage.heavyRefusedPerMinute],
-  ] as const;
-  const idle =
-    usage.providers.length === 0 && tools.every(([, value]) => value === 0);
-  return (
-    <PanelState
-      isPending={snapshot.isPending}
-      error={snapshot.error}
-      empty={idle}
-      inline
-      emptyText="No model or tool calls yet"
-      onRetry={() => void snapshot.refetch()}
-    >
-      <div className="flex flex-col gap-3">
-        {usage.providers.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="text-body-sm w-full">
-              <thead>
-                <tr className="text-overline text-left">
-                  <th scope="col">Provider</th>
-                  <th scope="col" className="text-right">
-                    Tokens in / min
-                  </th>
-                  <th scope="col" className="text-right">
-                    Tokens out / min
-                  </th>
-                  <th scope="col" className="text-right">
-                    Spend / hour
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {usage.providers.map((p) => (
-                  <tr key={p.provider} className="border-border border-t">
-                    <th scope="row" className="text-left font-mono font-normal">
-                      {p.provider}
-                    </th>
-                    <td className="num text-right">
-                      {rate(p.tokensInPerMinute)}
-                    </td>
-                    <td className="num text-right">
-                      {rate(p.tokensOutPerMinute)}
-                    </td>
-                    <td className="num text-right">
-                      {p.spendPerHour.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <dl className="text-body-md grid grid-cols-1 gap-2 sm:grid-cols-3">
-          {tools.map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-body-sm text-on-surface-variant">{label}</dt>
-              <dd
-                className={`num ${label !== 'MCP calls / min' && value > 0 ? 'text-warning' : 'text-on-surface'}`}
-              >
-                {rate(value)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-    </PanelState>
-  );
-}
-
-export function AiUsagePanel({ scope }: { scope: Scope }) {
-  return (
-    <Panel
-      title="AI usage"
-      action={
-        scope === GLOBAL ? undefined : (
-          <span className="text-body-sm text-on-surface-variant">
-            Whole server
-          </span>
-        )
-      }
-    >
-      <AiBody />
-    </Panel>
-  );
-}
-
 /** A subsection of the System panel. */
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -263,20 +182,26 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /**
- * The server's vitals, its workers and the model traffic in one card: the last two are one muted
- * line while there is nothing to show.
+ * The server's vitals and its workers in one card: the workers are one muted line while there
+ * are none.
  */
-export function SystemPanel({ scope, live }: { scope: Scope; live: boolean }) {
+export function SystemPanel({ live }: { live: boolean }) {
+  const concerns = healthConcerns(useMetricSnapshot().data);
   return (
-    <Panel title="System">
+    <Panel
+      title="System"
+      action={
+        concerns.length > 0 && (
+          <span className="bg-warning/15 text-label-sm text-on-surface rounded-full px-2 py-0.5">
+            {concerns.join(' · ')}
+          </span>
+        )
+      }
+      info="The server's own health. JVM heap is the Java memory the server may use, not the machine's RAM. CPU is the server process; threads are live Java threads."
+    >
       <VitalsBody />
       <Section title="Workers">
         <WorkersBody live={live} />
-      </Section>
-      <Section
-        title={scope === GLOBAL ? 'AI usage' : 'AI usage · whole server'}
-      >
-        <AiBody />
       </Section>
     </Panel>
   );

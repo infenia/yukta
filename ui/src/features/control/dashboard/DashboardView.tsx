@@ -17,11 +17,17 @@ import { OverheadPanel, ThroughputPanel } from './ChartPanels';
 import { CommandStrip } from './CommandStrip';
 import { KioskView } from './KioskView';
 import { LeaderboardPanel, LiveRunsPanel, NodesPanel } from './RunPanels';
+import { OutcomesPanel } from './OutcomesPanel';
+import { HotspotsPanel, WorkflowsPanel } from './WorkflowPanels';
 import { SupervisorsSummary } from '@/features/supervisors/components/SupervisorsSummary';
 
 /**
- * The Mission Control dashboard: the scope, range and live controls (kept in the URL) over the
- * command strip and the panels. The metric stream keeps the cached numbers current while live.
+ * The Dashboard: the scope, range and live controls (kept in the URL) over the tile strip and the
+ * panels. It only reads. The metric stream keeps the cached numbers current while live.
+ *
+ * Cards that keep their size (charts, capacity, supervisors) come first; the ones that grow and
+ * shrink with the data (live runs, plugins, slowest nodes, system and workers) sit at the bottom,
+ * so a run starting or finishing moves nothing above them.
  */
 export function DashboardView() {
   const { scope, range, live } = useDashboardParams();
@@ -53,20 +59,30 @@ export function DashboardView() {
       </div>
       {kiosk && <KioskView onExit={() => setKiosk(false)} />}
       <CommandStrip scope={scope} live={live} />
-      {/* two columns that each stack their own cards, so no card is stretched to its neighbour's
-          height and no row leaves a hole */}
       <div className="grid items-start gap-3 lg:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-3 lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <ThroughputPanel scope={scope} range={range} live={live} />
-          <LiveRunsPanel scope={scope} live={live} />
-          <NodesPanel scope={scope} range={range} live={live} />
+        </div>
+        <CapacityPanel live={live} />
+        <div className="min-w-0 lg:col-span-2">
           <OverheadPanel scope={scope} range={range} live={live} />
         </div>
+        <SupervisorsSummary />
+        <div className="min-w-0 lg:col-span-2">
+          <WorkflowsPanel range={range} live={live} />
+        </div>
         <div className="flex min-w-0 flex-col gap-3">
-          <CapacityPanel live={live} />
-          <SupervisorsSummary />
+          <OutcomesPanel scope={scope} />
+          <HotspotsPanel scope={scope} range={range} live={live} />
+        </div>
+        {/* from here the cards change height with the data */}
+        <div className="flex min-w-0 flex-col gap-3 lg:col-span-2">
+          <LiveRunsPanel scope={scope} live={live} />
+          <NodesPanel scope={scope} range={range} live={live} />
+        </div>
+        <div className="flex min-w-0 flex-col gap-3">
           <LeaderboardPanel scope={scope} range={range} live={live} />
-          <SystemPanel scope={scope} live={live} />
+          <SystemPanel live={live} />
         </div>
       </div>
     </div>
