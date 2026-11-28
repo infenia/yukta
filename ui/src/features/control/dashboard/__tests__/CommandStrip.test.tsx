@@ -106,10 +106,11 @@ describe('CommandStrip', () => {
 });
 
 describe('CommandStrip success rate', () => {
-  it('shows a danger ring when fewer than 90% of the day’s runs succeeded', () => {
+  it('shows the success rate with the day’s run count when runs failed', () => {
     heatmap.mockReturnValue(asHeat([{ runs: 10, failed: 5 }]));
     renderWithProviders(<CommandStrip scope="global" live={false} />);
     expect(screen.getAllByText('50%').length).toBeGreaterThan(0);
+    expect(screen.getByText('of 10 runs')).toBeInTheDocument();
   });
 
   it('shows a dash with no runs in the day', () => {
@@ -117,7 +118,7 @@ describe('CommandStrip success rate', () => {
     expect(screen.getByText('Success (24 h)')).toBeInTheDocument();
   });
 
-  it('shows a success ring when nearly all runs succeeded', () => {
+  it('shows the success rate with the day’s run count when nearly all succeeded', () => {
     heatmap.mockReturnValue(asHeat([{ runs: 100, failed: 1 }]));
     renderWithProviders(<CommandStrip scope="global" live={false} />);
     expect(screen.getAllByText('99%').length).toBeGreaterThan(0);

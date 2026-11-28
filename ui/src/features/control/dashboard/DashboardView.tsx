@@ -66,7 +66,7 @@ export function DashboardView() {
           <CapacityPanel live={live} />
           <SupervisorsSummary />
           <LeaderboardPanel scope={scope} range={range} live={live} />
-          <SystemPanel scope={scope} live={live} />
+          <SystemPanel live={live} />
         </div>
       </div>
     </div>

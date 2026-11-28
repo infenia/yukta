@@ -2,10 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
-import { useMe } from '@/lib/identity';
-import { runAction } from '@/features/workflow/api/executionControl';
 import {
   useHeatmap,
   useLiveRuns,
@@ -20,13 +18,6 @@ import {
 } from '../RunPanels';
 
 vi.mock('../useNow', () => ({ useNow: () => 10 * 60_000 }));
-vi.mock('@/features/workflow/api/executionControl', () => ({
-  runAction: vi.fn(async () => ({})),
-}));
-vi.mock('@/lib/identity', () => ({
-  useMe: vi.fn(),
-  REQUIRED_ROLE: { controlRuns: 'OPERATOR' },
-}));
 vi.mock('@/features/metrics/hooks', () => ({
   useHeatmap: vi.fn(),
   useModules: vi.fn(),
@@ -211,9 +202,6 @@ describe('NodesPanel', () => {
 describe('LiveRunsPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useMe).mockReturnValue({
-      permissions: { controlRuns: true },
-    } as never);
   });
 
   it('shows the runs in scope and flags one that runs past its usual time', () => {
@@ -252,7 +240,7 @@ describe('LiveRunsPanel', () => {
     expect(screen.getByText(/\(slow\)/)).toBeInTheDocument();
   });
 
-  it('names the running nodes and offers Resume, not Pause, for a paused run', () => {
+  it('names the running nodes, marks a paused run and offers no run buttons', () => {
     vi.mocked(useLiveRuns).mockReturnValue(
       q({
         data: [
@@ -270,65 +258,18 @@ describe('LiveRunsPanel', () => {
     expect(screen.getByText('n1, n2, n3 +2')).toBeInTheDocument();
     expect(screen.getByText('between nodes')).toBeInTheDocument();
     expect(screen.getByText(/paused/)).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'resume a run e1' })
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'pause a run e1' })).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'pause b run e2' })
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'resume b run e2' })
-    ).toBeNull();
+    // read-only: control lives on the run page the workflow name links to
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByRole('link', { name: 'a' })).toBeInTheDocument();
   });
 
-  it('pauses a run straight away and stops one only after confirming', async () => {
-    vi.mocked(useLiveRuns).mockReturnValue(
-      q({ data: [run({ executionId: 'e1', workflowId: 'a' })] })
-    );
-    renderWithProviders(<LiveRunsPanel scope="global" live />);
-    fireEvent.click(screen.getByRole('button', { name: 'pause a run e1' }));
-    await waitFor(() => expect(runAction).toHaveBeenCalled());
-    expect(vi.mocked(runAction).mock.calls[0][0]).toBe('e1');
-    expect(vi.mocked(runAction).mock.calls[0][1]).toBe('pause');
-
-    fireEvent.click(screen.getByRole('button', { name: 'stop a run e1' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(screen.getByRole('button', { name: 'stop a run e1' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Stop run' }));
-    await waitFor(() =>
-      expect(vi.mocked(runAction).mock.calls.at(-1)?.[1]).toBe('stop')
-    );
-  });
-
-  it('locks run controls for a key that may not control runs', () => {
-    vi.mocked(useMe).mockReturnValue({
-      permissions: { controlRuns: false },
-    } as never);
-    vi.mocked(useLiveRuns).mockReturnValue(
-      q({ data: [run({ executionId: 'e1', workflowId: 'a' })] })
-    );
-    renderWithProviders(<LiveRunsPanel scope="global" live />);
-    expect(
-      screen.getByRole('button', { name: 'pause a run e1' })
-    ).toBeDisabled();
-  });
-
-  it('shows the empty state, a failed action and a retry', async () => {
+  it('shows the empty state and a retry', () => {
     vi.mocked(useLiveRuns).mockReturnValue(q({ data: [] }));
     const { unmount } = renderWithProviders(
       <LiveRunsPanel scope="global" live />
     );
     expect(screen.getByText('No run is going')).toBeInTheDocument();
     unmount();
-
-    vi.mocked(runAction).mockRejectedValueOnce(new Error('refused'));
-    vi.mocked(useLiveRuns).mockReturnValue(
-      q({ data: [run({ executionId: 'e1', workflowId: 'a' })] })
-    );
-    renderWithProviders(<LiveRunsPanel scope="global" live />);
-    fireEvent.click(screen.getByRole('button', { name: 'pause a run e1' }));
-    expect(await screen.findByText('refused')).toBeInTheDocument();
 
     const refetch = vi.fn();
     vi.mocked(useLiveRuns).mockReturnValue(
@@ -337,19 +278,5 @@ describe('LiveRunsPanel', () => {
     renderWithProviders(<LiveRunsPanel scope="global" live />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
-  });
-
-  it('closes the stop confirmation with Escape', () => {
-    vi.mocked(useMe).mockReturnValue({
-      permissions: { controlRuns: true },
-    } as never);
-    vi.mocked(useLiveRuns).mockReturnValue(
-      q({ data: [run({ executionId: 'e1', workflowId: 'a' })] })
-    );
-    renderWithProviders(<LiveRunsPanel scope="global" live />);
-    fireEvent.click(screen.getByRole('button', { name: 'stop a run e1' }));
-    expect(screen.getByText('Stop a?')).toBeInTheDocument();
-    fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByText('Stop a?')).toBeNull();
   });
 });

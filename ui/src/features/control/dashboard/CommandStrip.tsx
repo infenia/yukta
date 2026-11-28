@@ -4,7 +4,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { KpiTile } from '@/components/dashboard/KpiTile';
-import { RingProgress } from '@/components/dashboard/Gauges';
 import {
   useHeatmap,
   useMetricSeries,
@@ -95,16 +94,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
         compact
         label="Success (24 h)"
         value={rate === null ? '–' : `${rate}%`}
-        adornment={
-          <div className="size-9 shrink-0 [&>div]:size-9">
-            <RingProgress
-              label="Success rate, 24 h"
-              value={rate ?? 0}
-              max={100}
-              tone={rate !== null && rate < 90 ? 'danger' : 'success'}
-            />
-          </div>
-        }
+        hint={rate === null ? undefined : `of ${dayRuns} runs`}
       />
       <KpiTile
         compact

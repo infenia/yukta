@@ -11,8 +11,8 @@ import {
   percentChange,
   formatChange,
   integrate,
-  aiUsage,
   slowerIsWorse,
+  usedOfBytes,
 } from '../format';
 
 describe('formatMs', () => {
@@ -133,45 +133,15 @@ describe('integrate', () => {
   });
 });
 
-describe('aiUsage', () => {
-  it('splits tokens by provider and direction, and counts tool calls', () => {
-    const usage = aiUsage({
-      'llm.tokens{direction=input,provider=OPENAI}|rate': 2,
-      'llm.tokens{direction=output,provider=OPENAI}|rate': 1,
-      'llm.tokens{direction=input,provider=ANTHROPIC}|rate': 0.5,
-      'llm.cost{provider=OPENAI}|rate': 0.001,
-      'yukta.mcp.call{outcome=SUCCESS,tool=search}|rate': 1,
-      'yukta.mcp.call{outcome=FAILURE,tool=search}|rate': 0.5,
-      'yukta.mcp.call{outcome=SUCCESS,tool=search}|mean': 120,
-      'yukta.mcp.heavy.refused|rate': 0.1,
-      'process.cpu.usage': 0.3,
-    });
-    expect(usage.providers.map((p) => p.provider)).toEqual([
-      'ANTHROPIC',
-      'OPENAI',
-    ]);
-    const openai = usage.providers[1];
-    expect(openai.tokensInPerMinute).toBe(120);
-    expect(openai.tokensOutPerMinute).toBe(60);
-    expect(openai.spendPerHour).toBeCloseTo(3.6);
-    expect(usage.providers[0].tokensInPerMinute).toBe(30);
-    expect(usage.mcpCallsPerMinute).toBe(90);
-    expect(usage.mcpFailedPerMinute).toBe(30);
-    expect(usage.heavyRefusedPerMinute).toBeCloseTo(6);
+describe('usedOfBytes', () => {
+  it('uses megabytes below a gigabyte and gigabytes above, in one unit', () => {
+    expect(usedOfBytes(100e6, 400e6)).toBe('100 of 400 MB');
+    expect(usedOfBytes(1.5e9, 4e9)).toBe('1.5 of 4.0 GB');
+    expect(usedOfBytes(900e6, 2e9)).toBe('0.9 of 2.0 GB');
   });
 
-  it('is empty without a snapshot', () => {
-    expect(aiUsage(undefined)).toEqual({
-      providers: [],
-      mcpCallsPerMinute: 0,
-      mcpFailedPerMinute: 0,
-      heavyRefusedPerMinute: 0,
-    });
-  });
-
-  it('files a token rate without a provider under unknown', () => {
-    expect(
-      aiUsage({ 'llm.tokens{direction=input}|rate': 1 }).providers[0].provider
-    ).toBe('unknown');
+  it('shows the used amount alone when the maximum is not known', () => {
+    expect(usedOfBytes(100e6, 0)).toBe('100 MB');
+    expect(usedOfBytes(100e6, -1)).toBe('100 MB');
   });
 });

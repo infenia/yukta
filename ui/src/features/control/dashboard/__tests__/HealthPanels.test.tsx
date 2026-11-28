@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
 import { useWorkers } from '../../api/workers';
-import { AiUsagePanel, VitalsPanel, WorkerSlotsPanel } from '../HealthPanels';
+import { VitalsPanel, WorkerSlotsPanel } from '../HealthPanels';
 
 vi.mock('../../api/workers', () => ({ useWorkers: vi.fn() }));
 let edition = 'PLUS';
@@ -92,8 +92,8 @@ describe('VitalsPanel', () => {
       })
     );
     renderWithProviders(<VitalsPanel />);
-    expect(screen.getByText('Heap 25%, 100 of 400 MB')).toBeInTheDocument();
-    expect(screen.getByText('Heap · 100 of 400 MB')).toBeInTheDocument();
+    expect(screen.getByText('JVM heap 25%, 100 of 400 MB')).toBeInTheDocument();
+    expect(screen.getByText('JVM heap · 100 of 400 MB')).toBeInTheDocument();
     expect(screen.getByText('CPU 25%, process')).toBeInTheDocument();
     expect(screen.getByText('Threads 120, live')).toBeInTheDocument();
     expect(screen.getByText('42 ms')).toBeInTheDocument();
@@ -111,51 +111,6 @@ describe('VitalsPanel', () => {
       q({ error: new Error('x'), refetch })
     );
     renderWithProviders(<VitalsPanel />);
-    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
-    expect(refetch).toHaveBeenCalled();
-  });
-});
-
-describe('AiUsagePanel', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('shows the rates for the global scope, with precision by size', () => {
-    vi.mocked(useMetricSnapshot).mockReturnValue(
-      q({
-        data: {
-          'llm.tokens{x=1}|rate': 2,
-          'llm.cost{x=1}|rate': 0.001,
-          'yukta.mcp.calls{x=1}|rate': 1,
-        },
-      })
-    );
-    renderWithProviders(<AiUsagePanel scope="global" />);
-    expect(screen.getByText('120')).toBeInTheDocument();
-    expect(screen.getByText('3.60')).toBeInTheDocument();
-    expect(screen.getByText('60')).toBeInTheDocument();
-  });
-
-  it('says the usage is the whole server outside the global scope', () => {
-    vi.mocked(useMetricSnapshot).mockReturnValue(
-      q({ data: { 'llm.tokens{provider=A}|rate': 1 } })
-    );
-    renderWithProviders(<AiUsagePanel scope="session:s1" />);
-    expect(screen.getByText('Whole server')).toBeInTheDocument();
-    expect(screen.getByRole('row', { name: /A/ })).toBeInTheDocument();
-  });
-
-  it('says so when there was no model or tool call', () => {
-    vi.mocked(useMetricSnapshot).mockReturnValue(q({ data: {} }));
-    renderWithProviders(<AiUsagePanel scope="global" />);
-    expect(screen.getByText('No model or tool calls yet')).toBeInTheDocument();
-  });
-
-  it('retries the AI usage when it fails to load', () => {
-    const refetch = vi.fn();
-    vi.mocked(useMetricSnapshot).mockReturnValue(
-      q({ error: new Error('x'), refetch })
-    );
-    renderWithProviders(<AiUsagePanel scope="global" />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
   });

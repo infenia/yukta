@@ -81,73 +81,15 @@ export function integrate(points: MetricPoint[]): number {
   return total;
 }
 
-/** One provider's model traffic: tokens per minute each way and spend per hour. */
-export interface ProviderUsage {
-  provider: string;
-  tokensInPerMinute: number;
-  tokensOutPerMinute: number;
-  spendPerHour: number;
-}
-
-/** Model and tool-call traffic from a snapshot, per provider and in total. */
-export interface AiUsage {
-  providers: ProviderUsage[];
-  mcpCallsPerMinute: number;
-  mcpFailedPerMinute: number;
-  heavyRefusedPerMinute: number;
-}
-
 /**
- * Reads the `llm.tokens{direction,provider}`, `llm.cost{provider}`, `yukta.mcp.call{outcome,tool}`
- * (outcome SUCCESS or FAILURE) and `yukta.mcp.heavy.refused` rates of a snapshot. Providers are
- * sorted by name.
+ * "100 of 400 MB": bytes used out of a maximum, both in one unit (GB from a billion bytes up) so
+ * the caption stays short. A maximum that is not known (zero or less) shows the used amount alone.
  */
-export function aiUsage(values: Record<string, number> | undefined): AiUsage {
-  const providers = new Map<string, ProviderUsage>();
-  const of = (key: string) => {
-    const provider = tagOf(key, 'provider') ?? 'unknown';
-    let row = providers.get(provider);
-    if (!row) {
-      row = {
-        provider,
-        tokensInPerMinute: 0,
-        tokensOutPerMinute: 0,
-        spendPerHour: 0,
-      };
-      providers.set(provider, row);
-    }
-    return row;
-  };
-  let mcpCallsPerMinute = 0;
-  let mcpFailedPerMinute = 0;
-  let heavyRefusedPerMinute = 0;
-  for (const [key, rate] of Object.entries(values ?? {})) {
-    if (!key.endsWith('|rate')) continue;
-    if (key.startsWith('llm.tokens')) {
-      const row = of(key);
-      if (tagOf(key, 'direction') === 'output') {
-        row.tokensOutPerMinute += rate * 60;
-      } else {
-        row.tokensInPerMinute += rate * 60;
-      }
-    } else if (key.startsWith('llm.cost')) {
-      of(key).spendPerHour += rate * 3600;
-    } else if (key.startsWith('yukta.mcp.call')) {
-      mcpCallsPerMinute += rate * 60;
-      const outcome = tagOf(key, 'outcome');
-      if (outcome === 'FAILURE') {
-        mcpFailedPerMinute += rate * 60;
-      }
-    } else if (key.startsWith('yukta.mcp.heavy.refused')) {
-      heavyRefusedPerMinute += rate * 60;
-    }
-  }
-  return {
-    providers: [...providers.values()].sort((a, b) =>
-      a.provider.localeCompare(b.provider)
-    ),
-    mcpCallsPerMinute,
-    mcpFailedPerMinute,
-    heavyRefusedPerMinute,
-  };
+export function usedOfBytes(used: number, max: number): string {
+  const big = Math.max(used, max) >= 1e9;
+  const [divisor, unit, digits] = big ? [1e9, 'GB', 1] : [1e6, 'MB', 0];
+  const fmt = (n: number) => (n / divisor).toFixed(digits);
+  return max > 0
+    ? `${fmt(used)} of ${fmt(max)} ${unit}`
+    : `${fmt(used)} ${unit}`;
 }

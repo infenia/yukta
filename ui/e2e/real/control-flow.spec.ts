@@ -10,14 +10,16 @@ test('the control page shows the sections and the limits of the server', async (
   await page.goto('/control');
 
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Control bus' })
+    page.getByRole('heading', { level: 1, name: 'Dashboard' })
   ).toBeVisible();
   await expect(
-    page.getByRole('tablist', { name: 'Control bus sections' }).getByRole('tab')
+    page.getByRole('tablist', { name: 'Dashboard sections' }).getByRole('tab')
   ).toHaveText(['Overview', 'Activity', 'Audit']);
   await expect(page.getByRole('heading', { name: 'Capacity' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Throughput' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Edit limits' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Edit limits' })).toHaveCount(
+    0
+  );
 });
 
 test('a run started while the activity tab is open shows in the feed and links to it', async ({

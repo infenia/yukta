@@ -38,7 +38,7 @@ export function KioskView({ onExit }: { onExit: () => void }) {
     </div>,
     <div key="health" className="grid items-start gap-4 lg:grid-cols-2">
       <CapacityPanel live={live} />
-      <SystemPanel scope={scope} live={live} />
+      <SystemPanel live={live} />
     </div>,
   ];
 

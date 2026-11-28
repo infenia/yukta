@@ -12,6 +12,9 @@ import { useConfigValues, type LiveValues } from '../../hooks/useConfigValues';
 vi.mock('../../hooks/useConfigValues', () => ({
   useConfigValues: vi.fn(),
 }));
+vi.mock('@/features/control/components/CapacityControls', () => ({
+  CapacityControls: () => <p>capacity-controls</p>,
+}));
 
 function Search() {
   return <p data-testid="search">{useLocation().search}</p>;
@@ -141,6 +144,18 @@ describe('ConfigPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Set up API keys' })
     ).toBeInTheDocument();
+  });
+
+  it('opens the Capacity tab, where the server limits and drain are changed', async () => {
+    setup();
+    await userEvent.click(screen.getByRole('tab', { name: 'Capacity' }));
+    expect(screen.getByTestId('search')).toHaveTextContent('?tab=capacity');
+    expect(screen.getByText('capacity-controls')).toBeInTheDocument();
+  });
+
+  it('opens the Capacity tab from a link to it', () => {
+    setup('/config?tab=capacity');
+    expect(screen.getByText('capacity-controls')).toBeInTheDocument();
   });
 
   it('opens the Run modes tab', async () => {
