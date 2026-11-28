@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.worker;
 
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
@@ -48,7 +49,13 @@ public class RemoteProcessor implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return executor.run(local.getType(), pool, input, config);
+    final Flux<Message<?>> remote = executor.run(local.getType(), pool, input, config);
+    final NodePolicy.Placement placement = NodePolicy.placement(config);
+    if (placement == null || placement.fallback() != NodePolicy.Fallback.LOCAL) {
+      return remote;
+    }
+    return remote.onErrorResume(
+        NoFreeWorkerException.class, ignored -> local.process(input, config));
   }
 
   @Override

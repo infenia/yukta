@@ -25,7 +25,12 @@ import reactor.core.publisher.SynchronousSink;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.GuardLogStatement", "PMD.AvoidDuplicateLiterals", "unchecked"})
+@SuppressWarnings({
+  "PMD.GuardLogStatement",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "unchecked"
+})
 class WorkerNodeExecutorTest {
 
   private final WorkerNodeExecutor executor =
@@ -320,6 +325,51 @@ class WorkerNodeExecutorTest {
             .count();
 
     assertThat(taken).isEqualTo(5);
+  }
+
+  @Test
+  void run_noFreeSlot_waitsAndRunsWhenTheFirstAttemptEnds() {
+    final WorkerRegistry registry =
+        WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry());
+    final WorkerConnections connections = new WorkerConnections();
+    register(registry, "w1", 1);
+    final org.springframework.messaging.rsocket.RSocketRequester requester =
+        mock(org.springframework.messaging.rsocket.RSocketRequester.class);
+    final org.springframework.messaging.rsocket.RSocketRequester.RequestSpec spec =
+        mock(org.springframework.messaging.rsocket.RSocketRequester.RequestSpec.class);
+    final org.springframework.messaging.rsocket.RSocketRequester.RetrieveSpec retrieve =
+        mock(org.springframework.messaging.rsocket.RSocketRequester.RetrieveSpec.class);
+    final reactor.core.publisher.Sinks.Many<NodeFrame> firstAnswers =
+        reactor.core.publisher.Sinks.many().unicast().onBackpressureBuffer();
+    org.mockito.Mockito.when(requester.route("node.run")).thenReturn(spec);
+    org.mockito.Mockito.when(spec.data(org.mockito.ArgumentMatchers.any())).thenReturn(retrieve);
+    org.mockito.Mockito.when(retrieve.retrieveFlux(NodeFrame.class))
+        .thenReturn(firstAnswers.asFlux())
+        .thenReturn(reactor.core.publisher.Flux.just(NodeFrame.complete()));
+    connections.put("w1", requester);
+    final WorkerNodeExecutor queuing =
+        new WorkerNodeExecutor(
+            registry,
+            connections,
+            new ObjectMapper(),
+            (executionId, nodeId) -> null,
+            ObservationRegistry.NOOP,
+            new SimpleMeterRegistry());
+    final java.util.concurrent.atomic.AtomicBoolean secondDone =
+        new java.util.concurrent.atomic.AtomicBoolean();
+
+    queuing.run("T", "default", reactor.core.publisher.Flux.empty(), Map.of()).subscribe();
+    queuing
+        .run("T", "default", reactor.core.publisher.Flux.empty(), Map.of())
+        .doOnComplete(() -> secondDone.set(true))
+        .subscribe();
+
+    assertThat(secondDone).isFalse();
+
+    firstAnswers.tryEmitNext(NodeFrame.complete());
+    firstAnswers.tryEmitComplete();
+
+    assertThat(secondDone).isTrue();
   }
 
   private static void register(

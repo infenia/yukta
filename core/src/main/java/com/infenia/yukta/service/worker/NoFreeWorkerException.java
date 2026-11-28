@@ -9,6 +9,11 @@ public class NoFreeWorkerException extends WorkflowExecutionException {
 
   private static final long serialVersionUID = 1L;
 
+  /**
+   * Creates the exception.
+   *
+   * @param message what the attempt waited for and how long
+   */
   public NoFreeWorkerException(final String message) {
     super(message);
   }

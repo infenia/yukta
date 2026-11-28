@@ -12,6 +12,7 @@ import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.bind.Bindable;
@@ -56,6 +57,9 @@ public class WorkerSessionHandler {
    */
   private final Map<String, List<byte[]>> workerTokens;
 
+  /** Told the pools of a worker that registered or renewed its lease, so waiting attempts retry. */
+  private final Consumer<String> capacityChanged;
+
   /**
    * Creates the handler.
    *
@@ -83,16 +87,37 @@ public class WorkerSessionHandler {
    *     listed is refused and one that is listed must present its own secret, so one compromised
    *     worker is revoked by removing its entry
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // the registry is a shared Spring bean
   public WorkerSessionHandler(
       final WorkerRegistry registry,
       final WorkerConnections connections,
       final LeaderElection election,
       final String token,
       final Map<String, String> workerTokens) {
+    this(registry, connections, election, token, workerTokens, pool -> {});
+  }
+
+  /**
+   * Creates the handler with a secret per worker, and a call for the pools whose capacity changed.
+   *
+   * @param registry the workers that are connected
+   * @param connections the way back into each connected worker
+   * @param election tells whether this server is the leader; a standby refuses workers
+   * @param token the shared secret, used only when {@code workerTokens} is empty
+   * @param workerTokens the secret of each allowed worker id
+   * @param capacityChanged called with each pool of a worker that registered or renewed its lease
+   */
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the registry is a shared Spring bean
+  public WorkerSessionHandler(
+      final WorkerRegistry registry,
+      final WorkerConnections connections,
+      final LeaderElection election,
+      final String token,
+      final Map<String, String> workerTokens,
+      final Consumer<String> capacityChanged) {
     this.registry = registry;
     this.connections = connections;
     this.election = election;
+    this.capacityChanged = capacityChanged;
     this.token = secrets(token);
     this.workerTokens =
         workerTokens.entrySet().stream()
@@ -195,6 +220,7 @@ public class WorkerSessionHandler {
       final RSocketRequester requester, final WorkerInfo info, final Flux<WorkerFrame> all) {
     connections.put(info.workerId(), requester);
     log.atInfo().addKeyValue(WORKER_ID, info.workerId()).log("Worker registered");
+    info.pools().forEach(capacityChanged);
     return Flux.concat(Flux.just(WorkerFrame.ack()), all.skip(1).map(frame -> answer(info, frame)))
         .takeUntil(frame -> frame.type() == WorkerFrame.Type.REJECT)
         .doFinally(_ -> {
@@ -205,17 +231,21 @@ public class WorkerSessionHandler {
   }
 
   private WorkerFrame answer(final WorkerInfo info, final WorkerFrame frame) {
-    WorkerFrame answer = WorkerFrame.reject("unexpected " + frame.type() + " frame");
-    if (frame.type() == WorkerFrame.Type.LEASE) {
-      // a leader that lost the database lease must not keep its workers: the new leader has none
-      if (election.isLeader()) {
-        answer =
-            registry.heartbeat(info.workerId(), frame.usedSlots(), frame.draining())
-                ? WorkerFrame.ack()
-                : WorkerFrame.reject("lease expired, register again");
-      } else {
-        answer = WorkerFrame.reject("this server is not the leader");
+    return frame.type() == WorkerFrame.Type.LEASE
+        ? lease(info, frame)
+        : WorkerFrame.reject("unexpected " + frame.type() + " frame");
+  }
+
+  private WorkerFrame lease(final WorkerInfo info, final WorkerFrame frame) {
+    // a leader that lost the database lease must not keep its workers: the new leader has none
+    WorkerFrame answer = WorkerFrame.reject("this server is not the leader");
+    if (election.isLeader()) {
+      final boolean renewed =
+          registry.heartbeat(info.workerId(), frame.usedSlots(), frame.draining());
+      if (renewed) {
+        info.pools().forEach(capacityChanged);
       }
+      answer = renewed ? WorkerFrame.ack() : WorkerFrame.reject("lease expired, register again");
     }
     return answer;
   }

@@ -318,4 +318,39 @@ class NodePolicyTest {
             () -> NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("pool", 5)))))
         .hasMessageContaining("engine.placement.pool");
   }
+
+  private static Map<String, Object> placementConfig(final Map<String, Object> placement) {
+    return Map.of("engine", Map.of("placement", placement));
+  }
+
+  @Test
+  void placement_queueOptionsDefaultToFiveMinutesAndFail() {
+    final NodePolicy.Placement placement = NodePolicy.placement(placementConfig(Map.of()));
+
+    assertThat(placement.queueTimeout()).isEqualTo(NodePolicy.DEFAULT_QUEUE_TIMEOUT);
+    assertThat(placement.fallback()).isEqualTo(NodePolicy.Fallback.FAIL);
+  }
+
+  @Test
+  void placement_queueTimeoutAndFallbackAreParsed() {
+    final NodePolicy.Placement placement =
+        NodePolicy.placement(
+            placementConfig(Map.of("pool", "gpu", "queueTimeoutMs", 1500, "fallback", "local")));
+
+    assertThat(placement)
+        .isEqualTo(
+            new NodePolicy.Placement("gpu", Duration.ofMillis(1500), NodePolicy.Fallback.LOCAL));
+  }
+
+  @Test
+  void placement_queueTimeoutMustBePositive() {
+    assertThatThrownBy(() -> NodePolicy.placement(placementConfig(Map.of("queueTimeoutMs", 0))))
+        .hasMessageContaining("engine.placement.queueTimeoutMs");
+  }
+
+  @Test
+  void placement_fallbackMustBeKnown() {
+    assertThatThrownBy(() -> NodePolicy.placement(placementConfig(Map.of("fallback", "RETRY"))))
+        .hasMessageContaining("engine.placement.fallback");
+  }
 }

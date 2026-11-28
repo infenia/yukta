@@ -19,6 +19,7 @@ import reactor.core.Disposable;
 import reactor.test.StepVerifier;
 
 /** Attempts waiting for a free slot in their pool, served round-robin across runs. */
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class PoolQueueTest {
 
   private static final String POOL = "p";
@@ -43,11 +44,10 @@ class PoolQueueTest {
     final Supplier<Optional<String>> tryTake = () -> Optional.of("slot").filter(v -> free.get());
 
     StepVerifier.create(queue.acquire(POOL, "e", tryTake, Duration.ofSeconds(5)))
-        .then(
-            () -> {
-              free.set(true);
-              queue.wake(POOL);
-            })
+        .then(() -> {
+          free.set(true);
+          queue.wake(POOL);
+        })
         .expectNext("slot")
         .verifyComplete();
   }
@@ -68,7 +68,7 @@ class PoolQueueTest {
 
   @Test
   @DisplayName("[T4] wake serves the first waiter of run A then the waiter of run B")
-  void wake_twoExecutionsQueued_servesFirstAThenB() {
+  void wake_twoExecutionsQueued_servesFirstThenSecondExecution() {
     final PoolQueue queue = new PoolQueue(new SimpleMeterRegistry());
     final AtomicInteger free = new AtomicInteger();
     final List<String> served = new CopyOnWriteArrayList<>();
@@ -102,8 +102,8 @@ class PoolQueueTest {
   }
 
   /** Takes one unit from {@code free} for the waiter labelled {@code label}, if any is left. */
-  private static Supplier<Optional<String>> freeSlotFor(final String label, final AtomicInteger free) {
-    return () ->
-        Optional.of(label).filter(l -> free.getAndUpdate(n -> Math.max(0, n - 1)) > 0);
+  private static Supplier<Optional<String>> freeSlotFor(
+      final String label, final AtomicInteger free) {
+    return () -> Optional.of(label).filter(l -> free.getAndUpdate(n -> Math.max(0, n - 1)) > 0);
   }
 }
