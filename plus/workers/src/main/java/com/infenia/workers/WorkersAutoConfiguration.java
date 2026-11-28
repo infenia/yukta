@@ -86,6 +86,7 @@ public class WorkersAutoConfiguration {
    * @param serverBundle the SSL bundle of the RSocket server; empty for plain TCP
    * @param allowInsecure allow plain TCP beyond this machine
    * @param environment holds {@code yukta.workers.tokens.<id>}, a secret per worker
+   * @param executor wakes the attempts that wait for a slot when a worker registers
    * @return the handler
    */
   @Bean
@@ -99,14 +100,17 @@ public class WorkersAutoConfiguration {
       @Value("${spring.rsocket.server.address:}") final String address,
       @Value("${spring.rsocket.server.ssl.bundle:}") final String serverBundle,
       @Value("${yukta.workers.allow-insecure:false}") final boolean allowInsecure,
-      final Environment environment) {
+      final Environment environment,
+      final ObjectProvider<WorkerNodeExecutor> executor) {
     WorkerTransport.requireTls(address, !serverBundle.isBlank(), allowInsecure);
+    final WorkerNodeExecutor waiting = executor.getIfAvailable();
     return new WorkerSessionHandler(
         registry,
         connections,
         election.getIfAvailable(SingleServerLeader::new),
         token,
-        WorkerSessionHandler.tokensOf(environment));
+        WorkerSessionHandler.tokensOf(environment),
+        waiting == null ? pool -> {} : waiting::wake);
   }
 
   /**

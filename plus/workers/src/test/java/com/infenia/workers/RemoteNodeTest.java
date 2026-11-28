@@ -10,6 +10,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
+import com.infenia.yukta.service.worker.NoFreeWorkerException;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -119,8 +120,13 @@ class RemoteNodeTest {
   }
 
   private static Flux<Message<?>> run(final String type, final Flux<Message<?>> input) {
+    return runWith(type, input, Map.of("k", "v"));
+  }
+
+  private static Flux<Message<?>> runWith(
+      final String type, final Flux<Message<?>> input, final Map<String, Object> config) {
     return executor
-        .run(type, "default", input, Map.of("k", "v"))
+        .run(type, "default", input, config)
         .contextWrite(
             Context.of(
                 "executionId",
@@ -254,18 +260,23 @@ class RemoteNodeTest {
   }
 
   @Test
-  void withNoFreeSlot_orNoWorkerThatMayRunTheType_theAttemptFailsAtOnce() {
+  void withNoFreeSlot_orNoWorkerThatMayRunTheType_theAttemptFailsAfterTheQueueTimeout() {
+    final Map<String, Object> shortWait =
+        Map.of("engine", Map.of("placement", Map.of("queueTimeoutMs", 300)));
     final reactor.core.Disposable running = run("HOLD", Flux.just(message("x"))).subscribe();
     await()
         .atMost(Duration.ofSeconds(10))
         .untilAsserted(() ->
-            StepVerifier.create(run("UPPER", Flux.just(message("y"))))
-                .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("right now")));
+            StepVerifier.create(runWith("UPPER", Flux.just(message("y")), shortWait))
+                .verifyErrorSatisfies(e ->
+                    assertThat(e)
+                        .isInstanceOf(NoFreeWorkerException.class)
+                        .hasMessageContaining("No free worker in pool 'default'")));
     running.dispose();
 
-    StepVerifier.create(run("NOT_ALLOWED", Flux.empty()))
-        .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("No connected worker"));
-    StepVerifier.create(executor.run("UPPER", "other-pool", Flux.empty(), Map.of()))
+    StepVerifier.create(runWith("NOT_ALLOWED", Flux.empty(), shortWait))
+        .verifyErrorSatisfies(e -> assertThat(e).isInstanceOf(NoFreeWorkerException.class));
+    StepVerifier.create(executor.run("UPPER", "other-pool", Flux.empty(), shortWait))
         .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("other-pool"));
     assertThat(Mono.just(1).block()).isEqualTo(1);
   }

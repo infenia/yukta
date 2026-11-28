@@ -48,6 +48,32 @@ class RemoteProcessorTest {
   }
 
   @Test
+  void process_noFreeWorkerWithLocalFallback_runsOnTheLocalPlugin() {
+    final Message<?> out = mock(Message.class);
+    final Flux<Message<?>> input = Flux.empty();
+    final Map<String, Object> config = placedConfig("LOCAL");
+    when(executor.run(TYPE, POOL, input, config))
+        .thenReturn(Flux.error(new NoFreeWorkerException("no slot")));
+    when(local.process(input, config)).thenReturn(Flux.just(out));
+
+    StepVerifier.create(remote.process(input, config)).expectNext(out).verifyComplete();
+  }
+
+  @Test
+  void process_noFreeWorkerWithoutLocalFallback_failsAndNeverRunsLocally() {
+    final Flux<Message<?>> input = Flux.empty();
+    final Map<String, Object> config = placedConfig("FAIL");
+    when(executor.run(TYPE, POOL, input, config))
+        .thenReturn(Flux.error(new NoFreeWorkerException("no slot")));
+
+    StepVerifier.create(remote.process(input, config))
+        .expectError(NoFreeWorkerException.class)
+        .verify();
+
+    verify(local, org.mockito.Mockito.never()).process(input, config);
+  }
+
+  @Test
   void category_isTheLocalPluginsCategory() {
     when(local.getCategory()).thenReturn(PluginCategory.PROCESSOR);
 
@@ -94,5 +120,9 @@ class RemoteProcessorTest {
             ArgumentMatchers.eq(POOL),
             ArgumentMatchers.any(),
             ArgumentMatchers.eq(CONFIG));
+  }
+
+  private static Map<String, Object> placedConfig(final String fallback) {
+    return Map.of("engine", Map.of("placement", Map.of("fallback", fallback)));
   }
 }
