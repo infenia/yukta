@@ -4073,7 +4073,8 @@
       "Check" : {
         "properties" : {
           "detail" : {
-            "type" : "string"
+            "description" : "The actual value when the assertion did not hold",
+            "type" : [ "string", "null" ]
           },
           "name" : {
             "type" : "string"

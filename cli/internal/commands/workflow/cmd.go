@@ -23,6 +23,7 @@ and controlling individual nodes within a workflow.`,
 	}
 
 	cmd.AddCommand(StartCmd(c))
+	cmd.AddCommand(TestCmd(c))
 	var stopMode string
 	stop := commands.Action(commands.ActionSpec[client.WorkflowStopResponse]{
 		Use:   "stop <session-id> <workflow-id>",

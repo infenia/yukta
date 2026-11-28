@@ -56,6 +56,7 @@ class McpToolAccess {
           Map.entry("get_session_creation_instructions", ApiRole.VIEWER),
           Map.entry("get_plugin_creation_guide", ApiRole.VIEWER),
           Map.entry("start_workflow", ApiRole.OPERATOR),
+          Map.entry("test_workflow", ApiRole.ADMIN),
           Map.entry("control_workflow", ApiRole.OPERATOR),
           Map.entry("control_node", ApiRole.OPERATOR),
           Map.entry("set_node_breakpoint", ApiRole.OPERATOR),

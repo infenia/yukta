@@ -36,7 +36,7 @@ class ToolTextDriftTest {
       Pattern.compile("^\\| `([a-z_]+)` \\| (VIEWER|OPERATOR|ADMIN) \\|", Pattern.MULTILINE);
 
   private static Stream<Method> tools() {
-    return Stream.of(AppMcpTools.class, ConversationTools.class)
+    return Stream.of(AppMcpTools.class, ConversationTools.class, WorkflowTestTools.class)
         .flatMap(type -> Arrays.stream(type.getDeclaredMethods()))
         .filter(m -> m.isAnnotationPresent(McpTool.class));
   }

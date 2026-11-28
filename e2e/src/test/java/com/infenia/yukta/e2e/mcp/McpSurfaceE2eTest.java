@@ -34,7 +34,7 @@ class McpSurfaceE2eTest {
       final List<String> names = mcp.tools().stream().map(McpSchema.Tool::name).sorted().toList();
 
       assertThat(names).containsExactlyInAnyOrderElementsOf(McpDocs.roles().keySet());
-      assertThat(names).hasSize(65);
+      assertThat(names).hasSize(66);
       assertThat(names)
           .doesNotContain("trigger_workflow", "stream_session_logs", "get_workflow_execution_logs");
     }
