@@ -7,8 +7,10 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
 import com.github.benmanes.caffeine.cache.Ticker;
 import com.infenia.yukta.config.YuktaProperties;
+import com.infenia.yukta.service.redact.SecretScrubber;
 import java.time.Duration;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -20,6 +22,9 @@ import reactor.core.publisher.Flux;
  */
 @Service
 public class ExecutionResultService {
+
+  /** Masks resolved secrets in results; none without one. */
+  private @Nullable SecretScrubber scrubber;
 
   /** Result streams by execution. */
   private final Cache<String, ResultChannel> channels;
@@ -81,7 +86,23 @@ public class ExecutionResultService {
    * @param payload the message payload
    */
   public void publish(final String executionId, final String nodeId, final Object payload) {
-    channel(executionId).emit(ResultEvent.Kind.RESULT, nodeId, payload, null);
+    final SecretScrubber secrets = scrubber;
+    channel(executionId)
+        .emit(
+            ResultEvent.Kind.RESULT,
+            nodeId,
+            secrets == null ? payload : secrets.scrubValue(payload),
+            null);
+  }
+
+  /**
+   * Masks resolved secrets in every result before it is kept or sent.
+   *
+   * @param secretScrubber the scrubber
+   */
+  @Autowired(required = false)
+  public void setSecretScrubber(final SecretScrubber secretScrubber) {
+    this.scrubber = secretScrubber;
   }
 
   /**

@@ -3531,4 +3531,23 @@ class DefaultTaskTrackerServiceTest {
           assertThat(run.nodes()).isEqualTo(new WorkflowExecutionSummary.Nodes(2, 2, "b"));
         });
   }
+
+  @Test
+  void nodeStatusMetadata_masksResolvedSecrets() {
+    final SecretScrubber scrubber = new SecretScrubber(new SimpleMeterRegistry());
+    scrubber.record("hunter2-value");
+    tracker.setSecretScrubber(scrubber);
+    StepVerifier.create(tracker.startWorkflow("meta-secret", "sess-meta", "wf", List.of("n1")))
+        .verifyComplete();
+
+    tracker.emitTaskStatusEvent(
+        "meta-secret", "n1", "mod", TaskStatus.FAILURE, Map.of("error", "401 for hunter2-value"));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(() ->
+            assertThat(
+                    tracker.getProgressByExecutionId("meta-secret").tasks().getFirst().metadata())
+                .containsEntry("error", "401 for ******"));
+  }
 }

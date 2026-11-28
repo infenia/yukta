@@ -998,7 +998,7 @@ Resolves `${...}` placeholders in a node's configuration just before it runs, fr
 
 - Sources: `${payload.x}`, `${metadata.key}`, typed values such as `${payload.secs:int}` (untyped stays text), `${context.x}` (plain values from the run's Reactor context, outside `yukta.*`).
 - `${env.X}` and `${sys.x}` read only: `YUKTA_VAR_*` variables, `yukta.var.*` properties, a short list of harmless names (`HOME`, `USER`, `PATH`, `user.name`, `os.name`, ...), and names in `yukta.variables.allowed` / `YUKTA_VARIABLES_ALLOWED`. Names that look like secrets stay blocked even if listed.
-- Secrets are written `decrypted:name`; the default provider reads `YUKTA_SECRET_NAME`, so values never appear in a stored definition.
+- Secrets are written `decrypted:name`; the default provider reads `YUKTA_SECRET_NAME`, so values never appear in a stored definition. Each value it resolves (6 characters or more, also base64 and URL-encoded) is masked as `******` in log lines, node status metadata (the `error` of a failed node) and results (`SecretScrubber`, in the tracker and `ExecutionResultService`), so REST, SSE, MCP and the log store never see it. It cannot catch a value a plugin transforms, or one resolved on a remote worker.
 - Expressions (SpEL) may call only a short list of methods (`SafeMethodResolver`). The evaluators live in plugin-api and the script plugin, not in core.
 
 **Configure:** `yukta.variables.allowed` / `YUKTA_VARIABLES_ALLOWED` · `YUKTA_VAR_*` · `YUKTA_SECRET_*`
@@ -1184,7 +1184,7 @@ All meters are Micrometer. Tags in braces.
 |---|---|---|---|
 | `yukta.node.executions` `{module, status}` | counter | [OBS-04](#obs-04-metrics) | Nodes reaching a terminal status |
 | `yukta.node.duration` `{module}` | timer | [OBS-04](#obs-04-metrics) | Node run time |
-| `yukta.secrets.masked` | counter | [SEC-02](#sec-02-expressions-variables-and-secrets) | Log lines in which a resolved secret was masked (`SecretScrubber`) |
+| `yukta.secrets.masked` | counter | [SEC-02](#sec-02-expressions-variables-and-secrets) | Log lines, node errors and result values in which a resolved secret was masked (`SecretScrubber`) |
 | `yukta.node.retries` `{module}` | counter | [ENG-04](#eng-04-failure-policy-engine-config) | Retried messages |
 | `yukta.execution.duration` `{status}` | timer | [OBS-04](#obs-04-metrics) | Run time |
 | `yukta.execution.queue.wait` | timer | [ADM-01](#adm-01-scheduler-limits-and-queue) | Time a start waited for a slot |
