@@ -6,7 +6,7 @@ import { Modal } from '@/components/common/Modal';
 import { InlineError } from '@/components/common/InlineError';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePlugins } from '@/features/plugins/hooks/usePlugins';
 import { getTemplate, listTemplates } from '../api';
 import { flowLayout } from '../lib/flowLayout';
@@ -15,6 +15,7 @@ import type { TemplateDetail, TemplateSummary } from '../types';
 import { NeedsPlugins } from './NeedsPlugins';
 import { TemplateCard } from './TemplateCard';
 
+const MAX_HEIGHT = 448;
 const GRID = 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
 
 /** Step 1 of a new session: a blank one, or one of the bundled examples. */
@@ -159,18 +160,32 @@ function TemplateCanvas({
     () => workflow && flowLayout(workflow.nodes, workflow.edges),
     [workflow]
   );
+  const frame = useRef<HTMLDivElement>(null);
+  const [avail, setAvail] = useState(0);
+  useEffect(() => {
+    const el = frame.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setAvail(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [flow]);
   if (!flow) return null;
-  // Positions are percentages, so give the box room per column and row (labels are ~150px wide)
-  // and let it scroll instead of squeezing the labels onto each other.
+  // Positions are percentages, so lay the graph out at a size where labels (~150px wide) clear
+  // each other, then scale that whole box down to fit the frame: no scrolling.
   const perWave = new Map<number, number>();
   flow.nodes.forEach((n) =>
     perWave.set(n.wave, (perWave.get(n.wave) ?? 0) + 1)
   );
   const rows = Math.max(1, ...perWave.values());
-  const box = {
-    minWidth: flow.waves * 170,
+  const natural = {
+    width: flow.waves * 170 + 80,
     height: Math.max(288, rows * 84 + 80),
   };
+  const scale = Math.min(
+    1,
+    avail ? avail / natural.width : 1,
+    MAX_HEIGHT / natural.height
+  );
   return (
     <div className="mb-4 flex flex-col gap-2">
       {workflows.length > 1 && (
@@ -195,9 +210,14 @@ function TemplateCanvas({
       )}
       <div
         data-testid="template-canvas"
-        className="border-border bg-muted/40 max-h-[28rem] overflow-auto rounded-xl border"
+        ref={frame}
+        className="border-border bg-muted/40 overflow-hidden rounded-xl border"
+        style={{ height: natural.height * scale }}
       >
-        <div className="px-10 pt-8 pb-12" style={box}>
+        <div
+          className="origin-top-left px-10 pt-8 pb-12"
+          style={{ ...natural, transform: `scale(${scale})` }}
+        >
           <TemplateFlow
             flow={flow}
             categories={categories}
