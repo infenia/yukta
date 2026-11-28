@@ -15,4 +15,4 @@ record Waiter(
     AtomicInteger priority,
     Sinks.One<ExecutionScheduler.Permit> grant,
     AtomicReference<ExecutionScheduler.Permit> granted,
-    ExecutionScheduler.@Nullable KeyClaim claim) {}
+    ExecutionScheduler.@Nullable Claims claim) {}

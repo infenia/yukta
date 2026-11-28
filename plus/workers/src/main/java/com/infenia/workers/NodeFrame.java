@@ -3,9 +3,12 @@
 package com.infenia.workers;
 
 import com.infenia.yukta.plugin.core.LogLevel;
+import com.infenia.yukta.plugin.exception.RemoteFailureException;
+import com.infenia.yukta.plugin.exception.RunAbortedException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -55,6 +58,12 @@ public record NodeFrame(
     /** Worker to control plane: a log line the plugin wrote while it runs. */
     LOG
   }
+
+  /** Class name whose failures keep their meaning: bad input is not retried. */
+  private static final String BAD_INPUT = IllegalArgumentException.class.getName();
+
+  /** Class name whose failures keep their meaning: a hard stop ends the run. */
+  private static final String RUN_ABORTED = RunAbortedException.class.getName();
 
   /**
    * A live log line of the plugin.
@@ -139,5 +148,28 @@ public record NodeFrame(
       final String errorClass, final String errorMessage, final List<String> errorTypes) {
     return new NodeFrame(
         Kind.ERROR, null, null, null, null, null, errorClass, errorMessage, errorTypes);
+  }
+
+  /**
+   * The exception an error frame of a worker stands for: bad input and hard stops keep their
+   * meaning, any other failure is a {@link RemoteFailureException} naming the worker.
+   *
+   * @param workerId the worker that sent the frame
+   * @return the exception to raise in the control plane
+   */
+  public RuntimeException toFailure(final String workerId) {
+    final String type = String.valueOf(errorClass);
+    final RuntimeException failure;
+    if (BAD_INPUT.equals(type)) {
+      failure = new IllegalArgumentException(errorMessage);
+    } else if (RUN_ABORTED.equals(type)) {
+      failure = new RunAbortedException(String.valueOf(errorMessage));
+    } else {
+      failure =
+          new RemoteFailureException(
+              "Worker " + workerId + " failed: " + type + ": " + errorMessage,
+              Set.copyOf(errorTypes != null ? errorTypes : List.of(type)));
+    }
+    return failure;
   }
 }

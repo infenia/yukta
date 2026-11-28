@@ -28,4 +28,50 @@ class SecretScrubberTest {
     assertThat(scrubber.scrub("a short word")).isEqualTo("a short word");
     assertThat(meters.get("yukta.secrets.masked").counter().count()).isEqualTo(1.0);
   }
+
+  @Test
+  void scrubValue_masksStringsInNestedMapsAndLists_andKeepsWhatHasNothingToMask() {
+    final SecretScrubber scrubber = new SecretScrubber(new SimpleMeterRegistry());
+    final java.util.Map<String, Object> clean = java.util.Map.of("n", 1, "s", "plain");
+    // nothing recorded yet: every value is handed back as it is
+    assertThat(scrubber.scrubValue(clean)).isSameAs(clean);
+    assertThat(scrubber.scrub("x " + TOKEN)).isEqualTo("x " + TOKEN);
+    scrubber.record(TOKEN);
+
+    final Object scrubbed =
+        scrubber.scrubValue(
+            java.util.Map.of(
+                "error",
+                "bad auth " + TOKEN,
+                "items",
+                java.util.List.of("ok", TOKEN, 7),
+                "count",
+                3));
+
+    assertThat(scrubbed)
+        .isEqualTo(
+            java.util.Map.of(
+                "error",
+                "bad auth ******",
+                "items",
+                java.util.List.of("ok", "******", 7),
+                "count",
+                3));
+    assertThat(scrubber.scrubValue(clean)).isSameAs(clean);
+    assertThat(scrubber.scrubValue(java.util.List.of("a", 1))).isEqualTo(java.util.List.of("a", 1));
+    assertThat(scrubber.scrubValue(null)).isNull();
+    assertThat(scrubber.scrubMap(java.util.Map.of("e", TOKEN))).containsEntry("e", "******");
+  }
+
+  @Test
+  void scrubValue_leavesValuesDeeperThanItWalks() {
+    final SecretScrubber scrubber = new SecretScrubber(new SimpleMeterRegistry());
+    scrubber.record(TOKEN);
+    Object deep = TOKEN;
+    for (int i = 0; i < 40; i++) {
+      deep = java.util.List.of(deep);
+    }
+
+    assertThat(scrubber.scrubValue(deep)).isSameAs(deep);
+  }
 }

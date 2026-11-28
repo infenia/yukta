@@ -23,6 +23,7 @@ import reactor.test.StepVerifier;
 class AdmissionKeysTest {
 
   private static final String CUSTOMER_KEY = "${payload.customer}";
+  private static final String CUSTOMER_FIELD = "customer";
 
   private final WorkflowDefinitionStore store = mock(WorkflowDefinitionStore.class);
   private final AdmissionKeys keys =
@@ -34,27 +35,29 @@ class AdmissionKeysTest {
 
   private static WorkflowDefinition keyedBy(final String key) {
     return workflow(
-        new WorkflowAdmission(new WorkflowAdmission.Concurrency(key, 2, OnLimit.REJECT)));
+        new WorkflowAdmission(
+            new WorkflowAdmission.Concurrency(key, 2, OnLimit.REJECT), null, null));
   }
 
   @Test
   void workflowWithoutKeyLimitClaimsNothing() {
     StepVerifier.create(keys.claim(workflow(null), Map.of())).verifyComplete();
-    StepVerifier.create(keys.claim(workflow(new WorkflowAdmission(null)), Map.of()))
+    StepVerifier.create(keys.claim(workflow(new WorkflowAdmission(null, null, null)), Map.of()))
         .verifyComplete();
   }
 
   @Test
   void keyResolvesFromThePayload_withTheLimitAndOverflow() {
-    StepVerifier.create(keys.claim(keyedBy(CUSTOMER_KEY), Map.of("customer", 42)))
-        .assertNext(claim -> {
-          assertThat(claim.key()).isEqualTo("42");
-          assertThat(claim.limit()).isEqualTo(2);
-          assertThat(claim.overflow()).isEqualTo(OnLimit.REJECT);
+    StepVerifier.create(keys.claim(keyedBy(CUSTOMER_KEY), Map.of(CUSTOMER_FIELD, 42)))
+        .assertNext(claims -> {
+          assertThat(claims.concurrency().key()).isEqualTo("42");
+          assertThat(claims.concurrency().limit()).isEqualTo(2);
+          assertThat(claims.concurrency().overflow()).isEqualTo(OnLimit.REJECT);
+          assertThat(claims.throttle()).isNull();
         })
         .verifyComplete();
     StepVerifier.create(keys.claim(keyedBy("deploy-${payload.env}"), Map.of("env", "prod")))
-        .assertNext(claim -> assertThat(claim.key()).isEqualTo("deploy-prod"))
+        .assertNext(claims -> assertThat(claims.concurrency().key()).isEqualTo("deploy-prod"))
         .verifyComplete();
   }
 
@@ -66,7 +69,7 @@ class AdmissionKeysTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining(CUSTOMER_KEY))
         .verify();
-    StepVerifier.create(keys.claim(keyedBy(CUSTOMER_KEY), Map.of("customer", " ")))
+    StepVerifier.create(keys.claim(keyedBy(CUSTOMER_KEY), Map.of(CUSTOMER_FIELD, " ")))
         .expectError(IllegalArgumentException.class)
         .verify();
   }
@@ -76,8 +79,8 @@ class AdmissionKeysTest {
     when(store.find("s", "w")).thenReturn(Mono.just(keyedBy(CUSTOMER_KEY)));
     when(store.find("s", "gone")).thenReturn(Mono.empty());
 
-    StepVerifier.create(keys.claim("s", "w", Map.of("customer", "c1")))
-        .assertNext(claim -> assertThat(claim.key()).isEqualTo("c1"))
+    StepVerifier.create(keys.claim("s", "w", Map.of(CUSTOMER_FIELD, "c1")))
+        .assertNext(claims -> assertThat(claims.concurrency().key()).isEqualTo("c1"))
         .verifyComplete();
     StepVerifier.create(keys.claim("s", "gone", Map.of())).verifyComplete();
   }

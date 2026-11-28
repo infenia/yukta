@@ -126,6 +126,7 @@ The key for the agents comes from `--token`, `--token-file` or `YUKTA_TOKEN`, li
 | Command | Description |
 |---|---|
 | `workflow start <session-id> <workflow-id>` | Starts a run. Flags: `--payload <json>`, `--payload-file <file>`, `--idempotency-key <key>`. |
+| `workflow test <session-id> <test-file>` | Runs a saved workflow once with stubbed nodes and checks assertions (`POST /api/sessions/{id}/workflows/{wf}/test`). The file is the test with a `workflowId`: `input`, `stubs` (node id to a list of `{payload, port}`), `expect` (`status`, `reached`, `notReached`, `nodes`), `allow`, `timeoutSeconds`. Prints one line per assertion and exits 1 when one fails. |
 | `workflow stop <session-id> <workflow-id>` | Stops every active run of a workflow. Flag: `--mode DRAIN\|CANCEL\|KILL` (default `DRAIN`). |
 | `workflow pause <session-id> <execution-id>` | Pauses a run. Flag: `--tree` (also its sub-workflow runs). |
 | `workflow resume <session-id> <execution-id>` | Resumes a paused run. Flag: `--tree`. |

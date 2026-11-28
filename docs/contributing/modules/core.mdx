@@ -149,7 +149,7 @@ Keeps workflow definitions and versions, and turns one into a validated, runnabl
 - **Guarantees.** A broken graph is refused before any plugin runs, and a run always keeps the version it started with.
 - **State.** Definitions are durable with the file or PostgreSQL store. The compiled cache lives in memory and is simply rebuilt.
 - **Ceiling.** Preparation cost grows with graph size, so graphs are capped at 500 nodes and 2000 edges.
-- **On failure.** Editing a workflow does not change runs already in progress, and a resume is refused if the definition changed since the run started.
+- **On failure.** Editing a workflow does not change runs already in progress, and a resume runs the version the run started with; it is refused only if that version is no longer among the saved ones.
 
 **Settings:** `yukta.session.store-type = in-memory | file | postgres`
 

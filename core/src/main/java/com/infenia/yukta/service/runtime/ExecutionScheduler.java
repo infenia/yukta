@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -28,6 +29,8 @@ import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Admission control for workflow executions.
@@ -87,6 +90,9 @@ public class ExecutionScheduler implements SmartLifecycle {
   /** Counts new starts per workflow; limit 0 means off. */
   private CallRateLimiter startRate = new CallRateLimiter(0);
 
+  /** Wakes the queue when a throttle window opens. */
+  private final Scheduler timers = Schedulers.parallel();
+
   /** Guards all state below. */
   private final Object lock = new Object();
 
@@ -112,6 +118,14 @@ public class ExecutionScheduler implements SmartLifecycle {
    * leaves the map when its last run ends, so it holds at most one entry per running execution.
    */
   private final Map<ClaimKey, Integer> runningPerClaim = new ConcurrentHashMap<>();
+
+  /** Admissions per throttle key ({@code admission.throttle}) over its period. */
+  private final ThrottleWindows throttles = new ThrottleWindows();
+
+  /**
+   * When the queue is next woken for a throttle window that opens; {@code Long.MAX_VALUE}: never.
+   */
+  private long throttleWakeAt = Long.MAX_VALUE;
 
   /** Signals that the last running execution has finished; replaced on each {@link #start()}. */
   private Sinks.Empty<Void> drained = Sinks.empty();
@@ -264,7 +278,7 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @param workflowId the workflow
    * @param priority higher is admitted first when starts have to wait
    * @param executionId the execution asking
-   * @param claim the key and its limit, or null when the workflow has none
+   * @param claim what the start claims of its workflow's admission settings, or null for none
    * @return the slot at once if there is room, otherwise a Mono that waits for one
    */
   public Admission acquireStart(
@@ -272,7 +286,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       final String workflowId,
       final int priority,
       final String executionId,
-      @Nullable final KeyClaim claim) {
+      @Nullable final Claims claim) {
     return admit(sessionId, workflowId, priority, executionId, true, claim);
   }
 
@@ -282,7 +296,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       final int priority,
       @Nullable final String executionId,
       final boolean countsAgainstRate,
-      @Nullable final KeyClaim claim) {
+      @Nullable final Claims claim) {
     assertLeader();
     final WorkflowKey key = new WorkflowKey(sessionId, workflowId);
     synchronized (lock) {
@@ -316,6 +330,7 @@ public class ExecutionScheduler implements SmartLifecycle {
               new AtomicReference<>(),
               claim);
       queue.add(waiter);
+      wakeForThrottles();
       final Mono<Permit> grant = waiter.grant().asMono().doOnCancel(() -> abandon(waiter));
       return new Admission(
           false,
@@ -361,7 +376,7 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @param workflowId the workflow
    * @param priority higher is admitted first when starts have to wait
    * @param executionId the execution asking
-   * @param claim the key and its limit, or null when the workflow has none
+   * @param claim what the start claims of its workflow's admission settings, or null for none
    * @return the slot at once if there is room, otherwise a Mono that waits for one
    */
   public Admission acquireRerun(
@@ -369,7 +384,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       final String workflowId,
       final int priority,
       final String executionId,
-      @Nullable final KeyClaim claim) {
+      @Nullable final Claims claim) {
     return admit(sessionId, workflowId, priority, executionId, true, claim);
   }
 
@@ -576,11 +591,17 @@ public class ExecutionScheduler implements SmartLifecycle {
    * or is refused as the key's {@code overflow} says, not as {@code on-limit} does.
    */
   @Nullable
-  private RejectReason cannotQueue(final WorkflowKey key, @Nullable final KeyClaim claim) {
-    if (claim != null && fits(key)) {
-      return claim.overflow() == OnLimit.REJECT ? RejectReason.KEY_LIMIT : noRoomToWait(key);
+  private RejectReason cannotQueue(final WorkflowKey key, @Nullable final Claims claim) {
+    if (claim == null || !fits(key)) {
+      return cannotQueue(key);
     }
-    return cannotQueue(key);
+    // a throttled start always waits: its turn comes when the period has room
+    final KeyClaim concurrency = claim.concurrency();
+    return concurrency != null
+            && !concurrencyFits(key, concurrency)
+            && concurrency.overflow() == OnLimit.REJECT
+        ? RejectReason.KEY_LIMIT
+        : noRoomToWait(key);
   }
 
   /** Why a start cannot join the queue, or null if there is room for it. */
@@ -613,22 +634,86 @@ public class ExecutionScheduler implements SmartLifecycle {
             || runningPerSession.getOrDefault(key.sessionId(), 0) < maxPerSession);
   }
 
-  /** Whether a start fits the server's limits and, if it claims one, its key's. */
-  private boolean fits(final WorkflowKey key, @Nullable final KeyClaim claim) {
-    return fits(key)
-        && (claim == null
-            || runningPerClaim.getOrDefault(new ClaimKey(key, claim.key()), 0) < claim.limit());
+  /** Whether a start fits the server's limits and what it claims: its key and its throttle. */
+  private boolean fits(final WorkflowKey key, @Nullable final Claims claim) {
+    if (!fits(key)) {
+      return false;
+    }
+    if (claim == null) {
+      return true;
+    }
+    if (!concurrencyFits(key, claim.concurrency())) {
+      return false;
+    }
+    final ThrottleClaim throttle = claim.throttle();
+    return throttle == null
+        || throttles.fits(new ClaimKey(key, throttle.key()), throttle.limit(), System.nanoTime());
   }
 
-  private Permit take(final WorkflowKey key, @Nullable final KeyClaim claim) {
+  private boolean concurrencyFits(final WorkflowKey key, @Nullable final KeyClaim concurrency) {
+    return concurrency == null
+        || runningPerClaim.getOrDefault(new ClaimKey(key, concurrency.key()), 0)
+            < concurrency.limit();
+  }
+
+  private Permit take(final WorkflowKey key, @Nullable final Claims claim) {
     runningTotal++;
     runningPerKey.merge(key, 1, Integer::sum);
     runningPerSession.merge(key.sessionId(), 1, Integer::sum);
-    final ClaimKey claimed = claim == null ? null : new ClaimKey(key, claim.key());
+    final KeyClaim concurrency = claim == null ? null : claim.concurrency();
+    final ClaimKey claimed = concurrency == null ? null : new ClaimKey(key, concurrency.key());
     if (claimed != null) {
       runningPerClaim.merge(claimed, 1, Integer::sum);
     }
+    final ThrottleClaim throttle = claim == null ? null : claim.throttle();
+    if (throttle != null) {
+      throttles.take(
+          new ClaimKey(key, throttle.key()), throttle.period().toNanos(), System.nanoTime());
+    }
     return new Permit(key, false, claimed);
+  }
+
+  /**
+   * Makes sure the queue is woken when the first throttle window that holds back a waiting start
+   * opens; nothing else would wake it, since no run ending frees a throttle. Called with the lock.
+   */
+  private void wakeForThrottles() {
+    final long now = System.nanoTime();
+    long soonest = Long.MAX_VALUE;
+    // ponytail: scans the whole queue on each enqueue and admit; index throttled waiters if the
+    // queue grows into the thousands
+    for (final var group : queue.groups()) {
+      for (final Waiter waiter : group) {
+        final Claims claim = waiter.claim();
+        final ThrottleClaim throttle = claim == null ? null : claim.throttle();
+        if (throttle != null) {
+          final long wait = throttleWaitNanos(waiter, throttle, now);
+          if (wait > 0) {
+            soonest = Math.min(soonest, now + wait);
+          }
+        }
+      }
+    }
+    if (soonest < throttleWakeAt) {
+      throttleWakeAt = soonest;
+      timers.schedule(this::throttleWindowOpened, soonest - now, TimeUnit.NANOSECONDS);
+    }
+  }
+
+  /** How long the throttle holds back a waiting start; 0 if it fits now. */
+  private long throttleWaitNanos(
+      final Waiter waiter, final ThrottleClaim throttle, final long now) {
+    return throttles.waitNanos(new ClaimKey(waiter.key(), throttle.key()), throttle.limit(), now);
+  }
+
+  /** A throttle window opened: admits the waiting starts that fit now. */
+  private void throttleWindowOpened() {
+    final List<Waiter> admitted;
+    synchronized (lock) {
+      throttleWakeAt = Long.MAX_VALUE;
+      admitted = admitWaiting();
+    }
+    grant(admitted);
   }
 
   private void free(final WorkflowKey key, @Nullable final ClaimKey claimed) {
@@ -666,6 +751,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       admitted.add(next);
       next = nextToAdmit();
     }
+    wakeForThrottles();
     return admitted;
   }
 
@@ -803,6 +889,23 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @param overflow what the start does when the key is at its limit
    */
   public record KeyClaim(String key, int limit, OnLimit overflow) {}
+
+  /**
+   * A start's claim on its workflow's throttle ({@code admission.throttle}).
+   *
+   * @param key the key the start's payload resolved to (empty for the whole workflow)
+   * @param limit how many starts with the key may be admitted per period
+   * @param period the period
+   */
+  public record ThrottleClaim(String key, int limit, Duration period) {}
+
+  /**
+   * What a start claims of its workflow's admission settings.
+   *
+   * @param concurrency its concurrency key, or null for none
+   * @param throttle its throttle, or null for none
+   */
+  public record Claims(@Nullable KeyClaim concurrency, @Nullable ThrottleClaim throttle) {}
 
   /** A concurrency key of one workflow. */
   private record ClaimKey(WorkflowKey workflow, String key) {}

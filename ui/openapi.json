@@ -4073,7 +4073,8 @@
       "Check" : {
         "properties" : {
           "detail" : {
-            "type" : "string"
+            "description" : "The actual value when the assertion did not hold",
+            "type" : [ "string", "null" ]
           },
           "name" : {
             "type" : "string"
@@ -4597,6 +4598,26 @@
           },
           "running" : {
             "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Debounce" : {
+        "description" : "Starts within `periodMs` of the first with the same key get its id",
+        "properties" : {
+          "key" : {
+            "description" : "Expression over the start payload; none for the whole workflow",
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "periodMs" : {
+            "description" : "The window in milliseconds",
+            "example" : 5000,
+            "format" : "int64",
+            "maximum" : 86400000,
+            "minimum" : 1,
             "type" : "integer"
           }
         },
@@ -7759,6 +7780,34 @@
         },
         "type" : "object"
       },
+      "Throttle" : {
+        "description" : "At most `limit` starts per `periodMs` that share a key; more wait",
+        "properties" : {
+          "key" : {
+            "description" : "Expression over the start payload; none for the whole workflow",
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : [ "string", "null" ]
+          },
+          "limit" : {
+            "description" : "Starts with the same key per period",
+            "example" : 10,
+            "format" : "int32",
+            "maximum" : 10000,
+            "minimum" : 1,
+            "type" : "integer"
+          },
+          "periodMs" : {
+            "description" : "The period in milliseconds",
+            "example" : 60000,
+            "format" : "int64",
+            "maximum" : 86400000,
+            "minimum" : 1,
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "Tick" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/Signal"
@@ -7981,6 +8030,16 @@
             "$ref" : "#/components/schemas/Concurrency",
             "description" : "At most so many runs at once per key",
             "type" : "null"
+          },
+          "debounce" : {
+            "$ref" : "#/components/schemas/Debounce",
+            "description" : "One run per key and period; later starts get its id",
+            "type" : "null"
+          },
+          "throttle" : {
+            "$ref" : "#/components/schemas/Throttle",
+            "description" : "At most so many starts per period per key",
+            "type" : "null"
           }
         },
         "type" : "object"
@@ -8008,6 +8067,10 @@
             "maxLength" : 256,
             "minLength" : 0,
             "type" : "string"
+          },
+          "durable" : {
+            "description" : "Whether an interrupted run of this workflow may be resumed after a restart (default true); false for a workflow that must not run twice",
+            "type" : [ "boolean", "null" ]
           },
           "edges" : {
             "description" : "Edges connecting the nodes",
@@ -8066,6 +8129,10 @@
             "maxLength" : 256,
             "minLength" : 0,
             "type" : "string"
+          },
+          "durable" : {
+            "description" : "Whether an interrupted run of this workflow may be resumed after a restart (default true); false for a workflow that must not run twice",
+            "type" : [ "boolean", "null" ]
           },
           "edges" : {
             "description" : "Edges connecting the nodes",

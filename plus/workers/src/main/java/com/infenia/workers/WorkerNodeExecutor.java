@@ -4,30 +4,38 @@ package com.infenia.workers;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.RemoteFailureException;
-import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
+import com.infenia.yukta.service.worker.NoFreeWorkerException;
 import com.infenia.yukta.service.worker.RemoteNodeExecutor;
 import com.infenia.yukta.service.worker.WorkerInfo;
 import com.infenia.yukta.service.worker.WorkerRegistry;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.observation.transport.SenderContext;
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.context.ContextView;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -39,18 +47,15 @@ import tools.jackson.databind.ObjectMapper;
  */
 @SuppressWarnings({
   "PMD.CouplingBetweenObjects",
-  "PMD.TooManyMethods"
-}) // picks, sends, traces, maps
+  "PMD.ExcessiveImports",
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals"
+}) // picks, sends, traces, maps; the same key names in the context and the trace
+@Slf4j
 public class WorkerNodeExecutor implements RemoteNodeExecutor {
 
   /** Type of a message as plain JSON values. */
   private static final TypeReference<Map<String, Object>> JSON_OBJECT = new TypeReference<>() {};
-
-  /** Class name whose failures keep their meaning: bad input is not retried. */
-  private static final String BAD_INPUT = IllegalArgumentException.class.getName();
-
-  /** Class name whose failures keep their meaning: a hard stop ends the run. */
-  private static final String RUN_ABORTED = RunAbortedException.class.getName();
 
   /** The live workers. */
   private final WorkerRegistry registry;
@@ -67,6 +72,21 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
   /** Opens the attempt's observation, which writes the trace headers into START. */
   private final ObservationRegistry observations;
 
+  /** Times the attempts and their dispatch. */
+  private final MeterRegistry meters;
+
+  /** Keeps a worker that keeps failing out of the picks for a while. */
+  private final WorkerHealth health;
+
+  /** The worker that failed the last attempt of each node. */
+  private final LastFailed lastFailed = new LastFailed();
+
+  /** Attempts that found no free slot, until a slot is released or a worker registers. */
+  private final PoolQueue queue;
+
+  /** The pools that have slot gauges. */
+  private final Set<String> watched = ConcurrentHashMap.newKeySet();
+
   /** Attempts this server has sent to each worker and not seen end yet. */
   private final Map<String, AtomicInteger> inFlight = new ConcurrentHashMap<>();
 
@@ -78,19 +98,43 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
    * @param mapper converts messages to and from plain JSON values
    * @param parentOf finds the open observation of a node from its run and node id, or null
    * @param observations opens the attempt's observation (a no-op registry traces nothing)
+   * @param meters times the attempts ({@code yukta.worker.attempts{module,outcome}}) and the wait
+   *     from the pick to the worker's first answer ({@code yukta.worker.dispatch{module}})
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // all are shared Spring beans
   public WorkerNodeExecutor(
       final WorkerRegistry registry,
       final WorkerConnections connections,
       final ObjectMapper mapper,
       final BiFunction<String, String, Observation> parentOf,
-      final ObservationRegistry observations) {
+      final ObservationRegistry observations,
+      final MeterRegistry meters) {
+    this(
+        registry,
+        connections,
+        mapper,
+        parentOf,
+        observations,
+        meters,
+        new WorkerHealth(System::nanoTime));
+  }
+
+  /** Creates the executor with its own record of worker health (tests pass one with a clock). */
+  /* default */ WorkerNodeExecutor(
+      final WorkerRegistry registry,
+      final WorkerConnections connections,
+      final ObjectMapper mapper,
+      final BiFunction<String, String, Observation> parentOf,
+      final ObservationRegistry observations,
+      final MeterRegistry meters,
+      final WorkerHealth health) {
     this.registry = registry;
     this.connections = connections;
     this.mapper = mapper;
     this.parentOf = parentOf;
     this.observations = observations;
+    this.meters = meters;
+    this.health = health;
+    this.queue = new PoolQueue(meters);
   }
 
   @Override
@@ -100,50 +144,126 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       final Flux<Message<?>> input,
       final Map<String, Object> config) {
     return Flux.deferContextual(ctx -> {
-      final Optional<Chosen> chosen = pick(pool, pluginType);
-      if (chosen.isEmpty()) {
-        return Flux.error(
-            new WorkflowExecutionException(
-                "No connected worker in pool '" + pool + "' can run " + pluginType + " right now"));
-      }
-      final String workerId = chosen.get().info().workerId();
-      final AtomicInteger load = load(workerId);
-      final Runnable heartbeat =
-          ctx.hasKey(WorkflowContext.HEARTBEAT_KEY)
-              ? ctx.get(WorkflowContext.HEARTBEAT_KEY)
-              : () -> {};
-      final PluginLogSink logSink =
-          ctx.getOrDefault(WorkflowContext.LOG_SINK_KEY, PluginLogSink.NOOP);
       final String executionId = ctx.getOrDefault("executionId", "unknown");
       final String nodeId = ctx.getOrDefault("nodeId", "unknown");
-      final Map<String, String> trace = new ConcurrentHashMap<>();
-      final Observation call = call(workerId, executionId, nodeId, pluginType, trace).start();
-      final Flux<NodeFrame> out =
-          Flux.concat(
-              Mono.just(NodeFrame.start(executionId, nodeId, pluginType, config, trace)),
-              input.map(this::frame),
-              Mono.just(NodeFrame.complete()));
-      return chosen
-          .get()
-          .requester()
-          .route("node.run")
-          .data(out)
-          .retrieveFlux(NodeFrame.class)
-          .<Message<?>>handle((frame, sink) -> answer(workerId, frame, heartbeat, logSink, sink))
-          .onErrorMap(WorkerNodeExecutor::isTransport, error -> lost(workerId, error))
-          .doOnError(call::error)
-          .doFinally(_ -> {
-            call.stop();
-            load.decrementAndGet();
-          });
+      final NodePolicy.Placement placement = NodePolicy.placement(config);
+      final Duration timeout =
+          placement == null ? NodePolicy.DEFAULT_QUEUE_TIMEOUT : placement.queueTimeout();
+      watch(pool);
+      return queue
+          .acquire(pool, executionId, () -> pick(pool, pluginType, executionId, nodeId), timeout)
+          .doOnError(
+              NoFreeWorkerException.class,
+              _ -> attempts(pluginType, "no_worker").record(Duration.ZERO))
+          .flatMapMany(chosen -> attempt(chosen, ctx, pluginType, pool, input, config));
     });
   }
 
+  /** Sends one attempt to the worker whose slot it holds, and frees the slot when it ends. */
+  private Flux<Message<?>> attempt(
+      final Chosen chosen,
+      final ContextView ctx,
+      final String pluginType,
+      final String pool,
+      final Flux<Message<?>> input,
+      final Map<String, Object> config) {
+    final long picked = System.nanoTime();
+    final String executionId = ctx.getOrDefault("executionId", "unknown");
+    final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+    final String workerId = chosen.info().workerId();
+    final AtomicInteger load = load(workerId);
+    final Runnable heartbeat =
+        ctx.hasKey(WorkflowContext.HEARTBEAT_KEY)
+            ? ctx.get(WorkflowContext.HEARTBEAT_KEY)
+            : () -> {};
+    final PluginLogSink logSink =
+        ctx.getOrDefault(WorkflowContext.LOG_SINK_KEY, PluginLogSink.NOOP);
+    final Map<String, String> trace = new ConcurrentHashMap<>();
+    final AtomicBoolean answered = new AtomicBoolean();
+    final AtomicReference<String> outcome = new AtomicReference<>("cancelled");
+    final Observation call = call(workerId, executionId, nodeId, pluginType, trace).start();
+    final Flux<NodeFrame> out =
+        Flux.concat(
+            Mono.just(NodeFrame.start(executionId, nodeId, pluginType, config, trace)),
+            input.map(this::frame),
+            Mono.just(NodeFrame.complete()));
+    return chosen
+        .requester()
+        .route("node.run")
+        .data(out)
+        .retrieveFlux(NodeFrame.class)
+        .doOnNext(_ -> {
+          if (answered.compareAndSet(false, true)) {
+            dispatch(pluginType).record(Duration.ofNanos(System.nanoTime() - picked));
+          }
+        })
+        .<Message<?>>handle((frame, sink) -> answer(workerId, frame, heartbeat, logSink, sink))
+        .onErrorMap(
+            WorkerNodeExecutor::isTransport,
+            error -> {
+              outcome.set("lost");
+              return lost(workerId, error);
+            })
+        .doOnComplete(() -> {
+          outcome.set("completed");
+          health.succeeded(workerId, pluginType);
+          lastFailed.succeeded(executionId, nodeId);
+        })
+        .doOnError(error -> {
+          outcome.compareAndSet("cancelled", "failed");
+          call.error(error);
+          lastFailed.failed(executionId, nodeId, workerId);
+          // bad input and hard stops are the run's doing, not the worker's
+          if (("lost".equals(outcome.get()) || error instanceof RemoteFailureException)
+              && health.failed(workerId, pluginType)) {
+            quarantined(workerId, pluginType);
+          }
+        })
+        .doFinally(_ -> {
+          call.stop();
+          load.decrementAndGet();
+          queue.wake(pool);
+          attempts(pluginType, outcome.get()).record(Duration.ofNanos(System.nanoTime() - picked));
+        });
+  }
+
   /**
-   * The observation of one attempt on a worker, a child of the node's: once started, a tracer's
-   * propagating handler has written the headers the worker continues the trace from into {@code
-   * trace}.
+   * Gives free slots of the pool to the attempts that wait for one; called when a worker registers
+   * or reports its slots.
+   *
+   * @param pool a pool of the worker
    */
+  public void wake(final String pool) {
+    queue.wake(pool);
+  }
+
+  /** Registers the slot gauges of a pool the first time an attempt asks for it. */
+  private void watch(final String pool) {
+    if (watched.add(pool)) {
+      for (final String state : List.of("used", "free")) {
+        Gauge.builder("yukta.pool.slots", this, executor -> executor.slots(pool, state))
+            .description("Worker slots of the pool, in use or free")
+            .tag("pool", pool)
+            .tag("state", state)
+            .strongReference(true)
+            .register(meters);
+      }
+    }
+  }
+
+  private int slots(final String pool, final String state) {
+    int taken = 0;
+    int open = 0;
+    for (final WorkerInfo info : registry.list()) {
+      if (info.pools().contains(pool)) {
+        final int spare = Math.max(0, free(info, load(info.workerId()).get()));
+        open += spare;
+        taken += info.capacity() - spare;
+      }
+    }
+    return "used".equals(state) ? taken : open;
+  }
+
   private Observation call(
       final String workerId,
       final String executionId,
@@ -162,6 +282,33 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
         .highCardinalityKeyValue("workerId", workerId);
   }
 
+  private Timer attempts(final String pluginType, final String outcome) {
+    return Timer.builder("yukta.worker.attempts")
+        .description("Node attempts sent to workers, from the pick to the end, by outcome")
+        .tag("module", pluginType)
+        .tag("outcome", outcome)
+        .register(meters);
+  }
+
+  private void quarantined(final String workerId, final String pluginType) {
+    log.atWarn()
+        .addKeyValue("workerId", workerId)
+        .addKeyValue("module", pluginType)
+        .log(
+            "Worker quarantined for {}: its last {} attempts failed while other workers ran {}",
+            WorkerHealth.COOL_DOWN,
+            WorkerHealth.FAILURES,
+            pluginType);
+    meters.counter("yukta.worker.quarantined", "module", pluginType).increment();
+  }
+
+  private Timer dispatch(final String pluginType) {
+    return Timer.builder("yukta.worker.dispatch")
+        .description("From picking a worker to its first answer on the attempt")
+        .tag("module", pluginType)
+        .register(meters);
+  }
+
   /** A worker that may run the attempt, with the way into it. */
   /* default */ record Chosen(WorkerInfo info, RSocketRequester requester) {}
 
@@ -171,19 +318,30 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
    * the one that loses moves on to the next worker. The caller gives the slot back.
    */
   /* default */ Optional<Chosen> pick(final String pool, final String pluginType) {
-    return registry.list().stream()
-        .filter(info -> info.pools().contains(pool) && info.pluginTypes().contains(pluginType))
-        .filter(info -> !info.draining())
-        .flatMap(info ->
-            connections
-                .find(info.workerId())
-                .map(requester -> new Chosen(info, requester))
-                .stream())
-        .sorted(
-            Comparator.comparingInt(
-                    (Chosen chosen) -> free(chosen.info(), load(chosen.info().workerId()).get()))
-                .reversed()
-                .thenComparing(chosen -> chosen.info().workerId()))
+    return pick(pool, pluginType, "unknown", "unknown");
+  }
+
+  /** Like {@link #pick(String, String)}, but tries the worker that failed the node last, last. */
+  /* default */ Optional<Chosen> pick(
+      final String pool, final String pluginType, final String executionId, final String nodeId) {
+    final List<Chosen> sorted =
+        registry.list().stream()
+            .filter(info -> info.pools().contains(pool) && info.pluginTypes().contains(pluginType))
+            .filter(info -> !info.draining() && !health.quarantined(info.workerId()))
+            .flatMap(info ->
+                connections
+                    .find(info.workerId())
+                    .map(requester -> new Chosen(info, requester))
+                    .stream())
+            .sorted(
+                Comparator.comparingInt((Chosen chosen) ->
+                        free(chosen.info(), load(chosen.info().workerId()).get()))
+                    .reversed()
+                    .thenComparing(chosen -> chosen.info().workerId()))
+            .toList();
+    return LastFailed.avoiding(
+            sorted, chosen -> chosen.info().workerId(), lastFailed.workerOf(executionId, nodeId))
+        .stream()
         .filter(chosen -> reserve(chosen.info()))
         .findFirst();
   }
@@ -239,7 +397,7 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       case HEARTBEAT -> heartbeat.run();
       case LOG -> log(frame, logSink);
       case COMPLETE -> sink.complete();
-      case ERROR -> sink.error(failure(workerId, frame));
+      case ERROR -> sink.error(frame.toFailure(workerId));
       default -> sink.error(new WorkflowExecutionException("Unexpected frame from " + workerId));
     }
   }
@@ -257,21 +415,5 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
             .filter(known -> known.name().equals(level))
             .findFirst()
             .orElse(null));
-  }
-
-  private static RuntimeException failure(final String workerId, final NodeFrame frame) {
-    final String errorClass = String.valueOf(frame.errorClass());
-    final RuntimeException failure;
-    if (BAD_INPUT.equals(errorClass)) {
-      failure = new IllegalArgumentException(frame.errorMessage());
-    } else if (RUN_ABORTED.equals(errorClass)) {
-      failure = new RunAbortedException(String.valueOf(frame.errorMessage()));
-    } else {
-      failure =
-          new RemoteFailureException(
-              "Worker " + workerId + " failed: " + errorClass + ": " + frame.errorMessage(),
-              Set.copyOf(frame.errorTypes() != null ? frame.errorTypes() : List.of(errorClass)));
-    }
-    return failure;
   }
 }

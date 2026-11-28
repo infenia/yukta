@@ -18,7 +18,7 @@ services:
       YUKTA_API_KEYS_0_KEY: ${API_KEY:?set by run.sh}
       YUKTA_API_KEYS_0_ROLE: ADMIN
     env_file:
-      - ${KEYS_ENV:-/dev/null}   # more keys for the notifications test (run.sh writes it)
+      - ${KEYS_ENV:-/dev/null}   # more keys for the notifications test, store and worker settings (run.sh writes it)
     volumes:
       - ${JAR:?set by run.sh}:/app/yukta.jar:ro   # the jar, or the native binary (BINARY=)
     depends_on:
@@ -49,3 +49,28 @@ services:
       test: ["CMD", "pg_isready", "-U", "yukta", "-d", "yukta"]
       interval: 2s
       retries: 30
+
+  # WORKERS=n only (run.sh sets COMPOSE_PROFILES=workers): n remote workers of the pool "default" that run the
+  # placed nodes of the placed* workflows. WORKER_BINARY is a native image built for the worker role.
+  worker:
+    profiles: ["workers"]
+    image: ${IMAGE:-eclipse-temurin:25-jre}
+    # each replica is its own worker: its container's host name is its id
+    command: ["sh", "-c", "YUKTA_WORKERS_ID=$$HOSTNAME exec ${WORKER_CMD:-/app/yukta.jar}"]
+    deploy:
+      replicas: ${WORKERS:-0}
+    cpus: ${WORKER_CPUS:-1}
+    mem_limit: ${WORKER_MEMORY:-1g}
+    memswap_limit: ${WORKER_MEMORY:-1g}
+    environment:
+      YUKTA_WORKERS_CONTROL_PLANE: yukta:7000
+      YUKTA_WORKERS_TOKEN: ${API_KEY:?set by run.sh}
+      YUKTA_WORKERS_ALLOW_INSECURE: "true"   # the compose network, not a real one
+      YUKTA_WORKERS_POOLS: default
+      YUKTA_WORKERS_PLUGIN_TYPES: FILTER,MAPPER
+      YUKTA_WORKERS_CAPACITY: ${WORKER_CAPACITY:-8}
+    volumes:
+      - ${WORKER_JAR:-/dev/null}:/app/yukta.jar:ro
+    depends_on:
+      yukta:
+        condition: service_healthy

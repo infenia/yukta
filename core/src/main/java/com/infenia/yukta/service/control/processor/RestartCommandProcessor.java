@@ -97,7 +97,7 @@ public class RestartCommandProcessor {
   private Mono<Void> performAtomicHandoff(
       final ArchivedExecution archived,
       final RestartCommand restart,
-      final ExecutionScheduler.@Nullable KeyClaim claim) {
+      final ExecutionScheduler.@Nullable Claims claim) {
     return Mono.defer(() -> {
       final Optional<ExecutionControl> running = registry.findByExecutionId(restart.executionId());
       ExecutionScheduler.Admission admission = null;

@@ -9,8 +9,10 @@ import com.infenia.yukta.service.worker.WorkerRegistry;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.bind.Bindable;
@@ -28,6 +30,7 @@ import reactor.core.publisher.Signal;
  * stream ends, so the worker reconnects and registers again.
  */
 @Slf4j
+@SuppressWarnings("PMD.TooManyMethods") // admission checks, one small method each
 public class WorkerSessionHandler {
 
   /** Log key of the worker. */
@@ -42,11 +45,20 @@ public class WorkerSessionHandler {
   /** Tells whether this server is the leader; only the leader takes workers. */
   private final LeaderElection election;
 
-  /** The shared secret workers must present when no worker has its own. */
-  private final byte[] token;
+  /**
+   * The shared secrets workers may present when no worker has its own: one, or during a rotation
+   * the old and the new one (the setting is a comma separated list).
+   */
+  private final List<byte[]> token;
 
-  /** The secret of each allowed worker; when not empty, only these workers are admitted. */
-  private final Map<String, byte[]> workerTokens;
+  /**
+   * The secrets of each allowed worker (comma separated, for a rotation); when not empty, only
+   * these workers are admitted.
+   */
+  private final Map<String, List<byte[]>> workerTokens;
+
+  /** Told the pools of a worker that registered or renewed its lease, so waiting attempts retry. */
+  private final Consumer<String> capacityChanged;
 
   /**
    * Creates the handler.
@@ -75,22 +87,43 @@ public class WorkerSessionHandler {
    *     listed is refused and one that is listed must present its own secret, so one compromised
    *     worker is revoked by removing its entry
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // the registry is a shared Spring bean
   public WorkerSessionHandler(
       final WorkerRegistry registry,
       final WorkerConnections connections,
       final LeaderElection election,
       final String token,
       final Map<String, String> workerTokens) {
+    this(registry, connections, election, token, workerTokens, pool -> {});
+  }
+
+  /**
+   * Creates the handler with a secret per worker, and a call for the pools whose capacity changed.
+   *
+   * @param registry the workers that are connected
+   * @param connections the way back into each connected worker
+   * @param election tells whether this server is the leader; a standby refuses workers
+   * @param token the shared secret, used only when {@code workerTokens} is empty
+   * @param workerTokens the secret of each allowed worker id
+   * @param capacityChanged called with each pool of a worker that registered or renewed its lease
+   */
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the registry is a shared Spring bean
+  public WorkerSessionHandler(
+      final WorkerRegistry registry,
+      final WorkerConnections connections,
+      final LeaderElection election,
+      final String token,
+      final Map<String, String> workerTokens,
+      final Consumer<String> capacityChanged) {
     this.registry = registry;
     this.connections = connections;
     this.election = election;
-    this.token = token.getBytes(StandardCharsets.UTF_8);
+    this.capacityChanged = capacityChanged;
+    this.token = secrets(token);
     this.workerTokens =
         workerTokens.entrySet().stream()
             .collect(
                 Collectors.toUnmodifiableMap(
-                    Map.Entry::getKey, entry -> entry.getValue().getBytes(StandardCharsets.UTF_8)));
+                    Map.Entry::getKey, entry -> secrets(entry.getValue())));
   }
 
   /**
@@ -155,7 +188,7 @@ public class WorkerSessionHandler {
       log.atWarn().addKeyValue(WORKER_ID, hello.workerId()).log("Worker refused: bad token");
       why = "token refused";
     }
-    if (why == null && !Integer.valueOf(WorkerFrame.PROTOCOL).equals(hello.protocol())) {
+    if (why == null && !supported(hello.protocol())) {
       log.atWarn()
           .addKeyValue(WORKER_ID, hello.workerId())
           .addKeyValue("protocol", hello.protocol())
@@ -164,10 +197,18 @@ public class WorkerSessionHandler {
           "protocol version "
               + (hello.protocol() == null ? "(none)" : hello.protocol())
               + " is not supported, this control plane speaks "
+              + WorkerFrame.MIN_PROTOCOL
+              + " to "
               + WorkerFrame.PROTOCOL
-              + "; upgrade the worker (or the control plane) to the same release";
+              + "; upgrade the control plane first, then the workers";
     }
     return why;
+  }
+
+  private static boolean supported(final Integer protocol) {
+    return protocol != null
+        && protocol >= WorkerFrame.MIN_PROTOCOL
+        && protocol <= WorkerFrame.PROTOCOL;
   }
 
   private static WorkerRegistration registration(final WorkerFrame hello) {
@@ -179,6 +220,7 @@ public class WorkerSessionHandler {
       final RSocketRequester requester, final WorkerInfo info, final Flux<WorkerFrame> all) {
     connections.put(info.workerId(), requester);
     log.atInfo().addKeyValue(WORKER_ID, info.workerId()).log("Worker registered");
+    info.pools().forEach(capacityChanged);
     return Flux.concat(Flux.just(WorkerFrame.ack()), all.skip(1).map(frame -> answer(info, frame)))
         .takeUntil(frame -> frame.type() == WorkerFrame.Type.REJECT)
         .doFinally(_ -> {
@@ -189,25 +231,42 @@ public class WorkerSessionHandler {
   }
 
   private WorkerFrame answer(final WorkerInfo info, final WorkerFrame frame) {
-    WorkerFrame answer = WorkerFrame.reject("unexpected " + frame.type() + " frame");
-    if (frame.type() == WorkerFrame.Type.LEASE) {
-      // a leader that lost the database lease must not keep its workers: the new leader has none
-      if (election.isLeader()) {
-        answer =
-            registry.heartbeat(info.workerId(), frame.usedSlots(), frame.draining())
-                ? WorkerFrame.ack()
-                : WorkerFrame.reject("lease expired, register again");
-      } else {
-        answer = WorkerFrame.reject("this server is not the leader");
+    return frame.type() == WorkerFrame.Type.LEASE
+        ? lease(info, frame)
+        : WorkerFrame.reject("unexpected " + frame.type() + " frame");
+  }
+
+  private WorkerFrame lease(final WorkerInfo info, final WorkerFrame frame) {
+    // a leader that lost the database lease must not keep its workers: the new leader has none
+    WorkerFrame answer = WorkerFrame.reject("this server is not the leader");
+    if (election.isLeader()) {
+      final boolean renewed =
+          registry.heartbeat(info.workerId(), frame.usedSlots(), frame.draining());
+      if (renewed) {
+        info.pools().forEach(capacityChanged);
       }
+      answer = renewed ? WorkerFrame.ack() : WorkerFrame.reject("lease expired, register again");
     }
     return answer;
   }
 
+  private static List<byte[]> secrets(final String csv) {
+    return WorkerTransport.split(csv).stream()
+        .map(secret -> secret.getBytes(StandardCharsets.UTF_8))
+        .toList();
+  }
+
   private boolean tokenMatches(final String workerId, final String presented) {
-    final byte[] expected = workerTokens.isEmpty() ? token : workerTokens.get(workerId);
-    return expected != null
-        && presented != null
-        && MessageDigest.isEqual(expected, presented.getBytes(StandardCharsets.UTF_8));
+    final List<byte[]> expected =
+        workerTokens.isEmpty() ? token : workerTokens.getOrDefault(workerId, List.of());
+    boolean matches = false;
+    if (presented != null) {
+      final byte[] given = presented.getBytes(StandardCharsets.UTF_8);
+      // every secret is compared, so the time does not tell which one matched
+      for (final byte[] secret : expected) {
+        matches |= MessageDigest.isEqual(secret, given);
+      }
+    }
+    return matches;
   }
 }

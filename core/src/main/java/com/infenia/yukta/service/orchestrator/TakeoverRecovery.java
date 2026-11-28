@@ -27,6 +27,12 @@ public class TakeoverRecovery implements SmartInitializingSingleton {
   /** Decides who is the leader. */
   private final LeaderElection election;
 
+  /**
+   * How many automatic resumes may lead to a run. A run that keeps taking the server down would
+   * otherwise be resumed after every restart; past this it waits for a person to resume it.
+   */
+  /* default */ static final int MAX_AUTO_RESUMES = 3;
+
   /** Recovers the log. */
   private final ExecutionRecovery recovery;
 
@@ -89,7 +95,7 @@ public class TakeoverRecovery implements SmartInitializingSingleton {
     Flux.fromIterable(aborted)
         .concatMap(id ->
             resumer
-                .resume(id)
+                .resume(id, MAX_AUTO_RESUMES)
                 .doOnNext(resumed ->
                     log.atInfo()
                         .addKeyValue("executionId", id)

@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.testing;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The outcome of a workflow test.
@@ -25,5 +27,9 @@ public record TestReport(boolean passed, String status, List<Check> assertions) 
    * @param passed whether it held
    * @param detail the actual value when it did not
    */
-  public record Check(String name, boolean passed, String detail) {}
+  public record Check(
+      String name,
+      boolean passed,
+      @Schema(description = "The actual value when the assertion did not hold", nullable = true)
+          @Nullable String detail) {}
 }

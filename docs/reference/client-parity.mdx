@@ -43,6 +43,7 @@ Roles apply to every client: a key without the needed role gets `403` from REST,
 | Task | REST | MCP | CLI | Web UI |
 |---|---|---|---|---|
 | Start a run | `POST /api/workflow/start` | `start_workflow` | `workflow start` | Workflow page |
+| Test a workflow with stubbed nodes | `POST /api/sessions/{id}/workflows/{wf}/test` | `test_workflow` | `workflow test` | none |
 | Pause, resume, stop one run | `POST /api/executions/{id}/pause\|resume\|stop` | `control_workflow` | `workflow pause\|resume`, `workflow executions stop` | Run controls |
 | Stop all runs of a workflow | `POST /api/workflow/{session}/{wf}/stop` | `control_workflow` (`STOP_ALL`) | `workflow stop` | Run controls |
 | Restart a run, or from a node | `POST /api/executions/{id}/restart` | `control_workflow` (`RESTART`, `RESTART_FROM_NODE`) | `workflow executions restart` | Run controls, node menu |

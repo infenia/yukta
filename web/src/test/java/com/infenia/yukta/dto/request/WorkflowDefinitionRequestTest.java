@@ -339,6 +339,20 @@ class WorkflowDefinitionRequestTest {
   }
 
   @Test
+  void durableFlag_defaultsToNullAndIsKeptWhenSet() {
+    final WorkflowDefinitionRequest withoutAdmission =
+        new WorkflowDefinitionRequest(
+            WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges, List.of(), null, null);
+    final WorkflowDefinitionRequest notDurable =
+        new WorkflowDefinitionRequest(
+            WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges, List.of(), null, null, false);
+
+    assertThat(withoutAdmission.durable()).isNull();
+    assertThat(notDurable.durable()).isFalse();
+    assertThat(validator.validate(notDurable)).isEmpty();
+  }
+
+  @Test
   void validation_nullWorkflowId_fails() {
     // Given
     final WorkflowDefinitionRequest request =

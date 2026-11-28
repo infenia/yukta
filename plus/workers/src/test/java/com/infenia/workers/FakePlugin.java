@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import reactor.core.publisher.Flux;
 
 /** A processor whose behaviour depends on its type, to try the transport. */
+@SuppressWarnings("PMD.CyclomaticComplexity") // one case per test behaviour
 final class FakePlugin implements ProcessorPlugin {
 
   /** The plugin type, which also picks the behaviour. */
@@ -52,6 +53,13 @@ final class FakePlugin implements ProcessorPlugin {
       case "HEART" ->
           Flux.deferContextual(ctx -> {
             ((Runnable) ctx.get(WorkflowContext.HEARTBEAT_KEY)).run();
+            return input;
+          });
+      case "HEARTS" ->
+          Flux.deferContextual(ctx -> {
+            for (int beat = 0; beat < 100; beat++) {
+              ((Runnable) ctx.get(WorkflowContext.HEARTBEAT_KEY)).run();
+            }
             return input;
           });
       case "CTX" ->

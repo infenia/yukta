@@ -169,6 +169,22 @@ class AppConfigMapperTest {
   }
 
   @Test
+  void testToWorkflowDefinitionCarriesDurable() {
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(
+            "wf",
+            "d",
+            List.of(new NodeRequest(NODE_1, PROCESSOR_PLUGIN, Map.of())),
+            List.of(),
+            List.of(),
+            Map.of(),
+            null,
+            false);
+
+    assertThat(mapper.toWorkflowDefinition(request).durable()).isFalse();
+  }
+
+  @Test
   void testToNodeKeepsMissingGroupAndColorNull() {
     final Node result = mapper.toNode(new NodeRequest(NODE_1, PROCESSOR_PLUGIN, Map.of()));
 

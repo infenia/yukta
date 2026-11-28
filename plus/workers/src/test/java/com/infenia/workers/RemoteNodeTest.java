@@ -10,6 +10,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
+import com.infenia.yukta.service.worker.NoFreeWorkerException;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -31,6 +32,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.messaging.rsocket.RSocketRequester;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -118,8 +120,13 @@ class RemoteNodeTest {
   }
 
   private static Flux<Message<?>> run(final String type, final Flux<Message<?>> input) {
+    return runWith(type, input, Map.of("k", "v"));
+  }
+
+  private static Flux<Message<?>> runWith(
+      final String type, final Flux<Message<?>> input, final Map<String, Object> config) {
     return executor
-        .run(type, "default", input, Map.of("k", "v"))
+        .run(type, "default", input, config)
         .contextWrite(
             Context.of(
                 "executionId",
@@ -140,6 +147,41 @@ class RemoteNodeTest {
     StepVerifier.create(run("CTX", Flux.empty()))
         .assertNext(out -> assertThat(out.payload()).isEqualTo("e1/n1/v"))
         .verifyComplete();
+  }
+
+  @Test
+  void attempt_isMeteredInBytesAndTime() {
+    final MeterRegistry meters = controlPlane.getBean(MeterRegistry.class);
+    final double sentBefore = bytes(meters, "sent");
+    final double receivedBefore = bytes(meters, "received");
+    StepVerifier.create(run("UPPER", Flux.just(message("a")))).expectNextCount(1).verifyComplete();
+    // the meters count when the stream ends, after the verifier has seen it end
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(() -> {
+          assertThat(bytes(meters, "sent")).isGreaterThan(sentBefore);
+          assertThat(bytes(meters, "received")).isGreaterThan(receivedBefore);
+          assertThat(
+                  meters
+                      .get("yukta.worker.attempts")
+                      .tags("module", "UPPER", "outcome", "completed")
+                      .timer()
+                      .count())
+              .isPositive();
+          assertThat(meters.get("yukta.worker.dispatch").tags("module", "UPPER").timer().count())
+              .isPositive();
+        });
+  }
+
+  /** States the data MIME type the worker connection uses, which W7 of the plan replaces. */
+  @Test
+  void workerConnection_carriesDataAsCbor() {
+    final RSocketRequester.Builder builder = worker.getBean(RSocketRequester.Builder.class);
+    assertThat(builder.tcp("localhost", 1).dataMimeType().toString()).isEqualTo("application/cbor");
+  }
+
+  private static double bytes(final MeterRegistry meters, final String direction) {
+    return meters.get("yukta.worker.bytes").tags("direction", direction).counter().count();
   }
 
   // the worker's failure can reach the call after the verifier already cancelled the stream
@@ -218,18 +260,23 @@ class RemoteNodeTest {
   }
 
   @Test
-  void withNoFreeSlot_orNoWorkerThatMayRunTheType_theAttemptFailsAtOnce() {
+  void withNoFreeSlot_orNoWorkerThatMayRunTheType_theAttemptFailsAfterTheQueueTimeout() {
+    final Map<String, Object> shortWait =
+        Map.of("engine", Map.of("placement", Map.of("queueTimeoutMs", 300)));
     final reactor.core.Disposable running = run("HOLD", Flux.just(message("x"))).subscribe();
     await()
         .atMost(Duration.ofSeconds(10))
         .untilAsserted(() ->
-            StepVerifier.create(run("UPPER", Flux.just(message("y"))))
-                .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("right now")));
+            StepVerifier.create(runWith("UPPER", Flux.just(message("y")), shortWait))
+                .verifyErrorSatisfies(e ->
+                    assertThat(e)
+                        .isInstanceOf(NoFreeWorkerException.class)
+                        .hasMessageContaining("No free worker in pool 'default'")));
     running.dispose();
 
-    StepVerifier.create(run("NOT_ALLOWED", Flux.empty()))
-        .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("No connected worker"));
-    StepVerifier.create(executor.run("UPPER", "other-pool", Flux.empty(), Map.of()))
+    StepVerifier.create(runWith("NOT_ALLOWED", Flux.empty(), shortWait))
+        .verifyErrorSatisfies(e -> assertThat(e).isInstanceOf(NoFreeWorkerException.class));
+    StepVerifier.create(executor.run("UPPER", "other-pool", Flux.empty(), shortWait))
         .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("other-pool"));
     assertThat(Mono.just(1).block()).isEqualTo(1);
   }

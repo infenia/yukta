@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Controller;
@@ -36,6 +37,7 @@ import tools.jackson.databind.ObjectMapper;
  * stream cancels the plugin.
  */
 @Controller
+@SuppressWarnings("PMD.CouplingBetweenObjects") // runs every kind of plugin attempt
 public class NodeRunner {
 
   /** Type of a message as plain JSON values. */
@@ -46,6 +48,13 @@ public class NodeRunner {
 
   /** Longest a frame waits while another thread sends one on the same attempt. */
   private static final java.time.Duration EMIT_WAIT = java.time.Duration.ofSeconds(1);
+
+  /**
+   * Fewest nanoseconds between two heartbeats of one attempt sent to the control plane: a plugin
+   * may call its heartbeat for every line it reads, and one a second keeps any node timeout (whole
+   * seconds) alive.
+   */
+  private static final long HEARTBEAT_EVERY_NANOS = 1_000_000_000L;
 
   /** Finds the plugins of this server. */
   private final PluginRegistry plugins;
@@ -131,6 +140,7 @@ public class NodeRunner {
     } else if (problem.isEmpty()) {
       final ProcessorPlugin plugin = (ProcessorPlugin) plugins.get(start.pluginType());
       final Map<String, Object> config = start.config() != null ? start.config() : Map.of();
+      final ProcessorPlugin node = nodeObject(plugin, config);
       final Flux<Message<?>> input =
           all.skip(1)
               .takeWhile(frame -> frame.kind() == NodeFrame.Kind.MESSAGE)
@@ -139,7 +149,20 @@ public class NodeRunner {
       final Sinks.Many<NodeFrame> beats = Sinks.many().unicast().onBackpressureBuffer();
       final Consumer<NodeFrame> send =
           frame -> beats.emitNext(frame, Sinks.EmitFailureHandler.busyLooping(EMIT_WAIT));
-      final Runnable heartbeat = () -> send.accept(NodeFrame.heartbeat());
+      // ponytail: the sink is unbounded for log lines; bound it when a flood of lines over a slow
+      // link shows up as worker heap
+      final AtomicLong lastBeat = new AtomicLong(System.nanoTime() - HEARTBEAT_EVERY_NANOS);
+      final Runnable heartbeat =
+          () -> {
+            final long now = System.nanoTime();
+            // one thread wins the update, so only it sees a gap of a full interval
+            final long last =
+                lastBeat.getAndUpdate(
+                    previous -> now - previous >= HEARTBEAT_EVERY_NANOS ? now : previous);
+            if (now - last >= HEARTBEAT_EVERY_NANOS) {
+              send.accept(NodeFrame.heartbeat());
+            }
+          };
       final PluginLogSink logSink =
           (stream, line, level) -> send.accept(NodeFrame.log(stream, line, level));
       final Observation attempt = attempt(start);
@@ -147,7 +170,7 @@ public class NodeRunner {
           plugin
               .initialize(config)
               .then(Mono.defer(() -> plugin.prepare(config)))
-              .thenMany(Flux.defer(() -> plugin.process(input, config)))
+              .thenMany(Flux.defer(() -> node.process(input, config)))
               .map(message -> NodeFrame.message(mapper.convertValue(message, JSON_OBJECT)))
               .concatWith(Mono.just(NodeFrame.complete()))
               .onErrorResume(error -> {
@@ -179,6 +202,15 @@ public class NodeRunner {
               });
     }
     return result;
+  }
+
+  /**
+   * The object that processes one node. As on the control plane: the shared plugin is prepared, and
+   * the node's own object processes, so per-node state never crosses between concurrent attempts.
+   */
+  private static ProcessorPlugin nodeObject(
+      final ProcessorPlugin plugin, final Map<String, Object> config) {
+    return plugin.forNode(config) instanceof final ProcessorPlugin own ? own : plugin;
   }
 
   /**

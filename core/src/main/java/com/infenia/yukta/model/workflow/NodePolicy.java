@@ -115,10 +115,13 @@ public record NodePolicy(
       Set.of("maxAttempts", "backoffMs", "maxBackoffMs", "retryOn", "noRetryOn");
 
   /** Options accepted in the {@code placement} object. */
-  private static final Set<String> PLACEMENT_KEYS = Set.of("pool");
+  private static final Set<String> PLACEMENT_KEYS = Set.of("pool", "queueTimeoutMs", "fallback");
 
   /** Pool a placement without a {@code pool} uses. */
   public static final String DEFAULT_POOL = "default";
+
+  /** How long an attempt waits for a free worker slot when the placement sets no timeout. */
+  public static final Duration DEFAULT_QUEUE_TIMEOUT = Duration.ofMinutes(5);
 
   /** Options accepted in the {@code edgeBuffer} object. */
   private static final Set<String> EDGE_BUFFER_KEYS = Set.of("size", "overflow", "order");
@@ -243,8 +246,28 @@ public record NodePolicy(
    * Where a node runs when it is not on the control plane.
    *
    * @param pool the pool of workers that may run it
+   * @param queueTimeout how long an attempt waits for a free slot of the pool
+   * @param fallback what a timed-out wait does
    */
-  public record Placement(String pool) {}
+  public record Placement(String pool, Duration queueTimeout, Fallback fallback) {
+
+    /**
+     * A placement that waits {@link #DEFAULT_QUEUE_TIMEOUT} and then fails.
+     *
+     * @param pool the pool of workers that may run it
+     */
+    public Placement(final String pool) {
+      this(pool, DEFAULT_QUEUE_TIMEOUT, Fallback.FAIL);
+    }
+  }
+
+  /** What a placed attempt does when no worker slot frees up in time. */
+  public enum Fallback {
+    /** The attempt fails retryably (default). */
+    FAIL,
+    /** The attempt runs on the control plane. */
+    LOCAL
+  }
 
   /** What a node writes to the checkpoint store. */
   public enum Checkpoint {
@@ -298,7 +321,8 @@ public record NodePolicy(
 
   /**
    * Reads the optional {@code engine.placement} of a node config: the node then runs on a worker of
-   * the pool instead of on the control plane.
+   * the pool instead of on the control plane. {@code queueTimeoutMs} bounds the wait for a free
+   * slot and {@code fallback} ({@code FAIL} or {@code LOCAL}) says what a timed-out wait does.
    *
    * @param config the node config, possibly empty
    * @return the placement, or null when the node runs locally
@@ -317,7 +341,11 @@ public record NodePolicy(
     if (!(pool instanceof final String name) || name.isBlank()) {
       throw new IllegalArgumentException("engine.placement.pool must be a non-empty name");
     }
-    return new Placement(name);
+    final Duration timeout =
+        parseMillis(placement.get("queueTimeoutMs"), "engine.placement.queueTimeoutMs");
+    final Fallback fallback =
+        parseEnum(placement.get("fallback"), Fallback.class, "placement.fallback", Fallback.FAIL);
+    return new Placement(name, timeout == null ? DEFAULT_QUEUE_TIMEOUT : timeout, fallback);
   }
 
   /**

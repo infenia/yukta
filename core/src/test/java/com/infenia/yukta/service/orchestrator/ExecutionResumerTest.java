@@ -27,6 +27,7 @@ import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import com.infenia.yukta.service.runtime.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
+import com.infenia.yukta.service.workflow.store.DefinitionRevision;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testsupport.ErrorGuardExtension;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
@@ -86,6 +87,7 @@ class ExecutionResumerTest {
   void setUp() {
     final WorkflowDefinition def = mock(WorkflowDefinition.class);
     when(definitions.find("s", "w")).thenReturn(Mono.just(def));
+    when(definitions.revisions("s", "w")).thenReturn(reactor.core.publisher.Flux.empty());
     when(orchestrator.prepareWorkflow(def)).thenReturn(Mono.just(prepared));
     when(orchestrator.rerun(
             anyString(),
@@ -102,14 +104,89 @@ class ExecutionResumerTest {
   }
 
   private void abortedRun(final String version, final String... finishedNodes) {
-    final ExecutionLogEvent started = ExecutionLogEvent.started("old", "s", "w", version, PAYLOAD);
+    abortedRun("old", PAYLOAD, version, finishedNodes);
+  }
+
+  private void abortedRun(
+      final String id,
+      final Map<String, Object> payload,
+      final String version,
+      final String... finishedNodes) {
+    final ExecutionLogEvent started = ExecutionLogEvent.started(id, "s", "w", version, payload);
     log.append(started);
     for (final String node : finishedNodes) {
-      log.append(ExecutionLogEvent.nodeFinished("old", "s", "w", node));
-      checkpoints.save("old", node, DefaultMessage.create(UUID.randomUUID(), node)).block();
-      checkpoints.markComplete("old", node).block();
+      log.append(ExecutionLogEvent.nodeFinished(id, "s", "w", node));
+      checkpoints.save(id, node, DefaultMessage.create(UUID.randomUUID(), node)).block();
+      checkpoints.markComplete(id, node).block();
     }
     log.append(ExecutionLogEvent.aborted(started));
+  }
+
+  @Test
+  void resumedRunThatIsAbortedAgain_resumesFromWhatItRecorded() {
+    // what a resume of a run that had finished a and b leaves under the new run "x": the outputs
+    // of a and b carried over and marked finished (WorkflowOrchestrator.rerun)
+    abortedRun(
+        "x",
+        Map.of("k", "v", ExecutionResumer.RESUMES_KEY, 1),
+        DefinitionVersion.of(prepared),
+        "a",
+        "b");
+
+    StepVerifier.create(resumer.resume("x", 3)).expectNextCount(1).verifyComplete();
+
+    final ArgumentCaptor<RestartPlan> plan = ArgumentCaptor.forClass(RestartPlan.class);
+    @SuppressWarnings("unchecked")
+    final ArgumentCaptor<Map<String, Object>> payload = ArgumentCaptor.forClass(Map.class);
+    verify(orchestrator)
+        .rerun(
+            eq("s"),
+            eq("w"),
+            eq("x"),
+            anyString(),
+            eq(prepared),
+            plan.capture(),
+            payload.capture(),
+            anyMap(),
+            anyString(),
+            any());
+    assertThat(plan.getValue().rerun()).containsExactly("c");
+    assertThat(plan.getValue().boundary()).containsExactly("b");
+    assertThat(payload.getValue())
+        .containsEntry("k", "v")
+        .containsEntry(ExecutionResumer.RESUMES_KEY, 2);
+  }
+
+  @Test
+  void runThatCameFromTheMostResumesAllowed_isRefused() {
+    abortedRun(
+        "x",
+        Map.of("k", "v", ExecutionResumer.RESUMES_KEY, 3),
+        DefinitionVersion.of(prepared),
+        "a");
+
+    StepVerifier.create(resumer.resume("x", 3))
+        .expectErrorSatisfies(
+            e -> assertThat(e).hasMessageContaining("was resumed 3 times already"))
+        .verify();
+    // by hand there is no limit
+    StepVerifier.create(resumer.resume("x")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void subWorkflowRun_isLeftToItsParentByAutoResume() {
+    // the resumed parent starts the child again; resuming it too would run it twice
+    abortedRun(
+        "child",
+        Map.of("k", "v", com.infenia.yukta.plugin.gateway.SubWorkflowGateway.PARENT_KEY, "p"),
+        DefinitionVersion.of(prepared),
+        "a");
+
+    StepVerifier.create(resumer.resume("child", 3))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("is a sub-workflow run"))
+        .verify();
+    // by hand it can still be resumed
+    StepVerifier.create(resumer.resume("child")).expectNextCount(1).verifyComplete();
   }
 
   @Test
@@ -177,7 +254,7 @@ class ExecutionResumerTest {
             anyString(),
             eq(prepared),
             plan.capture(),
-            eq(PAYLOAD),
+            eq(Map.of("k", "v", ExecutionResumer.RESUMES_KEY, 1)),
             outputs.capture(),
             anyString(),
             any());
@@ -233,6 +310,74 @@ class ExecutionResumerTest {
     StepVerifier.create(resumer.resume("old"))
         .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("changed"))
         .verify();
+  }
+
+  @Test
+  void changedDefinition_resumesAgainstTheSavedVersionTheRunStartedWith() {
+    // the run started on the graph a -> b (an older version); the current one is a -> b -> c
+    final PreparedWorkflow older =
+        new PreparedWorkflow(
+            List.of(),
+            Map.of("a", List.of(node("b")), "b", List.of()),
+            Map.of("a", List.of(), "b", List.of(node("a"))),
+            Map.of(),
+            List.of(node("a"), node("b")),
+            mock(WorkflowTemplate.class));
+    abortedRun(DefinitionVersion.of(older), "a");
+    final WorkflowDefinition broken = mock(WorkflowDefinition.class);
+    final WorkflowDefinition other = mock(WorkflowDefinition.class);
+    final WorkflowDefinition original = mock(WorkflowDefinition.class);
+    when(definitions.revisions("s", "w"))
+        .thenReturn(
+            reactor.core.publisher.Flux.just(
+                new DefinitionRevision("r3", java.time.Instant.EPOCH),
+                new DefinitionRevision("r2", java.time.Instant.EPOCH),
+                new DefinitionRevision("r1", java.time.Instant.EPOCH),
+                new DefinitionRevision("r0", java.time.Instant.EPOCH)));
+    when(definitions.findRevision("s", "w", "r3")).thenReturn(Mono.just(broken));
+    when(definitions.findRevision("s", "w", "r2")).thenReturn(Mono.just(other));
+    when(definitions.findRevision("s", "w", "r1")).thenReturn(Mono.just(original));
+    // a version that no longer prepares is skipped, one with another graph does not match
+    when(orchestrator.prepareWorkflow(broken))
+        .thenReturn(Mono.error(new IllegalStateException("plugin gone")));
+    when(orchestrator.prepareWorkflow(other)).thenReturn(Mono.just(chain()));
+    when(orchestrator.prepareWorkflow(original)).thenReturn(Mono.just(older));
+
+    StepVerifier.create(resumer.resume("old")).expectNextCount(1).verifyComplete();
+
+    final ArgumentCaptor<RestartPlan> plan = ArgumentCaptor.forClass(RestartPlan.class);
+    verify(orchestrator)
+        .rerun(any(), any(), any(), any(), eq(older), plan.capture(), any(), any(), any(), any());
+    assertThat(plan.getValue().rerun()).containsExactly("b");
+    // the search stops at the first match
+    verify(definitions, never()).findRevision("s", "w", "r0");
+  }
+
+  @Test
+  void runOfWorkflowThatWasNotDurable_isRefused_evenIfWorkflowIsDurableNow() {
+    final PreparedWorkflow notDurable =
+        new PreparedWorkflow(
+            prepared.edges(),
+            prepared.adjacencyList(),
+            prepared.parentsList(),
+            prepared.pluginCache(),
+            prepared.topologicalOrder(),
+            prepared.template(),
+            false);
+    // the current workflow (prepared, durable) has the same graph
+    abortedRun(
+        "old", ExecutionResumer.logged(notDurable, PAYLOAD), DefinitionVersion.of(prepared), "a");
+
+    StepVerifier.create(resumer.resume("old"))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("was not durable"))
+        .verify();
+    verify(orchestrator, never())
+        .rerun(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void durableRun_isLoggedWithItsPayloadAsIs() {
+    assertThat(ExecutionResumer.logged(prepared, PAYLOAD)).isSameAs(PAYLOAD);
   }
 
   @Test

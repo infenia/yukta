@@ -7,6 +7,9 @@
 # Env: PERSISTENCE=memory|postgres (postgres: a PostgreSQL container, and a binary of the Plus flavour) PORT=9858 (the host port; a run on another port has its own compose project) CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 (default: all cores after the server's; unpinned below 3 cores) IMAGE=... KEEP=1 (leave server up)
 #      Always runs the native binary: it is built first (release/build-server.sh; NATIVE_QUICK=1, NATIVE_HEAP=24g).
 #      BINARY=dist/linux-amd64/yukta skips that build and runs a binary built earlier (CI; image debian:12-slim)
+#      WORKERS=n starts n remote workers (WORKER_BINARY: a native image built for the worker role; BINARY then must be
+#      the control-plane role) for the placed* workflows, e.g. WORKERS=2 WORKFLOWS=placed3,placed3-1m; the report gets
+#      worker-bytes.json (yukta.worker.bytes) and the attempt times
 #      plus the k6 -e variables, e.g. RATE=50 WORKFLOWS=mapper DURATION=10m
 set -euo pipefail
 
@@ -40,6 +43,14 @@ case $PERSISTENCE in
   postgres) export COMPOSE_PROFILES=postgres PROFILES=prod,postgres ;;
   *) echo "unknown PERSISTENCE '$PERSISTENCE' (memory|postgres)" >&2; exit 2 ;;
 esac
+WORKERS=${WORKERS:-0}
+export WORKERS
+if (( WORKERS > 0 )); then
+  [[ -f ${WORKER_BINARY:-} && -x ${WORKER_BINARY:-} ]] || {
+    echo "WORKERS=$WORKERS needs WORKER_BINARY, a native image built with -Pyukta.workers=true -Pyukta.workers.native=worker" >&2; exit 2; }
+  WORKER_JAR=$(realpath "$WORKER_BINARY"); export WORKER_JAR
+  export COMPOSE_PROFILES=${COMPOSE_PROFILES:+$COMPOSE_PROFILES,}workers
+fi
 # One compose project per port, so two runs (two people, two sessions) on one machine never remove each other's server.
 export PORT=${PORT:-9858}
 compose=(docker compose -f perf/compose.yaml -p "yukta-perf-$PORT")
@@ -72,13 +83,17 @@ if [[ $type == notifications ]]; then
   esac
 fi
 STREAMS=${STREAMS:-$([[ $CPUS -le 2 ]] && echo 100 || echo 200)}   # people with a tab open; 100 on 2 vCPU, 200 on 4
-if [[ $type == notifications || $PERSISTENCE == postgres ]]; then
+if [[ $type == notifications || $PERSISTENCE == postgres ]] || (( WORKERS > 0 )); then
   KEYS_ENV=$dir/keys.env; : > "$KEYS_ENV"; export KEYS_ENV
 fi
 if [[ $PERSISTENCE == postgres ]]; then
   printf 'SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/yukta\nSPRING_R2DBC_USERNAME=yukta\nSPRING_R2DBC_PASSWORD=perf-only\nSPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/yukta\nSPRING_FLYWAY_USER=yukta\nSPRING_FLYWAY_PASSWORD=perf-only\n' >> "$KEYS_ENV"
   # the postgres profile keeps only sessions, definitions, the log and agents there: checkpoints and input requests too
   printf 'YUKTA_RESTART_STORE_TYPE=postgres\nYUKTA_INPUT_STORE_TYPE=postgres\n' >> "$KEYS_ENV"
+fi
+if (( WORKERS > 0 )); then
+  # the control plane: workers connect to its RSocket port inside the compose network
+  printf 'YUKTA_WORKERS_TOKEN=%s\nSPRING_RSOCKET_SERVER_PORT=7000\nYUKTA_WORKERS_ALLOW_INSECURE=true\n' "$API_KEY" >> "$KEYS_ENV"
 fi
 if [[ $type == notifications ]]; then
   for i in $(seq 1 $(( (STREAMS + 7) / 8 ))); do
@@ -92,16 +107,27 @@ for _ in $(seq 60); do
   curl -fs -H "Authorization: Bearer $API_KEY" localhost:$PORT/actuator/health >/dev/null && { healthy=1; break; }; sleep 1
 done
 [[ -n $healthy ]] || { echo "server did not become healthy within 60 s (see $dir/server.log)" >&2; exit 3; }
+metric() {   # value of an actuator meter statistic, 0 when it was never recorded
+  curl -fs -H "Authorization: Bearer $API_KEY" "localhost:$PORT/actuator/metrics/$1${2:+?tag=$2}" |
+    jq --arg s "${3:-COUNT}" '[.measurements[] | select(.statistic == $s) | .value] | first // 0' 2>/dev/null || echo 0
+}
+if (( WORKERS > 0 )); then
+  registered=
+  for _ in $(seq 60); do
+    [[ $(metric yukta.workers '' VALUE) == "$WORKERS"* ]] && { registered=1; break; }; sleep 1
+  done
+  [[ -n $registered ]] || { echo "$WORKERS workers did not register within 60 s (see $dir/server.log)" >&2; exit 3; }
+fi
 
 jq -n --arg test "$type" --arg mode "$mode" --arg commit "$sha" --argjson dirty "$dirty" --arg cpus "$CPUS" --arg cpuset "$CPUSET" \
   --arg memory "$MEMORY" --arg javaOpts "$JAVA_OPTS" --arg image "$IMAGE" --arg binary "${BINARY:-}" \
   --arg k6 "$(k6 version | head -1)" --arg artifact "$(basename "$JAR")" --arg sha256 "$(sha256sum "$JAR" | cut -c1-16)" \
   --arg port "$PORT" --arg docker "$(docker --version)" --arg rate "${RATE:-default}" --arg workflows "${WORKFLOWS:-default}" \
   --arg hold "${HOLD:-default}" --arg duration "${DURATION:-default}" --arg startedAt "$(date -u +%FT%TZ)" \
-  --arg persistence "$PERSISTENCE" \
+  --arg persistence "$PERSISTENCE" --arg workers "$WORKERS" \
   '{test:$test,mode:$mode,commit:$commit,dirty:$dirty,cpus:$cpus,cpuset:$cpuset,memory:$memory,javaOpts:$javaOpts,image:$image,
     binary:$binary,k6:$k6,artifact:$artifact,artifactSha256:$sha256,port:$port,docker:$docker,rate:$rate,workflows:$workflows,
-    persistence:$persistence,hold:$hold,duration:$duration,startedAt:$startedAt}' > "$dir/meta.json"
+    persistence:$persistence,workers:$workers,hold:$hold,duration:$duration,startedAt:$startedAt}' > "$dir/meta.json"
 
 ( echo 'time,cpu_perc,mem_usage'
   while sleep 5; do
@@ -133,6 +159,20 @@ K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$dir/dashboard.html" K6_WEB_DASHB
   --summary-trend-stats 'avg,min,med,p(90),p(95),p(99),max' \
   --out csv="$dir/metrics.csv.gz" "$@" 2>&1 | tee "$dir/k6.log"
 rc=${PIPESTATUS[0]}
+if (( WORKERS > 0 )); then
+  # what crossed the worker connections, and the attempts: the numbers the remote-workers plan is measured by
+  jq -n --argjson sent "$(metric yukta.worker.bytes direction:sent)" \
+    --argjson received "$(metric yukta.worker.bytes direction:received)" \
+    --argjson attempts "$(metric yukta.worker.attempts outcome:completed)" \
+    --argjson attemptSeconds "$(metric yukta.worker.attempts outcome:completed TOTAL_TIME)" \
+    --argjson dispatches "$(metric yukta.worker.dispatch)" \
+    --argjson dispatchSeconds "$(metric yukta.worker.dispatch '' TOTAL_TIME)" \
+    '{bytesSent:$sent,bytesReceived:$received,attempts:$attempts,
+      bytesPerAttempt:(if $attempts > 0 then ($sent + $received) / $attempts else null end),
+      attemptMeanMs:(if $attempts > 0 then $attemptSeconds * 1000 / $attempts else null end),
+      dispatchMeanMs:(if $dispatches > 0 then $dispatchSeconds * 1000 / $dispatches else null end)}' \
+    | tee "$dir/worker-bytes.json"
+fi
 if [[ $type == notifications ]]; then
   sleep 5
   # stopping the server ends every stream, so the clients finish and their files are complete

@@ -9,6 +9,8 @@ import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import com.infenia.yukta.service.worker.WorkerRegistry;
 import com.infenia.yukta.startup.DefaultsAutoConfiguration;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import java.time.Duration;
 import java.util.Arrays;
@@ -84,6 +86,7 @@ public class WorkersAutoConfiguration {
    * @param serverBundle the SSL bundle of the RSocket server; empty for plain TCP
    * @param allowInsecure allow plain TCP beyond this machine
    * @param environment holds {@code yukta.workers.tokens.<id>}, a secret per worker
+   * @param executor wakes the attempts that wait for a slot when a worker registers
    * @return the handler
    */
   @Bean
@@ -97,14 +100,17 @@ public class WorkersAutoConfiguration {
       @Value("${spring.rsocket.server.address:}") final String address,
       @Value("${spring.rsocket.server.ssl.bundle:}") final String serverBundle,
       @Value("${yukta.workers.allow-insecure:false}") final boolean allowInsecure,
-      final Environment environment) {
+      final Environment environment,
+      final ObjectProvider<WorkerNodeExecutor> executor) {
     WorkerTransport.requireTls(address, !serverBundle.isBlank(), allowInsecure);
+    final WorkerNodeExecutor waiting = executor.getIfAvailable();
     return new WorkerSessionHandler(
         registry,
         connections,
         election.getIfAvailable(SingleServerLeader::new),
         token,
-        WorkerSessionHandler.tokensOf(environment));
+        WorkerSessionHandler.tokensOf(environment),
+        waiting == null ? pool -> {} : waiting::wake);
   }
 
   /**
@@ -127,6 +133,7 @@ public class WorkersAutoConfiguration {
    * @param mapper converts messages to and from plain JSON values
    * @param tracker finds the observation of the node an attempt belongs to, when there is one
    * @param observations traces each attempt, when the application has a registry
+   * @param meters times the attempts and their dispatch, when the application has a registry
    * @return the executor
    */
   @Bean
@@ -137,14 +144,16 @@ public class WorkersAutoConfiguration {
       final WorkerConnections connections,
       final ObjectMapper mapper,
       final ObjectProvider<TaskTrackerService> tracker,
-      final ObjectProvider<ObservationRegistry> observations) {
+      final ObjectProvider<ObservationRegistry> observations,
+      final ObjectProvider<MeterRegistry> meters) {
     final TaskTrackerService runs = tracker.getIfAvailable();
     return new WorkerNodeExecutor(
         registry,
         connections,
         mapper,
         runs == null ? (executionId, nodeId) -> null : runs::observation,
-        observations.getIfAvailable(() -> ObservationRegistry.NOOP));
+        observations.getIfAvailable(() -> ObservationRegistry.NOOP),
+        meters.getIfAvailable(SimpleMeterRegistry::new));
   }
 
   /**
@@ -175,21 +184,27 @@ public class WorkersAutoConfiguration {
   }
 
   /**
-   * Splits large messages to workers into fragments, and limits the size of a message a worker
-   * sends back (see {@link WorkerTransport#inboundLimit}).
+   * Splits large messages to workers into fragments, limits the size of a message a worker sends
+   * back (see {@link WorkerTransport#inboundLimit}) and counts the bytes both ways ({@link
+   * WireMeter}).
    *
    * @param maxPayloadBytes {@code yukta.messaging.max-payload-bytes}
+   * @param meters where the byte counts go, when the application has a registry
    * @return the customizer of the control plane's RSocket server
    */
   @Bean
   @ConditionalOnProperty(name = "yukta.workers.token")
   @ConditionalOnExpression("'${yukta.workers.control-plane:}'.isEmpty()")
   public RSocketServerCustomizer workerFrameLimits(
-      @Value("${yukta.messaging.max-payload-bytes:67108864}") final long maxPayloadBytes) {
+      @Value("${yukta.messaging.max-payload-bytes:67108864}") final long maxPayloadBytes,
+      final ObjectProvider<MeterRegistry> meters) {
+    final WireMeter wire = new WireMeter(meters.getIfAvailable(SimpleMeterRegistry::new));
     return server ->
         server
             .fragment(WorkerTransport.FRAGMENT_BYTES)
-            .maxInboundPayloadSize(WorkerTransport.inboundLimit(maxPayloadBytes));
+            .maxInboundPayloadSize(WorkerTransport.inboundLimit(maxPayloadBytes))
+            .interceptors(
+                registry -> registry.forRequester(wire.requester()).forResponder(wire.responder()));
   }
 
   /**

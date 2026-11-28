@@ -39,6 +39,7 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `delete_workflow` | `ADMIN` | `sessionId`, `workflowId`, optional `force` |
 | `get_workflow_details` | `VIEWER` | `sessionId`, `workflowId` |
 | `start_workflow` | `OPERATOR` | `sessionId`, `workflowId` |
+| `test_workflow` | `ADMIN` | `sessionId`, `workflowId`, `input?`, `stubs?`, `expect?`, `allow?`, `timeoutSeconds?` |
 | `get_workflow_status` | `VIEWER` | `sessionId`, `executionId`, optional `waitSeconds`, `hideSucceeded` |
 | `get_workflow_history` | `VIEWER` | `sessionId`, optional `status`, `limit` |
 | `get_execution_tree` | `VIEWER` | `sessionId`, `executionId`, optional `status`, `limit` |

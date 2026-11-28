@@ -11,6 +11,8 @@ import com.infenia.yukta.service.worker.WorkerRegistry;
 import com.infenia.yukta.service.worker.WorkerRegistryFixture;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -152,13 +154,13 @@ class WorkerSessionHandlerTest {
             connections,
             new SingleServerLeader(),
             "shared",
-            java.util.Map.of("w1", "own-1", "w2", "own-2"));
+            Map.of("w1", "own-1", "w2", "own-2"));
 
     StepVerifier.create(perWorker.session(requester, Flux.just(hello("own-1", "w1", 4))))
         .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
         .verifyComplete();
     for (final WorkerFrame refused :
-        java.util.List.of(
+        List.of(
             hello("shared", "w1", 4), // the shared secret no longer works
             hello("own-2", "w1", 4), // another worker's secret
             hello("own-1", "w3", 4), // not listed
@@ -185,7 +187,7 @@ class WorkerSessionHandlerTest {
         .assertNext(frame ->
             assertThat(frame.message())
                 .contains("protocol version (none)")
-                .contains("upgrade the worker"))
+                .contains("upgrade the control plane first"))
         .verifyComplete();
     StepVerifier.create(
             handler.session(
@@ -206,6 +208,70 @@ class WorkerSessionHandlerTest {
         .verifyComplete();
 
     assertThat(registry.list()).isEmpty();
+  }
+
+  @Test
+  void workerOfThePreviousProtocol_registers_soAnUpgradeCanRoll() {
+    final WorkerFrame previous =
+        new WorkerFrame(
+            WorkerFrame.Type.REGISTER,
+            "secret",
+            "w1",
+            Set.of("default"),
+            Set.of("HTTP_REQUEST"),
+            4,
+            0,
+            false,
+            null,
+            WorkerFrame.MIN_PROTOCOL);
+    StepVerifier.create(handler.session(requester, Flux.just(previous)))
+        .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
+        .verifyComplete();
+    final WorkerFrame tooOld =
+        new WorkerFrame(
+            WorkerFrame.Type.REGISTER,
+            "secret",
+            "w2",
+            Set.of(),
+            Set.of(),
+            4,
+            0,
+            false,
+            null,
+            WorkerFrame.MIN_PROTOCOL - 1);
+    StepVerifier.create(handler.session(requester, Flux.just(tooOld)))
+        .assertNext(frame -> assertThat(frame.message()).contains("not supported"))
+        .verifyComplete();
+  }
+
+  @Test
+  void duringTokenRotation_theOldAndTheNewTokenAreBothAccepted() {
+    final WorkerSessionHandler rotating =
+        new WorkerSessionHandler(
+            registry,
+            connections,
+            new SingleServerLeader(),
+            "new-secret, old-secret",
+            Map.of("w9", "w9-new,w9-old"));
+    final WorkerSessionHandler shared =
+        new WorkerSessionHandler(
+            registry, connections, new SingleServerLeader(), "new-secret, old-secret");
+
+    for (final String token : List.of("new-secret", "old-secret")) {
+      StepVerifier.create(shared.session(requester, Flux.just(hello(token, "w1", 4))))
+          .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
+          .verifyComplete();
+    }
+    StepVerifier.create(
+            shared.session(requester, Flux.just(hello("new-secret,old-secret", "w1", 4))))
+        .assertNext(frame -> assertThat(frame.message()).isEqualTo("token refused"))
+        .verifyComplete();
+    StepVerifier.create(rotating.session(requester, Flux.just(hello("w9-old", "w9", 4))))
+        .assertNext(frame -> assertThat(frame.type()).isEqualTo(WorkerFrame.Type.ACK))
+        .verifyComplete();
+    StepVerifier.create(rotating.session(requester, Flux.just(hello("new-secret", "w9", 4))))
+        .assertNext(frame -> assertThat(frame.message()).isEqualTo("token refused"))
+        .verifyComplete();
   }
 
   @Test

@@ -85,7 +85,8 @@ public class WorkflowTestRunner {
         def.edges(),
         def.supervisors(),
         def.groupColors(),
-        def.admission());
+        def.admission(),
+        def.durable());
   }
 
   /** The node as the test runs it: a stub, or the node itself when it may run for real. */
