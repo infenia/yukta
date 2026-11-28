@@ -18,7 +18,7 @@ export function Sparkline({
       viewBox="0 -2 100 28"
       preserveAspectRatio="none"
       aria-hidden="true"
-      className={`${TONE[tone]} h-5 w-full`}
+      className={`${TONE[tone]} h-full min-h-5 w-full`}
     >
       <polyline
         points={sparkPoints(values)}
@@ -107,12 +107,12 @@ export function KpiTile({
               type="button"
               onClick={onDrill}
               aria-label={`Open ${label} chart`}
-              className="hover:bg-muted w-2/5 max-w-32 shrink-0 cursor-pointer self-end rounded-md p-1"
+              className="hover:bg-muted w-2/5 max-w-32 shrink-0 cursor-pointer self-stretch rounded-md p-1"
             >
               <Sparkline values={series} tone={tone} />
             </button>
           ) : (
-            <div className="w-2/5 max-w-32 shrink-0 self-end p-1">
+            <div className="w-2/5 max-w-32 shrink-0 self-stretch p-1">
               <Sparkline values={series} tone={tone} />
             </div>
           ))}
