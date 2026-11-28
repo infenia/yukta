@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  vi,
+} from 'vitest';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -161,5 +169,40 @@ describe('TemplateGallery', () => {
     renderWithProviders(<TemplateGallery onPick={() => undefined} />);
     await screen.findByText('Hello world');
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('scales the preview canvas down to the width the frame measures', async () => {
+    const observers: Array<() => void> = [];
+    class FakeResizeObserver {
+      constructor(callback: () => void) {
+        observers.push(callback);
+      }
+      observe() {}
+      disconnect() {}
+    }
+    const realObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = FakeResizeObserver as typeof ResizeObserver;
+    const width = vi
+      .spyOn(Element.prototype, 'clientWidth', 'get')
+      .mockReturnValue(100);
+    try {
+      const user = userEvent.setup();
+      renderWithProviders(<TemplateGallery onPick={() => undefined} />);
+      const hello = (await screen.findByText('Hello world')).closest(
+        'li'
+      ) as HTMLElement;
+      await user.click(within(hello).getByRole('button', { name: 'Preview' }));
+      await screen.findByRole('dialog', { name: 'Hello world' });
+
+      // the frame reports its width; the canvas then shrinks to fit it
+      act(() => observers.forEach((notify) => notify()));
+      const canvas = screen.getByTestId('template-canvas');
+      expect((canvas.firstElementChild as HTMLElement).style.transform).toMatch(
+        /^scale\(0\.\d+\)$/
+      );
+    } finally {
+      width.mockRestore();
+      globalThis.ResizeObserver = realObserver;
+    }
   });
 });
