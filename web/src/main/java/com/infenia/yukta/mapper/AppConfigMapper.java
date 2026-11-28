@@ -35,6 +35,7 @@ public interface AppConfigMapper {
   @Mapping(target = "supervisors", expression = "java(request.supervisors())")
   @Mapping(target = "groupColors", expression = "java(request.groupColors())")
   @Mapping(target = "admission", expression = "java(request.admission())")
+  @Mapping(target = "durable", expression = "java(request.durable())")
   WorkflowDefinition toWorkflowDefinition(WorkflowDefinitionRequest request);
 
   /**

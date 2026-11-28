@@ -8067,6 +8067,10 @@
             "minLength" : 0,
             "type" : "string"
           },
+          "durable" : {
+            "description" : "Whether an interrupted run of this workflow may be resumed after a restart (default true); false for a workflow that must not run twice",
+            "type" : [ "boolean", "null" ]
+          },
           "edges" : {
             "description" : "Edges connecting the nodes",
             "items" : {
@@ -8124,6 +8128,10 @@
             "maxLength" : 256,
             "minLength" : 0,
             "type" : "string"
+          },
+          "durable" : {
+            "description" : "Whether an interrupted run of this workflow may be resumed after a restart (default true); false for a workflow that must not run twice",
+            "type" : [ "boolean", "null" ]
           },
           "edges" : {
             "description" : "Edges connecting the nodes",
