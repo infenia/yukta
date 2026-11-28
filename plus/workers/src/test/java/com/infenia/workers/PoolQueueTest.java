@@ -101,6 +101,33 @@ class PoolQueueTest {
     assertThat(queue.pending(POOL)).isZero();
   }
 
+  @Test
+  @DisplayName("[T6] pending of a pool nobody waited in is zero")
+  void pending_unknownPool_isZero() {
+    assertThat(new PoolQueue(new SimpleMeterRegistry()).pending("never-used")).isZero();
+  }
+
+  @Test
+  @DisplayName("[T7] cancelling one of two waiters of a run keeps the other queued")
+  void acquire_cancelOneOfTwoWaiters_keepsTheOther() {
+    final PoolQueue queue = new PoolQueue(new SimpleMeterRegistry());
+    final AtomicInteger free = new AtomicInteger();
+    final List<String> served = new CopyOnWriteArrayList<>();
+
+    final Disposable first =
+        queue.acquire(POOL, "A", freeSlotFor("A1", free), Duration.ofMinutes(1)).subscribe();
+    queue.acquire(POOL, "A", freeSlotFor("A2", free), Duration.ofMinutes(1)).subscribe(served::add);
+    assertThat(queue.pending(POOL)).isEqualTo(2);
+
+    first.dispose();
+    assertThat(queue.pending(POOL)).isOne();
+
+    free.set(1);
+    queue.wake(POOL);
+
+    assertThat(served).containsExactly("A2");
+  }
+
   /** Takes one unit from {@code free} for the waiter labelled {@code label}, if any is left. */
   private static Supplier<Optional<String>> freeSlotFor(
       final String label, final AtomicInteger free) {

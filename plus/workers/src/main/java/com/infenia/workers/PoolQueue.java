@@ -164,10 +164,12 @@ final class PoolQueue {
     /* default */ void remove(final String executionId, final Waiter<?> waiter) {
       lock.lock();
       try {
-        final Deque<Waiter<?>> queue = waiters.get(executionId);
-        if (queue != null && queue.remove(waiter) && queue.isEmpty()) {
-          waiters.remove(executionId);
-        }
+        waiters.computeIfPresent(
+            executionId,
+            (id, queue) -> {
+              queue.remove(waiter);
+              return queue.isEmpty() ? null : queue;
+            });
       } finally {
         lock.unlock();
       }
