@@ -9,6 +9,7 @@ import com.infenia.yukta.service.worker.WorkerRegistry;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -28,6 +29,7 @@ import reactor.core.publisher.Signal;
  * stream ends, so the worker reconnects and registers again.
  */
 @Slf4j
+@SuppressWarnings("PMD.TooManyMethods") // admission checks, one small method each
 public class WorkerSessionHandler {
 
   /** Log key of the worker. */
@@ -42,11 +44,17 @@ public class WorkerSessionHandler {
   /** Tells whether this server is the leader; only the leader takes workers. */
   private final LeaderElection election;
 
-  /** The shared secret workers must present when no worker has its own. */
-  private final byte[] token;
+  /**
+   * The shared secrets workers may present when no worker has its own: one, or during a rotation
+   * the old and the new one (the setting is a comma separated list).
+   */
+  private final List<byte[]> token;
 
-  /** The secret of each allowed worker; when not empty, only these workers are admitted. */
-  private final Map<String, byte[]> workerTokens;
+  /**
+   * The secrets of each allowed worker (comma separated, for a rotation); when not empty, only
+   * these workers are admitted.
+   */
+  private final Map<String, List<byte[]>> workerTokens;
 
   /**
    * Creates the handler.
@@ -85,12 +93,12 @@ public class WorkerSessionHandler {
     this.registry = registry;
     this.connections = connections;
     this.election = election;
-    this.token = token.getBytes(StandardCharsets.UTF_8);
+    this.token = secrets(token);
     this.workerTokens =
         workerTokens.entrySet().stream()
             .collect(
                 Collectors.toUnmodifiableMap(
-                    Map.Entry::getKey, entry -> entry.getValue().getBytes(StandardCharsets.UTF_8)));
+                    Map.Entry::getKey, entry -> secrets(entry.getValue())));
   }
 
   /**
@@ -155,7 +163,7 @@ public class WorkerSessionHandler {
       log.atWarn().addKeyValue(WORKER_ID, hello.workerId()).log("Worker refused: bad token");
       why = "token refused";
     }
-    if (why == null && !Integer.valueOf(WorkerFrame.PROTOCOL).equals(hello.protocol())) {
+    if (why == null && !supported(hello.protocol())) {
       log.atWarn()
           .addKeyValue(WORKER_ID, hello.workerId())
           .addKeyValue("protocol", hello.protocol())
@@ -164,10 +172,18 @@ public class WorkerSessionHandler {
           "protocol version "
               + (hello.protocol() == null ? "(none)" : hello.protocol())
               + " is not supported, this control plane speaks "
+              + WorkerFrame.MIN_PROTOCOL
+              + " to "
               + WorkerFrame.PROTOCOL
-              + "; upgrade the worker (or the control plane) to the same release";
+              + "; upgrade the control plane first, then the workers";
     }
     return why;
+  }
+
+  private static boolean supported(final Integer protocol) {
+    return protocol != null
+        && protocol >= WorkerFrame.MIN_PROTOCOL
+        && protocol <= WorkerFrame.PROTOCOL;
   }
 
   private static WorkerRegistration registration(final WorkerFrame hello) {
@@ -204,10 +220,23 @@ public class WorkerSessionHandler {
     return answer;
   }
 
+  private static List<byte[]> secrets(final String csv) {
+    return WorkerTransport.split(csv).stream()
+        .map(secret -> secret.getBytes(StandardCharsets.UTF_8))
+        .toList();
+  }
+
   private boolean tokenMatches(final String workerId, final String presented) {
-    final byte[] expected = workerTokens.isEmpty() ? token : workerTokens.get(workerId);
-    return expected != null
-        && presented != null
-        && MessageDigest.isEqual(expected, presented.getBytes(StandardCharsets.UTF_8));
+    final List<byte[]> expected =
+        workerTokens.isEmpty() ? token : workerTokens.getOrDefault(workerId, List.of());
+    boolean matches = false;
+    if (presented != null) {
+      final byte[] given = presented.getBytes(StandardCharsets.UTF_8);
+      // every secret is compared, so the time does not tell which one matched
+      for (final byte[] secret : expected) {
+        matches |= MessageDigest.isEqual(secret, given);
+      }
+    }
+    return matches;
   }
 }

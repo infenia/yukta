@@ -35,9 +35,17 @@ public record WorkerFrame(
 
   /**
    * The wire protocol version of this build. Raise it whenever a frame changes in a way an older
-   * peer cannot read; a control plane refuses a worker with another version.
+   * peer cannot read; a control plane accepts workers from {@link #MIN_PROTOCOL} to this one, so a
+   * rolling upgrade updates the control plane first, then the workers.
    */
   public static final int PROTOCOL = 2;
+
+  /**
+   * The oldest worker protocol this control plane still serves. Version 2 only added {@code LOG},
+   * which a worker sends and a version 1 worker never does. Raise it when the control plane sends
+   * something an older worker cannot read.
+   */
+  public static final int MIN_PROTOCOL = 1;
 
   /** Kind of frame. */
   public enum Type {

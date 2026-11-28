@@ -32,6 +32,18 @@ same commit and machine: `workflow_e2e` is the cost of the stores on the run's p
 compare the two reports by hand. No PostgreSQL numbers are recorded yet; they need a run of the Plus native binary on the CI runner,
 not on a development machine.
 
+## Remote workers (`WORKERS=n`)
+
+`WORKERS=2 WORKFLOWS=placed3,placed3-1m perf/run.sh perf` starts two remote workers next to the server (compose profile
+`workers`, `WORKER_CPUS=1`, `WORKER_MEMORY=1g`, `WORKER_CAPACITY=8` each) and runs `placed3`: three `FILTER` nodes placed
+on the pool `default` in a row, so every message crosses to a worker and back three times, with a 1 KB payload
+(`placed3-1m`: 1 MB). A native image is built for one workers role, so two binaries are needed:
+`YUKTA_BUILD_FLAGS="-Pyukta.workers=true -Pyukta.workers.native=control-plane" release/build-server.sh` for `BINARY` and
+`-Pyukta.workers.native=worker` for `WORKER_BINARY`. The report adds `worker-bytes.json`: the payload bytes both ways on
+the worker connections (`yukta.worker.bytes`, after the codec and before TLS), bytes per attempt, and the mean attempt
+and dispatch times (`yukta.worker.attempts`, `yukta.worker.dispatch`). These are the numbers the
+[remote-workers plan](../design/plans/remote-workers-efficiency.md) is measured by; no baseline is recorded yet.
+
 ## Input requests (`k6/inputs.js`)
 
 `perf/run.sh inputs` starts 1,000 runs (`OPEN_REQUESTS`, spread over `SESSIONS`=25 sessions because a session may
