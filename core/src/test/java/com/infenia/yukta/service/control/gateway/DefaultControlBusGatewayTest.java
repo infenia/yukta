@@ -3032,7 +3032,7 @@ class DefaultControlBusGatewayTest {
     final WorkflowDefinition def =
         new WorkflowDefinition("w", "d", List.of(), List.of(), null, null);
     when(workflowDefinitionStore.find("s", "w")).thenReturn(Mono.just(def));
-    final AdmissionKeys keys = mock(AdmissionKeys.class);
+    final AdmissionKeys keys = mock(AdmissionKeys.class, _ -> Mono.empty());
     when(keys.claim(eq(def), anyMap()))
         .thenReturn(Mono.error(new IllegalArgumentException("no key")));
     gateway.setAdmissionKeys(keys);
