@@ -17,6 +17,12 @@ import {
   failedPoints,
   opOf,
   OPERATIONS,
+  agoText,
+  lastRunAt,
+  failedHours,
+  failedRunIds,
+  longestGcPause,
+  healthConcerns,
 } from '../format';
 
 describe('formatMs', () => {
@@ -188,5 +194,113 @@ describe('opOf', () => {
       expect(opOf(`yukta.api.requests{op=${op}}|rate`)).toBe(op);
     }
     expect(opOf('yukta.executions.running')).toBeUndefined();
+  });
+});
+
+describe('agoText', () => {
+  it('reads as a person would say it', () => {
+    expect(agoText(30_000)).toBe('just now');
+    expect(agoText(12 * 60_000)).toBe('12 min ago');
+    expect(agoText(3 * 3_600_000 + 5 * 60_000)).toBe('3 h ago');
+    expect(agoText(50 * 3_600_000)).toBe('2 d ago');
+  });
+});
+
+describe('lastRunAt', () => {
+  it('is the minute of the newest cell that had runs', () => {
+    expect(
+      lastRunAt([
+        { time: 5, runs: 1, failed: 0 },
+        { time: 9, runs: 0, failed: 0 },
+        { time: 7, runs: 2, failed: 0 },
+      ])
+    ).toBe(7);
+    expect(lastRunAt([])).toBeUndefined();
+  });
+});
+
+describe('failedHours', () => {
+  const H = 3_600_000;
+  it('adds up the failures of the last hour and of the hour before, ignoring the rest', () => {
+    const now = 10 * H;
+    expect(
+      failedHours(
+        [
+          { time: now - 1, runs: 1, failed: 2 },
+          { time: now - H, runs: 1, failed: 3 },
+          { time: now - 2 * H, runs: 1, failed: 5 },
+          { time: now + 1, runs: 1, failed: 7 },
+        ],
+        now
+      )
+    ).toEqual({ last: 2, previous: 3 });
+  });
+});
+
+describe('failedRunIds', () => {
+  it('lists the ids newest minute first, each with its minute', () => {
+    expect(
+      failedRunIds([
+        { time: 1, runs: 1, failed: 1, failedRuns: ['a'] },
+        { time: 3, runs: 2, failed: 2, failedRuns: ['b', 'c'] },
+        { time: 2, runs: 0, failed: 0, failedRuns: [] },
+      ])
+    ).toEqual([
+      { time: 3, id: 'b' },
+      { time: 3, id: 'c' },
+      { time: 1, id: 'a' },
+    ]);
+  });
+});
+
+describe('longestGcPause', () => {
+  it('is the largest pause maximum, or zero', () => {
+    expect(
+      longestGcPause({
+        'jvm.gc.pause{cause=a}|max': 40,
+        'jvm.gc.pause{cause=b}|max': 90,
+        'jvm.gc.pause{cause=b}|mean': 500,
+      })
+    ).toBe(90);
+    expect(longestGcPause(undefined)).toBe(0);
+  });
+});
+
+describe('healthConcerns', () => {
+  const calm = {
+    'jvm.memory.used{area=heap,id=a}': 50,
+    'jvm.memory.max{area=heap,id=a}': 100,
+    'yukta.system.memory.total': 100,
+    'yukta.system.memory.free': 50,
+    'jvm.gc.pause{cause=x}|max': 100,
+  };
+
+  it('has nothing to say while the numbers are fine, or missing', () => {
+    expect(healthConcerns(calm)).toEqual([]);
+    expect(healthConcerns(undefined)).toEqual([]);
+  });
+
+  it('names a full heap, full host memory, a long pause and dropped events', () => {
+    expect(
+      healthConcerns({
+        'jvm.memory.used{area=heap,id=a}': 90,
+        'jvm.memory.max{area=heap,id=a}': 100,
+        'yukta.system.memory.total': 100,
+        'yukta.system.memory.free': 5,
+        'jvm.gc.pause{cause=x}|max': 2500,
+        'yukta.tracker.dropped{type=log}|rate': 1,
+      })
+    ).toEqual([
+      'Heap 90% full',
+      'Host memory 95% used',
+      'GC pause 2.5 s',
+      'Events dropped',
+    ]);
+  });
+
+  it('treats a host without a free-memory sample as using none of it', () => {
+    expect(healthConcerns({ 'yukta.system.memory.total': 100 })).toEqual([
+      'Host memory 100% used',
+    ]);
   });
 });

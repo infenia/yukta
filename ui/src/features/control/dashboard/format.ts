@@ -148,3 +148,80 @@ export const OPERATIONS = ['read', 'run', 'change', 'other'] as const;
 /** The kind of call a `yukta.api.requests{op=...}` series key is for, or undefined. */
 export const opOf = (key: string): string | undefined =>
   OPERATIONS.find((op) => key.includes(`{op=${op}}`));
+
+/** Lines of the run-time chart: how long a run took, not what the engine added. */
+export const RUN_LINES = [
+  { key: 'duration.p50', label: 'run p50', color: 'var(--chart-1)' },
+  { key: 'duration.p95', label: 'run p95', color: 'var(--chart-2)' },
+  { key: 'duration.p99', label: 'run p99', color: 'var(--chart-4)' },
+];
+
+/** How long ago, as a person says it: "just now", "12 min ago", "3 h ago", "2 d ago". */
+export function agoText(ms: number): string {
+  const minutes = Math.floor(ms / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
+}
+
+/** The start of the minute of the newest run in the cells, or undefined when none ran. */
+export function lastRunAt(cells: HeatCell[]): number | undefined {
+  const times = cells.filter((c) => c.runs > 0).map((c) => c.time);
+  return times.length > 0 ? Math.max(...times) : undefined;
+}
+
+/** Failed runs in the last hour and in the hour before it. */
+export function failedHours(cells: HeatCell[], now: number) {
+  const hour = 60 * 60_000;
+  let last = 0;
+  let previous = 0;
+  for (const c of cells) {
+    const age = now - c.time;
+    if (age >= 0 && age < hour) last += c.failed;
+    else if (age >= hour && age < 2 * hour) previous += c.failed;
+  }
+  return { last, previous };
+}
+
+/** The ids of the failed runs the cells name, newest first, each with the minute it ended. */
+export function failedRunIds(cells: (HeatCell & { failedRuns: string[] })[]) {
+  return cells
+    .flatMap((c) => c.failedRuns.map((id) => ({ time: c.time, id })))
+    .sort((a, b) => b.time - a.time);
+}
+
+/** The longest garbage-collection pause in a snapshot, in milliseconds (0 when none). */
+export function longestGcPause(values: Record<string, number> | undefined) {
+  return Math.max(
+    0,
+    ...Object.entries(values ?? {})
+      .filter(([k]) => k.startsWith('jvm.gc.pause') && k.endsWith('|max'))
+      .map(([, v]) => v)
+  );
+}
+
+/** A share of the heap or host memory above which the System card says so. */
+const HEAP_WARN = 0.85;
+const HOST_WARN = 0.9;
+/** A garbage-collection pause longer than this, in milliseconds, is worth a word. */
+const GC_WARN_MS = 1000;
+
+/** What on the System card needs a look: a full heap, full host memory, a long pause, drops. */
+export function healthConcerns(values: Record<string, number> | undefined) {
+  const concerns: string[] = [];
+  const heapMax = sumOf(values, 'jvm.memory.max{area=heap');
+  const heap =
+    heapMax > 0 ? sumOf(values, 'jvm.memory.used{area=heap') / heapMax : 0;
+  if (heap > HEAP_WARN) concerns.push(`Heap ${Math.round(heap * 100)}% full`);
+  const total = values?.['yukta.system.memory.total'] ?? 0;
+  const host =
+    total > 0 ? 1 - (values?.['yukta.system.memory.free'] ?? 0) / total : 0;
+  if (host > HOST_WARN)
+    concerns.push(`Host memory ${Math.round(host * 100)}% used`);
+  const pause = longestGcPause(values);
+  if (pause > GC_WARN_MS) concerns.push(`GC pause ${formatMs(pause)}`);
+  if (sumOf(values, 'yukta.tracker.dropped', '|rate') > 0)
+    concerns.push('Events dropped');
+  return concerns;
+}

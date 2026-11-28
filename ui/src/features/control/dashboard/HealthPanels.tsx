@@ -8,7 +8,13 @@ import { useMetricSnapshot } from '@/features/metrics/hooks';
 import { useEdition } from '@/features/edition/hooks/useEdition';
 import { useWorkers } from '../api/workers';
 import { PanelState } from './PanelState';
-import { formatMs, sumOf, usedOfBytes } from './format';
+import {
+  formatMs,
+  healthConcerns,
+  longestGcPause,
+  sumOf,
+  usedOfBytes,
+} from './format';
 
 function WorkersBody({ live }: { live: boolean }) {
   const workers = useWorkers(live);
@@ -139,16 +145,7 @@ function VitalsBody() {
         <div>
           <dt>Longest GC pause</dt>
           <dd className="num text-on-surface">
-            {formatMs(
-              Math.max(
-                0,
-                ...Object.entries(values ?? {})
-                  .filter(
-                    ([k]) => k.startsWith('jvm.gc.pause') && k.endsWith('|max')
-                  )
-                  .map(([, v]) => v)
-              )
-            )}
+            {formatMs(longestGcPause(values))}
           </dd>
         </div>
         <div>
@@ -189,9 +186,17 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
  * are none.
  */
 export function SystemPanel({ live }: { live: boolean }) {
+  const concerns = healthConcerns(useMetricSnapshot().data);
   return (
     <Panel
       title="System"
+      action={
+        concerns.length > 0 && (
+          <span className="text-label-sm bg-warning/15 text-on-surface rounded-full px-2 py-0.5">
+            {concerns.join(' · ')}
+          </span>
+        )
+      }
       info="The server's own health. JVM heap is the Java memory the server may use, not the machine's RAM. CPU is the server process; threads are live Java threads."
     >
       <VitalsBody />

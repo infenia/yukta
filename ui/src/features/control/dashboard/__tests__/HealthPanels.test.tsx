@@ -6,7 +6,7 @@ import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
 import { useWorkers } from '../../api/workers';
-import { VitalsPanel, WorkerSlotsPanel } from '../HealthPanels';
+import { SystemPanel, VitalsPanel, WorkerSlotsPanel } from '../HealthPanels';
 
 vi.mock('../../api/workers', () => ({ useWorkers: vi.fn() }));
 let edition = 'PLUS';
@@ -142,5 +142,32 @@ describe('VitalsPanel', () => {
     renderWithProviders(<VitalsPanel />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
+  });
+});
+
+describe('SystemPanel health chip', () => {
+  const render = (data: Record<string, number>) => {
+    vi.mocked(useWorkers).mockReturnValue(q({ data: [] }));
+    vi.mocked(useMetricSnapshot).mockReturnValue(q({ data }));
+    renderWithProviders(<SystemPanel live={false} />);
+  };
+
+  it('says what needs a look in the card header', () => {
+    render({
+      'jvm.memory.used{area=heap,id=eden}': 95,
+      'jvm.memory.max{area=heap,id=eden}': 100,
+      'yukta.tracker.dropped{type=log}|rate': 0.5,
+    });
+    expect(
+      screen.getByText('Heap 95% full · Events dropped')
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing while all is well', () => {
+    render({
+      'jvm.memory.used{area=heap,id=eden}': 10,
+      'jvm.memory.max{area=heap,id=eden}': 100,
+    });
+    expect(screen.queryByText(/Heap \d+% full|Events dropped/)).toBeNull();
   });
 });

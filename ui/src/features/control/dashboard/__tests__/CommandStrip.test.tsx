@@ -10,27 +10,36 @@ import { getLimits } from '../../api/scheduler';
 import { getOpenInputs } from '@/features/workflow/api/inputs';
 import { CommandStrip } from '../CommandStrip';
 
+const hoisted = vi.hoisted(() => ({
+  wait: [
+    { t: 1, v: 100 },
+    { t: 2, v: 1500 },
+  ] as { t: number; v: number }[],
+}));
+
 vi.mock('@/features/metrics/hooks', () => ({
   useMetricSnapshot: vi.fn(),
   useMetricSeries: (name: string) => ({
     data:
-      name === 'yukta.executions.'
-        ? {
-            'yukta.executions.running': [
-              { t: 1, v: 1 },
-              { t: 2, v: 3 },
-            ],
-            'yukta.executions.queued': [
-              { t: 1, v: 0 },
-              { t: 2, v: 2 },
-            ],
-          }
-        : {
-            'overhead.start.p95': [
-              { t: 1, v: 2 },
-              { t: 2, v: 4 },
-            ],
-          },
+      name === 'queue.wait'
+        ? { 'queue.wait.p95': hoisted.wait }
+        : name === 'yukta.executions.'
+          ? {
+              'yukta.executions.running': [
+                { t: 1, v: 1 },
+                { t: 2, v: 3 },
+              ],
+              'yukta.executions.queued': [
+                { t: 1, v: 0 },
+                { t: 2, v: 2 },
+              ],
+            }
+          : {
+              'overhead.start.p95': [
+                { t: 1, v: 2 },
+                { t: 2, v: 4 },
+              ],
+            },
   }),
   useHeatmap: vi.fn(),
 }));
@@ -244,5 +253,57 @@ describe('CommandStrip drill-down', () => {
       screen.getByRole('button', { name: 'About Failed (1 h)' })
     );
     expect(await screen.findByText(/failed in the last hour/)).toBeVisible();
+  });
+});
+
+describe('CommandStrip queue wait', () => {
+  it('shows how long starts waited for a slot, and opens its history in milliseconds', async () => {
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    expect(screen.getByText('Queue wait p95 (1 h)')).toBeInTheDocument();
+    expect(screen.getByText('1.5 s')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Open Queue wait p95 (1 h) chart' })
+    );
+    expect(
+      screen.getByText('drawer:Queue wait p95:2:5 ms')
+    ).toBeInTheDocument();
+  });
+
+  it('shows a dash before any start waited', () => {
+    hoisted.wait = [];
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    expect(
+      screen.getByText('Queue wait p95 (1 h)').closest('div')?.parentElement
+    ).toHaveTextContent('–');
+    hoisted.wait = [
+      { t: 1, v: 100 },
+      { t: 2, v: 1500 },
+    ];
+  });
+});
+
+describe('CommandStrip failed runs against the hour before', () => {
+  const MIN = 60_000;
+  const cells = (now: number, last: number, previous: number) => [
+    { time: now - 10 * MIN, runs: 5, failed: last },
+    { time: now - 90 * MIN, runs: 5, failed: previous },
+    { time: now + 5 * MIN, runs: 1, failed: 9 },
+    { time: now - 3 * 60 * MIN, runs: 1, failed: 9 },
+  ];
+
+  it.each([
+    [3, 1, '+2 vs hour before'],
+    [1, 3, '-2 vs hour before'],
+    [2, 2, '0 vs hour before'],
+  ])('says %i now against %i before as %s', (last, previous, text) => {
+    heatmap.mockReturnValue(asHeat(cells(Date.now(), last, previous)));
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    expect(screen.getByText(text)).toBeInTheDocument();
+  });
+
+  it('says nothing about a change when no run failed in either hour', () => {
+    heatmap.mockReturnValue(asHeat(cells(Date.now(), 0, 0)));
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    expect(screen.queryByText(/vs hour before/)).toBeNull();
   });
 });

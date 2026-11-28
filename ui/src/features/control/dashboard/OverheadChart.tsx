@@ -10,7 +10,9 @@ import {
 import type { MetricPoint } from '@/features/metrics/api';
 import { formatMs } from './format';
 
-const LINES = [
+type Line = { key: string; label: string; color: string };
+
+const LINES: Line[] = [
   {
     key: 'overhead.start.p50',
     label: 'run start p50',
@@ -38,21 +40,26 @@ const time = (t: number) =>
  */
 export default function OverheadChart({
   series,
+  lines = LINES,
+  label = 'Engine overhead',
 }: {
   series: Record<string, MetricPoint[]>;
+  /** the lines to draw; the engine's by default */
+  lines?: Line[];
+  label?: string;
 }) {
   const rows = new Map<number, Record<string, number>>();
-  for (const { key } of LINES) {
+  for (const { key } of lines) {
     for (const p of series[key] ?? []) {
       rows.set(p.t, { ...rows.get(p.t), t: p.t, [key]: p.v });
     }
   }
   const data = [...rows.values()].sort((a, b) => a.t - b.t);
   const config: ChartConfig = Object.fromEntries(
-    LINES.map((l) => [l.key.replace(/\./g, '_'), l])
+    lines.map((l) => [l.key.replace(/\./g, '_'), l])
   );
   return (
-    <ChartContainer config={config} label="Engine overhead">
+    <ChartContainer config={config} label={label}>
       <LineChart data={data} margin={{ left: 0, right: 8, top: 4 }}>
         <CartesianGrid vertical={false} />
         <XAxis
@@ -74,7 +81,7 @@ export default function OverheadChart({
           labelFormatter={(t) => time(Number(t))}
           formatter={(value, name) => [formatMs(Number(value)), String(name)]}
         />
-        {LINES.map((l) => (
+        {lines.map((l) => (
           <Line
             key={l.key}
             dataKey={l.key}

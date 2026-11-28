@@ -4,7 +4,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
-import { useMetricSeries, useAnnotations } from '@/features/metrics/hooks';
+import {
+  useAnnotations,
+  useDashboardParams,
+  useHeatmap,
+  useMetricSeries,
+} from '@/features/metrics/hooks';
 import { ThroughputPanel, OverheadPanel } from '../ChartPanels';
 
 const nav = vi.hoisted(() => ({ to: vi.fn() }));
@@ -16,6 +21,8 @@ vi.mock('react-router', async (orig) => ({
 vi.mock('@/features/metrics/hooks', () => ({
   useMetricSeries: vi.fn(),
   useAnnotations: vi.fn(),
+  useHeatmap: vi.fn(),
+  useDashboardParams: vi.fn(),
 }));
 vi.mock('../useNow', () => ({ useNow: () => 1_000_000 }));
 vi.mock('../RunsChart', () => ({
@@ -27,7 +34,9 @@ vi.mock('../ApiChart', () => ({
   ),
 }));
 vi.mock('../OverheadChart', () => ({
-  default: () => <div>overhead-chart</div>,
+  default: ({ label }: { label?: string }) => (
+    <div data-label={label ?? 'default'}>overhead-chart</div>
+  ),
 }));
 vi.mock('../RunPanels', () => ({
   DayHeat: () => <div>day-heat</div>,
@@ -53,12 +62,22 @@ vi.mock('@/components/dashboard/Strips', () => ({
 
 const series = vi.mocked(useMetricSeries);
 const annotations = vi.mocked(useAnnotations);
+const heat = vi.mocked(useHeatmap);
+const setRange = vi.fn();
+
+beforeEach(() => {
+  heat.mockReturnValue(ok([]));
+  vi.mocked(useDashboardParams).mockReturnValue({ setRange } as never);
+});
 const ok = (data: unknown) =>
   ({ isPending: false, error: null, data, refetch: vi.fn() }) as never;
 
 describe('ThroughputPanel', () => {
   beforeEach(() => {
     nav.to.mockReset();
+    heat.mockReturnValue(ok([]));
+    vi.mocked(useDashboardParams).mockReturnValue({ setRange } as never);
+    setRange.mockReset();
     series.mockReturnValue(ok({ 'runs.finished{status=ok}': [] }));
   });
 
@@ -190,6 +209,8 @@ describe('ThroughputPanel API calls', () => {
   };
 
   beforeEach(() => {
+    heat.mockReturnValue(ok([]));
+    vi.mocked(useDashboardParams).mockReturnValue({ setRange } as never);
     annotations.mockReturnValue(ok([]) as never);
     series.mockReturnValue(ok(apiSeries));
   });
@@ -244,5 +265,95 @@ describe('ThroughputPanel API calls', () => {
     fireEvent.click(screen.getByRole('button', { name: 'API calls' }));
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
+  });
+});
+
+describe('ThroughputPanel with no runs in the range', () => {
+  beforeEach(() => {
+    setRange.mockReset();
+    vi.mocked(useDashboardParams).mockReturnValue({ setRange } as never);
+    annotations.mockReturnValue(ok([]) as never);
+    series.mockReturnValue(ok({}));
+  });
+
+  it('says when the last run finished and offers the whole day', () => {
+    heat.mockReturnValue(ok([{ time: 1_000_000 - 3 * 3_600_000, runs: 2 }]));
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
+    expect(
+      screen.getByText(/The last run finished 3 h ago\./)
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show 24 h' }));
+    expect(setRange).toHaveBeenCalledWith('24h');
+  });
+
+  it('does not offer the day when it is already shown', () => {
+    heat.mockReturnValue(ok([{ time: 1_000_000 - 60_000, runs: 1 }]));
+    renderWithProviders(<ThroughputPanel scope="global" range="24h" live />);
+    expect(
+      screen.getByText(/The last run finished 1 min ago\./)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show 24 h' })).toBeNull();
+  });
+
+  it('says nothing about a last run when the day had none, or while loading', () => {
+    heat.mockReturnValue(ok([]));
+    const { unmount } = renderWithProviders(
+      <ThroughputPanel scope="global" range="1h" live />
+    );
+    expect(screen.queryByText(/last run finished/)).toBeNull();
+    unmount();
+
+    heat.mockReturnValue(ok([{ time: 1, runs: 1 }]));
+    series.mockReturnValue({
+      isPending: true,
+      error: null,
+      data: undefined,
+      refetch: vi.fn(),
+    } as never);
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
+    expect(screen.queryByText(/last run finished/)).toBeNull();
+  });
+});
+
+describe('OverheadPanel run time view', () => {
+  beforeEach(() => {
+    series.mockImplementation(((name: string) =>
+      ok(
+        name === 'duration.'
+          ? { 'duration.p95': [{ t: 1, v: 2 }] }
+          : { 'overhead.start.p95': [{ t: 1, v: 2 }] }
+      )) as never);
+  });
+
+  it('switches from the engine to how long whole runs take', async () => {
+    renderWithProviders(<OverheadPanel scope="workflow:w" range="6h" live />);
+    expect((await screen.findByText('overhead-chart')).dataset.label).toBe(
+      'default'
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Engine overhead' })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run time' }));
+
+    expect((await screen.findByText('overhead-chart')).dataset.label).toBe(
+      'Run time'
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Run time' })
+    ).toBeInTheDocument();
+    expect(series).toHaveBeenCalledWith('duration.', '6h', 'workflow:w');
+  });
+
+  it('says so, in the view it is in, when nothing was timed', () => {
+    series.mockReturnValue(ok({}));
+    renderWithProviders(<OverheadPanel scope="global" range="1h" live />);
+    expect(
+      screen.getByText('No engine timings in this range')
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Run time' }));
+    expect(
+      screen.getByText('No runs finished in this range')
+    ).toBeInTheDocument();
   });
 });

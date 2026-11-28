@@ -43,6 +43,7 @@ vi.mock('../RunPanels', () => ({
   NodesPanel: () => null,
 }));
 vi.mock('../HealthPanels', () => ({ SystemPanel: () => null }));
+vi.mock('../OutcomesPanel', () => ({ OutcomesPanel: () => null }));
 vi.mock('../WorkflowPanels', () => ({
   WorkflowsPanel: () => null,
   HotspotsPanel: () => null,

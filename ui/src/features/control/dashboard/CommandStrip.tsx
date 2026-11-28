@@ -17,6 +17,7 @@ import { useNow } from './useNow';
 import { getOpenInputs } from '@/features/workflow/api/inputs';
 import { getLimits, limitText } from '../api/scheduler';
 import {
+  failedHours,
   formatChange,
   failedPoints,
   formatMs,
@@ -47,8 +48,8 @@ const ENGINE_INFO =
   "Engine overhead: how long a message waits between taking its node's turn and the plugin being called. It leaves out the plugin's own time, so a slow build does not show here.";
 
 /**
- * The headline numbers, six dense tiles: what is running and waiting, how runs ended, the engine's
- * own overhead (not the plugins' time) and the inputs waiting for a person.
+ * The headline numbers, seven dense tiles: what is running and waiting and for how long, how runs
+ * ended, the engine's own overhead (not the plugins' time) and the inputs waiting for a person.
  */
 export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
   const snapshot = useMetricSnapshot(scope).data;
@@ -64,6 +65,10 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
   const scheduler = useMetricSeries('yukta.executions.', '1h').data;
   const runningSeries = scheduler?.['yukta.executions.running'] ?? [];
   const queuedSeries = scheduler?.['yukta.executions.queued'] ?? [];
+  const waitSeries =
+    useMetricSeries('queue.wait', '1h', scope).data?.['queue.wait.p95'] ?? [];
+  const wait =
+    waitSeries.length > 0 ? waitSeries[waitSeries.length - 1].v : undefined;
   const now = useNow();
   const [drill, setDrill] = useState<DrillSpec | null>(null);
 
@@ -73,6 +78,8 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
   const trend = start?.['overhead.start.p95'] ?? [];
   const successSeries = successPoints(day ?? []);
   const failedSeries = failedPoints(day ?? [], now);
+  const hours = failedHours(day ?? [], now);
+  const failedChange = hours.last - hours.previous;
   const change = percentChange(trend);
   const p95 = snapshot?.['overhead.start.p95'];
   const handoff = snapshot?.['overhead.handoff.p95'];
@@ -85,7 +92,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
   return (
     <>
       <div
-        className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6"
+        className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7"
         data-testid="command-strip"
       >
         <KpiTile
@@ -126,6 +133,23 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
         />
         <KpiTile
           compact
+          label="Queue wait p95 (1 h)"
+          value={wait === undefined ? '–' : formatMs(wait)}
+          hint="how long starts waited for a slot"
+          info="How long runs that had to wait for a free slot waited, slowest 1 in 20, over the last hour. A rising number means the concurrent-run limit is too low for the load."
+          series={waitSeries.map((p) => p.v)}
+          onDrill={() =>
+            setDrill({
+              title: 'Queue wait p95',
+              window: 'last hour',
+              info: 'How long starts waited for a free slot.',
+              points: waitSeries,
+              format: formatMs,
+            })
+          }
+        />
+        <KpiTile
+          compact
           label="Success (24 h)"
           value={rate === null ? '–' : `${rate}%`}
           hint={rate === null ? undefined : `of ${dayRuns} runs`}
@@ -147,6 +171,18 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
           label="Failed (1 h)"
           value={String(failed)}
           hint={`of ${finished} runs`}
+          delta={
+            hours.last + hours.previous > 0
+              ? `${failedChange > 0 ? '+' : ''}${failedChange} vs hour before`
+              : undefined
+          }
+          deltaTone={
+            failedChange > 0
+              ? 'danger'
+              : failedChange < 0
+                ? 'success'
+                : 'neutral'
+          }
           tone="danger"
           info="Runs that failed in the last hour, out of all runs that finished in that hour."
           series={failedSeries.map((p) => p.v)}

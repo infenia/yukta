@@ -7,6 +7,7 @@ import { renderWithProviders } from '@/test/utils/testUtils';
 import {
   useHeatmap,
   useLiveRuns,
+  useMetricSnapshot,
   useModules,
   useNodes,
 } from '@/features/metrics/hooks';
@@ -22,6 +23,7 @@ vi.mock('@/features/metrics/hooks', () => ({
   useHeatmap: vi.fn(),
   useModules: vi.fn(),
   useLiveRuns: vi.fn(),
+  useMetricSnapshot: vi.fn(() => ({ data: undefined })),
   useNodes: vi.fn(),
 }));
 vi.mock('@/components/dashboard/Strips', () => ({
@@ -62,8 +64,8 @@ describe('DayHeat', () => {
     vi.mocked(useHeatmap).mockReturnValue(
       q({
         data: [
-          { time: 9 * 60_000, runs: 3, failed: 1 },
-          { time: 8 * 60_000, runs: 2, failed: 0 },
+          { time: 9 * 60_000, runs: 3, failed: 1, failedRuns: [] },
+          { time: 8 * 60_000, runs: 2, failed: 0, failedRuns: [] },
         ],
       })
     );
@@ -92,6 +94,84 @@ describe('DayHeat', () => {
     expect(
       screen.getByText('Could not load the last 24 hours.')
     ).toBeInTheDocument();
+  });
+});
+
+describe('DayHeat failed runs', () => {
+  const failing = [
+    { time: 8 * 60_000, runs: 2, failed: 1, failedRuns: ['old-run'] },
+    {
+      time: 9 * 60_000,
+      runs: 3,
+      failed: 2,
+      failedRuns: ['new-run', 'newer/run'],
+    },
+  ];
+
+  it('offers the failed runs of the day, newest first, each opening the run search', () => {
+    vi.mocked(useHeatmap).mockReturnValue(q({ data: failing }));
+    renderWithProviders(<DayHeat scope="global" live />);
+
+    fireEvent.click(screen.getByRole('button', { name: '3 failed' }));
+
+    expect(
+      screen.getByRole('dialog', { name: 'Failed runs' })
+    ).toBeInTheDocument();
+    const links = screen.getAllByRole('link');
+    expect(links.map((l) => l.textContent)).toEqual([
+      'new-run',
+      'newer/run',
+      'old-run',
+    ]);
+    expect(links[1]).toHaveAttribute('href', '/runs?text=newer%2Frun');
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('offers nothing to open when no run failed', () => {
+    vi.mocked(useHeatmap).mockReturnValue(
+      q({ data: [{ time: 9 * 60_000, runs: 3, failed: 0, failedRuns: [] }] })
+    );
+    renderWithProviders(<DayHeat scope="global" live />);
+    expect(screen.queryByRole('button', { name: /failed/ })).toBeNull();
+  });
+});
+
+describe('LeaderboardPanel retries', () => {
+  const rows = q({
+    data: [
+      { module: 'http', executions: 8, failures: 0, avgMs: 10 },
+      { module: 'echo', executions: 2, failures: 0, avgMs: 10 },
+    ],
+  });
+
+  it('shows the retries per minute of a plugin when any plugin was retried', () => {
+    vi.mocked(useModules).mockReturnValue(rows);
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({
+        data: {
+          'yukta.node.retries{module=http}|rate': 0.1,
+          'yukta.node.retries{module=http}|mean': 5,
+          'yukta.node.executions{module=http}|rate': 3,
+        },
+      })
+    );
+    renderWithProviders(<LeaderboardPanel scope="global" range="1h" live />);
+
+    expect(screen.getByText('Retries / min')).toBeInTheDocument();
+    expect(screen.getByText('http').closest('tr')).toHaveTextContent('6.0');
+    expect(screen.getByText('echo').closest('tr')).toHaveTextContent('–');
+    vi.mocked(useMetricSnapshot).mockReturnValue(q({ data: undefined }));
+  });
+
+  it('leaves the column out when nothing was retried', () => {
+    vi.mocked(useModules).mockReturnValue(rows);
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({ data: { 'yukta.node.retries{module=http}|rate': 0 } })
+    );
+    renderWithProviders(<LeaderboardPanel scope="global" range="1h" live />);
+    expect(screen.queryByText('Retries / min')).toBeNull();
+    vi.mocked(useMetricSnapshot).mockReturnValue(q({ data: undefined }));
   });
 });
 
@@ -196,6 +276,49 @@ describe('NodesPanel', () => {
     renderWithProviders(<NodesPanel scope="global" range="1h" live />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(refetch).toHaveBeenCalled();
+  });
+});
+
+describe('LiveRunsPanel running long', () => {
+  it('counts the runs that have gone on longer than usual', () => {
+    vi.mocked(useLiveRuns).mockReturnValue(
+      q({
+        data: [
+          run({
+            executionId: 'a',
+            workflowId: 'a',
+            elapsedMs: 9000,
+            p95Ms: 5000,
+          }),
+          run({
+            executionId: 'b',
+            workflowId: 'b',
+            elapsedMs: 9000,
+            p95Ms: 5000,
+          }),
+          run({
+            executionId: 'c',
+            workflowId: 'c',
+            elapsedMs: 1000,
+            p95Ms: 5000,
+          }),
+          run({
+            executionId: 'd',
+            workflowId: 'd',
+            elapsedMs: 99_000,
+            p95Ms: null,
+          }),
+        ],
+      })
+    );
+    renderWithProviders(<LiveRunsPanel scope="global" live />);
+    expect(screen.getByText('2 running long')).toBeInTheDocument();
+  });
+
+  it('says nothing when no run is past its usual time', () => {
+    vi.mocked(useLiveRuns).mockReturnValue(q({ data: [run()] }));
+    renderWithProviders(<LiveRunsPanel scope="global" live />);
+    expect(screen.queryByText(/running long/)).toBeNull();
   });
 });
 

@@ -13,11 +13,23 @@ import {
   type Range,
   type Scope,
 } from '@/features/metrics/api';
-import { useAnnotations, useMetricSeries } from '@/features/metrics/hooks';
+import {
+  useAnnotations,
+  useDashboardParams,
+  useHeatmap,
+  useMetricSeries,
+} from '@/features/metrics/hooks';
 import { PanelState } from './PanelState';
 import { DayHeat } from './RunPanels';
 import { useNow } from './useNow';
-import { OPERATIONS, formatMs, opOf } from './format';
+import {
+  OPERATIONS,
+  RUN_LINES,
+  agoText,
+  formatMs,
+  lastRunAt,
+  opOf,
+} from './format';
 
 // Recharts is its own chunk, loaded only when this panel is on screen.
 const RunsChart = lazy(() => import('./RunsChart'));
@@ -40,6 +52,41 @@ const API_INFO =
 
 type View = 'runs' | 'api';
 
+const ENGINE_INFO =
+  "Time the engine itself adds: from a node taking its turn to its plugin being called (start), and between nodes (hand-off). It leaves out the plugins' own time. p50 is the typical value, p95 the slow tail.";
+
+const RUN_INFO =
+  'How long whole runs take from start to finish, per minute: p50 is the typical run, p95 the slow tail and p99 the slowest one in a hundred. This is the plugins and the engine together; see the engine view for the engine alone.';
+
+/** Two or more ways to look at one panel, one pressed at a time. */
+function ViewToggle<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: readonly (readonly [T, string])[];
+  onChange: (next: T) => void;
+}) {
+  return (
+    <div role="group" aria-label={label} className="flex gap-1">
+      {options.map(([id, text]) => (
+        <button
+          key={id}
+          type="button"
+          aria-pressed={value === id}
+          onClick={() => onChange(id)}
+          className={`text-label-md rounded-md px-2 py-0.5 ${value === id ? 'bg-accent text-on-surface' : 'text-on-surface-variant'}`}
+        >
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /**
  * What the server is doing: runs that ended, stacked by status (with the control commands marked on
  * the time axis), or the REST calls it served by kind. The toggle keeps the two from being mixed up.
@@ -51,24 +98,15 @@ export function ThroughputPanel({ scope, range, live }: PanelProps) {
       title="Throughput"
       info={view === 'runs' ? RUNS_INFO : API_INFO}
       action={
-        <div role="group" aria-label="Throughput of" className="flex gap-1">
-          {(
-            [
-              ['runs', 'Runs'],
-              ['api', 'API calls'],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              aria-pressed={view === id}
-              onClick={() => setView(id)}
-              className={`text-label-md rounded-md px-2 py-0.5 ${view === id ? 'bg-accent text-on-surface' : 'text-on-surface-variant'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <ViewToggle
+          label="Throughput of"
+          value={view}
+          onChange={setView}
+          options={[
+            ['runs', 'Runs'],
+            ['api', 'API calls'],
+          ]}
+        />
       }
     >
       {view === 'runs' ? (
@@ -82,18 +120,22 @@ export function ThroughputPanel({ scope, range, live }: PanelProps) {
 
 function RunsView({ scope, range, live }: PanelProps) {
   const series = useMetricSeries('runs.', range, scope);
+  const day = useHeatmap('24h', scope, live).data;
+  const { setRange } = useDashboardParams();
   const marks = useAnnotations(range, scope, live);
   const navigate = useNavigate();
   const now = useNow();
   const open = (mark: ControlAnnotation | undefined) => {
     if (mark) void navigate(annotationTarget(mark));
   };
+  const empty = Object.keys(series.data ?? {}).length === 0;
+  const lastRun = lastRunAt(day ?? []);
   return (
     <>
       <PanelState
         isPending={series.isPending}
         error={series.error}
-        empty={Object.keys(series.data ?? {}).length === 0}
+        empty={empty}
         emptyText="No runs finished in this range"
         onRetry={() => void series.refetch()}
       >
@@ -117,6 +159,20 @@ function RunsView({ scope, range, live }: PanelProps) {
           </div>
         </div>
       </PanelState>
+      {empty && !series.isPending && lastRun !== undefined && (
+        <p className="text-body-sm text-on-surface-variant">
+          The last run finished {agoText(now - lastRun)}.{' '}
+          {range !== '24h' && (
+            <button
+              type="button"
+              onClick={() => setRange('24h')}
+              className="text-primary underline"
+            >
+              Show 24 h
+            </button>
+          )}
+        </p>
+      )}
       <DayHeat scope={scope} live={live} />
     </>
   );
@@ -158,22 +214,45 @@ function ApiView({ range }: { range: Range }) {
  * durations are not here: they mean nothing without the node, see the slowest-nodes panel.
  */
 export function OverheadPanel({ scope, range }: PanelProps) {
-  const overhead = useMetricSeries('overhead.', range, scope);
+  const [view, setView] = useState<'engine' | 'run'>('engine');
+  const engine = useMetricSeries('overhead.', range, scope);
+  const runTime = useMetricSeries('duration.', range, scope);
+  const shown = view === 'engine' ? engine : runTime;
+  const series = shown.data ?? {};
   return (
     <Panel
-      title="Engine overhead"
-      info="Time the engine itself adds: from a node taking its turn to its plugin being called (start), and between nodes (hand-off). It leaves out the plugins' own time. p50 is the typical value, p95 the slow tail."
+      title={view === 'engine' ? 'Engine overhead' : 'Run time'}
+      info={view === 'engine' ? ENGINE_INFO : RUN_INFO}
+      action={
+        <ViewToggle
+          label="Timings of"
+          value={view}
+          onChange={setView}
+          options={[
+            ['engine', 'Engine'],
+            ['run', 'Run time'],
+          ]}
+        />
+      }
     >
       <PanelState
-        isPending={overhead.isPending}
-        error={overhead.error}
-        empty={Object.keys(overhead.data ?? {}).length === 0}
-        emptyText="No engine timings in this range"
+        isPending={shown.isPending}
+        error={shown.error}
+        empty={Object.keys(series).length === 0}
+        emptyText={
+          view === 'engine'
+            ? 'No engine timings in this range'
+            : 'No runs finished in this range'
+        }
         inline
-        onRetry={() => void overhead.refetch()}
+        onRetry={() => void shown.refetch()}
       >
         <Suspense fallback={loading}>
-          <OverheadChart series={overhead.data ?? {}} />
+          {view === 'engine' ? (
+            <OverheadChart series={series} />
+          ) : (
+            <OverheadChart series={series} lines={RUN_LINES} label="Run time" />
+          )}
         </Suspense>
       </PanelState>
     </Panel>

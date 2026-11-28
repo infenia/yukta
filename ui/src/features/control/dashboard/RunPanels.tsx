@@ -11,13 +11,15 @@ import { type Range, type Scope } from '@/features/metrics/api';
 import {
   useHeatmap,
   useLiveRuns,
+  useMetricSnapshot,
   useModules,
   useNodes,
 } from '@/features/metrics/hooks';
 import { inScope } from './scopes';
+import { FailedRunsDrawer } from './FailedRunsDrawer';
 import { PanelState } from './PanelState';
 import { useNow } from './useNow';
-import { formatMs } from './format';
+import { failedRunIds, formatMs, tagOf } from './format';
 
 const MINUTE = 60_000;
 
@@ -34,6 +36,7 @@ const DAY_BUCKETS = 288;
  */
 export function DayHeat({ scope, live }: { scope: Scope; live: boolean }) {
   const heat = useHeatmap('24h', scope, live);
+  const [listing, setListing] = useState(false);
   const end = Math.floor(useNow() / BUCKET);
   if (heat.isPending) return null;
   if (heat.error) {
@@ -67,17 +70,32 @@ export function DayHeat({ scope, live }: { scope: Scope; live: boolean }) {
       failureRatio: cell && cell.runs > 0 ? cell.failed / cell.runs : 0,
     };
   });
+  const failedRuns = failedRunIds(heat.data ?? []);
   return (
     <div className="flex flex-col gap-1">
       <div className="text-label-sm text-on-surface-variant flex justify-between">
         <span>Last 24 hours</span>
-        <span className="num">{total} runs</span>
+        <span className="num">
+          {failedRuns.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setListing(true)}
+              className="text-destructive mr-2 underline"
+            >
+              {failedRuns.length} failed
+            </button>
+          )}
+          {total} runs
+        </span>
       </div>
       <HeatStrip
         cells={cells}
         columns={DAY_BUCKETS / 2}
         label="Runs per five minutes, 24 hours"
       />
+      {listing && (
+        <FailedRunsDrawer runs={failedRuns} onClose={() => setListing(false)} />
+      )}
     </div>
   );
 }
@@ -96,6 +114,16 @@ export function LeaderboardPanel({
   live: boolean;
 }) {
   const modules = useModules(range, scope, live);
+  // retries are a rate now, not a count over the range; only the whole server samples them
+  const snapshot = useMetricSnapshot(scope).data;
+  const retries = new Map(
+    Object.entries(snapshot ?? {})
+      .filter(
+        ([key]) => key.startsWith('yukta.node.retries') && key.endsWith('|rate')
+      )
+      .map(([key, rate]) => [tagOf(key, 'module'), rate * 60])
+  );
+  const anyRetries = [...retries.values()].some((perMinute) => perMinute > 0);
   const mostRuns = Math.max(
     1,
     ...(modules.data ?? []).map((m) => m.executions)
@@ -126,36 +154,49 @@ export function LeaderboardPanel({
               <th scope="col" className="text-right">
                 Failed
               </th>
+              {anyRetries && (
+                <th scope="col" className="text-right">
+                  Retries / min
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
-            {(modules.data ?? []).map((m) => (
-              <tr key={m.module} className="border-border border-t">
-                <th scope="row" className="text-left font-mono font-normal">
-                  {m.module}
-                </th>
-                <td aria-hidden="true" className="w-1/3 px-2">
-                  <span className="bg-muted flex h-1.5 overflow-hidden rounded-full">
-                    <span
-                      className="bg-primary h-full"
-                      style={{
-                        width: `${((m.executions - m.failures) / mostRuns) * 100}%`,
-                      }}
-                    />
-                    <span
-                      className="bg-destructive h-full"
-                      style={{ width: `${(m.failures / mostRuns) * 100}%` }}
-                    />
-                  </span>
-                </td>
-                <td className="num text-right">{m.executions}</td>
-                <td
-                  className={`num text-right ${m.failures > 0 ? 'text-destructive' : 'text-on-surface-variant'}`}
-                >
-                  {m.failures > 0 ? m.failures : '–'}
-                </td>
-              </tr>
-            ))}
+            {(modules.data ?? []).map((m) => {
+              const rate = retries.get(m.module) ?? 0;
+              return (
+                <tr key={m.module} className="border-border border-t">
+                  <th scope="row" className="text-left font-mono font-normal">
+                    {m.module}
+                  </th>
+                  <td aria-hidden="true" className="w-1/3 px-2">
+                    <span className="bg-muted flex h-1.5 overflow-hidden rounded-full">
+                      <span
+                        className="bg-primary h-full"
+                        style={{
+                          width: `${((m.executions - m.failures) / mostRuns) * 100}%`,
+                        }}
+                      />
+                      <span
+                        className="bg-destructive h-full"
+                        style={{ width: `${(m.failures / mostRuns) * 100}%` }}
+                      />
+                    </span>
+                  </td>
+                  <td className="num text-right">{m.executions}</td>
+                  <td
+                    className={`num text-right ${m.failures > 0 ? 'text-destructive' : 'text-on-surface-variant'}`}
+                  >
+                    {m.failures > 0 ? m.failures : '–'}
+                  </td>
+                  {anyRetries && (
+                    <td className="num text-right">
+                      {rate > 0 ? rate.toFixed(1) : '–'}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </PanelState>
@@ -280,9 +321,19 @@ export function LiveRunsPanel({
 }) {
   const runs = useLiveRuns(live);
   const shown = (runs.data ?? []).filter((run) => inScope(scope, run));
+  const long = shown.filter(
+    (run) => run.p95Ms !== null && run.elapsedMs > run.p95Ms
+  ).length;
   return (
     <Panel
       title="Live runs"
+      action={
+        long > 0 && (
+          <span className="text-label-md text-warning">
+            {long} running long
+          </span>
+        )
+      }
       info="Runs executing right now, the nodes running in each and the time so far against the workflow's usual 95th percentile. To pause or stop a run, open it."
     >
       <PanelState
