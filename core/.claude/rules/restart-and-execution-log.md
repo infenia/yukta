@@ -25,7 +25,7 @@ Reference for the restart archive, checkpoints, resume and the execution log (an
 - Set `yukta.restart.store-type=postgres` to keep node outputs in PostgreSQL (`R2dbcNodeCheckpointStore`; no caps; payloads come back as plain JSON values). With it and the PostgreSQL execution log,
   `ExecutionResumer.resume(executionId)` continues a run that a restart aborted: the log holds the
   payload (`RUN_STARTED`); nodes that finished (a durable end marker, below) replay their
-  recorded output, the rest run again. `NODE_FINISHED` log events are history only. A run resumes once (`RUN_RESUMED`; the new run can be resumed in turn: `rerun` copies every finished node's output under the new id, and the payload counts the chain in `yukta.resumes`, which `TakeoverRecovery` caps at `MAX_AUTO_RESUMES` = 3 and `StartOptions` strips from client payloads) against the version it started
+  recorded output, the rest run again. `NODE_FINISHED` log events are history only. A run resumes once (`RUN_RESUMED`; the new run can be resumed in turn: `rerun` copies every finished node's output under the new id, and the payload counts the chain in `yukta.resumes`, which `TakeoverRecovery` caps at `MAX_AUTO_RESUMES` = 3 (auto-resume also refuses a run whose payload has `yukta.parentExecutionId`: the resumed parent starts a fresh child, since child terminal results reach the parent only in memory) and `StartOptions` strips from client payloads; a workflow with `durable: false` logs its start with `yukta.notDurable` and is never resumed) against the version it started
   with (the current one, or a saved version whose prepared graph has the same `DefinitionVersion`). REST: `POST /api/executions/{id}/recover` (409 `ConflictException` if the run was not
   aborted, was already resumed or none of the last 20 saved versions has the graph it ran); MCP: `control_workflow` action `RECOVER`.
   Only one resume per run is accepted (the claim is kept in memory and dropped on failure). The end
@@ -36,7 +36,7 @@ Reference for the restart archive, checkpoints, resume and the execution log (an
 - Restart-from-node on a run that is still going replays only parents that have finished (the
   durable end marker); a replayed output is marked finished under the new run, so a second resume
   does not run those nodes again. A resume claim is dropped if the caller cancels.
-- Run starts and ends go to an `ExecutionLogStore`. By default it is in memory and trimmed (`LogRetention`: the newest `retained-runs`, never a run without an end, every `compact-after` events); `yukta.session.store-type=postgres` keeps it in PostgreSQL. On startup `ExecutionRecovery`
+- Run starts and ends go to an `ExecutionLogStore`. A start is logged when the run is subscribed, before it gets a slot, so a queued start is aborted and resumed after a restart like a running one. By default it is in memory and trimmed (`LogRetention`: the newest `retained-runs`, never a run without an end, every `compact-after` events); `yukta.session.store-type=postgres` keeps it in PostgreSQL. On startup `ExecutionRecovery`
   marks runs that never finished as `ABORTED`, restores the newest
   `yukta.execution-log.retained-runs` (default 500) into history, and calls
   `ExecutionLogStore.applyRecovery` (drop the older runs, trim scheduler entries, append the abort

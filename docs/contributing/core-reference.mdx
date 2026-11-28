@@ -455,6 +455,7 @@ A `SUB_WORKFLOW` node runs another stored workflow of the same session for each 
 - The child's start payload carries `yukta.depth` and `yukta.parentExecutionId`. **Nesting is limited to 5.**
 - With `yukta.execution.max-concurrent` set, a child runs on the slot its parent holds (`ExecutionScheduler.borrowed()`): children are not counted in limits or the running gauge, which prevents a parent waiting on children from starving them.
 - The child is subscribed inside the parent node, so cancelling the node cancels the child (`CANCELLED`).
+- After a restart, auto-resume leaves an aborted child alone: the resumed parent re-runs its `SUB_WORKFLOW` node, which starts a fresh child. Progress inside the child is not kept, because its terminal results reach the parent only in memory.
 
 **Source:** `SubWorkflowRunner` `SubWorkflowGateway` `ExecutionScheduler`
 
@@ -877,6 +878,7 @@ Continue a run that a restart aborted: finished nodes replay their recorded outp
 - Refused (HTTP 409 `ConflictException`) if the run was not aborted, was already resumed or the version it ran is no longer saved.
 - `yukta.restart.auto-resume=true` resumes each interrupted run after any recovery, one after another.
 - The resumed run records every finished node's output under its own id, so if it is aborted too it can be resumed in turn without repeating them. The payload counts the chain (`yukta.resumes`, stripped from client payloads); auto-resume refuses a run that came from 3 resumes (`TakeoverRecovery.MAX_AUTO_RESUMES`), a resume by hand has no limit.
+- A workflow with `durable: false` (`WorkflowDefinition.durable`, carried to `PreparedWorkflow.durable`) logs its start payload with `yukta.notDurable` (`ExecutionResumer.logged`, stripped from client payloads), and a resume of such a run is refused, whatever the workflow says later. Its checkpoints are still written; `engine.checkpoint` turns them off per node.
 - Resume reads the log and checkpoint files on `boundedElastic`.
 
 **Configure:** `yukta.restart.auto-resume` (false)

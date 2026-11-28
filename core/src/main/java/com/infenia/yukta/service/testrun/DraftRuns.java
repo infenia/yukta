@@ -113,7 +113,8 @@ public class DraftRuns {
         edges,
         List.of(),
         draft.groupColors(),
-        draft.admission());
+        draft.admission(),
+        draft.durable());
   }
 
   /** The node and every node with a path to it. */

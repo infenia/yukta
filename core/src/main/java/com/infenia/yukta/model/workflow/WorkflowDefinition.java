@@ -25,6 +25,7 @@ import org.jspecify.annotations.Nullable;
  * @param supervisors the supervisors declared for this workflow, attached when it is saved
  * @param groupColors the palette color of a group (by group name), for display only
  * @param admission how runs are admitted on top of the server's limits, or null for nothing more
+ * @param durable whether an interrupted run may be resumed; null means yes
  */
 @Schema(description = "Definition of a reactive workflow DAG")
 public record WorkflowDefinition(
@@ -64,7 +65,13 @@ public record WorkflowDefinition(
             groupColors,
     @Schema(description = "How runs are admitted on top of the server's limits", nullable = true)
         @Valid
-        @Nullable WorkflowAdmission admission) {
+        @Nullable WorkflowAdmission admission,
+    @Schema(
+            description =
+                "Whether an interrupted run of this workflow may be resumed after a restart"
+                    + " (default true); false for a workflow that must not run twice",
+            nullable = true)
+        @Nullable Boolean durable) {
 
   /** Compact constructor to ensure immutability. */
   public WorkflowDefinition {
@@ -72,6 +79,28 @@ public record WorkflowDefinition(
     edges = edges != null ? List.copyOf(edges) : List.of();
     supervisors = supervisors != null ? List.copyOf(supervisors) : List.of();
     groupColors = groupColors != null ? Map.copyOf(groupColors) : Map.of();
+  }
+
+  /**
+   * A definition whose runs are durable as the server is.
+   *
+   * @param workflowId unique identifier for the workflow
+   * @param description a human-readable description of the workflow
+   * @param nodes the list of nodes in the DAG
+   * @param edges the list of edges connecting the nodes
+   * @param supervisors the supervisors declared for this workflow
+   * @param groupColors the palette color of a group (by group name), for display only
+   * @param admission how runs are admitted on top of the server's limits, or null for nothing more
+   */
+  public WorkflowDefinition(
+      final String workflowId,
+      final String description,
+      final List<Node> nodes,
+      final List<Edge> edges,
+      final List<SupervisorRef> supervisors,
+      final Map<String, String> groupColors,
+      @Nullable final WorkflowAdmission admission) {
+    this(workflowId, description, nodes, edges, supervisors, groupColors, admission, null);
   }
 
   /**
@@ -91,7 +120,7 @@ public record WorkflowDefinition(
       final List<Edge> edges,
       final List<SupervisorRef> supervisors,
       final Map<String, String> groupColors) {
-    this(workflowId, description, nodes, edges, supervisors, groupColors, null);
+    this(workflowId, description, nodes, edges, supervisors, groupColors, null, null);
   }
 
   /** The display colors a node or a group may take: named, so no workflow meaning is implied. */

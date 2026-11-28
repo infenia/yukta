@@ -53,7 +53,7 @@ On the next start with a durable execution log, Yukta reads the log, marks every
 
 Two honest limits:
 
-- **Resume is at most once per run**, and runs the workflow version it started with (the current one, or one of the last 20 saved versions with the same graph). The resumed run can in turn be resumed if it is cut off too.
+- **Resume is at most once per run**, and runs the workflow version it started with (the current one, or one of the last 20 saved versions with the same graph). The resumed run can in turn be resumed if it is cut off too. A workflow with `"durable": false` is never resumed.
 - **A wait for a person is lost, then asked again.** An open request survives only with PostgreSQL; otherwise a resumed run asks again.
 
 And because delivery is at-least-once, a resumed node may repeat a side effect that happened immediately before the crash. See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
@@ -81,12 +81,12 @@ The scheme is deliberately conservative:
 - Each change of holder increases a fencing number.
 - A server that stops gracefully releases the lease at once.
 
-On takeover the new leader runs recovery once, exactly as after a restart: unfinished runs are marked `ABORTED`, history is restored, and, if enabled, interrupted runs resume from their checkpoints.
+On takeover the new leader runs recovery once, exactly as after a restart: unfinished runs are marked `ABORTED`, history is restored, and, if enabled, interrupted runs resume from their checkpoints. A sub-workflow run is not resumed on its own; its resumed parent starts it again.
 
 ### What high availability is not
 
 - **It is failover, not scale-out.** One server at a time admits runs, orders commands and holds run state. To spread node work across machines, use remote workers.
-- **It is not seamless.** Treat a takeover like a restart: clients reconnect, check status and resume or restart aborted runs. Queued starts, execution slots, open approval waits (without PostgreSQL-backed requests) and live progress beyond the log do not carry over.
+- **It is not seamless.** Treat a takeover like a restart: clients reconnect, check status and resume or restart aborted runs. Execution slots, open approval waits (without PostgreSQL-backed requests) and live progress beyond the log do not carry over. A queued start is logged before it gets a slot, so it is aborted and resumed like a running one; its place in the queue and the time it already waited are not kept.
 - **Yukta does not proxy to the leader.** A client that reaches a standby gets `503` and must try another address, or sit behind a load balancer whose health check selects the leader.
 
 ## Choosing

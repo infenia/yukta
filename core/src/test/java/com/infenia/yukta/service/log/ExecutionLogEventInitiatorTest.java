@@ -71,6 +71,16 @@ class ExecutionLogEventInitiatorTest {
   }
 
   @Test
+  void callersOwnNotDurableMarkIsDropped() {
+    assertThat(
+            StartOptions.withInitiator(
+                Map.of(
+                    com.infenia.yukta.service.orchestrator.ExecutionResumer.NOT_DURABLE_KEY, true),
+                "a"))
+        .doesNotContainKey(com.infenia.yukta.service.orchestrator.ExecutionResumer.NOT_DURABLE_KEY);
+  }
+
+  @Test
   void anEntryWrittenWithoutAnInitiatorReadsAsNone() {
     final var event =
         new ExecutionLogEvent(

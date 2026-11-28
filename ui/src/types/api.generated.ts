@@ -7125,6 +7125,8 @@ export interface components {
              * @example Nightly report
              */
             description: string;
+            /** @description Whether an interrupted run of this workflow may be resumed after a restart (default true); false for a workflow that must not run twice */
+            durable?: boolean | null;
             /** @description Edges connecting the nodes */
             edges: components["schemas"]["Edge"][];
             /** @description Palette color of a group by group name, for display only: teal, sky, violet, magenta, stone. Groups without an entry keep the default look */
@@ -7147,6 +7149,8 @@ export interface components {
              * @example Quality check
              */
             description?: string;
+            /** @description Whether an interrupted run of this workflow may be resumed after a restart (default true); false for a workflow that must not run twice */
+            durable?: boolean | null;
             /** @description Edges connecting the nodes */
             edges: components["schemas"]["EdgeRequest"][];
             /** @description Palette color of a group by group name, for display only: teal, sky, violet, magenta, stone */

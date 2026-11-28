@@ -1039,6 +1039,31 @@ class WorkflowOrchestratorTest {
   }
 
   @Test
+  void execute_queuedRun_isLoggedWithItsPayloadBeforeItGetsSlot() {
+    // the start is in the log while the run waits, so a restart marks it ABORTED and a resume
+    // starts it again: a queued start survives a restart without a queue of its own
+    final ExecutionScheduler limited =
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(30));
+    final PreparedWorkflow prepared = reservedSetUp();
+    final ExecutionScheduler.Permit held = limited.acquire("s", "w", 0, null).permit().block();
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-q");
+
+    final reactor.core.Disposable run =
+        orchestratorWith(limited)
+            .execute("s", "w", "e-q", prepared, Map.of("k", "v"), admission)
+            .subscribe();
+
+    final org.mockito.ArgumentCaptor<ExecutionLogEvent> logged =
+        org.mockito.ArgumentCaptor.forClass(ExecutionLogEvent.class);
+    verify(executionLog, timeout(5000)).append(logged.capture());
+    assertThat(logged.getValue().type()).isEqualTo(ExecutionLogEvent.Type.RUN_STARTED);
+    assertThat(logged.getValue().payload()).containsEntry("k", "v");
+    assertThat(limited.queued()).isEqualTo(1);
+    run.dispose();
+    held.release();
+  }
+
+  @Test
   void execute_startsTrackingOnTheCallersThread_soStartedRunCanBeRead() {
     final ExecutionScheduler limited =
         ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(30));

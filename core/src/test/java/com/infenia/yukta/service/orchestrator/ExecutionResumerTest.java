@@ -174,6 +174,22 @@ class ExecutionResumerTest {
   }
 
   @Test
+  void subWorkflowRun_isLeftToItsParentByAutoResume() {
+    // the resumed parent starts the child again; resuming it too would run it twice
+    abortedRun(
+        "child",
+        Map.of("k", "v", com.infenia.yukta.plugin.gateway.SubWorkflowGateway.PARENT_KEY, "p"),
+        DefinitionVersion.of(prepared),
+        "a");
+
+    StepVerifier.create(resumer.resume("child", 3))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("is a sub-workflow run"))
+        .verify();
+    // by hand it can still be resumed
+    StepVerifier.create(resumer.resume("child")).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
   void cancelledResume_doesNotBlockTheNextOne() {
     abortedRun(DefinitionVersion.of(prepared), "a");
     final WorkflowDefinition slowDef = mock(WorkflowDefinition.class);
@@ -335,6 +351,33 @@ class ExecutionResumerTest {
     assertThat(plan.getValue().rerun()).containsExactly("b");
     // the search stops at the first match
     verify(definitions, never()).findRevision("s", "w", "r0");
+  }
+
+  @Test
+  void runOfWorkflowThatWasNotDurable_isRefused_evenIfWorkflowIsDurableNow() {
+    final PreparedWorkflow notDurable =
+        new PreparedWorkflow(
+            prepared.edges(),
+            prepared.adjacencyList(),
+            prepared.parentsList(),
+            prepared.pluginCache(),
+            prepared.topologicalOrder(),
+            prepared.template(),
+            false);
+    // the current workflow (prepared, durable) has the same graph
+    abortedRun(
+        "old", ExecutionResumer.logged(notDurable, PAYLOAD), DefinitionVersion.of(prepared), "a");
+
+    StepVerifier.create(resumer.resume("old"))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("was not durable"))
+        .verify();
+    verify(orchestrator, never())
+        .rerun(any(), any(), any(), any(), any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void durableRun_isLoggedWithItsPayloadAsIs() {
+    assertThat(ExecutionResumer.logged(prepared, PAYLOAD)).isSameAs(PAYLOAD);
   }
 
   @Test

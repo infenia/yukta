@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowNode;
+import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
@@ -51,10 +52,18 @@ public class ExecutionResumer {
   public static final String RESUMES_KEY = "yukta.resumes";
 
   /**
+   * The reserved payload key that marks, in the log, a run whose workflow is not durable: such a
+   * run is never resumed, whatever its workflow says by then.
+   */
+  public static final String NOT_DURABLE_KEY = "yukta.notDurable";
+
+  /**
    * How many saved versions a resume looks through for the one a changed workflow ran with; the
    * stores keep 20 per workflow. Each one looked at is prepared, so this bounds the cost.
    */
   private static final int REVISIONS_SEARCHED = 20;
+
+  private static final String EXECUTION_PREFIX = "Execution ";
 
   /** The execution log: start, payload, finished nodes, end. */
   private final ExecutionLogStore executionLog;
@@ -86,11 +95,13 @@ public class ExecutionResumer {
    * @throws ConflictException if it cannot be resumed
    */
   public Mono<String> resume(final String executionId) {
-    return resume(executionId, Integer.MAX_VALUE);
+    return resume(executionId, Integer.MAX_VALUE, false);
   }
 
   /**
-   * Resumes an aborted run as a new run, unless it came from {@code maxResumes} resumes already.
+   * Resumes an aborted run on its own (auto-resume), unless it came from {@code maxResumes} resumes
+   * already or is a sub-workflow run. A sub-workflow run is left to its parent: the resumed parent
+   * starts it again, and a resumed child would run detached, its results reaching nobody.
    *
    * @param executionId the aborted run
    * @param maxResumes how many resumes may lead to the run; one more is refused
@@ -99,25 +110,31 @@ public class ExecutionResumer {
    * @throws ConflictException if it cannot be resumed
    */
   public Mono<String> resume(final String executionId, final int maxResumes) {
+    return resume(executionId, maxResumes, true);
+  }
+
+  private Mono<String> resume(
+      final String executionId, final int maxResumes, final boolean automatic) {
     return Mono.defer(() -> {
       // One resume at a time per run: the log only shows RUN_RESUMED once it has started.
       if (!resuming.add(executionId)) {
         return Mono.error(
             new ConflictException(
-                "Execution " + executionId + " is being resumed or was already resumed"));
+                EXECUTION_PREFIX + executionId + " is being resumed or was already resumed"));
       }
       // A claim is dropped when the resume fails or is cancelled (for example a client that
       // gave up while the workflow was being prepared); the log keeps the real record.
       // reads the whole log and the checkpoint files, so not on the caller's (event loop)
       // thread
-      return doResume(executionId, maxResumes)
+      return doResume(executionId, maxResumes, automatic)
           .subscribeOn(Schedulers.boundedElastic())
           .doOnError(_ -> resuming.remove(executionId))
           .doOnCancel(() -> resuming.remove(executionId));
     });
   }
 
-  private Mono<String> doResume(final String executionId, final int maxResumes) {
+  private Mono<String> doResume(
+      final String executionId, final int maxResumes, final boolean automatic) {
     return executionLog
         .forExecution(executionId)
         .collectList()
@@ -126,29 +143,10 @@ public class ExecutionResumer {
           if (started == null) {
             return Mono.error(new NotFoundException("Execution not found: " + executionId));
           }
-          final ExecutionLogEvent resumed = first(events, ExecutionLogEvent.Type.RUN_RESUMED);
-          if (resumed != null) {
-            return Mono.error(
-                new ConflictException(
-                    "Execution " + executionId + " was already resumed as " + resumed.status()));
-          }
-          if (first(events, ExecutionLogEvent.Type.RUN_ABORTED) == null) {
-            return Mono.error(
-                new ConflictException("Only an aborted run can be resumed: " + executionId));
-          }
-          if (started.payload() == null) {
-            return Mono.error(
-                new ConflictException("The payload of " + executionId + " was not recorded"));
-          }
-          final int resumes = resumesOf(Objects.requireNonNull(started.payload()));
-          if (resumes >= maxResumes) {
-            return Mono.error(
-                new ConflictException(
-                    "Execution "
-                        + executionId
-                        + " was resumed "
-                        + resumes
-                        + " times already; it is left to be resumed by hand"));
+          final ConflictException refusal =
+              Refusals.refusalOf(events, started, maxResumes, automatic);
+          if (refusal != null) {
+            return Mono.error(refusal);
           }
           return workflowDefinitionStore
               .find(started.sessionId(), started.workflowId())
@@ -233,7 +231,7 @@ public class ExecutionResumer {
     }
     final String newId = UUID.randomUUID().toString();
     final var payload =
-        new java.util.HashMap<String, Object>(Objects.requireNonNull(started.payload()));
+        new java.util.LinkedHashMap<String, Object>(Objects.requireNonNull(started.payload()));
     payload.put(RESUMES_KEY, resumesOf(payload) + 1);
     return Flux.fromIterable(plan.boundary())
         .concatMap(node ->
@@ -287,6 +285,25 @@ public class ExecutionResumer {
         .then(Mono.just(newId));
   }
 
+  /**
+   * The start payload as the log keeps it: marked when the workflow is not durable, so the run is
+   * never resumed even if the workflow is made durable later.
+   *
+   * @param prepared the workflow the run uses
+   * @param payload the start payload
+   * @return the payload to log
+   */
+  public static Map<String, Object> logged(
+      final PreparedWorkflow prepared, final Map<String, Object> payload) {
+    if (prepared.durable()) {
+      return payload;
+    }
+    final var marked = new java.util.TreeMap<String, Object>();
+    marked.putAll(payload);
+    marked.put(NOT_DURABLE_KEY, true);
+    return marked;
+  }
+
   /** How many resumes led to the run that started with this payload. */
   private static int resumesOf(final Map<String, Object> payload) {
     return payload.get(RESUMES_KEY) instanceof Number count ? count.intValue() : 0;
@@ -295,5 +312,57 @@ public class ExecutionResumer {
   private static ExecutionLogEvent first(
       final List<ExecutionLogEvent> events, final ExecutionLogEvent.Type type) {
     return events.stream().filter(event -> event.type() == type).findFirst().orElse(null);
+  }
+
+  /** The reasons a run cannot be resumed; each check keeps the order of the refusals. */
+  private static final class Refusals {
+
+    /**
+     * Why the run cannot be resumed now.
+     *
+     * @return the refusal, or null when the run can be resumed
+     */
+    private static @Nullable ConflictException refusalOf(
+        final List<ExecutionLogEvent> events,
+        final ExecutionLogEvent started,
+        final int maxResumes,
+        final boolean automatic) {
+      final String executionId = started.executionId();
+      final ExecutionLogEvent resumed = first(events, ExecutionLogEvent.Type.RUN_RESUMED);
+      if (resumed != null) {
+        return new ConflictException(
+            EXECUTION_PREFIX + executionId + " was already resumed as " + resumed.status());
+      }
+      if (first(events, ExecutionLogEvent.Type.RUN_ABORTED) == null) {
+        return new ConflictException("Only an aborted run can be resumed: " + executionId);
+      }
+      final Map<String, Object> payload = started.payload();
+      if (payload == null) {
+        return new ConflictException("The payload of " + executionId + " was not recorded");
+      }
+      if (Boolean.TRUE.equals(payload.get(NOT_DURABLE_KEY))) {
+        return new ConflictException(
+            EXECUTION_PREFIX
+                + executionId
+                + " cannot be resumed: its workflow was not durable (durable: false) when"
+                + " it started");
+      }
+      if (automatic && payload.containsKey(SubWorkflowGateway.PARENT_KEY)) {
+        return new ConflictException(
+            EXECUTION_PREFIX
+                + executionId
+                + " is a sub-workflow run; it is run again through its parent");
+      }
+      final int resumes = resumesOf(payload);
+      if (resumes >= maxResumes) {
+        return new ConflictException(
+            EXECUTION_PREFIX
+                + executionId
+                + " was resumed "
+                + resumes
+                + " times already; it is left to be resumed by hand");
+      }
+      return null;
+    }
   }
 }

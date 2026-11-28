@@ -186,7 +186,8 @@ public class WorkflowPreparator {
                   parentsList,
                   pluginCache,
                   topologicalOrder,
-                  compiler.compileTemplate(edges, parentsList, pluginCache, topologicalOrder));
+                  compiler.compileTemplate(edges, parentsList, pluginCache, topologicalOrder),
+                  !Boolean.FALSE.equals(def.durable()));
             }))
         // Plugin instances are shared singletons, so a failed preparation must not shut them down.
         .doOnError(e ->
