@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.trigger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import reactor.test.StepVerifier;
 
 /** Tests for ScheduleTrigger. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods")
 class ScheduleTriggerTest {
 
   /** Test literal maxRuns. */
@@ -66,7 +68,7 @@ class ScheduleTriggerTest {
 
   @Test
   void validateConfig_rejectsBadMaxRunsAndExhaustedCron() {
-    for (final Object bad : java.util.List.of(0, -1, 0.5, "x")) {
+    for (final Object bad : List.of(0, -1, 0.5, "x")) {
       StepVerifier.create(trigger.validateConfig(Map.of(INTERVAL_MS, 100, MAX_RUNS, bad)))
           .expectError(IllegalArgumentException.class)
           .verify();
@@ -125,8 +127,44 @@ class ScheduleTriggerTest {
 
     StepVerifier.create(
             ScheduleTrigger.repeatWhileScheduled(
-                now -> calls.getAndIncrement() < 3 ? now.plus(Duration.ofMillis(10)) : null, zone))
+                now -> calls.getAndIncrement() < 3 ? now.plus(Duration.ofMillis(10)) : null,
+                () -> java.time.ZonedDateTime.now(zone)))
         .expectNextCount(2)
         .verifyComplete();
+  }
+
+  @Test
+  void repeatWhileScheduled_wallClockBehindTheTimer_firesAnExecutionOnce() {
+    // A frozen clock is a wall clock that lags the timer: after the delay it still reads before
+    // the execution, which next() then returned again and fired a second time.
+    final java.time.ZonedDateTime base = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC);
+    final java.time.ZonedDateTime at = base.plus(Duration.ofMillis(10));
+
+    StepVerifier.create(
+            ScheduleTrigger.repeatWhileScheduled(t -> t.isBefore(at) ? at : null, () -> base))
+        .expectNextCount(1)
+        .expectComplete()
+        .verify(Duration.ofSeconds(2));
+  }
+
+  @Test
+  void repeatWhileScheduled_wallClockPastTheLastExecution_countsFromNow() {
+    final java.time.ZonedDateTime base = java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC);
+    final java.time.ZonedDateTime later = base.plus(Duration.ofHours(1));
+    final java.util.Iterator<java.time.ZonedDateTime> clock =
+        List.of(base, later, later).iterator();
+    final List<java.time.ZonedDateTime> asked = new java.util.ArrayList<>();
+
+    StepVerifier.create(
+            ScheduleTrigger.repeatWhileScheduled(
+                t -> {
+                  asked.add(t);
+                  return asked.size() == 1 ? base.plus(Duration.ofMillis(10)) : null;
+                },
+                clock::next))
+        .expectNextCount(1)
+        .expectComplete()
+        .verify(Duration.ofSeconds(2));
+    assertThat(asked).containsExactly(base, later);
   }
 }
