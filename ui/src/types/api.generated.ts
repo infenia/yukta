@@ -5746,6 +5746,17 @@ export interface components {
             /** Format: int32 */
             running?: number;
         };
+        /** @description Starts within `periodMs` of the first with the same key get its id */
+        Debounce: {
+            /** @description Expression over the start payload; none for the whole workflow */
+            key?: string | null;
+            /**
+             * Format: int64
+             * @description The window in milliseconds
+             * @example 5000
+             */
+            periodMs?: number;
+        };
         DefinitionRevision: {
             id?: string;
             note?: string | null;
@@ -7030,6 +7041,23 @@ export interface components {
             executionId?: string;
             workflowId?: string;
         };
+        /** @description At most `limit` starts per `periodMs` that share a key; more wait */
+        Throttle: {
+            /** @description Expression over the start payload; none for the whole workflow */
+            key?: string | null;
+            /**
+             * Format: int32
+             * @description Starts with the same key per period
+             * @example 10
+             */
+            limit?: number;
+            /**
+             * Format: int64
+             * @description The period in milliseconds
+             * @example 60000
+             */
+            periodMs?: number;
+        };
         Tick: components["schemas"]["Signal"] & {
             /** Format: date-time */
             at?: string;
@@ -7113,6 +7141,10 @@ export interface components {
         WorkflowAdmission: {
             /** @description At most so many runs at once per key */
             concurrency?: components["schemas"]["Concurrency"];
+            /** @description One run per key and period; later starts get its id */
+            debounce?: components["schemas"]["Debounce"];
+            /** @description At most so many starts per period per key */
+            throttle?: components["schemas"]["Throttle"];
         };
         /** @description Definition of a reactive workflow DAG */
         WorkflowDefinition: {

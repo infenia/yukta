@@ -160,6 +160,17 @@ function TemplateCanvas({
     [workflow]
   );
   if (!flow) return null;
+  // Positions are percentages, so give the box room per column and row (labels are ~150px wide)
+  // and let it scroll instead of squeezing the labels onto each other.
+  const perWave = new Map<number, number>();
+  flow.nodes.forEach((n) =>
+    perWave.set(n.wave, (perWave.get(n.wave) ?? 0) + 1)
+  );
+  const rows = Math.max(1, ...perWave.values());
+  const box = {
+    minWidth: flow.waves * 170,
+    height: Math.max(288, rows * 84 + 80),
+  };
   return (
     <div className="mb-4 flex flex-col gap-2">
       {workflows.length > 1 && (
@@ -184,15 +195,17 @@ function TemplateCanvas({
       )}
       <div
         data-testid="template-canvas"
-        className="border-border bg-muted/40 h-72 rounded-xl border px-10 pt-8 pb-12"
+        className="border-border bg-muted/40 max-h-[28rem] overflow-auto rounded-xl border"
       >
-        <TemplateFlow
-          flow={flow}
-          categories={categories}
-          off={off}
-          playing
-          labels
-        />
+        <div className="px-10 pt-8 pb-12" style={box}>
+          <TemplateFlow
+            flow={flow}
+            categories={categories}
+            off={off}
+            playing
+            labels
+          />
+        </div>
       </div>
     </div>
   );

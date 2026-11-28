@@ -150,7 +150,7 @@ public class RestartFromNodeCommandProcessor {
       final RestartFromNodeCommand restart,
       final ArchivedExecution archived,
       final Map<String, List<Message<?>>> outputs,
-      final ExecutionScheduler.@Nullable KeyClaim claim) {
+      final ExecutionScheduler.@Nullable Claims claim) {
     final Optional<ExecutionControl> running = registry.findByExecutionId(restart.executionId());
     // The slot is taken before the new id is reported, so two restarts cannot both use the last
     // one. A running run gives up its slot when stopped, so it is not asked.
