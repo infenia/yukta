@@ -163,16 +163,7 @@ public class ExecutionResumer {
                       .claim(found.definition(), Objects.requireNonNull(started.payload()))
                       .map(java.util.Optional::of)
                       .defaultIfEmpty(java.util.Optional.empty())
-                      .flatMap(claim ->
-                          Flux.fromIterable(found.prepared().topologicalOrder())
-                              // The store's durable marker decides, not the log: a node end in the
-                              // log is only queued for the writer and can be lost in a crash.
-                              .map(WorkflowNode::nodeId)
-                              .filterWhen(node -> checkpointStore.finishedAsync(executionId, node))
-                              .collect(Collectors.toSet())
-                              .flatMap(finished ->
-                                  resumeFrom(
-                                      started, found.prepared(), finished, claim.orElse(null)))));
+                      .flatMap(claim -> start(started, found.prepared(), claim.orElse(null))));
         });
   }
 
@@ -213,6 +204,19 @@ public class ExecutionResumer {
         .prepareWorkflow(def)
         .filter(prepared -> DefinitionVersion.of(prepared).equals(started.definitionVersion()))
         .map(prepared -> new Found(def, prepared));
+  }
+
+  private Mono<String> start(
+      final ExecutionLogEvent started,
+      final PreparedWorkflow prepared,
+      final ExecutionScheduler.@Nullable KeyClaim claim) {
+    // The store's durable marker decides, not the log: the log record of a node end is only queued
+    // for the writer and can be lost in a crash.
+    return Flux.fromIterable(prepared.topologicalOrder())
+        .map(WorkflowNode::nodeId)
+        .filterWhen(node -> checkpointStore.finishedAsync(started.executionId(), node))
+        .collect(Collectors.toSet())
+        .flatMap(finished -> resumeFrom(started, prepared, finished, claim));
   }
 
   private Mono<String> resumeFrom(
