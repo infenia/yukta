@@ -1,5 +1,85 @@
 # Changelog
 
+## [0.1.0-alpha.6](https://github.com/infenia/yukta/compare/v0.1.0-alpha.5...v0.1.0-alpha.6) (2026-11-28)
+
+
+### ⚠ BREAKING CHANGES
+
+* file persistence is gone; use yukta.session.store-type=postgres (build with -Pyukta.persistence=postgres) to keep state across restarts.
+
+### New features
+
+* **audit:** page back through the control audit with a before cursor ([#2793](https://github.com/infenia/yukta/issues/2793)) ([0a16d44](https://github.com/infenia/yukta/commit/0a16d44ec0dd761863d5f6969c70b345af203d86))
+* **boot:** durable runs by default in the postgres profile ([#2756](https://github.com/infenia/yukta/issues/2756)) ([e95fc85](https://github.com/infenia/yukta/commit/e95fc852ce8ac7d936f0f13f8265df9b98e6d296))
+* **core:** concurrency keys for workflow starts ([#2753](https://github.com/infenia/yukta/issues/2753)) ([eebff17](https://github.com/infenia/yukta/commit/eebff177d0c19b8cf0e08472813d6fec4f0adaa1)), closes [#849](https://github.com/infenia/yukta/issues/849)
+* **core:** edge buffer order PRIORITY and CLASSIFY priorityByLabel ([#2744](https://github.com/infenia/yukta/issues/2744)) ([4d40f83](https://github.com/infenia/yukta/commit/4d40f8313379800ba6c949dc9c9559c0e8796e7b))
+* **core:** remove ended runs older than yukta.execution-log.max-age, with their checkpoints ([#2740](https://github.com/infenia/yukta/issues/2740)) ([df22b5b](https://github.com/infenia/yukta/commit/df22b5bc1eef391b2fc8f7cddfbd304d88df6b1f))
+* **core:** resume a resumed run again, and cap automatic resumes ([#2761](https://github.com/infenia/yukta/issues/2761)) ([be4d718](https://github.com/infenia/yukta/commit/be4d718f11cbcba9aa2fbe0dd1801913cf2a0e17))
+* **core:** supervisor setting onReviewTimeout lets a command through on a review timeout ([#2739](https://github.com/infenia/yukta/issues/2739)) ([8e5eb3b](https://github.com/infenia/yukta/commit/8e5eb3ba8a6d9c07fd467e42293dc60fc3a49218))
+* **core:** throttle and debounce workflow starts ([#2757](https://github.com/infenia/yukta/issues/2757)) ([4e3e8d9](https://github.com/infenia/yukta/commit/4e3e8d97681ee427a82d813f44e721082bb72c3c)), closes [#849](https://github.com/infenia/yukta/issues/849)
+* **core:** trace messages with the run's id, count retries, drop controlMessage ([#2732](https://github.com/infenia/yukta/issues/2732)) ([3e4c136](https://github.com/infenia/yukta/commit/3e4c13612fed4cea4cdd88a0bcabd623dbd6387b))
+* **mcp:** test a workflow from MCP and the CLI ([#2772](https://github.com/infenia/yukta/issues/2772)) ([f976ff9](https://github.com/infenia/yukta/commit/f976ff91dc5489740bf17aff96cbc31c7a7f3f64))
+* **persistence-postgres:** cap the checkpoint output of one run at yukta.restart.max-bytes-per-run ([#2742](https://github.com/infenia/yukta/issues/2742)) ([52971eb](https://github.com/infenia/yukta/commit/52971eb24c3ba2c060a7d5cff1d02d9e688c1d55))
+* **plugin-api:** read message envelope fields in expressions with ${message.*} ([#2731](https://github.com/infenia/yukta/issues/2731)) ([c5096b7](https://github.com/infenia/yukta/commit/c5096b78e8d1af29e60e2525cb06f29805dc6074))
+* **plugins:** AGGREGATE joins by sequence or correlation, the reverse of SPLITTER ([#2734](https://github.com/infenia/yukta/issues/2734)) ([89993bc](https://github.com/infenia/yukta/commit/89993bce55b0ab3b74e8e98b5e8eadcb0ce917b7))
+* **plugins:** formatIndicator carries the payload's media type ([#2745](https://github.com/infenia/yukta/issues/2745)) ([0928e91](https://github.com/infenia/yukta/commit/0928e9195c9ec9a13cba2eeef35163855fa17468))
+* **plugins:** MAPPER envelope option sets priority, expiry, format, replyTo and correlationId ([#2741](https://github.com/infenia/yukta/issues/2741)) ([655e31c](https://github.com/infenia/yukta/commit/655e31c4bcc9c52241608e924552c9afdaa323d6))
+* replyTo request-reply, ?wait= on webhook and API start with a REPLY terminal ([#2746](https://github.com/infenia/yukta/issues/2746)) ([82ad9d2](https://github.com/infenia/yukta/commit/82ad9d21dfcb0f29bfe5b949c28aa6342b617731))
+* **runs:** page the Runs list, cap workflow run history, search, download workflow JSON ([#2738](https://github.com/infenia/yukta/issues/2738)) ([7ac0883](https://github.com/infenia/yukta/commit/7ac08839ba766c07ff03a5916612254e69c6e1ff))
+* **workers:** a retry avoids the worker that failed the previous attempt ([#2785](https://github.com/infenia/yukta/issues/2785)) ([9c3b477](https://github.com/infenia/yukta/commit/9c3b47753fe7e42481f61a871ce13543c42e8b25))
+* **workers:** continue the run's trace on a worker ([#2750](https://github.com/infenia/yukta/issues/2750)) ([26d7946](https://github.com/infenia/yukta/commit/26d794658ff825475a299edc7a93789637d94329))
+* **workers:** efficiency plan stage 1: meters, per-node plugin, heartbeat throttle, quarantine, rolling upgrade ([#2780](https://github.com/infenia/yukta/issues/2780)) ([027a242](https://github.com/infenia/yukta/commit/027a2429f13e979e1818edf73f78574cd4e12245))
+* **workers:** lean worker without web app, persistence, scheduler, MCP and UI ([#2782](https://github.com/infenia/yukta/issues/2782)) ([eb5d3e0](https://github.com/infenia/yukta/commit/eb5d3e09f4cfb01717355ac9f31e511ee66da73d))
+* **workers:** queue an attempt for a free slot instead of failing at once ([#2794](https://github.com/infenia/yukta/issues/2794)) ([8c5d670](https://github.com/infenia/yukta/commit/8c5d670e45c84fdc7f5c1a1fe5b12f591b452620))
+
+
+### Bug fixes
+
+* **boot:** drive the console key tests through a synchronous terminal ([#2725](https://github.com/infenia/yukta/issues/2725)) ([2422541](https://github.com/infenia/yukta/commit/24225417d7a1f7c11b9c1d60245e3d2d76e41a9b))
+* **boot:** keep console keys responsive while the server is polled ([#2688](https://github.com/infenia/yukta/issues/2688)) ([33adc21](https://github.com/infenia/yukta/commit/33adc21f24d8198168a7bfffcdd1cd0342c19a2a))
+* **boot:** keep the gated modules findable in the native image, so a Plus binary can use PostgreSQL ([#2743](https://github.com/infenia/yukta/issues/2743)) ([2e78eeb](https://github.com/infenia/yukta/commit/2e78eeb4074ffe013261e32dd5d4a41598b76d09))
+* **cli:** default the server URL to 127.0.0.1 so it does not depend on DNS ([#2722](https://github.com/infenia/yukta/issues/2722)) ([40f60ab](https://github.com/infenia/yukta/commit/40f60abe674cb7148b9db4344408f65c6cddadfb))
+* **core:** do not count refused requests against the rate limit ([#2724](https://github.com/infenia/yukta/issues/2724)) ([5a756ad](https://github.com/infenia/yukta/commit/5a756ad5a5cb6f6dc941f48c0f468c5434117400))
+* **core:** mask resolved secrets in node errors and results too ([#2758](https://github.com/infenia/yukta/issues/2758)) ([13311a8](https://github.com/infenia/yukta/commit/13311a807c9098963e78dc7d2a0d051eabb15362))
+* **docs:** drop unused destructured names in workflow playground ([#2657](https://github.com/infenia/yukta/issues/2657)) ([8a32d36](https://github.com/infenia/yukta/commit/8a32d36cb0f9659316f60f1f2b14861bb17cb6a5))
+* **plugins:** stop telling Claude the user did not answer; ADR 0013 structured agent questions ([#2717](https://github.com/infenia/yukta/issues/2717)) ([52c0917](https://github.com/infenia/yukta/commit/52c0917adfe3d335a16ab659458d59cf7edb5535))
+* **process-executor:** route a command that is not installed to the failure port ([#2661](https://github.com/infenia/yukta/issues/2661)) ([53a7aba](https://github.com/infenia/yukta/commit/53a7abaa9b40148e260add66ad8d0c7a3ece978c)), closes [#1216](https://github.com/infenia/yukta/issues/1216)
+* **release:** check out examples in the draft verification job ([#2663](https://github.com/infenia/yukta/issues/2663)) ([febb189](https://github.com/infenia/yukta/commit/febb189a3f804cecbef75a9ff3333d5c60750127))
+* **release:** match the redesigned console header in the console smoke ([#2727](https://github.com/infenia/yukta/issues/2727)) ([a862856](https://github.com/infenia/yukta/commit/a862856fa2ef0d9de4013161d2d7247970e0ae92)), closes [#2719](https://github.com/infenia/yukta/issues/2719)
+* **schedule-trigger:** don't fire a cron execution twice when the timer wakes early ([#2775](https://github.com/infenia/yukta/issues/2775)) ([0145a3b](https://github.com/infenia/yukta/commit/0145a3bfcd8742ef0d95b6a349c158405ad8d255))
+* tolerate cancelled-response in conformance sweep; clear CodeQL unused-class alert ([#2658](https://github.com/infenia/yukta/issues/2658)) ([75264e3](https://github.com/infenia/yukta/commit/75264e3bceccc5d5cb26aa35ee45ea8fed0b2162))
+* **ui:** clear the three OSV findings (minimatch, zod, ip-address) ([#2673](https://github.com/infenia/yukta/issues/2673)) ([fb412ca](https://github.com/infenia/yukta/commit/fb412ca99526927a544b82aff31dc38ec8562f07))
+* **ui:** gate the whole app behind the API key until the server accepts one ([#2747](https://github.com/infenia/yukta/issues/2747)) ([e36bbbd](https://github.com/infenia/yukta/commit/e36bbbdd0af36cc445c19b4e1ee00d090fbd0891))
+* **ui:** rename the Control dashboard to Dashboard ([#2701](https://github.com/infenia/yukta/issues/2701)) ([fe642fb](https://github.com/infenia/yukta/commit/fe642fbb3cfe9f81080a158b1f8b373d73866cde))
+* **ui:** stop template preview labels overlapping on large workflows ([#2774](https://github.com/infenia/yukta/issues/2774)) ([9d99306](https://github.com/infenia/yukta/commit/9d9930623615515830cab3629e94adbd01966858))
+* **workers:** keep nodes with a run budget on the control plane ([#2751](https://github.com/infenia/yukta/issues/2751)) ([9eb0a85](https://github.com/infenia/yukta/commit/9eb0a8559bf2d1637bfe93071173e0c1ff0e5698)), closes [#719](https://github.com/infenia/yukta/issues/719)
+* **workers:** refuse to start a native image of the wrong workers role, smoke both native roles ([#2752](https://github.com/infenia/yukta/issues/2752)) ([b045f34](https://github.com/infenia/yukta/commit/b045f34538a023c15cdc3602513df09d9101274f)), closes [#720](https://github.com/infenia/yukta/issues/720)
+* **workers:** reset the reconnect pause, close each attempt's connection, take slots atomically ([#2748](https://github.com/infenia/yukta/issues/2748)) ([53f33ce](https://github.com/infenia/yukta/commit/53f33ce5311dcc3d4519ba814d38923c393b8b47))
+* **workers:** stream a placed node's live log lines back to the control plane ([#2749](https://github.com/infenia/yukta/issues/2749)) ([124a400](https://github.com/infenia/yukta/commit/124a4002c44a5f99387658247683d8806641020c)), closes [#710](https://github.com/infenia/yukta/issues/710)
+
+
+### Performance
+
+* **core:** seed the run analytics from the last day of the log, not all of it ([#2735](https://github.com/infenia/yukta/issues/2735)) ([02d3f55](https://github.com/infenia/yukta/commit/02d3f55d826db83121f836296c3de82c64a4832b)), closes [#1821](https://github.com/infenia/yukta/issues/1821)
+* count unfinished runs in the e2e latency and fail a soak that leaks ([#2730](https://github.com/infenia/yukta/issues/2730)) ([96c412e](https://github.com/infenia/yukta/commit/96c412e95688862c424cd04fdfea632a6c507852))
+* **web:** stop sorting and collecting every run in run search and counts ([#2729](https://github.com/infenia/yukta/issues/2729)) ([0ca3013](https://github.com/infenia/yukta/commit/0ca30131e9610f49b75c913b231bdcbff9cc625f))
+
+
+### Documentation
+
+* add C4 architecture diagrams ([#2702](https://github.com/infenia/yukta/issues/2702)) ([3e88927](https://github.com/infenia/yukta/commit/3e8892710fef771a59137be36adef0dfb9773142))
+* configure the CLI and each MCP client, including where the API key goes ([#2726](https://github.com/infenia/yukta/issues/2726)) ([5aea819](https://github.com/infenia/yukta/commit/5aea8194dd95a7147088cb020d7ff5e63e5feace))
+* fix the Learn tab and the missing reader-state box ([#2755](https://github.com/infenia/yukta/issues/2755)) ([e8aa651](https://github.com/infenia/yukta/commit/e8aa651d95e537b0d1857fec0e256cbe0711a521))
+* **readme:** fix Scorecard and release badges, drop stars badge ([#2670](https://github.com/infenia/yukta/issues/2670)) ([8ba3488](https://github.com/infenia/yukta/commit/8ba3488b32b590a0048cfdc011c86f560f4a7e0d))
+* **readme:** split start, status and stop; Docker host networking; disclaimers ([#2666](https://github.com/infenia/yukta/issues/2666)) ([42ec1b8](https://github.com/infenia/yukta/commit/42ec1b8d47549f12dfeec16c5fb3e4b5cccf9de8))
+* **readme:** start the server in daemon mode in the quickstart ([#2665](https://github.com/infenia/yukta/issues/2665)) ([62c87fa](https://github.com/infenia/yukta/commit/62c87fa1741f303886720b7aba32f8407f6a044f))
+* **skills:** the ticket pipeline files tickets from text and plans; pickup removed ([#2718](https://github.com/infenia/yukta/issues/2718)) ([930865c](https://github.com/infenia/yukta/commit/930865c328ee21205eb241b6c67cac7cc9ebba90))
+
+
+### Refactoring
+
+* remove the on-disk stores; PostgreSQL is the only durable store ([#2684](https://github.com/infenia/yukta/issues/2684)) ([2d1b326](https://github.com/infenia/yukta/commit/2d1b32606d4fa779638fadbcaf194d39f81510a8))
+
 ## [0.1.0-alpha.5](https://github.com/infenia/yukta/compare/v0.1.0-alpha.4...v0.1.0-alpha.5) (2026-11-23)
 
 
