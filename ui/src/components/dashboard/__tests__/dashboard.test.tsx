@@ -67,6 +67,34 @@ describe('KpiTile', () => {
     expect(container.querySelector('polyline')).not.toBeNull();
   });
 
+  it('draws grid lines behind the sparkline so it reads as a graph', () => {
+    const { container, rerender } = render(<KpiTile label="Runs" value="42" />);
+    expect(screen.queryByTestId('spark-grid')).toBeNull();
+    rerender(<KpiTile label="Runs" value="42" series={[1, 2, 3]} />);
+    const grid = screen.getByTestId('spark-grid');
+    expect(grid.querySelectorAll('line')).toHaveLength(6);
+    // a faint frame closes the plot area
+    expect(container.querySelector('svg')).toHaveClass(
+      'border',
+      'border-border/60'
+    );
+    const line = container.querySelector('polyline');
+    if (!line) throw new Error('no sparkline polyline rendered');
+    expect(
+      grid.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it('draws the empty graph area, without a line, when the series has no points yet', () => {
+    const { container } = render(
+      <KpiTile label="Runs" value="0" series={[]} onDrill={() => undefined} />
+    );
+    expect(screen.getByTestId('spark-grid')).toBeInTheDocument();
+    expect(container.querySelector('polyline')).toBeNull();
+    // nothing to open yet, so no chart button
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
   it('scales points into the box; flat and empty series do not break', () => {
     expect(sparkPoints([0, 10], 100, 20)).toBe('0.0,20.0 100.0,0.0');
     expect(sparkPoints([5, 5, 5])).toBe('0.0,24.0 50.0,24.0 100.0,24.0');

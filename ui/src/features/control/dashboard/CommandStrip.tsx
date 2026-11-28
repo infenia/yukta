@@ -18,6 +18,7 @@ import { getOpenInputs } from '@/features/workflow/api/inputs';
 import { getLimits, limitText } from '../api/scheduler';
 import {
   failedHours,
+  fillSeries,
   formatChange,
   failedPoints,
   formatMs,
@@ -37,11 +38,29 @@ function useWaitingText(scope: Scope, live: boolean) {
     queryFn: () => getOpenInputs(APPROVALS_LIMIT),
     refetchInterval: live ? 10_000 : false,
   });
-  if (approvals.isError) return '–';
   const all = approvals.data ?? [];
   const n = all.filter((a) => inScope(scope, a)).length;
-  return `${n}${all.length >= APPROVALS_LIMIT ? '+' : ''}`;
+  const text = approvals.isError
+    ? '–'
+    : `${n}${all.length >= APPROVALS_LIMIT ? '+' : ''}`;
+  // the server keeps no history of waiting inputs, so the graph is the counts seen while this
+  // page is open, one per fetch
+  const [samples, setSamples] = useState<number[]>([]);
+  const [sampledAt, setSampledAt] = useState(0);
+  if (approvals.dataUpdatedAt !== sampledAt) {
+    setSampledAt(approvals.dataUpdatedAt);
+    setSamples((previous) => [...previous, n].slice(-SAMPLES));
+  }
+  return { text, samples };
 }
+
+const MINUTE_MS = 60_000;
+const HALF_HOUR_MS = 30 * MINUTE_MS;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+/** Counts of waiting inputs kept for the tile's graph. */
+const SAMPLES = 60;
 
 /** Said behind the engine tile's "i": what the number is and is not. */
 const ENGINE_INFO =
@@ -60,7 +79,10 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
     queryFn: getLimits,
     refetchInterval: live ? 5000 : false,
   }).data;
-  const waitingText = useWaitingText(scope, live);
+  const { text: waitingText, samples: waitingSamples } = useWaitingText(
+    scope,
+    live
+  );
   // running and waiting are gauges of the whole server, so their history is the global series
   const scheduler = useMetricSeries('yukta.executions.', '1h').data;
   const runningSeries = scheduler?.['yukta.executions.running'] ?? [];
@@ -77,6 +99,9 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
   const rate = successRate(dayRuns, dayFailed);
   const trend = start?.['overhead.start.p95'] ?? [];
   const successSeries = successPoints(day ?? []);
+  // every minute of the last hour, a quiet minute keeping the value before it
+  const hourly = (points: { t: number; v: number }[]) =>
+    fillSeries(points, now, HOUR_MS, MINUTE_MS, 0);
   const failedSeries = failedPoints(day ?? [], now);
   const hours = failedHours(day ?? [], now);
   const failedChange = hours.last - hours.previous;
@@ -105,7 +130,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
               : undefined
           }
           info="Runs executing now, against the server's concurrent-run limit. Always the whole server."
-          series={runningSeries.map((p) => p.v)}
+          series={hourly(runningSeries)}
           onDrill={() =>
             setDrill({
               title: 'Running',
@@ -121,7 +146,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
           value={limits ? String(limits.queued) : '–'}
           hint={limits ? `holds ${limits.queueCapacity}` : undefined}
           info="Runs waiting for a free slot. When the queue is full, new starts are refused. Always the whole server."
-          series={queuedSeries.map((p) => p.v)}
+          series={hourly(queuedSeries)}
           onDrill={() =>
             setDrill({
               title: 'Queued',
@@ -137,7 +162,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
           value={wait === undefined ? '–' : formatMs(wait)}
           hint="how long starts waited for a slot"
           info="How long runs that had to wait for a free slot waited, slowest 1 in 20, over the last hour. A rising number means the concurrent-run limit is too low for the load."
-          series={waitSeries.map((p) => p.v)}
+          series={hourly(waitSeries)}
           onDrill={() =>
             setDrill({
               title: 'Queue wait p95',
@@ -155,7 +180,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
           hint={rate === null ? undefined : `of ${dayRuns} runs`}
           tone={rate !== null && rate < 90 ? 'danger' : 'success'}
           info="The share of runs that finished without failing in the last 24 hours."
-          series={successSeries.map((p) => p.v)}
+          series={fillSeries(successSeries, now, DAY_MS, HALF_HOUR_MS)}
           onDrill={() =>
             setDrill({
               title: 'Success rate',
@@ -207,7 +232,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
               ? 'request to first plugin'
               : `request to plugin · hand-off ${formatMs(handoff)}`
           }
-          series={trend.map((p) => p.v)}
+          series={hourly(trend)}
           onDrill={() =>
             setDrill({
               title: 'Engine p95',
@@ -228,6 +253,7 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
             label="Inputs waiting"
             value={waitingText}
             hint="open the inbox"
+            series={waitingSamples}
           />
         </Link>
       </div>

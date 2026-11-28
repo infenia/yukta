@@ -157,7 +157,7 @@ function OptionCatalog() {
         <Popover>
           <PopoverTrigger
             aria-label="How configuration works"
-            className="border-border text-primary hover:bg-primary/10 transition-standard focus-visible:ring-ring/30 ml-auto flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border outline-none focus-visible:ring-3"
+            className="border-border text-primary transition-standard hover:bg-primary/10 focus-visible:ring-ring/30 ml-auto flex size-9 cursor-pointer items-center justify-center rounded-full border outline-none focus-visible:ring-3"
           >
             <span
               aria-hidden="true"
@@ -231,7 +231,7 @@ function OptionCatalog() {
                           <span
                             aria-hidden="true"
                             className={cn(
-                              'material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-standard shrink-0 text-xl',
+                              'material-symbols-outlined text-on-surface-variant transition-standard group-hover:text-primary shrink-0 text-xl',
                               expanded && 'text-primary rotate-180'
                             )}
                           >

@@ -127,7 +127,7 @@ function VitalsBody() {
               max={g.max}
               valueText={g.text}
             />
-            <figcaption className="text-body-sm text-on-surface-variant text-center break-words">
+            <figcaption className="text-body-sm text-on-surface-variant text-center wrap-break-word">
               {g.name} · {g.caption}
             </figcaption>
           </figure>
@@ -192,7 +192,7 @@ export function SystemPanel({ live }: { live: boolean }) {
       title="System"
       action={
         concerns.length > 0 && (
-          <span className="text-label-sm bg-warning/15 text-on-surface rounded-full px-2 py-0.5">
+          <span className="bg-warning/15 text-label-sm text-on-surface rounded-full px-2 py-0.5">
             {concerns.join(' · ')}
           </span>
         )

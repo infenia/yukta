@@ -59,7 +59,7 @@ export function WorkflowDrawer({
           ].map(([name, value]) => (
             <div key={name} className="min-w-0">
               <dt className="text-label-sm text-on-surface-variant">{name}</dt>
-              <dd className="num text-label-md text-on-surface truncate">
+              <dd className="text-label-md num text-on-surface truncate">
                 {value}
               </dd>
             </div>

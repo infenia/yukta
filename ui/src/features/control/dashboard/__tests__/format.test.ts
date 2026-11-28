@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  fillSeries,
   formatMs,
   sumOf,
   tagOf,
@@ -302,5 +303,45 @@ describe('healthConcerns', () => {
     expect(healthConcerns({ 'yukta.system.memory.total': 100 })).toEqual([
       'Host memory 100% used',
     ]);
+  });
+});
+
+describe('fillSeries', () => {
+  const MIN = 60_000;
+  const now = 100 * MIN + 5_000;
+
+  it('fills the quiet steps with the value before them, the lead before the first point, and ends at now', () => {
+    const points = [
+      { t: 96 * MIN, v: 4 },
+      { t: 98 * MIN + 3_000, v: 9 },
+    ];
+    expect(fillSeries(points, now, 6 * MIN, MIN, 0)).toEqual([
+      0, 4, 4, 9, 9, 9,
+    ]);
+  });
+
+  it('starts with the lead value, or at the first point when there is none', () => {
+    const points = [{ t: 99 * MIN, v: 7 }];
+    expect(fillSeries(points, now, 4 * MIN, MIN, 0)).toEqual([0, 0, 7, 7]);
+    expect(fillSeries(points, now, 4 * MIN, MIN)).toEqual([7, 7]);
+  });
+
+  it('carries a point from before the window into it, takes the last of a step, and is empty without data', () => {
+    expect(fillSeries([{ t: 90 * MIN, v: 3 }], now, 3 * MIN, MIN)).toEqual([
+      3, 3, 3,
+    ]);
+    expect(
+      fillSeries(
+        [
+          { t: 99 * MIN + 1, v: 1 },
+          { t: 99 * MIN + 2, v: 2 },
+        ],
+        now,
+        2 * MIN,
+        MIN,
+        0
+      )
+    ).toEqual([2, 2]);
+    expect(fillSeries([], now, 3 * MIN, MIN)).toEqual([]);
   });
 });

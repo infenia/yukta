@@ -18,15 +18,45 @@ export function Sparkline({
       viewBox="0 -2 100 28"
       preserveAspectRatio="none"
       aria-hidden="true"
-      className={`${TONE[tone]} h-full min-h-5 w-full`}
+      className={`${TONE[tone]} border-border/60 size-full min-h-5 rounded-md border`}
     >
-      <polyline
-        points={sparkPoints(values)}
-        fill="none"
+      <g
         stroke="currentColor"
-        strokeWidth={2}
+        strokeOpacity={0.15}
+        strokeWidth={1}
         vectorEffect="non-scaling-stroke"
-      />
+        data-testid="spark-grid"
+      >
+        {[2, 12, 22].map((y) => (
+          <line
+            key={`h${y}`}
+            x1={0}
+            x2={100}
+            y1={y}
+            y2={y}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {[25, 50, 75].map((x) => (
+          <line
+            key={`v${x}`}
+            x1={x}
+            x2={x}
+            y1={-2}
+            y2={26}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+      </g>
+      {values.length > 1 && (
+        <polyline
+          points={sparkPoints(values)}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          vectorEffect="non-scaling-stroke"
+        />
+      )}
     </svg>
   );
 }
@@ -42,7 +72,7 @@ export function KpiTile({
   value,
   delta,
   deltaTone = 'neutral',
-  series = [],
+  series,
   compact = false,
   hint,
   adornment,
@@ -68,8 +98,11 @@ export function KpiTile({
   /** the sparkline colour */
   tone?: Tone;
 }) {
-  // a line needs two points; one point or none is left out rather than drawn as a dot
-  const spark = series.length > 1;
+  // a tile given a series always draws its graph area, so a quiet server still shows the frame;
+  // the line needs two points, and one point or none is left out rather than drawn as a dot
+  const plot = series !== undefined;
+  const values = series ?? [];
+  const spark = values.length > 1;
   return (
     <Tip label={title}>
       <div
@@ -101,19 +134,19 @@ export function KpiTile({
             </span>
           )}
         </div>
-        {spark &&
-          (onDrill ? (
+        {plot &&
+          (onDrill && spark ? (
             <button
               type="button"
               onClick={onDrill}
               aria-label={`Open ${label} chart`}
               className="hover:bg-muted w-2/5 max-w-32 shrink-0 cursor-pointer self-stretch rounded-md p-1"
             >
-              <Sparkline values={series} tone={tone} />
+              <Sparkline values={values} tone={tone} />
             </button>
           ) : (
             <div className="w-2/5 max-w-32 shrink-0 self-stretch p-1">
-              <Sparkline values={series} tone={tone} />
+              <Sparkline values={values} tone={tone} />
             </div>
           ))}
       </div>

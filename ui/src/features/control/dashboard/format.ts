@@ -225,3 +225,39 @@ export function healthConcerns(values: Record<string, number> | undefined) {
     concerns.push('Events dropped');
   return concerns;
 }
+
+/**
+ * The values of a series on an even grid that ends now, so a graph spans the whole window even
+ * when the server recorded nothing for some steps. A step without a point keeps the value before
+ * it (a gauge or a percentile stays what it last was); steps before the first point are `lead`,
+ * or left out when `lead` is undefined, so a line does not start with an invented value. A step
+ * with several points takes the last.
+ *
+ * @param points the recorded points, oldest first
+ * @param now the end of the window, epoch milliseconds
+ * @param spanMs the length of the window
+ * @param stepMs the length of one step
+ * @param lead the value before the first point, or undefined to start at the first point
+ */
+export function fillSeries(
+  points: { t: number; v: number }[],
+  now: number,
+  spanMs: number,
+  stepMs: number,
+  lead?: number
+): number[] {
+  const bucketOf = (t: number) => Math.floor(t / stepMs);
+  const byStep = new Map(points.map((p) => [bucketOf(p.t), p.v]));
+  const last = bucketOf(now);
+  const first = last - Math.round(spanMs / stepMs) + 1;
+  const before = points.filter((p) => bucketOf(p.t) < first);
+  const knownBefore =
+    before.length > 0 ? before[before.length - 1].v : undefined;
+  let carried = knownBefore ?? lead;
+  const values: number[] = [];
+  for (let step = first; step <= last; step++) {
+    carried = byStep.get(step) ?? carried;
+    if (carried !== undefined) values.push(carried);
+  }
+  return values;
+}

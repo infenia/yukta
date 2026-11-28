@@ -77,7 +77,7 @@ export function CapacityPanel({ live }: { live: boolean }) {
               </dl>
             </div>
             {drain.data?.draining && (
-              <p className="text-body-sm bg-warning/15 text-on-surface self-start rounded-full px-2 py-0.5">
+              <p className="bg-warning/15 text-body-sm text-on-surface self-start rounded-full px-2 py-0.5">
                 Draining: new starts are refused
                 {drain.data.idle ? ' (idle)' : ', running work finishes'}
               </p>

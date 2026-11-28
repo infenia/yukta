@@ -61,7 +61,7 @@ export function MetricDrawer({
                 <dt className="text-label-sm text-on-surface-variant">
                   {name}
                 </dt>
-                <dd className="num text-label-md text-on-surface truncate">
+                <dd className="text-label-md num text-on-surface truncate">
                   {format(value)}
                 </dd>
               </div>
