@@ -59,4 +59,13 @@ public class DraftRunFilteringLogStore implements ExecutionLogStore {
       final Set<ExecutionLogEvent.Type> types, final String executionId, final int limit) {
     return delegate.newest(types, executionId, limit);
   }
+
+  @Override
+  public Flux<ExecutionLogEvent> newestBefore(
+      final Set<ExecutionLogEvent.Type> types,
+      final String executionId,
+      final Instant before,
+      final int limit) {
+    return delegate.newestBefore(types, executionId, before, limit);
+  }
 }

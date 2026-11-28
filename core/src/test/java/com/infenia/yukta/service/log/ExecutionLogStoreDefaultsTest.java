@@ -120,4 +120,33 @@ class ExecutionLogStoreDefaultsTest {
         .containsExactly("e1");
     assertThat(store.newest(started, "none", 5).collectList().block()).isEmpty();
   }
+
+  @Test
+  void newestBefore_returnsTheEventsOlderThanTheCursorNewestFirst() {
+    final var store = listBacked(new ArrayList<>());
+    for (final String run : List.of("e1", "e2", "e3")) {
+      store.append(ExecutionLogEvent.started(run, "s1", "w1", "v1"));
+      Mono.delay(java.time.Duration.ofMillis(5)).block();
+    }
+    store.append(ExecutionLogEvent.finished("e1", "s1", "w1", SUCCESS, Map.of()));
+    final var started = java.util.Set.of(ExecutionLogEvent.Type.RUN_STARTED);
+    final Instant cursor =
+        store
+            .newest(started, null, 3)
+            .collectList()
+            .blockOptional()
+            .orElseThrow()
+            .get(1)
+            .timestamp();
+
+    assertThat(
+            store
+                .newestBefore(started, null, cursor, 5)
+                .map(ExecutionLogEvent::executionId)
+                .collectList()
+                .block())
+        .containsExactly("e1");
+    assertThat(store.newestBefore(started, "e3", cursor, 5).collectList().block()).isEmpty();
+    assertThat(store.newestBefore(started, null, cursor, 0).collectList().block()).isEmpty();
+  }
 }

@@ -37,7 +37,7 @@ class ControlAuditControllerTest {
   @Test
   void list_returnsControlCommandsNewestFirstWithTheirActor() {
     final var entries =
-        java.util.Objects.requireNonNull(controller().list(100, null).block()).data();
+        java.util.Objects.requireNonNull(controller().list(100, null, null).block()).data();
 
     assertThat(entries)
         .extracting(
@@ -55,7 +55,7 @@ class ControlAuditControllerTest {
   @Test
   void list_namesTheSessionAndWorkflowOfRunsTheTrackerStillHolds() {
     final var entries =
-        java.util.Objects.requireNonNull(controller().list(100, null).block()).data();
+        java.util.Objects.requireNonNull(controller().list(100, null, null).block()).data();
 
     assertThat(entries)
         .extracting(
@@ -75,7 +75,7 @@ class ControlAuditControllerTest {
     final var entries =
         java.util.Objects.requireNonNull(
                 new ControlAuditController(log, mock(TaskTrackerService.class))
-                    .list(10, null)
+                    .list(10, null, null)
                     .block())
             .data();
 
@@ -84,9 +84,9 @@ class ControlAuditControllerTest {
 
   @Test
   void list_filtersByExecutionAndLimit() {
-    assertThat(java.util.Objects.requireNonNull(controller().list(100, "e1").block()).data())
+    assertThat(java.util.Objects.requireNonNull(controller().list(100, "e1", null).block()).data())
         .hasSize(2);
-    assertThat(java.util.Objects.requireNonNull(controller().list(0, null).block()).data())
+    assertThat(java.util.Objects.requireNonNull(controller().list(0, null, null).block()).data())
         .hasSize(1);
   }
 
@@ -115,5 +115,14 @@ class ControlAuditControllerTest {
         ExecutionLogEvent.control(false, "e", "StopWorkflowCommand [by rules]", "deny:\nbusy");
 
     assertThat(ControlAuditEntry.from(event).reason()).isEqualTo("deny:\nbusy");
+  }
+
+  @Test
+  void list_withBeforeReturnsOnlyOlderCommands() {
+    final var all = controller().list(100, null, java.time.Instant.now().plusSeconds(60)).block();
+    final var none = controller().list(100, null, java.time.Instant.EPOCH).block();
+
+    assertThat(java.util.Objects.requireNonNull(all).data()).hasSize(3);
+    assertThat(java.util.Objects.requireNonNull(none).data()).isEmpty();
   }
 }

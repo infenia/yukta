@@ -108,6 +108,30 @@ public interface ExecutionLogStore {
   }
 
   /**
+   * The newest events of the given types that happened before an instant, newest first, at most
+   * {@code limit}: the next page after a page whose oldest event was at {@code before}. An event at
+   * exactly that instant is not repeated, so one more at the same instant is skipped. The default
+   * scans {@link #readAll()}; stores override it with a bounded query.
+   *
+   * @param types the event types wanted
+   * @param executionId only this run's events, or null for all
+   * @param before only events older than this
+   * @param limit how many events at most
+   * @return the events, newest first
+   */
+  default Flux<ExecutionLogEvent> newestBefore(
+      final Set<ExecutionLogEvent.Type> types,
+      final String executionId,
+      final Instant before,
+      final int limit) {
+    return readAll()
+        .collectList()
+        .flatMapMany(events -> Flux.fromIterable(events.reversed()))
+        .filter(event -> matches(event, types, executionId) && event.timestamp().isBefore(before))
+        .take(limit);
+  }
+
+  /**
    * Whether an event is of one of the types and, if given, of the run.
    *
    * @param event the event

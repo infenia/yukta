@@ -9222,7 +9222,7 @@
     },
     "/api/control/audit" : {
       "get" : {
-        "description" : "Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them",
+        "description" : "Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them. Page back with before, the time of the oldest entry received",
         "operationId" : "list_5",
         "parameters" : [ {
           "in" : "query",
@@ -9238,6 +9238,14 @@
           "name" : "executionId",
           "required" : false,
           "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "before",
+          "required" : false,
+          "schema" : {
+            "format" : "date-time",
             "type" : "string"
           }
         } ],

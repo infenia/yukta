@@ -39,6 +39,7 @@ const server = setupServer(
 
 beforeAll(() => server.listen());
 afterEach(() => {
+  server.resetHandlers();
   entries = [];
   fail = false;
   asked.length = 0;
@@ -238,6 +239,65 @@ describe('ControlAuditPanel filter and paging', () => {
       await screen.findByRole('button', { name: 'Show more' })
     );
     await waitFor(() => expect(asked.at(-1)).toBe('?limit=100'));
+  });
+
+  it('pages back with before once the newest 500 are shown', async () => {
+    server.use(
+      http.get('/api/control/audit', ({ request }) => {
+        const url = new URL(request.url);
+        asked.push(url.search);
+        const limit = Number(url.searchParams.get('limit'));
+        return url.searchParams.has('before')
+          ? ok(many(2).map((e) => ({ ...e, time: '2026-01-01T00:00:00Z' })))
+          : ok(many(limit));
+      })
+    );
+    renderWithProviders(<ControlAuditPanel />);
+    for (let i = 0; i < 9; i++) {
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Show more' })
+      );
+      await waitFor(() => expect(asked.at(-1)).toBe(`?limit=${50 * (i + 2)}`));
+    }
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Show more' })
+    );
+
+    await waitFor(() => expect(asked.at(-1)).toMatch(/^\?limit=50&before=/));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Show more' })
+      ).not.toBeInTheDocument()
+    );
+  });
+
+  it('hides Show more when paging back fails', async () => {
+    server.use(
+      http.get('/api/control/audit', ({ request }) => {
+        const url = new URL(request.url);
+        asked.push(url.search);
+        if (url.searchParams.has('before')) {
+          return HttpResponse.json({ error: 'boom' }, { status: 500 });
+        }
+        return ok(many(Number(url.searchParams.get('limit'))));
+      })
+    );
+    renderWithProviders(<ControlAuditPanel />);
+    for (let i = 0; i < 9; i++) {
+      await userEvent.click(
+        await screen.findByRole('button', { name: 'Show more' })
+      );
+      await waitFor(() => expect(asked.at(-1)).toBe(`?limit=${50 * (i + 2)}`));
+    }
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Show more' })
+    );
+    await waitFor(() => expect(asked.at(-1)).toMatch(/^\?limit=50&before=/));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Show more' })
+      ).not.toBeInTheDocument()
+    );
   });
 
   it('hides Show more when the last page was not full', async () => {

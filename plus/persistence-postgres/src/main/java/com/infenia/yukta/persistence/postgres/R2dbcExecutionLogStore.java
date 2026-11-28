@@ -381,6 +381,16 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
       final java.util.Set<ExecutionLogEvent.Type> types,
       final String executionId,
       final int limit) {
+    return newestBefore(types, executionId, null, limit);
+  }
+
+  /** As {@link #newest}, with {@code ts < before} when {@code before} is given. */
+  @Override
+  public Flux<ExecutionLogEvent> newestBefore(
+      final java.util.Set<ExecutionLogEvent.Type> types,
+      final String executionId,
+      final java.time.Instant before,
+      final int limit) {
     final List<ExecutionLogEvent.Type> wanted = List.copyOf(types);
     if (wanted.isEmpty() || limit < 1) {
       return Flux.empty();
@@ -394,6 +404,7 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
                       .collect(java.util.stream.Collectors.joining(", "))
                   + ")"
                   + (executionId == null ? "" : " AND execution_id = :id")
+                  + (before == null ? "" : " AND ts < :before")
                   + " ORDER BY seq DESC LIMIT :limit";
           DatabaseClient.GenericExecuteSpec spec = client.sql(sql);
           for (int i = 0; i < wanted.size(); i++) {
@@ -401,6 +412,9 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore, SmartLifecycle
           }
           if (executionId != null) {
             spec = spec.bind("id", executionId);
+          }
+          if (before != null) {
+            spec = spec.bind("before", before);
           }
           return parse(
               spec.bind("limit", limit)
