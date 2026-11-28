@@ -150,6 +150,18 @@ The limits above count runs of a whole workflow. To allow at most so many runs a
 - `overflow` is what a start does when its key is at the limit: `QUEUE` (the default) waits as `QUEUED`, in priority order, within `queue-capacity`; `REJECT` answers `429` and counts `yukta.executions.rejected{reason=key_limit}`. It applies only when the key is what holds the start back: a start held back by `max-concurrent` follows `on-limit` as before.
 - Restarts and resumes claim the key of their payload too, with the limit the stored workflow has now.
 
+Two more settings sit next to `concurrency`, each with an optional `key` (without one, the whole workflow shares one key):
+
+```json
+"admission": {
+  "throttle": { "key": "${payload.tenant}", "limit": 10, "periodMs": 60000 },
+  "debounce": { "key": "${payload.ticket}", "periodMs": 5000 }
+}
+```
+
+- **`throttle`** admits at most `limit` starts per `periodMs` with the same key (a sliding window). A start over it does not fail: it waits as `QUEUED`, in priority order and within `queue-capacity` and `queue-timeout`, and is admitted when the window has room. Restarts and resumes count too. Unlike `max-starts-per-minute`, which refuses, a throttle smooths a burst out.
+- **`debounce`** turns a burst into one run: the first start with a key runs at once, and every start with the same key within `periodMs` of it starts nothing and gets that run's execution id. The later starts' payloads are dropped. A start that fails (refused, for example) leaves no window behind. Only new starts are debounced; a restart is always run. The windows are kept in memory on the server that admits runs.
+
 ## Variations that matter
 
 - **Restarts and resumes take a slot too.** A restart of a finished run, a restart from a node and a resume wait for a slot like any start. Child runs of a sub-workflow run on their parent's slot.

@@ -139,7 +139,7 @@ public class ExecutionResumer {
   private Mono<String> start(
       final ExecutionLogEvent started,
       final PreparedWorkflow prepared,
-      final ExecutionScheduler.@Nullable KeyClaim claim) {
+      final ExecutionScheduler.@Nullable Claims claim) {
     if (!DefinitionVersion.of(prepared).equals(started.definitionVersion())) {
       return Mono.error(
           new ConflictException(
@@ -158,7 +158,7 @@ public class ExecutionResumer {
       final ExecutionLogEvent started,
       final PreparedWorkflow prepared,
       final Set<String> finished,
-      final ExecutionScheduler.@Nullable KeyClaim claim) {
+      final ExecutionScheduler.@Nullable Claims claim) {
     final RestartPlan plan = RestartPlan.resuming(prepared, finished);
     if (plan.rerun().isEmpty()) {
       return Mono.error(
