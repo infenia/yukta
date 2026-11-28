@@ -2008,6 +2008,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListWorkflowRow" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowRow"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListWorkflowSummary" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -8433,6 +8479,30 @@
         },
         "type" : "object"
       },
+      "WorkflowRow" : {
+        "properties" : {
+          "failures" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "p50Ms" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "p95Ms" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "runs" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "WorkflowStartRequest" : {
         "description" : "Request object for starting a workflow",
         "properties" : {
@@ -11523,6 +11593,44 @@
           }
         },
         "summary" : "Stream metric samples",
+        "tags" : [ "Metrics API" ]
+      }
+    },
+    "/api/metrics/workflows" : {
+      "get" : {
+        "description" : "Runs, failures and run-duration percentiles per workflow",
+        "operationId" : "workflows",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "range",
+          "required" : false,
+          "schema" : {
+            "default" : "1h",
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 20,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListWorkflowRow"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Workflow durations",
         "tags" : [ "Metrics API" ]
       }
     },

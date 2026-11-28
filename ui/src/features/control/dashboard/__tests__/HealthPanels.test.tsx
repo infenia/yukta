@@ -100,6 +100,35 @@ describe('VitalsPanel', () => {
     expect(screen.getByText('30.0')).toBeInTheDocument();
   });
 
+  it('shows the host memory beside the JVM heap, and the heap the JVM has reserved', () => {
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({
+        data: {
+          'jvm.memory.used{area=heap,id=eden}': 100_000_000,
+          'jvm.memory.max{area=heap,id=eden}': 400_000_000,
+          'jvm.memory.committed{area=heap,id=eden}': 250_000_000,
+          'yukta.system.memory.total': 16_000_000_000,
+          'yukta.system.memory.free': 4_000_000_000,
+        },
+      })
+    );
+    renderWithProviders(<VitalsPanel />);
+    expect(
+      screen.getByText('Host memory 75%, 12.0 of 16.0 GB')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Heap reserved')).toBeInTheDocument();
+    expect(screen.getByText('250 MB')).toBeInTheDocument();
+  });
+
+  it('leaves out the host memory and the reserved heap when the server does not report them', () => {
+    vi.mocked(useMetricSnapshot).mockReturnValue(
+      q({ data: { 'jvm.threads.live': 10 } })
+    );
+    renderWithProviders(<VitalsPanel />);
+    expect(screen.queryByText(/Host memory/)).toBeNull();
+    expect(screen.queryByText('Heap reserved')).toBeNull();
+  });
+
   it('says so without samples and retries a failed read', () => {
     const refetch = vi.fn();
     vi.mocked(useMetricSnapshot).mockReturnValue(q({ data: {}, refetch }));

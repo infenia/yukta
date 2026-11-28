@@ -161,6 +161,7 @@ class RunAnalyticsTest {
         .containsEntry("runs.failed", 1.0)
         .containsEntry("runs.SUCCESS", 1.0)
         .containsEntry("runs.CANCELLED", 1.0)
+        .containsEntry("duration.p50", 2000.0)
         .containsEntry("duration.p95", 3000.0);
     final var series = analytics.series(RunAnalytics.GLOBAL, ALL, HOUR);
     assertThat(series.get("duration.p50"))
@@ -221,6 +222,8 @@ class RunAnalyticsTest {
     assertThat(analytics.snapshot("session:other")).containsEntry("runs.finished", 6.0);
     assertThat(analytics.snapshot("workflow:other")).containsEntry("runs.finished", 6.0);
     assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsEntry("runs.finished", 56.0);
+    // the shared "other" is not a workflow, so it is not listed
+    assertThat(analytics.workflows(HOUR, 100)).hasSize(50);
   }
 
   @Test
@@ -391,6 +394,35 @@ class RunAnalyticsTest {
     assertThat(rows.getFirst().failures()).isEqualTo(1);
     assertThat(rows.getFirst().avgMs()).isEqualTo(200.0);
     assertThat(analytics.modules("session:s1", HOUR)).hasSize(2);
+  }
+
+  @Test
+  void workflowsAreRankedByTheirSlowestRuns() {
+    run("a", "s1", "w1", 0, 1000, SUCCESS);
+    run("b", "s1", "w1", 10, 3000, FAILURE);
+    run("c", "s2", "w2", 20, 200, SUCCESS);
+    // never started, so counted but not timed
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("q", "s1", "w3", "QUEUED", T0));
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged("q", "s1", "w3", "CANCELLED", T0.plusSeconds(1)));
+
+    final var rows = analytics.workflows(HOUR, 10);
+
+    assertThat(rows)
+        .extracting(RunAnalytics.WorkflowRow::workflowId)
+        .containsExactly("w1", "w2", "w3");
+    assertThat(rows.getFirst()).isEqualTo(new RunAnalytics.WorkflowRow("w1", 2, 1, 1000.0, 3000.0));
+    assertThat(rows.getLast()).isEqualTo(new RunAnalytics.WorkflowRow("w3", 1, 0, 0.0, 0.0));
+    assertThat(analytics.workflows(HOUR, 1)).hasSize(1);
+  }
+
+  @Test
+  void workflowsOutsideTheRangeAreNotListed() {
+    run("a", "s1", "w1", 0, 1000, SUCCESS);
+
+    // the clock is ten minutes after the run
+    assertThat(analytics.workflows(Duration.ofMinutes(5), 10)).isEmpty();
+    assertThat(analytics.workflows(Duration.ofMinutes(15), 10)).hasSize(1);
   }
 
   @Test

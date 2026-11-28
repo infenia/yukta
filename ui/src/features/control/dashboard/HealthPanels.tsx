@@ -65,6 +65,10 @@ function VitalsBody() {
   const values = snapshot.data;
   const heapUsed = sumOf(values, 'jvm.memory.used{area=heap');
   const heapMax = sumOf(values, 'jvm.memory.max{area=heap');
+  const heapCommitted = sumOf(values, 'jvm.memory.committed{area=heap');
+  // the machine's (or container's) memory, which the heap is only a part of
+  const hostTotal = values?.['yukta.system.memory.total'] ?? 0;
+  const hostUsed = hostTotal - (values?.['yukta.system.memory.free'] ?? 0);
   const cpu = (values?.['process.cpu.usage'] ?? 0) * 100;
   const threads = values?.['jvm.threads.live'] ?? 0;
   return (
@@ -75,7 +79,7 @@ function VitalsBody() {
       emptyText="No samples yet"
       onRetry={() => void snapshot.refetch()}
     >
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {[
           {
             name: 'JVM heap',
@@ -84,6 +88,17 @@ function VitalsBody() {
             max: Math.max(1, heapMax),
             text: `${Math.round((heapUsed / Math.max(1, heapMax)) * 100)}%`,
           },
+          ...(hostTotal > 0
+            ? [
+                {
+                  name: 'Host memory',
+                  caption: usedOfBytes(hostUsed, hostTotal),
+                  value: hostUsed,
+                  max: hostTotal,
+                  text: `${Math.round((hostUsed / hostTotal) * 100)}%`,
+                },
+              ]
+            : []),
           {
             name: 'CPU',
             caption: 'process',
@@ -112,7 +127,15 @@ function VitalsBody() {
           </figure>
         ))}
       </div>
-      <dl className="text-body-sm text-on-surface-variant mt-2 flex gap-4">
+      <dl className="text-body-sm text-on-surface-variant mt-2 flex flex-wrap gap-x-4 gap-y-1">
+        {heapCommitted > 0 && (
+          <div>
+            <dt>Heap reserved</dt>
+            <dd className="num text-on-surface">
+              {usedOfBytes(heapCommitted, 0)}
+            </dd>
+          </div>
+        )}
         <div>
           <dt>Longest GC pause</dt>
           <dd className="num text-on-surface">

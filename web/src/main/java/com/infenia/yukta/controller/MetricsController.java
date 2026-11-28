@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import static com.infenia.yukta.controller.MetricsRanges.withRange;
+
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.metrics.MetricSample;
@@ -10,14 +12,11 @@ import com.infenia.yukta.service.metrics.RunAnalytics;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,15 +24,11 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 /** Recent history of the server's own metrics, for the Control dashboard. */
 @RestController
-// the live-run lookup adds the tracker; this controller is the metrics facade
-@SuppressWarnings("PMD.CouplingBetweenObjects")
 @RequestMapping("/api/metrics")
 @RequiredArgsConstructor
 @Tag(name = "Metrics API", description = "Recent history of server metrics")
@@ -49,14 +44,6 @@ import reactor.core.scheduler.Schedulers;
   RunAnalytics.LiveRun.class
 })
 public class MetricsController {
-
-  /** Ranges a client may ask for. */
-  private static final Map<String, Duration> RANGES =
-      Map.of(
-          "15m", Duration.ofMinutes(15),
-          "1h", Duration.ofHours(1),
-          "6h", Duration.ofHours(6),
-          "24h", Duration.ofHours(24));
 
   /** The sampler. */
   private final MetricsSampler sampler;
@@ -261,17 +248,5 @@ public class MetricsController {
       @RequestHeader(name = "Last-Event-ID", required = false) final String lastEventId) {
     // a reconnect starts again at the current sample, so IDs restart and nothing is skipped
     return SseStreams.events(sampler.stream(), null, SseStreams.HEARTBEAT);
-  }
-
-  /** Reads with a range, or answers 400 when the range is not one of the four. */
-  private static <T> Mono<ApiResponse<T>> withRange(
-      final String range, final Function<Duration, T> read, final String text) {
-    final Duration duration = RANGES.get(range);
-    return duration == null
-        ? Mono.error(
-            new ResponseStatusException(HttpStatus.BAD_REQUEST, "range must be 15m, 1h, 6h or 24h"))
-        // off the event loop: a 24 h read scans every sample
-        : Mono.fromSupplier(() -> ApiResponse.success(200, text, read.apply(duration)))
-            .subscribeOn(Schedulers.boundedElastic());
   }
 }
