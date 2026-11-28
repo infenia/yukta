@@ -154,7 +154,34 @@ The digest to pin covers the plugin's directory **and the tool's input schema**,
 
 ## Verify it worked
 
-`GET /api/plugins` (or the `list_plugins` MCP tool) lists `WORD_COUNT` with its options and ports. A node of that type in a workflow shows the program's stderr lines in its output.
+`GET /api/plugins` (or the `list_plugins` MCP tool) lists `WORD_COUNT` with its options and ports. Then use it in a workflow, with one terminal per port:
+
+```json wc.json
+{
+  "sessionId": "wc", "name": "Word count",
+  "workflows": { "main": { "workflowId": "main", "description": "Count words",
+    "nodes": [
+      { "nodeId": "start", "type": "API_TRIGGER", "config": {} },
+      { "nodeId": "count", "type": "WORD_COUNT", "config": { "longOver": 3 } },
+      { "nodeId": "short", "type": "CONSOLE_TERMINAL", "config": {} },
+      { "nodeId": "long", "type": "CONSOLE_TERMINAL", "config": {} }
+    ],
+    "edges": [
+      { "source": "start", "target": "count" },
+      { "source": "count", "target": "short", "sourcePort": "default" },
+      { "source": "count", "target": "long", "sourcePort": "long" }
+    ] } }
+}
+```
+
+```bash
+yukta-cli session apply wc.json
+yukta-cli workflow start wc main --payload '{"text":"one two three four five"}'
+yukta-cli result wc <execution-id>
+yukta-cli logs wc <execution-id> --node count --tail 5
+```
+
+The result reaches `long` with `"words": 5`, and the node's log shows `counted 5 words`, the program's stderr line.
 
 ## Security
 

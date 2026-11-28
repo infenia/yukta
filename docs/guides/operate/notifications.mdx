@@ -70,7 +70,7 @@ Delivery is **at least once**: a failed post is retried after 1 s, then with dou
 ## Who raises what
 
 - Input requests always raise a question. With no rule for a category, `run.failed` alerts operators and `delivery.failed` alerts administrators; `run.finished` and `run.held` raise nothing until a rule names them. With rules for a category, only a matching rule raises (the first by name wins).
-- A workflow raises its own with `NOTIFY_TERMINAL` and `target: inbox` (at most 20 a minute and 200 per run), or a plugin through `NotificationGateway`. See example `10-inbox-notification`.
+- A workflow raises its own with `NOTIFY_TERMINAL` and `target: inbox` (at most 20 a minute and 200 per run; the plugin is off by default, so start the server with `YUKTA_PLUGINS_ENABLED=NOTIFY_TERMINAL`), or a plugin through `NotificationGateway`. See example `10-inbox-notification`.
 
 ## People's preferences
 

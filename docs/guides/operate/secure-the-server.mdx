@@ -75,7 +75,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     After that instant the key is refused with `401`. Revoking a key still needs a settings change and a restart.
   </Step>
   <Step title="Allow only the commands you mean">
-    `PROCESS_EXECUTOR` runs nothing until you allow commands. List the executables:
+    `PROCESS_EXECUTOR` is off by default (turn it on with `yukta.plugins.enabled=PROCESS_EXECUTOR`), and even then it runs nothing until you allow commands. List the executables:
 
     ```properties
     yukta.process.allowed-commands=git,npm,mvn
@@ -108,7 +108,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     `decrypted:db.password` reads `YUKTA_SECRET_DB_PASSWORD`: upper-case the name and replace every character that is not a letter or digit with `_`. Each read is logged with the key name, never the value. Placeholders such as `${env.NAME}` read only variables that start with `YUKTA_VAR_`, a short safe list, or names you list in `YUKTA_VARIABLES_ALLOWED`; names that contain `PASSWORD`, `SECRET`, `TOKEN`, `CREDENTIAL`, `PRIVATE` or `KEY` stay blocked.
   </Step>
   <Step title="Read who did what">
-    Control commands (pause, stop, skip, answer an input request, change limits and others) are recorded with the sender: `key:<name>` for a named key, the supervisor's id for a supervisor.
+    Control commands (pause, stop, skip, answer an input request, change limits and others) are recorded with the sender: `key:<name>` for a named key, and for a supervisor the id of its assignment (`asg-...`), which `GET /api/supervisors/{id}/assignments` maps back to the supervisor.
 
     ```bash
     curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" \
@@ -130,7 +130,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Authorization: Bearer $VIEW
   "$YUKTA_SERVER_URL/api/executions/none/restart"
 ```
 
-The first prints `401` (no key). The second shows the CI key's name, role and sessions. The third prints `403`, because a `VIEWER` may not change anything. `yukta-cli whoami` shows the same as the second call. A refusal carries no JSON body: handle it by status code. `401` means no key or a wrong key, `403` means the role or session list does not allow the request, and `429` means the key made too many calls.
+The first prints `401` (no key). The second shows the CI key's name, role and sessions. The third prints `403`, because a `VIEWER` may not change anything. `yukta-cli whoami` shows the same as the second call. A refusal carries only a short JSON body (`{"status":401,"message":"Missing or invalid API key. ..."}`, or `"This API key may not do that"` for a `403`), so handle it by status code. `401` means no key or a wrong key, `403` means the role or session list does not allow the request, and `429` means the key made too many calls.
 
 ## Variations that matter
 

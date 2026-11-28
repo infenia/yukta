@@ -17,7 +17,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 
 **Use this when** a question should first reach a rule or a model, only then a person, and you want to control the order, the waiting time and the outside systems that may be asked.
 
-**Prerequisites:** the `approvals/deploy` workflow from [Ask for input](/guides/ai/ask-for-input), and a supervisor with `canAnswer: true` that owns `session:approvals` ([Write a rules supervisor](/guides/supervise/write-a-rules-supervisor)). Server settings are `yukta.input.*`; restart the server after changing them. Add `-H "X-API-Key: $YUKTA_API_KEY"` to every `curl` if your server has keys.
+**Prerequisites:** the `approvals/deploy` workflow from [Ask for input](/guides/ai/ask-for-input), and a supervisor with `canAnswer: true` that owns `session:approvals` ([Write a rules supervisor](/guides/supervise/write-a-rules-supervisor)). Its `operatorAccess` must list `StartWorkflowCommand`, or starting `deploy` is refused with `409 CONTROLLED_BY_SUPERVISOR`. Server settings are `yukta.input.*`; restart the server after changing them. Add `-H "X-API-Key: $YUKTA_API_KEY"` to every `curl` if your server has keys.
 
 By default a request has one tier that any supervisor or operator may answer, with no timeout. A **route** puts several tiers in a row. A tier that times out, or that someone hands the request up from, passes it to the next; the last tier applies the route's `on-final-timeout` (`FAIL` or `USE_DEFAULT`) and then the request's own `onTimeout`.
 
@@ -62,7 +62,7 @@ By default a request has one tier that any supervisor or operator may answer, wi
   </Step>
 
   <Step title="Pick the route for a request">
-    A request picks its route in this order: the `route` option of the asking node (`ASK_INPUT`, `WAIT_FOR_SIGNAL`), the `input.route` tag of its session, `yukta.input.routes.default`, then the built-in one-tier route. A route name nobody configured is refused. For a model's questions, the node's `inputRoute` sets it.
+    A request picks its route in this order: the `route` option of the `ASK_INPUT` node, the `input.route` tag of its session, `yukta.input.routes.default`, then the built-in one-tier route. A route name nobody configured is refused. For the questions a model asks through `MCP_TOOL_CALL`, that node's `inputRoute` sets it. `WAIT_FOR_SIGNAL` has no route option: its wait is a `HIGH` risk request that only a person answers.
 
     ```json
     { "nodeId": "confirm", "type": "ASK_INPUT", "config": { "prompt": "Deploy?", "risk": "LOW", "route": "default" } }
@@ -120,7 +120,7 @@ Start the `deploy` workflow with `"environment":"staging"` and a `LOW` request, 
 curl -s "localhost:9858/api/sessions/approvals/inputs?state=OPEN,ESCALATED,ANSWERED"
 ```
 
-With the route above and a matching rule, the request is `ANSWERED` within the `auto` tier. Change the payload so the rule does not match: the supervisor escalates, or 30 seconds pass, and the request moves to the `ops` tier. The request keeps the way it came: `asked` lists each hand-up (`{who, said, reason, at}`, newest 20), and the Inputs panel shows it as the approval chain. `GET /api/supervisors/decisions` shows a refused answer as `rejected` with the rule that failed (`audience`, `tier`, `risk`, `scope` or `separation`), counted in `yukta.input.denied{rule}`, and the request stays open for the next responder. For a webhook, `yukta.input.delivery{responder,outcome}` and the log entries `INPUT_DELIVERED` and `INPUT_DELIVERY_FAILED` show whether it was sent.
+With the route above and a matching rule, the request is `ANSWERED` within the `auto` tier. Change the payload so the rule does not match: the supervisor escalates, or 30 seconds pass, and the request moves to the `ops` tier. The request keeps the way it came: `asked` lists each hand-up (`{who, said, reason, at}`, newest 20), and the Inputs panel shows it as the approval chain. `GET /api/supervisors/decisions` shows a refused answer as `rejected` with the rule that failed (`audience`, `tier`, `risk`, `scope` or `separation`), counted in `yukta.input.denied{rule}`, and the request stays open for the next responder. For a webhook, `yukta.notifications.delivery{channel,outcome}` and the log entries `INPUT_DELIVERED` and `INPUT_DELIVERY_FAILED` show whether it was sent.
 
 ## Variations
 

@@ -1,7 +1,7 @@
 ---
 title: "Persist sessions across restarts"
 sidebarTitle: "Persist sessions"
-description: "Keep workflows, run history and checkpoints through a restart: load session files at start-up or keep state in PostgreSQL, and resume the runs a restart interrupted."
+description: "Keep workflows, run history and checkpoints through a restart with PostgreSQL in the Plus edition, resume the runs a restart interrupted, and reload definitions from files on the Community edition."
 keywords: ["persistence", "bootstrap", "PostgreSQL", "resume", "restart", "durability"]
 ---
 
@@ -15,24 +15,24 @@ import { Diagram } from "/snippets/diagram.jsx";
   end="a server whose sessions are back after a restart, and a way to resume interrupted runs"
 />
 
-**Use this when** a restart must not cost you your workflows or your run history. By default Yukta keeps everything in memory, and a restart gives a clean server.
+**Use this when** a restart must not cost you your workflows or your run history. The Community edition keeps everything in memory, and a restart gives a clean server. Durable state needs the Plus edition (AGPL-3.0-only, or a commercial licence) with PostgreSQL.
 
-**Prerequisites:** pick the option that fits your edition. The release binaries, the Docker image and the packages are the Community edition and can use option 1 only.
+**Prerequisites:** pick the option that fits your edition. The release binaries, the Docker image and the packages are the Community edition and can use option 1 only. Option 1 is not durability: it rebuilds your definitions in memory at every start, and run history is still lost.
 
 | Option | Edition | What survives a restart |
 |---|---|---|
-| 1. Session files loaded at start-up | Community and Plus | Your workflow definitions. Run history does not |
+| 1. Session files applied at start-up | Community and Plus | Nothing is stored. The server applies your definitions again at every start; run history is lost |
 | 2. PostgreSQL | Plus (AGPL-3.0-only) | Definitions and versions, run history, checkpoints and input requests, shared between servers |
 
 How the stores work and what each keeps is in [How durability and high availability work](/concepts/durability-and-high-availability). The licence terms are in [Licensing and editions](/reference/licensing).
 
 <Diagram
   name="ops-persist-sessions"
-  alt="Memory keeps nothing across a restart, session files keep definitions, and only PostgreSQL also keeps run history and resume checkpoints."
-  caption="Pick the row that fits your edition; each store beyond memory is a separate switch."
+  alt="Memory keeps nothing across a restart. Session files only put the definitions back at start-up. Only PostgreSQL keeps run history and resume checkpoints."
+  caption="Only PostgreSQL (Plus) is durable; session files rebuild definitions in memory, and each PostgreSQL store is a separate switch."
 />
 
-## Option 1: load session files at start-up
+## Option 1: apply session files at start-up
 
 <Steps>
   <Step title="Write your sessions as files">
@@ -117,7 +117,7 @@ A file that cannot be read, is invalid or cannot be applied is logged and skippe
     The database owner's password is used only for this one-off setup. Keep it in your secret manager, not in the server's environment; the server needs only the two account passwords. Keep the host and database name in both URLs identical.
   </Step>
   <Step title="Move the other data you need">
-    Sessions, workflows, the execution log, agent conversations and node checkpoints move with the profile, and interrupted runs are resumed on their own (`yukta.restart.auto-resume=true`). Input requests are a separate switch:
+    Sessions, workflows, the execution log, agent conversations and node checkpoints move with the profile, and interrupted runs are resumed on their own (`yukta.restart.auto-resume=true`; after alpha.5). Input requests are a separate switch:
 
     ```properties
     yukta.input.store-type=postgres          # open input requests and their deliveries
@@ -134,7 +134,7 @@ A file that cannot be read, is invalid or cannot be applied is logged and skippe
 
 A restart marks every run that was in flight `ABORTED` at the next start, when the execution log is durable. Resume continues such a run as a new run: nodes that finished are not run again, and the others get the recorded outputs and run.
 
-The `postgres` profile resumes them on its own. To resume one by hand (with `yukta.restart.auto-resume=false`, or a run that was skipped):
+The `postgres` profile resumes them on its own (after alpha.5). To resume one by hand (with `yukta.restart.auto-resume=false`, or a run that was skipped):
 
 ```bash
 yukta-cli workflow executions recover <execution-id>
@@ -161,7 +161,7 @@ With option 1 the session is back and the history is empty. With option 2 the hi
 
 ## Variations that matter
 
-- **Trim what the log keeps.** The log keeps the newest `yukta.execution-log.retained-runs` runs and checkpoints the newest `yukta.restart.retained-executions`. Set `yukta.execution-log.max-age` (for example `90d`) to also remove runs by age, so a busy server and a quiet one keep the same span of history. The defaults and the other bounds are in [Configuration reference](/reference/configuration).
+- **Trim what the log keeps.** The log keeps the newest `yukta.execution-log.retained-runs` runs and checkpoints the newest `yukta.restart.retained-executions`. Set `yukta.execution-log.max-age` (after alpha.5; for example `90d`) to also remove runs by age, so a busy server and a quiet one keep the same span of history. The defaults and the other bounds are in [Configuration reference](/reference/configuration).
 - **Delete a session.** A session stays until you delete it: `yukta-cli session delete <session-id>` (needs `ADMIN`), the **Delete** action in the web UI, or `DELETE /api/sessions/{id}`.
 - **Share state between servers.** That is [high availability](/guides/operate/run-highly-available), and it needs PostgreSQL.
 - **Back up.** Back up every table together: the log, the checkpoints and the definitions refer to each other.

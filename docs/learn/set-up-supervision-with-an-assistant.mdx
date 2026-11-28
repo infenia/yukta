@@ -68,17 +68,18 @@ Anything the assistant writes below is labelled as an example, because its wordi
     ```text
     Go ahead and save release-guard in dry run, then check the assignment
     session:release-checks and show me the result. Wait for my yes before you
-    assign it. Make sure it may send PauseWorkflowCommand.
+    assign it. People must still be able to start gate, so add
+    StartWorkflowCommand to operatorAccess.
     ```
 
-    You should see `save_supervisor` with `type` `rules`, `id` `release-guard`, `settings` from the preset and `dryRun` true, then `check_assignment` with `[{"target":"session:release-checks"}]`. The skill asks the assistant to get your yes before it changes supervision, so expect a question before the save as well; say yes, since dry run sends nothing. The assignment matters more: owning a unit takes direct control of it away from people unless the supervisor lists the command in `operatorAccess`. So the assistant should stop and name that effect. Say yes, and it calls `set_assignments`.
+    You should see `save_supervisor` with `type` `rules`, `id` `release-guard`, `settings` from the preset plus `operatorAccess`, and `dryRun` true, then `check_assignment` with `[{"target":"session:release-checks"}]`. The skill asks the assistant to get your yes before it changes supervision, so expect a question before the save as well; say yes, since dry run sends nothing. The assignment matters more: owning a unit takes direct control of it away from people, and only the commands in `operatorAccess` still go through, reviewed by the supervisor. Without `StartWorkflowCommand` there, the next step's start would be refused with `CONTROLLED_BY_SUPERVISOR`. So the assistant should stop and name that effect. Say yes, and it calls `set_assignments`.
 
     An example of the question the assistant may ask; its wording will differ:
 
     ```text
-    release-guard would own every workflow in release-checks. Until you
-    list a command in operatorAccess, people cannot send commands to gate
-    directly. It is in dry run, so nothing is sent yet. Assign it?
+    release-guard would own every workflow in release-checks. People could
+    then only start runs of gate; every other command would be refused.
+    It is in dry run, so it sends nothing yet. Assign it?
     ```
 
     Check it yourself:
@@ -88,7 +89,7 @@ Anything the assistant writes below is labelled as an example, because its wordi
     yukta-cli supervisors assignments release-guard
     ```
 
-    You should see the supervisor with `dryRun` true, its `rules` settings, and the target `session:release-checks`. Look for `PauseWorkflowCommand` in `allowedCommands`. If it is missing, ask: "Add PauseWorkflowCommand to allowedCommands and save again in dry run."
+    You should see the supervisor with `dryRun` true, its `rules` settings with `StartWorkflowCommand` under `operatorAccess`, and the target `session:release-checks`. A rules supervisor may send every command unless `allowedCommands` narrows it, so the guard's `PauseWorkflow` is allowed.
 
     > **Stuck?** `409 OWNERSHIP_CONFLICT` (an assistant may report it as a refusal naming another supervisor) means someone already owns the session. Nothing changed. Ask the assistant to run `get_ownership` and tell you who, then decide whether to move ownership or choose a different target.
   </Step>
@@ -119,7 +120,7 @@ Anything the assistant writes below is labelled as an example, because its wordi
 
     Dry run shows its value when a supervisor does react: its commands then appear in this list with the outcome `dry-run`, and the run is untouched.
 
-    > **Stuck?** Starting the same workflow twice within 30 seconds returns the earlier run with `reusedExecution: true` instead of a new one. Wait, or ask for a new run after the window.
+    > **Stuck?** `CONTROLLED_BY_SUPERVISOR` means `operatorAccess` lacks `StartWorkflowCommand`: ask the assistant to add it and save again in dry run. Starting the same workflow twice within 30 seconds returns the earlier run with `reusedExecution: true` instead of a new one. Wait, or ask for a new run after the window.
   </Step>
 
   <Step title="Replay the supervisor on a past run">

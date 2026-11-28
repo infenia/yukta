@@ -11,6 +11,28 @@ keywords: ["releases", "changelog", "versions", "verify download"]
 
 ## Release history
 
+<Update label="After alpha.5" description="on main, not yet released">
+  These docs follow `main`. Pages mark what is not in `0.1.0-alpha.5` with **after alpha.5**; build from source to use it now.
+
+  - Messages: `AGGREGATE` `by: sequence` and `by: correlation`, `${message.*}` in expressions, the `MAPPER` `envelope` option, `formatIndicator` set by the plugins, `edgeBuffer` `order: PRIORITY` and `CLASSIFY` `priorityByLabel`.
+  - Request-reply: `?wait=` on `POST /api/workflow/start` and webhooks, answered by the `REPLY` terminal.
+  - Admission: concurrency keys (`admission.concurrency` in a workflow).
+  - Supervisors: `onReviewTimeout`.
+  - Durability: the `postgres` profile keeps checkpoints in PostgreSQL and resumes interrupted runs on its own; `yukta.execution-log.max-age` and `yukta.restart.max-bytes-per-run`.
+  - The CLI's default server URL is `http://127.0.0.1:9858`.
+  - Breaking: the on-disk stores are removed (PostgreSQL is the only durable store), the deprecated `/api/workflow` execution aliases are removed, and the message field `controlMessage` is gone.
+</Update>
+
+<Update label="0.1.0-alpha.5" description="2026-11-23">
+  **Fourth public alpha.** Breaking changes to the workflow JSON, the REST API, the MCP tools and the plugin contract are still possible before 1.0. See [What's new in alpha.5](/reference/whats-new-alpha-5) and [Migrate to alpha.5](/reference/migration-alpha-5).
+
+  - Notifications: an inbox with a bell, toasts and an Inbox page, desktop notifications from the browser or `yukta-cli notify`, and preferences per category.
+  - Alerts for failed, finished and held runs, and a `NotificationChannel` SPI with a webhook channel that replaces the input responders.
+  - Breaking: `yukta.input.responders.*` is refused at start-up, the `KV_STORE` and `SESSION_MEMORY` plugins are removed, and `yukta.input.delivery` is now `yukta.notifications.delivery`.
+
+  [Full release notes](https://github.com/infenia/yukta/releases/tag/v0.1.0-alpha.5) · [Changelog](https://github.com/infenia/yukta/blob/main/CHANGELOG.md)
+</Update>
+
 <Update label="0.1.0-alpha.4" description="2026-11-12">
   **Third public alpha.** Breaking changes to the workflow JSON, the REST API, the MCP tools and the plugin contract are still possible before 1.0. See [What's new in alpha.4](/reference/whats-new-alpha-4) and [Migrate to alpha.4](/reference/migration-alpha-4).
 

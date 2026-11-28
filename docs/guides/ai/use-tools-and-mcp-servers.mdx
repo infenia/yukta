@@ -11,13 +11,13 @@ import { Diagram } from "/snippets/diagram.jsx";
 <ReaderState
   learn="how to wire a model, an MCP server's tools and a branch into one agent step"
   time="20 minutes"
-  need="a server on localhost:9858 with the LLM and MCP client plugins, a model key, and the URL of an MCP server (streamable HTTP)"
+  need="a server on localhost:9858 with the LLM and MCP client steps turned on, a model key, and the URL of an MCP server (streamable HTTP)"
   end="a workflow where a model may call one tool, with the tool list narrowed and risky calls held for approval"
 />
 
 **Use this when** a model should be able to fetch data or act through tools, while the graph, not the model, decides what runs. The model suggests a tool call; a node you wired runs it.
 
-**Prerequisites:** [Call an LLM](/guides/ai/call-an-llm) works for you. These are MCP **client** nodes (`MCP_LIST_TOOLS`, `MCP_TOOL_CALL`) that call other servers; to let an assistant drive Yukta itself, see [Connect an assistant](/guides/ai/connect-an-assistant). Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
+**Prerequisites:** [Call an LLM](/guides/ai/call-an-llm) works for you, and the server runs with the model and MCP client steps on (all off by default): `YUKTA_PLUGINS_ENABLED=LLM_CALL,MCP_LIST_TOOLS,MCP_TOOL_CALL`. These are MCP **client** nodes (`MCP_LIST_TOOLS`, `MCP_TOOL_CALL`) that call other servers; to let an assistant drive Yukta itself, see [Connect an assistant](/guides/ai/connect-an-assistant). Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
 
 <Diagram name="guide-use-tools-and-mcp-servers" alt="The model only suggests a tool call. The route node branches on whether it asked, the act node runs the tool from an allow-list, and a risky tool can wait for a person first." caption="The model suggests; the graph decides. A tool runs only through the act node, from the allow-list, and only after a person approves if you require it. The pick, map and finish steps are left out here." />
 
@@ -120,9 +120,62 @@ import { Diagram } from "/snippets/diagram.jsx";
   </Step>
 </Steps>
 
+<Accordion title="The whole session, as issue-agent.json">
+  The steps above, joined. It validates as is; replace the MCP server URL, the token and the model with your own.
+
+  ```json issue-agent.json
+  {
+    "sessionId": "issue-agent",
+    "name": "Issue agent",
+    "workflows": {
+      "triage": {
+        "workflowId": "triage",
+        "description": "A model picks a tool; the graph runs it",
+        "nodes": [
+          { "nodeId": "task", "type": "CONSTANT_SOURCE",
+            "config": { "target": "METADATA", "variables": { "task": "Find the open issue about the login timeout and summarise it" } } },
+          { "nodeId": "tools", "type": "MCP_LIST_TOOLS",
+            "config": { "url": "https://issues.example.com/mcp", "authToken": "decrypted:issues-mcp", "allowedTools": ["search_issues", "get_issue"] } },
+          { "nodeId": "plan", "type": "LLM_CALL",
+            "config": { "provider": "anthropic", "model": "claude-sonnet-5-5", "apiKey": "decrypted:anthropic",
+                        "system": "You are an issue triage agent. Call a tool when you need data. Otherwise answer.",
+                        "prompt": "${metadata.task}", "tools": "payload.tools", "maxTokens": 1024, "timeout": 60 } },
+          { "nodeId": "route", "type": "BRANCH",
+            "config": { "mode": "EXPRESSION", "cases": { "payload.actions.size() > 0": "tool" }, "defaultPort": "answer" } },
+          { "nodeId": "pick", "type": "MAPPER",
+            "config": { "mode": "PROJECTION", "mapping": { "tool": "payload.actions[0].tool", "args": "payload.actions[0].arguments" } } },
+          { "nodeId": "act", "type": "MCP_TOOL_CALL",
+            "config": { "url": "https://issues.example.com/mcp", "tool": "${payload.tool}", "arguments": "payload.args",
+                        "allowedTools": ["search_issues", "get_issue"], "authToken": "decrypted:issues-mcp", "timeout": 30 } },
+          { "nodeId": "finish", "type": "LLM_CALL",
+            "config": { "provider": "anthropic", "model": "claude-sonnet-5-5", "apiKey": "decrypted:anthropic",
+                        "prompt": "Task: ${metadata.task}\n\nTool result:\n${payload.text}", "maxTokens": 1024, "timeout": 60 } },
+          { "nodeId": "final-answer", "type": "CONSOLE_TERMINAL", "config": {} },
+          { "nodeId": "direct-answer", "type": "CONSOLE_TERMINAL", "config": {} }
+        ],
+        "edges": [
+          { "source": "task", "target": "tools" },
+          { "source": "tools", "target": "plan" },
+          { "source": "plan", "target": "route" },
+          { "source": "route", "target": "pick", "sourcePort": "tool" },
+          { "source": "route", "target": "direct-answer", "sourcePort": "answer" },
+          { "source": "pick", "target": "act" },
+          { "source": "act", "target": "finish" },
+          { "source": "finish", "target": "final-answer" }
+        ]
+      }
+    }
+  }
+  ```
+
+  ```bash
+  curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @issue-agent.json
+  ```
+</Accordion>
+
 ## Verify it worked
 
-Apply the session, start it with `{"sessionId":"issue-agent","workflowId":"triage"}` and read the node statuses:
+Apply `issue-agent.json`, start it with `{"sessionId":"issue-agent","workflowId":"triage"}` and read the node statuses:
 
 ```bash
 curl -s localhost:9858/api/executions/$EXEC

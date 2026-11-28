@@ -120,14 +120,14 @@ State is durable only in PostgreSQL (`yukta.session.store-type=postgres`), which
 | `yukta.execution-log.retained-runs` | int | `500` | Newest runs kept and restored at start. |
 | `yukta.execution-log.compact-after` | int | `10000` | Log trimmed after this many appended events. |
 | `yukta.execution-log.min-runs-per-session` | int | `10` | Newest runs each session keeps in the log even when a busier session pushes them out of `retained-runs` (at most half of it; 0 turns the floor off). |
-| `yukta.execution-log.max-age` | duration | unset | Runs that ended longer ago than this are removed, with their checkpoints, every hour by the leader; a run without an end is kept. Unset keeps runs by count only; positive when set. |
+| `yukta.execution-log.max-age` (after alpha.5) | duration | unset | Runs that ended longer ago than this are removed, with their checkpoints, every hour by the leader; a run without an end is kept. Unset keeps runs by count only; positive when set. |
 | `yukta.restart.retained-executions` | int | `10` | Finished runs kept restartable. |
 | `yukta.restart.payload-packages` | list | empty | Extra class name prefixes (for example `com.acme.plugin.`) whose payloads a resume restores with their Java type; other classes come back as JSON. |
 | `yukta.restart.messages-per-node` | int | `200` | In-memory cap: messages per node and run. |
 | `yukta.restart.bytes-per-node` | long | `4194304` | In-memory cap: bytes per node and run. |
-| `yukta.restart.max-bytes-per-run` | long | `1073741824` | PostgreSQL checkpoints: most output (JSON text, counted by each server) one run records. A node whose output goes over it is marked incomplete, so a resume runs it again; what was recorded stays. |
-| `yukta.restart.auto-resume` | boolean | `false` (`true` in the `postgres` profile) | Resumes each interrupted run after recovery or takeover, one after another. |
-| `yukta.restart.store-type` | enum | `memory` (`postgres` in the `postgres` profile) | `memory` or `postgres` (PostgreSQL; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
+| `yukta.restart.max-bytes-per-run` (after alpha.5) | long | `1073741824` | PostgreSQL checkpoints: most output (JSON text, counted by each server) one run records. A node whose output goes over it is marked incomplete, so a resume runs it again; what was recorded stays. |
+| `yukta.restart.auto-resume` | boolean | `false` (`true` in the `postgres` profile after alpha.5) | Resumes each interrupted run after recovery or takeover, one after another. |
+| `yukta.restart.store-type` | enum | `memory` (`postgres` in the `postgres` profile after alpha.5) | `memory` or `postgres` (PostgreSQL; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
 | `yukta.session.store-type` | enum | `in-memory` | `in-memory` or `postgres` (sessions, workflow definitions and the execution log in PostgreSQL); any other value stops start-up. The log line `Stores in use` names the store of each kind of data. |
 | `yukta.input.store-type` | enum | `memory` | `memory` or `postgres` (keeps input requests; needs `yukta.session.store-type=postgres`); any other value or combination stops start-up. |
 | `yukta.agents.store-type` | enum | `memory` | `postgres` keeps the conversations with AI agents across a restart (Plus; the `postgres` profile sets it). A conversation a restart left open is ended as `failure`, reason "server restarted"; terminal output is not stored, only the last screen; `memory` or `postgres` (needs `yukta.session.store-type=postgres`), any other value or combination stops start-up. |
@@ -144,7 +144,7 @@ State is durable only in PostgreSQL (`yukta.session.store-type=postgres`), which
 | `yukta.supervisor.max-commands-per-second` | int | `20` | Command rate per supervisor. |
 | `yukta.supervisor.max-attachments` | int | `200` | Assignments at once; one more is refused with `409`. |
 | `yukta.supervisor.buffer-size` | int | `10000` | Events a supervisor may have waiting; beyond that it receives `EventsMissed`. |
-| `yukta.supervisor.review-timeout` | duration | `5s` | Longest a review may take; a slower one refuses the command, except a stop or when the supervisor sets `onReviewTimeout: ALLOW`. |
+| `yukta.supervisor.review-timeout` | duration | `5s` | Longest a review may take; a slower one refuses the command, except a stop or when the supervisor sets `onReviewTimeout: ALLOW` (after alpha.5). |
 | `yukta.supervisor.dry-run` | boolean | `false` | Records commands without applying them. |
 | `yukta.supervisor.default.enabled` | boolean | `true` | Turns on Direct control: people and agents control what no supervisor owns. |
 | `yukta.supervisor.lock-holders` | list | `[]` | Keys that may change a locked assignment. |
@@ -228,7 +228,7 @@ A tier name matches `[A-Za-z0-9._-]{1,64}`. A tier's `type` defaults to `AUTO` w
 | `yukta.spel.max-length` | int | `10000` | Longest expression. System property only. |
 | `yukta.spel.timeout-ms` | int | `1000` | Longest one expression runs. System property only. |
 | `yukta.messaging.max-payload-bytes` | long | `67108864` | Largest payload per node boundary; `0` off. |
-| `yukta.reply.max-wait` | duration | `30s` | Longest a start or webhook call with `?wait=` waits for the run's `REPLY`. |
+| `yukta.reply.max-wait` (after alpha.5) | duration | `30s` | Longest a start or webhook call with `?wait=` waits for the run's `REPLY`. |
 | `yukta.http.allowed-hosts` | list | empty (any) | Hosts `HTTP_REQUEST` may call. |
 | `yukta.mcp-client.allowed-hosts` | list | empty (any) | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call. |
 | `yukta.mcp-client.allowed-tools` | list | empty (any) | Tools `MCP_TOOL_CALL` may call. |

@@ -11,7 +11,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 <ReaderState
   learn="how to run a stored workflow as one step of another and branch on how it ended"
   time="10 minutes"
-  need="a server on localhost:9858"
+  need="a server on localhost:9858 started with PROCESS_EXECUTOR on and sh allowed (see Prerequisites)"
   end="a parent workflow that ships on a passing check and stops on a failing one"
 />
 
@@ -22,6 +22,14 @@ import { Diagram } from "/snippets/diagram.jsx";
   alt="The SUB_WORKFLOW node run-check starts the child workflow check and reads the outcome of the terminal the child reached. With routeByOutcome the parent leaves on success or failure."
   caption="The child is an ordinary run. With routeByOutcome the parent branches on how it ended."
 />
+
+**Prerequisites:** the child in this example runs `sh`, and the server runs no command until you allow it. Start the server with the command step on and `sh` on its allow-list:
+
+```bash
+YUKTA_PLUGINS_ENABLED=PROCESS_EXECUTOR YUKTA_PROCESS_ALLOWED_COMMANDS=sh yukta start
+```
+
+Without the allow-list the child fails at once, and the parent leaves on `failure` to `stop-here`.
 
 ## Steps
 

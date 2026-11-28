@@ -36,7 +36,7 @@ Errors use the [response envelope](/api/overview#response-envelope) with error f
 
 Branch on `status`, not on the text of `message`. Messages are written for people and can change.
 
-Three kinds of refusal are answered by the access checks before a request reaches the API and carry no body: `401`, `403` from the key or host checks, and `400` for an ambiguous path. Handle them by status code alone.
+Some refusals are answered by the access checks before a request reaches the API. The key checks (`401`, `403`, `429`) and an ambiguous path (`400`) carry only a short body with `status` and `message`, without `timestamp`, `path` or `errors`. A refusal by the host or origin check on a server without keys (`403`) has no body at all. Handle them by status code.
 
 ## Field errors
 

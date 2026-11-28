@@ -69,7 +69,7 @@ A supervisor lists `parents` (zero or more). A parent is another supervisor; a s
       "type": "rules",
       "settings": {
         "allowedCommands": ["PauseWorkflowCommand"],
-        "operatorAccess": ["RestartCommand"],
+        "operatorAccess": ["StartWorkflowCommand", "RestartCommand"],
         "rules": [
           { "id": "hold-restart", "requireApproval": { "command": "Restart", "risk": "MEDIUM", "reason": "restart needs a second opinion" } }
         ]
@@ -85,6 +85,8 @@ A supervisor lists `parents` (zero or more). A parent is another supervisor; a s
     curl -s -X PUT localhost:9858/api/supervisors/release-guard -H 'Content-Type: application/json' -d @release-guard.json
     # or: yukta-cli supervisors parents set release-guard --parent policy --mode approval=all
     ```
+
+    `operatorAccess` lists what people may still send to the run while `release-guard` owns it: starting a run, and the restart this guide sends. Without `StartWorkflowCommand`, starting `slow` is refused with `409 CONTROLLED_BY_SUPERVISOR`.
 
     The delegation kinds are `APPROVAL` (one of the supervisor's own commands needs approval), `INPUT` (it escalates an input request) and `CONSULT` (its engine asks a question). The modes:
 
@@ -125,10 +127,12 @@ A supervisor lists `parents` (zero or more). A parent is another supervisor; a s
 
 ## Verify it worked
 
-Check the wiring, then send the held command as a person and read the outcome:
+Check the wiring, start a run of `slow` and send the held command as a person:
 
 ```bash
 curl -s localhost:9858/api/supervisors/release-guard          # parents and delegation are in the view
+EXEC=$(curl -s -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+  -d '{"sessionId":"steer","workflowId":"slow"}' | jq -r .data.executionId)
 curl -s -X POST localhost:9858/api/executions/$EXEC/restart
 ```
 
@@ -138,13 +142,17 @@ curl -s -X POST localhost:9858/api/executions/$EXEC/restart
 { "status": 403, "message": "policy: no restart of the slow workflow", "errors": [ { "field": "code", "message": "CONTROL_REJECTED" } ] }
 ```
 
-The log records `CONTROL_REJECTED`, and `GET /api/supervisors/decisions?supervisor=release-guard` shows the outcome. Now change the rule's `if` to match nothing (for example `workflowId == 'prod-deploy'`) and send the restart again. No parent refuses, so the outcome depends on what the parents say. One that allows lets the command through, with its original sender, and the owner reviews it again (a denial still applies). When no parent decides (none running, all silent, or a `HIGH` risk need) the command is parked for a person: the server answers `202 Accepted`:
+The refusal is in `GET /api/control/audit` with that reason. (`GET /api/supervisors/decisions` lists only commands a supervisor sent itself, so it stays empty here.)
+
+Now change the rule's `if` to match nothing (for example `workflowId == 'prod-deploy'`), save `policy` again and send the restart again. The rule no longer matches, so `policy` allows: the restart goes through with its original sender (`200`, a new execution id), and the owner reviews it again (a denial still applies).
+
+To see a person decide, take the parent's assignment away (`PUT .../policy/assignments` with `[]`) and restart once more. A parent that is not running is silent, and when no parent decides (none running, all silent, or a `HIGH` risk need) the command is parked for a person: the server answers `202 Accepted`:
 
 ```json
-{ "status": 202, "message": "...", "data": { "status": "AWAITING_APPROVAL", "requestId": "..." } }
+{ "status": 202, "message": "Command awaits approval", "data": { "requestId": "...", "status": "AWAITING_APPROVAL" } }
 ```
 
-The request appears in `GET /api/sessions/steer/inputs?state=OPEN` with the chain it went through, the parents asked (`allow`, `deny`, `no-opinion` or `silent`) before it reached a person, and a person approves it in the Inputs panel.
+The request appears in `GET /api/sessions/steer/inputs?state=OPEN`; its reason ends in `(asked [policy:silent])`. It holds the chain it went through, the parents asked (`allow`, `deny`, `no-opinion` or `silent`) before it reached a person, and a person approves it in the Inputs panel.
 
 <UiShot name="supervisor-chain" alt="A supervisor's approval chain: the owner, the parents asked in order with their answers, and the person who decided last" caption="The approval chain of a request: who asked, which parents answered what, and who decided." />
 

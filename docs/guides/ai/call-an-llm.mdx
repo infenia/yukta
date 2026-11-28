@@ -11,13 +11,13 @@ import { Diagram } from "/snippets/diagram.jsx";
 <ReaderState
   learn="how to put one model call in a workflow and read its answer"
   time="10 minutes"
-  need="a server on localhost:9858 with the LLM module, and a model: an Anthropic or OpenAI-compatible key, or a local Ollama"
+  need="a server on localhost:9858 with LLM_CALL turned on, and a model: an Anthropic or OpenAI-compatible key, or a local Ollama"
   end="a workflow that sends a prompt to a model and returns its answer and token usage"
 />
 
 **Use this when** a step needs open-ended text: summarise, draft, extract, plan. For small choices (which branch, is this safe) a [decision plugin](/guides/ai/classify-gate-and-score) is cheaper.
 
-**Prerequisites:** a server on `http://localhost:9858` whose build includes the `LLM_CALL` plugin (`GET /api/plugins/LLM_CALL` answers `200`; see [Plugin overview](/reference/plugins/overview)). Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
+**Prerequisites:** a server on `http://localhost:9858` started with the model step turned on, because it is off by default: `YUKTA_PLUGINS_ENABLED=LLM_CALL yukta start`. `GET /api/plugins` lists `LLM_CALL` with `"enabled": true` once it is on, and with an `enableWith` hint while it is off ([Plugin overview](/reference/plugins/overview)). Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
 
 <Diagram name="guide-call-an-llm" alt="An LLM_CALL with failureMode CONTINUE and routeByStatus leaves on success or failure; the failure port can lead to a second LLM_CALL with another model." caption="Without failureMode CONTINUE a failed call fails the node; with it, failure becomes a port you can wire to a fallback." />
 
@@ -25,7 +25,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 
 <Steps>
   <Step title="Give the server your key">
-    A key is never written into the workflow. Write it as `decrypted:<name>`; the default provider reads the environment variable `YUKTA_SECRET_<NAME>` of the server. Set it where the server starts:
+    A key is never written into the workflow. Write it as `decrypted:<name>`; by default the server reads the environment variable `YUKTA_SECRET_<NAME>` of the server. Set it where the server starts:
 
     ```bash
     export YUKTA_SECRET_ANTHROPIC=sk-ant-...

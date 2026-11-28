@@ -90,7 +90,7 @@ import { Diagram } from "/snippets/diagram.jsx";
     spring.ssl.bundle.jks.client.truststore.type=PKCS12
     ```
 
-    `yukta.workers.id` is required. A worker with an empty `yukta.workers.plugin-types` runs nothing, so list every type it may run. When you run several workers on one machine, give each its own `server.port`. The defaults for pools (`default`), capacity (`4`) and the other settings are in [Configuration reference](/reference/configuration).
+    `yukta.workers.id` is required. A worker with an empty `yukta.workers.plugin-types` runs nothing, so list every type it may run. Listing a type does not turn it on: `HTTP_REQUEST` and `SQL_QUERY` are off by default, so the worker also needs `yukta.plugins.enabled=HTTP_REQUEST,SQL_QUERY` (`YUKTA_PLUGINS_ENABLED`), as the [plugin reference](/reference/plugins/overview) explains. When you run several workers on one machine, give each its own `server.port`. The defaults for pools (`default`), capacity (`4`) and the other settings are in [Configuration reference](/reference/configuration).
   </Step>
   <Step title="Place a node">
     Add `placement` to the node's `engine` object. A placement without `pool` uses the pool `default`. This node calls an internal service on a worker in `private-net`, with up to three attempts:

@@ -44,7 +44,7 @@ For how the lease and fencing work, read [How durability and high availability w
 
     Start each server with `--spring.profiles.active=prod,postgres`. Give each its own name with `yukta.ha.instance-id` if you want stable names in the lease row; the default is a random id per start.
 
-    The `postgres` profile already keeps checkpoints in PostgreSQL, so a new leader can read what the old one recorded, and resumes interrupted runs on its own. Set `yukta.restart.auto-resume=false` if you prefer to resume them by hand.
+    The `postgres` profile already keeps checkpoints in PostgreSQL, so a new leader can read what the old one recorded, and resumes interrupted runs on its own (after alpha.5). Set `yukta.restart.auto-resume=false` if you prefer to resume them by hand.
   </Step>
   <Step title="Start the servers">
     Start the first one, then the second. The first to take the lease becomes the leader and runs recovery once. The other waits as a standby.

@@ -100,7 +100,8 @@ import { ReaderState } from "/snippets/reader-state.jsx";
         "timeout": 30,
         "allowedCommands": ["AnswerInputCommand", "EscalateInputCommand"],
         "canAnswer": true,
-        "maxRisk": "LOW"
+        "maxRisk": "LOW",
+        "operatorAccess": ["StartWorkflowCommand", "StopWorkflowCommand"]
       }
     }
     ```
@@ -113,6 +114,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
     | `timeout` | Seconds one run may take, 1 to 600, default 60 |
     | `when` | Optional read-only SpEL condition over the event, such as `request.spec.risk == 'LOW'`; the run starts only when it holds |
     | `allowedCommands`, `canAnswer`, `maxRisk` | As for any supervisor. A workflow supervisor may send **no** command until `allowedCommands` names some |
+| `operatorAccess` | Commands people may still send to what it owns. Without `StartWorkflowCommand`, the start in step 4 is refused with `409 CONTROLLED_BY_SUPERVISOR` |
 
     ```bash
     curl -s -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @supervisor.json

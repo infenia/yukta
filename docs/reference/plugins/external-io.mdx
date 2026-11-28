@@ -29,7 +29,7 @@ Module `http-request`. Performs one HTTP request per message.
 
 - **Output ports:** `default`, or `success` and `failure` with `routeByStatus`.
 - **Payload:** `{status, success, headers, body}`; `body` is parsed when the response is JSON. Metadata gains `status`.
-- **Format:** `formatIndicator` is the response's media type (`Content-Type` without parameters), none when it names none. A text `body` is sent with the incoming message's `formatIndicator` as `Content-Type` unless `headers` sets one.
+- **Format** (after alpha.5)**:** `formatIndicator` is the response's media type (`Content-Type` without parameters), none when it names none. A text `body` is sent with the incoming message's `formatIndicator` as `Content-Type` unless `headers` sets one.
 - **Default node timeout:** `timeout` plus 5 seconds.
 - **Egress:** the URL is checked against `yukta.egress.allowed-hosts`, `yukta.egress.by-workflow.<id>` and `yukta.egress.by-session.<id>`.
 - **Errors:** `url is mandatory`; `timeout must be positive, got: <n>`; `routeByStatus requires failureMode: CONTINUE`; `HTTP request failed with status <n>: <body>`.
@@ -76,7 +76,7 @@ Module `process-executor`. Runs an external process per message.
 | `PASSTHROUGH` | the input payload, unchanged |
 
 - **Output ports:** `default`, or `success` and `failure` with `routeByExitCode`.
-- **Format:** `formatIndicator` is `application/json` for `outputFormat: JSON`, `text/plain` for `RAW` and `STRUCTURED`; `PASSTHROUGH` keeps the incoming one.
+- **Format** (after alpha.5)**:** `formatIndicator` is `application/json` for `outputFormat: JSON`, `text/plain` for `RAW` and `STRUCTURED`; `PASSTHROUGH` keeps the incoming one.
 - **Metadata:** `exitCode` (`-1` on timeout). `reports` adds `failures` (at most 50 of `{kind, file, line, rule, message, test?}`) and `totalFailures` to `STRUCTURED` and `JSON` payloads, and writes each failure to the node's log as one line (`TestFailure: <class#test> | <file:line> | <message>`, or `LintFailure: <rule> | <file:line> | <message>`), which `get_failure_digest` and `search_logs` read. Output past the caps is discarded and `outputTruncated` is set.
 - **Default node timeout:** `timeout` plus the larger of 5 seconds and a tenth of `timeout`.
 - **Server settings:** execution is off until `yukta.process.allowed-commands` lists executables or `yukta.process.allow-any` is `true` (default `false`). While `allowed-commands` is set, `useShell` is refused, the executable must be listed and environment names such as `PATH` or `LD_*` need `yukta.process.allowed-env`. `yukta.process.working-dir-root` confines `workingDir`. A process does not inherit the server's environment: it starts with `PATH` only, plus the names in `yukta.process.pass-env` (`*` passes everything, for a trusted local server). It also gets `YUKTA_EXECUTION_ID` and `YUKTA_SESSION_ID`, the ids of its run, so a script can steer its own run; an `env` entry with the same name wins. See [Configuration](/reference/configuration).
@@ -121,7 +121,7 @@ Module `file-io`. Reads a UTF-8 text file from a sandbox directory. The node is 
 | `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `CONTINUE` routes a failure to the `error` port. |
 
 - **Output ports:** `default`; plus `error` with `failureMode: CONTINUE`.
-- **Payload:** `{path, content}`. `formatIndicator` is the file's media type as the platform guesses it from the name, `text/plain` when unknown.
+- **Payload:** `{path, content}`. `formatIndicator` (after alpha.5) is the file's media type as the platform guesses it from the name, `text/plain` when unknown.
 - **Server setting:** `yukta.files.allowed-root` confines `baseDir`; a `baseDir` or path that reaches outside it through a symbolic link is refused.
 - **Errors:** `file larger than maxBytes (<n>): <file>`; `baseDir <dir> is outside the operator's root (yukta.files.allowed-root)`.
 
@@ -137,7 +137,7 @@ Module `file-io`. Writes or appends text to a file in a sandbox directory and pa
 |---|---|---|---|---|
 | `baseDir` | string | none | yes | Sandbox directory; paths outside it are rejected. |
 | `path` | string | `payload.path` | no | File relative to `baseDir`. |
-| `contentField` | string | `content` | no | Payload field that holds the text; a string payload is written as is. Other content is written as JSON when the message's `formatIndicator` is a JSON type (`application/json`, `…+json`), otherwise as its plain text form. |
+| `contentField` | string | `content` | no | Payload field that holds the text; a string payload is written as is. Other content is written as JSON when the message's `formatIndicator` (after alpha.5) is a JSON type (`application/json`, `…+json`), otherwise as its plain text form. |
 | `append` | boolean | `false` | no | Append a line instead of overwriting. |
 | `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `CONTINUE` routes a failure to the `error` port. |
 
@@ -165,8 +165,15 @@ Module `agent-session` (it starts the process through `process-executor`, which 
 | `approvalRisk` | `LOW`, `MEDIUM`, `HIGH` | `MEDIUM` | no | Risk of the requests; a supervisor may answer only up to its `maxRisk`. |
 | `approvalTimeout` | number | `300` | no | Seconds to wait for an answer. |
 | `approvalAudience` | list | current tier | no | Who may answer: `supervisor:<id>`, `role:OPERATOR`, `key:<name>`, ... |
+| `mode` | `TASK` or `CONVERSATION` | `TASK` | no | `TASK`: the node ends with the agent's turn. `CONVERSATION`: the node stays open for messages sent to its conversation until it is ended, idle for `idleTimeout` or running for `conversationTimeout`. Needs a harness with an interactive mode or resume. |
+| `idleTimeout` | number | `900` | no | `CONVERSATION` only: seconds the agent may wait for a message before the node ends. |
+| `conversationTimeout` | number | `14400` | no | `CONVERSATION` only: seconds the whole node may run. |
+| `steerAudience` | list | `role:OPERATOR` | no | Who may send a message, interrupt or end the conversation: `role:OPERATOR`, `key:<name>`, `supervisor:<id>`, `supervisor:*`. |
+| `command` | list | none | no | Only with the `terminal` harness: the program to run in the terminal and its arguments (`{prompt}` in an argument other than the first gives it the prompt). Needs `yukta.agents.pty.enabled=true`. |
+| `terminalSize` | map | from `yukta.agents.pty.cols` and `rows` | no | Only for a terminal harness: `{cols, rows}`, 1 to 1000 each. |
 | `workingDir`, `env` | string, map | none | no | Where it runs and extra environment. |
 | `timeout` | number | `600` | no | Seconds. |
+| `concurrency` | number | `2` | no | Messages handled at once; each starts an agent. |
 
 - **Output ports:** `success`, `failure` (the agent or harness failed, or timed out), `incomplete` (stopped early, for example out of turns).
 - **Payload:** `{status, reason, text, sessionId, turn, exitCode}` (with Claude Code also `costUsd`, `numTurns`, `structured` and `usage`, the token counts), plus `conversationId` when the run was recorded as a conversation (`yukta.agents.enabled`, the default; see the core reference, CTL-10). A run with no conversation has the payload it always had.

@@ -37,7 +37,7 @@ Think of the tools in three groups, by how much damage a mistake could do.
 
 The assistant also gets help getting started. The server offers tools that describe the session format and the available plugins, two prompts (debug a run, draft a session config) and a few resources. So "build me a workflow that runs the release checks and tells me what failed" is a request the assistant can complete: read the plugin list, draft the graph, create the session, start the run, read the result.
 
-Creating a session replaces any session with the same id, and workflows can run commands and reach other systems. That is why authoring is the most sensitive group.
+Saving a session with the id of an existing one replaces it (over MCP, `create_session` refuses unless the call sets `overwrite: true`), and workflows can run commands and reach other systems. That is why authoring is the most sensitive group.
 
 ## Roles: the main lever
 

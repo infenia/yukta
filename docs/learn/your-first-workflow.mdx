@@ -19,7 +19,7 @@ import { UiShot } from "/snippets/ui-shot.jsx";
 
 We will build a workflow that takes a name and returns a greeting. It has three steps: a trigger that receives the name, a mapper that builds the greeting, and a terminal that ends the path.
 
-It is small on purpose. A CI pipeline and a team of AI agents use the same loop, and we will meet both in the next tutorials.
+It is small on purpose. A customer onboarding, a release or a team of AI agents uses the same loop, and the next tutorials add rules, AI and approvals to it.
 
 <img className="yk-diagram block dark:hidden" src="/images/diagrams/quickstart-greet.light.svg" alt="The workflow we build: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
 <img className="yk-diagram hidden dark:block" src="/images/diagrams/quickstart-greet.dark.svg" alt="The workflow we build: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
@@ -44,7 +44,7 @@ It is small on purpose. A CI pipeline and a team of AI agents use the same loop,
     {"groups":["liveness","readiness"],"status":"UP"}
     ```
 
-    > **Stuck?** `Connection refused` means the server is not running. Start it with `yukta` in another terminal, or see [Install Yukta](/get-started/install).
+    > **Stuck?** `Connection refused` means the server is not running. Start it with `yukta start`, or see [Install Yukta](/get-started/install).
   </Step>
 
   <Step title="Save the workflow">
@@ -172,18 +172,21 @@ It is small on purpose. A CI pipeline and a team of AI agents use the same loop,
     }
     ```
 
-    The log shows what each node saw and sent on. The nodes log in no fixed order, so read it by node name:
+    The log shows what each node saw and sent on. The nodes can log in any order, so read it by node name:
 
     ```bash
     curl -N http://localhost:9858/api/sessions/demo/executions/$EXEC/logs
     ```
 
     ```text
-    data:[2026-11-10T17:52:02.828Z] [INFO] [map/MAPPER] STDOUT: {greeting=Hello, Ada}
+    id:0
     data:[2026-11-10T17:52:02.825Z] [INFO] [trigger/API_TRIGGER] STDOUT: {name=Ada}
+
+    id:1
+    data:[2026-11-10T17:52:02.828Z] [INFO] [map/MAPPER] STDOUT: {greeting=Hello, Ada}
     ```
 
-    The stream closes by itself when the run has ended.
+    Each entry is a server-sent event: an `id:` line, then the log line after `data:`. The stream closes by itself when the run has ended.
   </Step>
 
   <Step title="Run it again with another name">
@@ -210,6 +213,8 @@ It is small on purpose. A CI pipeline and a team of AI agents use the same loop,
       ID:       287dac6b-2e0f-429f-a790-1591d3c48dc3
       Workflow: greet
       Status:   SUCCESS
+      Started:  2026-11-10 17:53:10 +00:00
+      Ended:    2026-11-10 17:53:10 +00:00
       Tasks:    3
     Node     Module            Status   BP
     trigger  API_TRIGGER       SUCCESS

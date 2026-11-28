@@ -70,7 +70,14 @@ import { ReaderState } from "/snippets/reader-state.jsx";
   </Step>
 
   <Step title="Check it, then apply it">
-    The check takes one workflow (the object under `workflows`) and stores nothing; see [Validate and roll back](/guides/build/validate-and-roll-back). Applying runs the same checks, so an invalid definition is never stored.
+    The check takes one workflow (the object under `workflows`) and stores nothing. It answers `200` either way: read `data.valid`, and `data.problems` lists every fault, for example `Workflow must contain at least one TERMINAL node`.
+
+    ```bash
+    jq .workflows.greet session.json | curl -s -X POST localhost:9858/api/sessions/validate \
+      -H 'Content-Type: application/json' -d @- | jq '.data | {valid, problems}'
+    ```
+
+    Then apply the session. Applying runs the same checks, so an invalid definition is never stored:
 
     ```bash
     curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
@@ -85,7 +92,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
       -d '{"sessionId":"demo","workflowId":"greet","payload":{"name":"Ada"}}'
     ```
 
-    The answer is `202` with the new `executionId`.
+    The answer is `202` with the new `executionId`. Keep it: `EXEC=<the executionId>`.
   </Step>
 </Steps>
 
@@ -95,7 +102,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
 curl -s -H 'Accept: application/json' localhost:9858/api/sessions/demo/executions/$EXEC/results
 ```
 
-`$EXEC` is the `executionId` from the start call. The answer has `"status": "SUCCESS"` and a `RESULT` event from node `end` whose `payload` is `{"greeting": "Hello, Ada"}`. If the apply call answers `400`, its message names the node and the option at fault.
+`$EXEC` is the `executionId` from the start call. The answer has `"status": "SUCCESS"` and a `RESULT` event from node `end` whose `payload` is `{"greeting": "Hello, Ada"}`. If the apply call answers `400`, its message names the node and the option at fault. More on checks and versions in [Validate and roll back](/guides/build/validate-and-roll-back).
 
 ## Variations
 

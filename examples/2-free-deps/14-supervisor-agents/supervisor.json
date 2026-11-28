@@ -6,6 +6,7 @@
   "settings": {
     "allowedCommands": ["PauseWorkflowCommand", "ResumeWorkflowCommand"],
     "initiative": ["PauseWorkflowCommand", "ResumeWorkflowCommand"],
-    "maxInitiativePerMinute": 20
+    "maxInitiativePerMinute": 20,
+    "operatorAccess": ["StartWorkflowCommand", "StopWorkflowCommand"]
   }
 }

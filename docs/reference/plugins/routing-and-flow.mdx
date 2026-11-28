@@ -17,7 +17,7 @@ Routes each message to the port named by the first matching case.
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `mode` | `SELECT_KEY` or `EXPRESSION` | `SELECT_KEY` | yes | `SELECT_KEY` evaluates `selector` and looks the result up in `cases`; `EXPRESSION` evaluates each case key as a predicate. |
+| `mode` | `SELECT_KEY` or `EXPRESSION` | none | yes | `SELECT_KEY` evaluates `selector` and looks the result up in `cases`; `EXPRESSION` evaluates each case key as a predicate. |
 | `selector` | expression | none | yes (mode `SELECT_KEY`) | Key to match. |
 | `cases` | map | none | yes, not empty | Match value (or predicate) to port name. |
 | `defaultPort` | string | none | no | Port used when no case matches. |
@@ -82,7 +82,7 @@ Merges messages into one message holding the list of their payloads: `{items, co
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `by` | `count`, `sequence` or `correlation` | `count` | no | How messages are grouped (below). |
+| `by` (after alpha.5) | `count`, `sequence` or `correlation` | `count` | no | How messages are grouped (below). |
 | `size` | number | none | for `count` and `correlation` | Most messages per batch, or per correlation group; a positive whole number. |
 | `timeoutMs` | number | none | no | Flush a partial batch or group this many milliseconds after it started. |
 

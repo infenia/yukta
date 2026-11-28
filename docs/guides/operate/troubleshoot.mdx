@@ -51,6 +51,8 @@ import { Diagram } from "/snippets/diagram.jsx";
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| A workflow is refused with "Plugin not found for type: X (disabled; ..." | Sixteen built-in plugins, such as `HTTP_REQUEST`, `LLM_CALL` and `PROCESS_EXECUTOR`, are off by default | Start the server with `YUKTA_PLUGINS_ENABLED=X` (comma separated, or `all`), as the message says. See the [plugin reference](/reference/plugins/overview) |
+| Start or another command answered `409` "... controls this. People cannot do this directly." | A supervisor owns the run, and its `operatorAccess` does not list that command | Add the command, for example `StartWorkflowCommand`, to the supervisor's `settings.operatorAccess`. See [A command is rejected with 403](#a-command-is-rejected-with-403) |
 | Start answered `429` "Execution limit reached" | `yukta.execution.on-limit=REJECT` and every slot is taken | Raise the limits, or set `on-limit=QUEUE` |
 | Start answered `429` "...the queue is full" | The queue holds `yukta.execution.queue-capacity` starts | Raise the capacity or the limits, or slow the clients |
 | Start answered `429` "The server is shutting down" | The server is stopping | Retry against the restarted server |
@@ -61,7 +63,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 | Command answered `403` | Role or session of the key, Host or Origin check, or a supervisor refused | [A command is rejected with 403](#a-command-is-rejected-with-403) |
 | Request answered `401` | No key or a wrong key | Send `Authorization: Bearer <key>` or `X-API-Key` |
 | Request answered `429` on any `/api` call | The key made more than 1200 requests a minute, or a wrong key was tried too often from the address | Slow the client. See [Secure the server](/guides/operate/secure-the-server) |
-| `400` with no body on a keyed server | The path is ambiguous (`;`, `//`, `..`, backslash, an encoded slash) | Send a clean path |
+| `400` "Ambiguous request path" on a keyed server | The path is ambiguous (`;`, `//`, `..`, backslash, an encoded slash) | Send a clean path |
 | `400` "unknown field" | Requests reject unknown JSON fields | Remove or correct the field |
 | `413` | The body is larger than `spring.codec.max-in-memory-size` (1 MB; `YUKTA_LIMITS_MAX_BODY`) | Send less, or raise it |
 | A workflow is refused as too large | More than 500 nodes or 2000 edges | Split it into sub-workflows |
