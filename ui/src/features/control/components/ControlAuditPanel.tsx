@@ -50,14 +50,16 @@ export function rowKeys(entries: ControlAuditEntry[]): string[] {
   });
 }
 
-/** Rows asked for at first, and added by each "Show more"; the server allows 500. */
+/** Rows asked for at first, and added by each "Show more". */
 const PAGE = 50;
+/** The newest rows one request returns; beyond them "Show more" pages back with `before`. */
 const MAX = 500;
 
-const getAudit = (limit: number, executionId: string) =>
+const getAudit = (limit: number, executionId: string, before?: string) =>
   fetchApi<ControlAuditEntry[]>(
     `/api/control/audit?limit=${limit}` +
-      (executionId ? `&executionId=${encodeURIComponent(executionId)}` : '')
+      (executionId ? `&executionId=${encodeURIComponent(executionId)}` : '') +
+      (before ? `&before=${encodeURIComponent(before)}` : '')
   );
 
 /** `SetLimits(2, 0)` is the command `SetLimits`, whatever its arguments. */
@@ -107,7 +109,18 @@ export function ControlAuditPanel() {
     refetchInterval: poll,
     placeholderData: (previous) => previous,
   });
-  const loaded = audit.data ?? [];
+  // rows older than the newest MAX, added by "Show more" once the window is full
+  const [older, setOlder] = useState<ControlAuditEntry[]>([]);
+  const [exhausted, setExhausted] = useState(false);
+  const [paging, setPaging] = useState(false);
+  const [pagedFor, setPagedFor] = useState(execution);
+  if (pagedFor !== execution) {
+    setPagedFor(execution);
+    setOlder([]);
+    setExhausted(false);
+  }
+  const head = audit.data ?? [];
+  const loaded = [...head, ...older];
   const keys = rowKeys(loaded);
   const commands = [...new Set(loaded.map((e) => commandName(e.command)))];
   const actors = [...new Set(loaded.map((e) => e.actor ?? 'api'))];
@@ -251,12 +264,26 @@ export function ControlAuditPanel() {
           </Table>
         </TableFrame>
       )}
-      {audit.data && audit.data.length >= limit && limit < MAX && (
+      {head.length >= limit && !(limit >= MAX && exhausted) && (
         <div>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setLimit((n) => Math.min(n + PAGE, MAX))}
+            disabled={paging}
+            onClick={() => {
+              if (limit < MAX) {
+                setLimit((n) => Math.min(n + PAGE, MAX));
+                return;
+              }
+              setPaging(true);
+              getAudit(PAGE, execution, loaded[loaded.length - 1].time)
+                .then((page) => {
+                  setOlder((o) => [...o, ...page]);
+                  setExhausted(page.length < PAGE);
+                })
+                .catch(() => setExhausted(true))
+                .finally(() => setPaging(false));
+            }}
           >
             Show more
           </Button>

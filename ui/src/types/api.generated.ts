@@ -334,7 +334,7 @@ export interface paths {
         };
         /**
          * List control commands
-         * @description Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them
+         * @description Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them. Page back with before, the time of the oldest entry received
          */
         get: operations["list_5"];
         put?: never;
@@ -7883,6 +7883,7 @@ export interface operations {
             query?: {
                 limit?: number;
                 executionId?: string;
+                before?: string;
             };
             header?: never;
             path?: never;

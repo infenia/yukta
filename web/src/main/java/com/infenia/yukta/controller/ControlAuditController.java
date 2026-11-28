@@ -10,6 +10,7 @@ import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,8 @@ public class ControlAuditController {
    *
    * @param limit how many entries, 1 to 500
    * @param executionId only the commands of this run, or null
+   * @param before only commands recorded before this instant (the {@code time} of the oldest entry
+   *     of the page before), or null for the newest
    * @return the entries, newest first (the log is in the order the commands were recorded)
    */
   @GetMapping("/control/audit")
@@ -51,12 +54,16 @@ public class ControlAuditController {
       summary = "List control commands",
       description =
           "Lists the newest control commands recorded in the execution log (applied or refused),"
-              + " with the actor that sent them")
+              + " with the actor that sent them. Page back with before, the time of the oldest"
+              + " entry received")
   public Mono<ApiResponse<List<ControlAuditEntry>>> list(
       @RequestParam(defaultValue = "100") final int limit,
-      @RequestParam(required = false) final String executionId) {
-    return executionLog
-        .newest(CONTROL, executionId, Math.clamp(limit, 1, MAX_LIMIT))
+      @RequestParam(required = false) final String executionId,
+      @RequestParam(required = false) final Instant before) {
+    final int count = Math.clamp(limit, 1, MAX_LIMIT);
+    return (before == null
+            ? executionLog.newest(CONTROL, executionId, count)
+            : executionLog.newestBefore(CONTROL, executionId, before, count))
         .map(ControlAuditEntry::from)
         .map(this::withRun)
         .collectList()

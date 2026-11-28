@@ -686,4 +686,27 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     assertThat(store.newest(java.util.Set.of(), null, 5).collectList().block()).isEmpty();
     assertThat(store.newest(started, null, 0).collectList().block()).isEmpty();
   }
+
+  @Test
+  void newestBefore_pagesBackFromTheCursor() {
+    store = new R2dbcExecutionLogStore(db, new ObjectMapper(), 1_000, 100_000, 5_000);
+    for (final String run : new String[] {"r1", "r2", "r3"}) {
+      store.append(started(run));
+      reactor.core.publisher.Mono.delay(java.time.Duration.ofMillis(5)).block();
+    }
+    final var started = java.util.Set.of(ExecutionLogEvent.Type.RUN_STARTED);
+    final var newest = store.newest(started, null, 3).collectList().blockOptional().orElseThrow();
+    final var cursor = newest.get(1).timestamp();
+
+    assertThat(
+            store
+                .newestBefore(started, null, cursor, 5)
+                .map(ExecutionLogEvent::executionId)
+                .collectList()
+                .block())
+        .containsExactly("r1");
+    assertThat(store.newestBefore(started, "r3", cursor, 5).collectList().block()).isEmpty();
+    assertThat(store.newestBefore(java.util.Set.of(), null, cursor, 5).collectList().block())
+        .isEmpty();
+  }
 }
