@@ -17,6 +17,7 @@ import { OverheadPanel, ThroughputPanel } from './ChartPanels';
 import { CommandStrip } from './CommandStrip';
 import { KioskView } from './KioskView';
 import { LeaderboardPanel, LiveRunsPanel, NodesPanel } from './RunPanels';
+import { HotspotsPanel, WorkflowsPanel } from './WorkflowPanels';
 import { SupervisorsSummary } from '@/features/supervisors/components/SupervisorsSummary';
 
 /**
@@ -66,6 +67,10 @@ export function DashboardView() {
           <OverheadPanel scope={scope} range={range} live={live} />
         </div>
         <SupervisorsSummary />
+        <div className="min-w-0 lg:col-span-2">
+          <WorkflowsPanel range={range} live={live} />
+        </div>
+        <HotspotsPanel scope={scope} range={range} live={live} />
         {/* from here the cards change height with the data */}
         <div className="flex min-w-0 flex-col gap-3 lg:col-span-2">
           <LiveRunsPanel scope={scope} live={live} />

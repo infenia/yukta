@@ -96,6 +96,10 @@ export function LeaderboardPanel({
   live: boolean;
 }) {
   const modules = useModules(range, scope, live);
+  const mostRuns = Math.max(
+    1,
+    ...(modules.data ?? []).map((m) => m.executions)
+  );
   return (
     <Panel
       title="Plugins"
@@ -113,6 +117,9 @@ export function LeaderboardPanel({
           <thead>
             <tr className="text-overline text-left">
               <th scope="col">Plugin</th>
+              <th scope="col">
+                <span className="sr-only">Share of runs, failures in red</span>
+              </th>
               <th scope="col" className="text-right">
                 Runs
               </th>
@@ -127,6 +134,20 @@ export function LeaderboardPanel({
                 <th scope="row" className="text-left font-mono font-normal">
                   {m.module}
                 </th>
+                <td aria-hidden="true" className="w-1/3 px-2">
+                  <span className="bg-muted flex h-1.5 overflow-hidden rounded-full">
+                    <span
+                      className="bg-primary h-full"
+                      style={{
+                        width: `${((m.executions - m.failures) / mostRuns) * 100}%`,
+                      }}
+                    />
+                    <span
+                      className="bg-destructive h-full"
+                      style={{ width: `${(m.failures / mostRuns) * 100}%` }}
+                    />
+                  </span>
+                </td>
                 <td className="num text-right">{m.executions}</td>
                 <td
                   className={`num text-right ${m.failures > 0 ? 'text-destructive' : 'text-on-surface-variant'}`}

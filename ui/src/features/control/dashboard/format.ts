@@ -141,3 +141,10 @@ export function failedPoints(
     return { t, v: buckets.get(t) ?? 0 };
   });
 }
+
+/** The kinds of REST call `yukta.api.requests` is tagged with, in the order they are drawn. */
+export const OPERATIONS = ['read', 'run', 'change', 'other'] as const;
+
+/** The kind of call a `yukta.api.requests{op=...}` series key is for, or undefined. */
+export const opOf = (key: string): string | undefined =>
+  OPERATIONS.find((op) => key.includes(`{op=${op}}`));

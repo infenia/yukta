@@ -21,6 +21,11 @@ vi.mock('../useNow', () => ({ useNow: () => 1_000_000 }));
 vi.mock('../RunsChart', () => ({
   default: () => <div>runs-chart</div>,
 }));
+vi.mock('../ApiChart', () => ({
+  default: ({ series }: { series: Record<string, unknown[]> }) => (
+    <div>api-chart:{Object.keys(series).length}</div>
+  ),
+}));
 vi.mock('../OverheadChart', () => ({
   default: () => <div>overhead-chart</div>,
 }));
@@ -171,5 +176,73 @@ describe('ThroughputPanel unknown mark', () => {
     renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
     fireEvent.click(screen.getByRole('button', { name: 'unknown-mark' }));
     expect(nav.to).not.toHaveBeenCalled();
+  });
+});
+
+describe('ThroughputPanel API calls', () => {
+  const apiSeries = {
+    'yukta.api.requests{op=read}|rate': [{ t: 1, v: 2 }],
+    'yukta.api.requests{op=read}|mean': [
+      { t: 1, v: 10 },
+      { t: 2, v: 20 },
+    ],
+    'yukta.api.requests{op=run}|mean': [],
+  };
+
+  beforeEach(() => {
+    annotations.mockReturnValue(ok([]) as never);
+    series.mockReturnValue(ok(apiSeries));
+  });
+
+  it('switches to the REST calls by kind, with the latest mean time per call', async () => {
+    renderWithProviders(<ThroughputPanel scope="session:s1" range="6h" live />);
+    expect(screen.getByRole('button', { name: 'Runs' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'API calls' }));
+
+    expect(await screen.findByText('api-chart:3')).toBeInTheDocument();
+    expect(
+      screen.getByText('Mean time per call: read 20 ms')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('day-heat')).toBeNull();
+    // the REST calls are the whole server's, whatever scope the page is in
+    expect(series).toHaveBeenCalledWith('yukta.api.requests', '6h');
+    fireEvent.click(screen.getByRole('button', { name: 'Runs' }));
+    expect(screen.getByText('day-heat')).toBeInTheDocument();
+  });
+
+  it('says so when no call was served in the range, and gives no mean time then', () => {
+    series.mockReturnValue(ok({}));
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
+    fireEvent.click(screen.getByRole('button', { name: 'API calls' }));
+    expect(screen.getByText('No API calls in this range')).toBeInTheDocument();
+    expect(screen.queryByText(/Mean time per call/)).toBeNull();
+  });
+
+  it('shows the chart without a mean time when only rates were sampled', async () => {
+    series.mockReturnValue(
+      ok({ 'yukta.api.requests{op=run}|rate': [{ t: 1, v: 1 }] })
+    );
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
+    fireEvent.click(screen.getByRole('button', { name: 'API calls' }));
+    expect(await screen.findByText('api-chart:1')).toBeInTheDocument();
+    expect(screen.queryByText(/Mean time per call/)).toBeNull();
+  });
+
+  it('retries the calls when they fail to load', () => {
+    const refetch = vi.fn();
+    series.mockReturnValue({
+      isPending: false,
+      error: new Error('x'),
+      data: undefined,
+      refetch,
+    } as never);
+    renderWithProviders(<ThroughputPanel scope="global" range="1h" live />);
+    fireEvent.click(screen.getByRole('button', { name: 'API calls' }));
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
   });
 });

@@ -15,6 +15,8 @@ import {
   usedOfBytes,
   successPoints,
   failedPoints,
+  opOf,
+  OPERATIONS,
 } from '../format';
 
 describe('formatMs', () => {
@@ -177,5 +179,14 @@ describe('successPoints and failedPoints', () => {
     expect(points[0]).toEqual({ t: 5 * MIN, v: 0 });
     expect(points.at(-1)).toEqual({ t: 60 * MIN, v: 2 });
     expect(points.at(-2)).toEqual({ t: 55 * MIN, v: 1 });
+  });
+});
+
+describe('opOf', () => {
+  it('names the kind of call a series key is for', () => {
+    for (const op of OPERATIONS) {
+      expect(opOf(`yukta.api.requests{op=${op}}|rate`)).toBe(op);
+    }
+    expect(opOf('yukta.executions.running')).toBeUndefined();
   });
 });

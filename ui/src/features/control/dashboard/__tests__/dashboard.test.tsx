@@ -26,6 +26,13 @@ vi.mock('../RunsChart', () => ({
     <div data-testid="runs-chart">{Object.keys(series).join(',')}</div>
   ),
 }));
+vi.mock('@/features/metrics/SeriesChart', () => ({
+  default: ({ label, points }: { label: string; points: unknown[] }) => (
+    <div data-testid="series-chart">
+      {label}:{points.length}
+    </div>
+  ),
+}));
 vi.mock('../OverheadChart', () => ({
   default: ({ series }: { series: Record<string, unknown[]> }) => (
     <div data-testid="overhead-chart">{Object.keys(series).join(',')}</div>
@@ -56,6 +63,7 @@ let metricsFail = false;
 let heat: unknown[] = [];
 let modules: unknown[] = [];
 let nodes: unknown[] = [];
+let workflows: unknown[] = [];
 let liveRuns: unknown[] = [];
 let marks: unknown[] = [];
 let approvals: unknown[] = [];
@@ -129,11 +137,11 @@ const server = setupServer(
               ],
               'overhead.handoff.p95': [{ time: minute, value: 4 }],
             }
-          : names.startsWith('llm.cost')
+          : names.startsWith('duration')
             ? {
-                'llm.cost{provider=OPENAI}|rate': [
-                  { time: minute - 10_000, value: 0 },
-                  { time: minute, value: 0.05 },
+                'duration.p95': [
+                  { time: minute - 60_000, value: 1500 },
+                  { time: minute, value: 2500 },
                 ],
               }
             : {},
@@ -142,6 +150,7 @@ const server = setupServer(
   http.get('/api/metrics/heatmap', () => ok(heat)),
   http.get('/api/metrics/modules', () => ok(modules)),
   http.get('/api/metrics/nodes', () => ok(nodes)),
+  http.get('/api/metrics/workflows', () => ok(workflows)),
   http.get('/api/edition', () =>
     ok({ edition: 'PLUS', license: 'x', features: [], source: null })
   ),
@@ -160,6 +169,7 @@ afterEach(() => {
   heat = [];
   modules = [];
   nodes = [];
+  workflows = [];
   liveRuns = [];
   marks = [];
   approvals = [];
@@ -485,5 +495,49 @@ describe('the Mission Control dashboard', () => {
     );
     await waitFor(() => expect(window.location.search).toBe('?tab=audit'));
     expect(window.location.pathname).toBe('/control');
+  });
+
+  it('lists how long each workflow takes and opens one, node by node', async () => {
+    workflows = [
+      { workflowId: 'wf-slow', runs: 4, failures: 1, p50Ms: 1000, p95Ms: 2500 },
+      { workflowId: 'wf-quick', runs: 9, failures: 0, p50Ms: 0, p95Ms: 0 },
+    ];
+    nodes = [
+      {
+        sessionId: 's1',
+        workflowId: 'wf-slow',
+        nodeId: 'build',
+        module: 'echo',
+        runs: 4,
+        failures: 1,
+        p50Ms: 900,
+        p95Ms: 2400,
+        lastExecutionId: 'e9',
+      },
+    ];
+    renderWithProviders(<DashboardView />);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'wf-slow' }));
+
+    const drawer = await screen.findByRole('dialog', { name: 'wf-slow' });
+    expect(await within(drawer).findByTestId('series-chart')).toHaveTextContent(
+      'Run time, p95:2'
+    );
+    expect(
+      await within(drawer).findByRole('link', { name: 'build' })
+    ).toHaveAttribute(
+      'href',
+      '/sessions/s1/workflow/wf-slow?exec=e9&node=build'
+    );
+    await user.click(
+      within(drawer).getByRole('button', {
+        name: 'Focus the dashboard on this workflow',
+      })
+    );
+    await waitFor(() =>
+      expect(window.location.search).toContain('scope=workflow%3Awf-slow')
+    );
+    expect(screen.queryByRole('dialog', { name: 'wf-slow' })).toBeNull();
   });
 });
