@@ -16,7 +16,7 @@ export const ReaderState = ({ learn, time, need, end }) => {
     ["You'll end with", end],
   ].filter((r) => r[1]);
   return (
-    <div className="not-prose my-6 rounded-xl border border-zinc-950/10 dark:border-white/10 bg-zinc-950/[0.03] dark:bg-white/[0.04] px-4 py-3 text-sm">
+    <div className="yk-rs not-prose my-6 rounded-xl border border-zinc-950/10 dark:border-white/10 bg-zinc-950/[0.03] dark:bg-white/[0.04] px-4 py-3 text-sm">
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 m-0">
         {rows.flatMap(([k, v]) => [
           <dt key={`${k}-t`} className="font-semibold text-zinc-950 dark:text-white">

@@ -732,6 +732,7 @@ export const WorkflowPlayground = () => {
 
     .ykp-foot { margin-top: 1.1rem; font-size: 13px; color: var(--ykp-muted); }
     .ykp-foot a { color: var(--ykp-blue); text-decoration: underline; text-underline-offset: 2px; }
+    @media (max-width: 639px) { .ykp-hint, .ykp-foot { font-size: 14px; } .ykp-legend, .ykp-ok { font-size: 13.5px; } }
 
     .ykp-sr {
       position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
