@@ -19,6 +19,7 @@ import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.observation.transport.SenderContext;
 import java.time.Duration;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,6 +72,9 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
 
   /** Keeps a worker that keeps failing out of the picks for a while. */
   private final WorkerHealth health;
+
+  /** The worker that failed the last attempt of each node. */
+  private final LastFailed lastFailed = new LastFailed();
 
   /** Attempts this server has sent to each worker and not seen end yet. */
   private final Map<String, AtomicInteger> inFlight = new ConcurrentHashMap<>();
@@ -129,7 +133,9 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       final Map<String, Object> config) {
     return Flux.deferContextual(ctx -> {
       final long picked = System.nanoTime();
-      final Optional<Chosen> chosen = pick(pool, pluginType);
+      final String executionId = ctx.getOrDefault("executionId", "unknown");
+      final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+      final Optional<Chosen> chosen = pick(pool, pluginType, executionId, nodeId);
       if (chosen.isEmpty()) {
         attempts(pluginType, "no_worker").record(Duration.ZERO);
         return Flux.error(
@@ -144,8 +150,6 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
               : () -> {};
       final PluginLogSink logSink =
           ctx.getOrDefault(WorkflowContext.LOG_SINK_KEY, PluginLogSink.NOOP);
-      final String executionId = ctx.getOrDefault("executionId", "unknown");
-      final String nodeId = ctx.getOrDefault("nodeId", "unknown");
       final Map<String, String> trace = new ConcurrentHashMap<>();
       final AtomicBoolean answered = new AtomicBoolean();
       final AtomicReference<String> outcome = new AtomicReference<>("cancelled");
@@ -176,10 +180,12 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
           .doOnComplete(() -> {
             outcome.set("completed");
             health.succeeded(workerId, pluginType);
+            lastFailed.succeeded(executionId, nodeId);
           })
           .doOnError(error -> {
             outcome.compareAndSet("cancelled", "failed");
             call.error(error);
+            lastFailed.failed(executionId, nodeId, workerId);
             // bad input and hard stops are the run's doing, not the worker's
             if (("lost".equals(outcome.get()) || error instanceof RemoteFailureException)
                 && health.failed(workerId, pluginType)) {
@@ -254,19 +260,30 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
    * the one that loses moves on to the next worker. The caller gives the slot back.
    */
   /* default */ Optional<Chosen> pick(final String pool, final String pluginType) {
-    return registry.list().stream()
-        .filter(info -> info.pools().contains(pool) && info.pluginTypes().contains(pluginType))
-        .filter(info -> !info.draining() && !health.quarantined(info.workerId()))
-        .flatMap(info ->
-            connections
-                .find(info.workerId())
-                .map(requester -> new Chosen(info, requester))
-                .stream())
-        .sorted(
-            Comparator.comparingInt(
-                    (Chosen chosen) -> free(chosen.info(), load(chosen.info().workerId()).get()))
-                .reversed()
-                .thenComparing(chosen -> chosen.info().workerId()))
+    return pick(pool, pluginType, "unknown", "unknown");
+  }
+
+  /** Like {@link #pick(String, String)}, but tries the worker that failed the node last, last. */
+  /* default */ Optional<Chosen> pick(
+      final String pool, final String pluginType, final String executionId, final String nodeId) {
+    final List<Chosen> sorted =
+        registry.list().stream()
+            .filter(info -> info.pools().contains(pool) && info.pluginTypes().contains(pluginType))
+            .filter(info -> !info.draining() && !health.quarantined(info.workerId()))
+            .flatMap(info ->
+                connections
+                    .find(info.workerId())
+                    .map(requester -> new Chosen(info, requester))
+                    .stream())
+            .sorted(
+                Comparator.comparingInt((Chosen chosen) ->
+                        free(chosen.info(), load(chosen.info().workerId()).get()))
+                    .reversed()
+                    .thenComparing(chosen -> chosen.info().workerId()))
+            .toList();
+    return LastFailed.avoiding(
+            sorted, chosen -> chosen.info().workerId(), lastFailed.workerOf(executionId, nodeId))
+        .stream()
         .filter(chosen -> reserve(chosen.info()))
         .findFirst();
   }
