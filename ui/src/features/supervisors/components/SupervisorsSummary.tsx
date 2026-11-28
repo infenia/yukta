@@ -62,6 +62,7 @@ export function SupervisorsSummary() {
   return (
     <Panel
       title="Supervisors"
+      info="Automatic watchers that can steer runs. Assignments are what they watch, direct control is what they may do on their own, applied and refused are the decisions they took."
       action={
         <IconLink
           to="/supervisors"

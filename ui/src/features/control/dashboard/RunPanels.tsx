@@ -97,7 +97,10 @@ export function LeaderboardPanel({
 }) {
   const modules = useModules(range, scope, live);
   return (
-    <Panel title="Plugins">
+    <Panel
+      title="Plugins"
+      info="Plugin types ranked by how many node executions they ran in the chosen range and how many of those failed."
+    >
       <PanelState
         isPending={modules.isPending}
         error={modules.error}
@@ -162,6 +165,7 @@ export function NodesPanel({
   return (
     <Panel
       title="Slowest nodes"
+      info="Nodes ranked by their 95th-percentile run time in the chosen range: 19 in 20 runs of the node were faster. Each links to its latest run."
       action={
         rows.length > NODES_SHOWN && (
           <button
@@ -256,7 +260,10 @@ export function LiveRunsPanel({
   const runs = useLiveRuns(live);
   const shown = (runs.data ?? []).filter((run) => inScope(scope, run));
   return (
-    <Panel title="Live runs">
+    <Panel
+      title="Live runs"
+      info="Runs executing right now, the nodes running in each and the time so far against the workflow's usual 95th percentile. To pause or stop a run, open it."
+    >
       <PanelState
         isPending={runs.isPending}
         error={runs.error}

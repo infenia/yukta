@@ -167,7 +167,10 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
  */
 export function SystemPanel({ live }: { live: boolean }) {
   return (
-    <Panel title="System">
+    <Panel
+      title="System"
+      info="The server's own health. JVM heap is the Java memory the server may use, not the machine's RAM. CPU is the server process; threads are live Java threads."
+    >
       <VitalsBody />
       <Section title="Workers">
         <WorkersBody live={live} />

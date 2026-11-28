@@ -13,6 +13,8 @@ import {
   integrate,
   slowerIsWorse,
   usedOfBytes,
+  successPoints,
+  failedPoints,
 } from '../format';
 
 describe('formatMs', () => {
@@ -143,5 +145,37 @@ describe('usedOfBytes', () => {
   it('shows the used amount alone when the maximum is not known', () => {
     expect(usedOfBytes(100e6, 0)).toBe('100 MB');
     expect(usedOfBytes(100e6, -1)).toBe('100 MB');
+  });
+});
+
+describe('successPoints and failedPoints', () => {
+  const MIN = 60_000;
+  const cells = [
+    { time: 0, runs: 4, failed: 1 },
+    { time: 10 * MIN, runs: 6, failed: 1 },
+    { time: 70 * MIN, runs: 10, failed: 0 },
+    { time: 100 * MIN, runs: 0, failed: 0 },
+  ];
+
+  it('gives the success rate per half hour, oldest first, skipping a half hour with no runs', () => {
+    expect(successPoints(cells)).toEqual([
+      { t: 0, v: 80 },
+      { t: 60 * MIN, v: 100 },
+    ]);
+    expect(successPoints([])).toEqual([]);
+  });
+
+  it('gives failed runs per five minutes for the last hour, quiet buckets as zero', () => {
+    const points = failedPoints(
+      [
+        { time: 60 * MIN, runs: 3, failed: 2 },
+        { time: 57 * MIN, runs: 1, failed: 1 },
+      ],
+      60 * MIN
+    );
+    expect(points).toHaveLength(12);
+    expect(points[0]).toEqual({ t: 5 * MIN, v: 0 });
+    expect(points.at(-1)).toEqual({ t: 60 * MIN, v: 2 });
+    expect(points.at(-2)).toEqual({ t: 55 * MIN, v: 1 });
   });
 });

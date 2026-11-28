@@ -25,7 +25,7 @@ import { UiShot } from "/snippets/ui-shot.jsx";
 
 <Steps>
   <Step title="Read the command strip">
-    The top row answers "is it healthy?" at a glance, in six tiles: **Running** (against the concurrent run limit), **Queued** (and what the queue holds), **Success (24 h)** as a rate, **Failed (1 h)** out of the runs that finished, **Engine p95 (1 h)** with its trend (how long a message waits between taking its node's turn and the plugin being called, not the plugins' own time), and **Inputs waiting**, which opens the inbox where they are answered. Workers have their own panel below. The dashboard only reads: it has no buttons that change the server.
+    The top row answers "is it healthy?" at a glance, in six tiles: **Running** (against the concurrent run limit), **Queued** (and what the queue holds), **Success (24 h)** as a rate, **Failed (1 h)** out of the runs that finished, **Engine p95 (1 h)** with its trend (how long a message waits between taking its node's turn and the plugin being called, not the plugins' own time), and **Inputs waiting**, which opens the inbox where they are answered. Each tile has a small chart beside the number: click it to open a larger chart in a side drawer, with the latest, average, lowest and highest value. The **i** button on a tile or panel says what it shows. Workers have their own panel below. The dashboard only reads: it has no buttons that change the server. Panels that keep their size (charts, capacity, supervisors) come first and the ones that grow with the data (live runs, plugins, slowest nodes, system) sit at the bottom, so the page does not jump as runs start and finish.
   </Step>
 
   <Step title="Scope the page">

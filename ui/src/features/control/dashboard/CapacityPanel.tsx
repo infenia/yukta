@@ -41,7 +41,10 @@ export function CapacityPanel({ live }: { live: boolean }) {
     .filter((r) => r.perMinute > 0);
 
   return (
-    <Panel title="Capacity">
+    <Panel
+      title="Capacity"
+      info="How many runs the server executes at once against its limit, how many wait in the queue, and why new starts were refused. Always the whole server. Read-only: limits are changed under Configuration."
+    >
       <PanelState
         isPending={limits.isPending}
         error={limits.error}

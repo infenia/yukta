@@ -93,3 +93,51 @@ export function usedOfBytes(used: number, max: number): string {
     ? `${fmt(used)} of ${fmt(max)} ${unit}`
     : `${fmt(used)} ${unit}`;
 }
+
+interface HeatCell {
+  time: number;
+  runs: number;
+  failed: number;
+}
+
+/** Heat-map cells summed into `bucketMs` buckets, oldest first. */
+function bucketHeat(cells: HeatCell[], bucketMs: number) {
+  const buckets = new Map<number, { runs: number; failed: number }>();
+  for (const c of cells) {
+    const key = Math.floor(c.time / bucketMs);
+    const sum = buckets.get(key) ?? { runs: 0, failed: 0 };
+    buckets.set(key, {
+      runs: sum.runs + c.runs,
+      failed: sum.failed + c.failed,
+    });
+  }
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([key, sum]) => ({ t: key * bucketMs, ...sum }));
+}
+
+/** The success rate (percent) per half hour; a half hour with no runs has no point. */
+export function successPoints(cells: HeatCell[], bucketMs = 30 * 60_000) {
+  return bucketHeat(cells, bucketMs)
+    .filter((b) => b.runs > 0)
+    .map((b) => ({
+      t: b.t,
+      v: Math.round(((b.runs - b.failed) / b.runs) * 100),
+    }));
+}
+
+/** Failed runs per five minutes over the last hour, a quiet bucket counted as zero. */
+export function failedPoints(
+  cells: HeatCell[],
+  now: number,
+  bucketMs = 5 * 60_000
+) {
+  const buckets = new Map(
+    bucketHeat(cells, bucketMs).map((b) => [b.t, b.failed])
+  );
+  const last = Math.floor(now / bucketMs);
+  return Array.from({ length: 12 }, (_, i) => {
+    const t = (last - 11 + i) * bucketMs;
+    return { t, v: buckets.get(t) ?? 0 };
+  });
+}

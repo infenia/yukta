@@ -40,7 +40,10 @@ export function ThroughputPanel({ scope, range, live }: PanelProps) {
     if (mark) void navigate(annotationTarget(mark));
   };
   return (
-    <Panel title="Throughput">
+    <Panel
+      title="Throughput"
+      info="Workflow runs that finished per minute, stacked by how they ended. It counts runs, not API calls. Markers on the axis are control commands such as pause or stop."
+    >
       <PanelState
         isPending={series.isPending}
         error={series.error}
@@ -81,7 +84,10 @@ export function ThroughputPanel({ scope, range, live }: PanelProps) {
 export function OverheadPanel({ scope, range }: PanelProps) {
   const overhead = useMetricSeries('overhead.', range, scope);
   return (
-    <Panel title="Engine overhead">
+    <Panel
+      title="Engine overhead"
+      info="Time the engine itself adds: from a node taking its turn to its plugin being called (start), and between nodes (hand-off). It leaves out the plugins' own time. p50 is the typical value, p95 the slow tail."
+    >
       <PanelState
         isPending={overhead.isPending}
         error={overhead.error}

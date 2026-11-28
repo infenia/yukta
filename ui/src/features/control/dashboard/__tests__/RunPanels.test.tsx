@@ -259,7 +259,9 @@ describe('LiveRunsPanel', () => {
     expect(screen.getByText('between nodes')).toBeInTheDocument();
     expect(screen.getByText(/paused/)).toBeInTheDocument();
     // read-only: control lives on the run page the workflow name links to
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /pause|resume|stop/i })
+    ).toBeNull();
     expect(screen.getByRole('link', { name: 'a' })).toBeInTheDocument();
   });
 

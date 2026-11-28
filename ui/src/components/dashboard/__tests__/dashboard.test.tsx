@@ -6,6 +6,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ArcGauge, Donut, MeterBar, RingProgress } from '../Gauges';
 import { KpiTile } from '../KpiTile';
+import { Panel } from '../Tile';
 import { sparkPoints } from '../tones';
 import { Knob } from '../Knob';
 import { ChartAnnotations, HeatStrip, StatusMatrix } from '../Strips';
@@ -180,5 +181,65 @@ describe('strips', () => {
     expect(screen.queryByRole('button', { name: 'Outside' })).toBeNull();
     await userEvent.click(marker);
     expect(onSelect).toHaveBeenCalledOnce();
+  });
+});
+
+describe('KpiTile, compact with a chart', () => {
+  it('draws no line for a single point, and makes the sparkline a button only with onDrill', async () => {
+    const onDrill = vi.fn();
+    const { container, rerender } = render(
+      <KpiTile compact label="Runs" value="1" series={[3]} onDrill={onDrill} />
+    );
+    expect(container.querySelector('polyline')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Open Runs chart' })
+    ).toBeNull();
+
+    rerender(<KpiTile compact label="Runs" value="1" series={[1, 3]} />);
+    expect(container.querySelector('polyline')).not.toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Open Runs chart' })
+    ).toBeNull();
+
+    rerender(
+      <KpiTile
+        compact
+        label="Runs"
+        value="1"
+        series={[1, 3]}
+        onDrill={onDrill}
+      />
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Open Runs chart' })
+    );
+    expect(onDrill).toHaveBeenCalledTimes(1);
+  });
+
+  it('explains the number behind an info button, on a tile and on a panel', async () => {
+    render(
+      <>
+        <KpiTile label="Runs" value="1" info="Runs that finished." />
+        <Panel title="Throughput" info="Runs per minute.">
+          body
+        </Panel>
+      </>
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'About Runs' }));
+    expect(await screen.findByText('Runs that finished.')).toBeVisible();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'About Throughput' })
+    );
+    expect(await screen.findByText('Runs per minute.')).toBeVisible();
+  });
+
+  it('has no info button on a panel or tile without info', () => {
+    render(
+      <>
+        <KpiTile label="Runs" value="1" />
+        <Panel title="Plain">body</Panel>
+      </>
+    );
+    expect(screen.queryByRole('button', { name: /About/ })).toBeNull();
   });
 });

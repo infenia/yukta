@@ -12,15 +12,43 @@ import { CommandStrip } from '../CommandStrip';
 
 vi.mock('@/features/metrics/hooks', () => ({
   useMetricSnapshot: vi.fn(),
-  useMetricSeries: () => ({
-    data: {
-      'overhead.start.p95': [
-        { t: 1, v: 2 },
-        { t: 2, v: 4 },
-      ],
-    },
+  useMetricSeries: (name: string) => ({
+    data:
+      name === 'yukta.executions.'
+        ? {
+            'yukta.executions.running': [
+              { t: 1, v: 1 },
+              { t: 2, v: 3 },
+            ],
+            'yukta.executions.queued': [
+              { t: 1, v: 0 },
+              { t: 2, v: 2 },
+            ],
+          }
+        : {
+            'overhead.start.p95': [
+              { t: 1, v: 2 },
+              { t: 2, v: 4 },
+            ],
+          },
   }),
   useHeatmap: vi.fn(),
+}));
+vi.mock('../MetricDrawer', () => ({
+  MetricDrawer: ({
+    spec,
+    onClose,
+  }: {
+    spec: { title: string; points: unknown[]; format?: (v: number) => string };
+    onClose: () => void;
+  }) => (
+    <div>
+      <p>
+        drawer:{spec.title}:{spec.points.length}:{spec.format?.(5) ?? 'plain'}
+      </p>
+      <button onClick={onClose}>close-drawer</button>
+    </div>
+  ),
 }));
 vi.mock('../../api/scheduler', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../api/scheduler')>()),
@@ -82,13 +110,10 @@ describe('CommandStrip', () => {
     expect(
       screen.getByText('request to plugin · hand-off 4 ms')
     ).toBeInTheDocument();
-    await userEvent.hover(
-      screen.getByText('Engine p95 (1 h)').parentElement as HTMLElement
+    await userEvent.click(
+      screen.getByRole('button', { name: 'About Engine p95 (1 h)' })
     );
-    expect(await screen.findByText(/leaves out the plugin/)).toHaveAttribute(
-      'data-slot',
-      'tooltip-content'
-    );
+    expect(await screen.findByText(/leaves out the plugin/)).toBeVisible();
   });
 
   it('has no engine number before anything was measured', () => {
@@ -158,5 +183,66 @@ describe('CommandStrip inputs tile', () => {
     expect(
       await screen.findByRole('link', { name: /Inputs waiting: –\./ })
     ).toBeInTheDocument();
+  });
+});
+
+describe('CommandStrip drill-down', () => {
+  const MIN = 60_000;
+  const open = async (label: string) => {
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Open ${label} chart` })
+    );
+  };
+
+  it('opens the running history as a larger chart and closes it again', async () => {
+    await open('Running');
+    expect(screen.getByText('drawer:Running:2:plain')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'close-drawer' }));
+    expect(screen.queryByText(/drawer:/)).toBeNull();
+  });
+
+  it('opens the queue history', async () => {
+    await open('Queued');
+    expect(screen.getByText('drawer:Queued:2:plain')).toBeInTheDocument();
+  });
+
+  it('opens the engine p95 history in milliseconds', async () => {
+    await open('Engine p95 (1 h)');
+    expect(screen.getByText('drawer:Engine p95:2:5 ms')).toBeInTheDocument();
+  });
+
+  it('opens the success rate by half hour, in percent', async () => {
+    const t = Math.floor(Date.now() / (30 * MIN)) * 30 * MIN;
+    heatmap.mockReturnValue(
+      asHeat([
+        { time: t - 30 * MIN, runs: 10, failed: 5 },
+        { time: t, runs: 10, failed: 0 },
+      ])
+    );
+    await open('Success (24 h)');
+    expect(screen.getByText('drawer:Success rate:2:5%')).toBeInTheDocument();
+  });
+
+  it('opens the failed runs of the last hour with a point per five minutes', async () => {
+    heatmap.mockReturnValue(asHeat([{ time: Date.now(), runs: 3, failed: 2 }]));
+    await open('Failed (1 h)');
+    expect(screen.getByText('drawer:Failed runs:12:plain')).toBeInTheDocument();
+  });
+
+  it('draws no sparkline, so offers no chart, for a success rate with one point', () => {
+    heatmap.mockReturnValue(asHeat([{ time: Date.now(), runs: 3, failed: 2 }]));
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    expect(
+      screen.queryByRole('button', { name: 'Open Success (24 h) chart' })
+    ).toBeNull();
+  });
+
+  it('explains each tile behind its info button', async () => {
+    renderWithProviders(<CommandStrip scope="global" live={false} />);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'About Failed (1 h)' })
+    );
+    expect(await screen.findByText(/failed in the last hour/)).toBeVisible();
   });
 });
