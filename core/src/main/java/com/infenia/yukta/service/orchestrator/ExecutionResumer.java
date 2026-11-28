@@ -45,7 +45,7 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.AvoidCatchingGenericException")
+@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
 public class ExecutionResumer {
 
   /** The reserved payload key that counts how many resumes led to a run. */
