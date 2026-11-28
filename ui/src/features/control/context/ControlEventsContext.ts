@@ -14,12 +14,20 @@ export interface ControlEvents {
   connected: boolean;
   events: Entry[];
   dropped: number;
+  /** whether the server holds older events than the oldest one loaded */
+  hasMore: boolean;
+  loadingOlder: boolean;
+  /** loads the next page of older events from the server's history */
+  loadOlder: () => void;
 }
 
 export const ControlEventsContext = createContext<ControlEvents>({
   connected: false,
   events: [],
   dropped: 0,
+  hasMore: false,
+  loadingOlder: false,
+  loadOlder: () => undefined,
 });
 
 export const useControlEvents = () => useContext(ControlEventsContext);

@@ -39,6 +39,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
 
 /**
@@ -52,6 +53,7 @@ import org.springframework.core.env.Environment;
 @SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyMethods"})
 @AutoConfiguration
 @EnableConfigurationProperties(YuktaProperties.class)
+@Import(InMemoryActivityConfiguration.class)
 @NoArgsConstructor
 public class DefaultsAutoConfiguration {
 

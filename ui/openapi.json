@@ -1,6 +1,19 @@
 {
   "components" : {
     "schemas" : {
+      "ActivityHistoryEntry" : {
+        "properties" : {
+          "envelope" : {
+            "$ref" : "#/components/schemas/JsonNode",
+            "description" : "The event envelope of the live stream"
+          },
+          "seq" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "AgentConversation" : {
         "properties" : {
           "capabilities" : {
@@ -591,6 +604,52 @@
           "data" : {
             "$ref" : "#/components/schemas/IssuedView",
             "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListActivityHistoryEntry" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivityHistoryEntry"
+            },
+            "type" : "array"
           },
           "error" : {
             "description" : "The HTTP status error name",
@@ -9763,6 +9822,59 @@
         "tags" : [ "Edition API" ]
       }
     },
+    "/api/events/history" : {
+      "get" : {
+        "description" : "The newest events of the activity feed, kept in memory or, with PostgreSQL, durably. Log lines are not kept. Page back with before.",
+        "operationId" : "history",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 100,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Only events with a lower seq",
+          "in" : "query",
+          "name" : "before",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "type",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "severity",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListActivityHistoryEntry"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List past events",
+        "tags" : [ "Events API" ]
+      }
+    },
     "/api/events/stream" : {
       "get" : {
         "description" : "Live node and workflow status changes, control command outcomes, log lines and input request changes of all executions, each with a severity (INFO, WARN, ERROR). type takes a comma-separated list of kinds; an unknown kind is a 400 that lists the valid ones.",
@@ -14273,6 +14385,9 @@
   }, {
     "description" : "Supervisors, what they own and their decisions",
     "name" : "Supervisors API"
+  }, {
+    "description" : "Execution events",
+    "name" : "Events API"
   }, {
     "description" : "Stream execution logs",
     "name" : "Execution Logs API"

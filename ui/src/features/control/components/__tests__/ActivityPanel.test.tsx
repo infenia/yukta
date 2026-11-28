@@ -27,6 +27,7 @@ import { FALLBACK_POLL_MS, FLUSH_MS } from '../../context/ControlEventsContext';
 import {
   MAX_EVENTS,
   appendBounded,
+  prependHistory,
   describe as describeEvent,
   groupOf,
   matches,
@@ -54,6 +55,7 @@ const server = setupServer(
   http.get('/api/supervisors/decisions', () => ok([])),
   http.get('/api/supervisors/assignments', () => ok([])),
   http.get('/api/supervisors', () => ok([])),
+  http.get('/api/events/history', () => ok([])),
   http.get('/api/control/audit', () => {
     auditCalls++;
     return ok([]);
@@ -76,6 +78,7 @@ const server = setupServer(
 beforeAll(() => server.listen());
 beforeEach(() => installMockEventSource());
 afterEach(() => {
+  server.resetHandlers();
   auditCalls = 0;
   supervisorCalls = 0;
   vi.useRealTimers();
@@ -444,5 +447,136 @@ describe('the control panels follow the stream instead of polling', () => {
     act(() => stream().open());
     act(() => stream().emit(outcome));
     await vi.waitFor(() => expect(supervisorCalls).toBe(2));
+  });
+});
+
+describe('prependHistory', () => {
+  const at = (id: string, time: string, seq: number): Entry => ({
+    ...node(id, 'RUNNING'),
+    event: { ...node(id, 'RUNNING').event, timestamp: time },
+    seq,
+  });
+
+  it('puts the page, newest first from the server, before the buffer in time order', () => {
+    const live = [at('live', '2026-07-26T14:00:00', 0)];
+    const page = [
+      at('b', '2026-07-26T13:00:00', -1),
+      at('a', '2026-07-26T12:00:00', -2),
+    ];
+    expect(prependHistory(live, page).map((e) => e.event.nodeId)).toEqual([
+      'a',
+      'b',
+      'live',
+    ]);
+  });
+
+  it('drops a past event the live stream already sent', () => {
+    const live = [at('live', '2026-07-26T14:00:00', 0)];
+    const page = [
+      at('same', '2026-07-26T14:00:00', -1),
+      at('old', '2026-07-26T13:00:00', -2),
+    ];
+    expect(prependHistory(live, page).map((e) => e.event.nodeId)).toEqual([
+      'old',
+      'live',
+    ]);
+  });
+
+  it('keeps the whole page while nothing live has arrived', () => {
+    const page = [at('a', '2026-07-26T12:00:00', -1)];
+    expect(prependHistory([], page)).toHaveLength(1);
+  });
+});
+
+describe('activity history', () => {
+  const row = (seq: number, id: string, time: string) => ({
+    seq,
+    envelope: {
+      ...node(id, 'SUCCESS'),
+      event: { ...node(id, 'SUCCESS').event, timestamp: time },
+    },
+  });
+
+  it('shows the events from before the page was opened, without any live event', async () => {
+    server.use(
+      http.get('/api/events/history', () =>
+        ok([
+          row(2, 'newer', '2026-07-26T11:00:01'),
+          row(1, 'older', '2026-07-26T11:00:00'),
+        ])
+      )
+    );
+    renderActivity();
+
+    expect(await screen.findByText(/exec-new/)).toBeTruthy();
+    const rows = await screen.findAllByRole('row');
+    expect(rows.length).toBe(3);
+  });
+
+  it('asks for older events with before and hides the button when a page is short', async () => {
+    const asked: string[] = [];
+    const full = Array.from({ length: 200 }, (_, i) =>
+      row(
+        1000 - i,
+        `n${i}`,
+        `2026-07-26T10:${String(59 - (i % 60)).padStart(2, '0')}:00`
+      )
+    );
+    server.use(
+      http.get('/api/events/history', ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return ok(
+          asked.length === 1 ? full : [row(5, 'last', '2026-07-25T10:00:00')]
+        );
+      })
+    );
+    renderActivity();
+
+    const button = await screen.findByRole('button', { name: 'Load older' });
+    await userEvent.click(button);
+
+    await vi.waitFor(() => expect(asked.length).toBe(2));
+    expect(asked[0]).toBe('?limit=200');
+    expect(asked[1]).toBe('?limit=200&before=801');
+    await vi.waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Load older' })).toBeNull()
+    );
+  });
+
+  it('shows older events already held locally without asking the server again', async () => {
+    const asked: string[] = [];
+    const full = Array.from({ length: 200 }, (_, i) =>
+      row(
+        1000 - i,
+        `h${i}`,
+        `2026-07-26T10:${String(59 - (i % 60)).padStart(2, '0')}:00`
+      )
+    );
+    server.use(
+      http.get('/api/events/history', ({ request }) => {
+        asked.push(new URL(request.url).search);
+        return ok(full);
+      })
+    );
+    renderActivity();
+    await screen.findByRole('button', { name: 'Load older' });
+
+    const live = Array.from({ length: 260 }, (_, i) =>
+      node(`live${i}`, 'SUCCESS')
+    );
+    await push(...live);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Load older' }));
+
+    await vi.waitFor(() => expect(bodyRows().length).toBe(400));
+    expect(asked.length).toBe(1);
+  });
+
+  it('shows no button and no error when the history cannot be read', async () => {
+    server.use(http.get('/api/events/history', () => HttpResponse.error()));
+    renderActivity();
+
+    expect(await screen.findByText('No events yet.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Load older' })).toBeNull();
   });
 });

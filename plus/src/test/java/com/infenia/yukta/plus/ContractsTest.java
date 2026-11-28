@@ -3,6 +3,7 @@
 package com.infenia.yukta.plus;
 
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
+import com.infenia.yukta.plus.testkit.ActivityStoreContract;
 import com.infenia.yukta.plus.testkit.ExecutionLogStoreContract;
 import com.infenia.yukta.plus.testkit.InputRequestStoreContract;
 import com.infenia.yukta.plus.testkit.LeaderElectionContract;
@@ -10,6 +11,8 @@ import com.infenia.yukta.plus.testkit.NodeCheckpointStoreContract;
 import com.infenia.yukta.plus.testkit.NotificationStoreContract;
 import com.infenia.yukta.plus.testkit.SessionConfigStoreContract;
 import com.infenia.yukta.plus.testkit.WorkflowDefinitionStoreContract;
+import com.infenia.yukta.service.activity.ActivityStore;
+import com.infenia.yukta.service.activity.InMemoryActivityStore;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.leader.LeaderElection;
@@ -37,6 +40,15 @@ class ContractsTest {
     @Override
     protected ExecutionLogStore create() {
       return new InMemoryExecutionLogStore();
+    }
+  }
+
+  @Nested
+  @NoArgsConstructor
+  public class InMemoryActivity extends ActivityStoreContract {
+    @Override
+    protected ActivityStore create() {
+      return new InMemoryActivityStore(100);
     }
   }
 
